@@ -130,9 +130,12 @@ export interface FactProgressMonthly {
   bottleneckStage: StageCode | null;
   equipmentPlanned: number;
   equipmentActual: number;
+  isLatest: boolean;       // true = bản mới nhất của (projectId, yearMonth)
+  manpowerPlanned: number;
+  manpowerActual: number;
   snapshotLockedAt: string | null;
   lockedBy: string | null;
-  version: number; // append-only: mỗi lần lưu = version mới, latest wins
+  version: number; // append-only: mỗi lần lưu = version mới; bản mới nhất có isLatest = true
   changedBy: string;
   changedAt: string;
   changeNote: string; // auto: "pctActual: 45 → 50; ac: 100 → 110"
@@ -144,6 +147,110 @@ export interface ValueChainProgress {
   yearMonth: string;
   pctComplete: number;
   applicable: boolean;
+}
+
+// ---- ERP model v2: giai đoạn có trọng số, sản lượng hạng mục, mốc, nguồn lực ----
+
+export type StageCalcMode = 'manual' | 'volume';
+
+export interface Stage {
+  code: StageCode;
+  nameVi: string;
+  nameEn: string;
+  sortOrder: number;
+  calcMode: StageCalcMode;
+}
+
+export interface ProjectStageWeight {
+  projectId: number;
+  stageCode: StageCode;
+  weightPct: number;      // điểm phần trăm 0..100
+  applicable: boolean;
+}
+
+export interface ProjectWorkItem {
+  id: number;
+  projectId: number;
+  name: string;
+  sortOrder: number;
+}
+
+export interface FactStageWorkItem {
+  projectId: number;
+  stageCode: StageCode;
+  workItemId: number;
+  yearMonth: string;      // 'YYYY-MM'
+  qtyPlan: number;        // tấn
+  qtyActual: number;      // tấn
+}
+
+/** Đúng 5 cột ngày có thật trong DB - dùng cho seed/ghi. */
+export interface FactStageMilestone {
+  projectId: number;
+  stageCode: StageCode;
+  plannedStart: string | null;    // 'YYYY-MM-DD'
+  plannedFinish: string | null;
+  actualStart: string | null;
+  actualFinish: string | null;
+  forecastDate: string | null;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+/**
+ * Cái mà repo TRẢ RA khi đọc: 5 cột DB + mốc thứ 6 "Ngày chênh lệch" tính runtime (Q1).
+ * Tách riêng khỏi FactStageMilestone để `prisma.factStageMilestone.createMany` trong seed
+ * không bị lỗi "Unknown arg dayVariance".
+ */
+export interface StageMilestoneView extends FactStageMilestone {
+  /** actualFinish − plannedFinish, tính bằng ngày. Dương = trễ · âm = sớm · null = chưa kết thúc. */
+  dayVariance: number | null;
+}
+
+export interface ProjectKeyMilestone {
+  id: number;
+  projectId: number;
+  name: string;
+  sortOrder: number;
+  plannedDate: string | null;
+  actualDate: string | null;
+}
+
+export interface Contractor {
+  id: number;
+  name: string;
+  scopeOfWork: string;
+  isActive: boolean;
+  mergedIntoId: number | null;
+}
+
+export interface ProjectContractor {
+  projectId: number;
+  contractorId: number;
+}
+
+export interface Equipment {
+  id: number;
+  name: string;
+  unit: string;
+  isActive: boolean;
+}
+
+export interface FactDailyManpower {
+  projectId: number;
+  contractorId: number;
+  workDate: string;       // 'YYYY-MM-DD'
+  plannedHeadcount: number;
+  actualHeadcount: number;
+}
+
+export interface FactDailyEquipmentUsage {
+  projectId: number;
+  contractorId: number;
+  equipmentId: number;
+  workDate: string;       // 'YYYY-MM-DD'
+  qtyPlanned: number;
+  qtyActual: number;
 }
 
 export interface FactFinancial {
@@ -160,6 +267,7 @@ export interface FactFinancial {
   arOutstanding: number;
   arOverdue: number;
   version: number;
+  isLatest: boolean;
   changedBy: string;
   changedAt: string;
   changeNote: string;
