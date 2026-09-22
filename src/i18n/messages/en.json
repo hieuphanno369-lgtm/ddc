@@ -181,7 +181,16 @@
     "bottleneck": "Bottleneck",
     "noBottleneck": "No bottleneck",
     "planned": "Planned",
-    "actual": "Actual"
+    "actual": "Actual",
+    "manpower": "Manpower (actual/plan)",
+    "equipment": "Equipment (actual/plan)",
+    "asOfDate": "As of {date}",
+    "noDailyData": "No daily data yet",
+    "manpowerTrend": "Manpower over time (plan vs actual)",
+    "byWeek": "By week",
+    "byMonth": "By month",
+    "plannedHeadcount": "Planned headcount",
+    "actualHeadcount": "Actual headcount"
   },
   "stage": {
     "design": "Design",

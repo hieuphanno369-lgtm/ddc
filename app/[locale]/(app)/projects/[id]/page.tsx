@@ -15,6 +15,11 @@ import { MarketLabel, PriorityBadge, StatusBadge, TypeLabel } from '@/components
 import { Badge, Dot } from '@/components/ui/Badge';
 const SCurve = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SCurve), { ssr: false, loading: () => <div className="h-60 animate-pulse rounded-lg bg-slate-200/70" /> });
 const SpiCpiLine = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SpiCpiLine), { ssr: false, loading: () => <div className="h-60 animate-pulse rounded-lg bg-slate-200/70" /> });
+const ManpowerDailyChart = dynamic(
+  () => import('@/components/project/ManpowerDailyChart').then((m) => m.ManpowerDailyChart),
+  { ssr: false, loading: () => <div className="h-60 animate-pulse rounded-lg bg-slate-200/70" /> },
+);
+import { getManpowerDaily, getResourceSnapshot } from '@/server/project-queries';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { WhatIf } from '@/components/project/WhatIf';
 import { ProjectSwitcher } from '@/components/project/ProjectSwitcher';
@@ -56,6 +61,9 @@ export default async function ProjectDetailPage({
   const sapCodes = await repo.getSapCodes(id);
   const photos = await repo.getPhotos(id);
   const dims = await repo.getDims();
+  const resources = await getResourceSnapshot(id, month);
+  const manpowerDaily = await getManpowerDaily(id, month);
+  const asOf = resources.asOfDate ? t('detail.asOfDate', { date: formatDate(resources.asOfDate, locale) }) : t('detail.noDailyData');
   const customer = dims.customers.find((c) => c.id === project.customerId);
   const team = dims.teams.find((x) => x.id === project.teamKdId);
 
@@ -117,6 +125,26 @@ export default async function ProjectDetailPage({
         <KpiCard label={t('metric.vac')} value={formatTyd(summary.vac, locale)} delta={null} tone={summary.vac != null && summary.vac < 0 ? 'danger' : 'ok'} icon={IconFlag} />
         <KpiCard label={t('metric.pctPlan')} value={formatPct(summary.pctPlan, locale)} delta={null} tone="neutral" icon={IconProject} />
         <KpiCard label={t('metric.pctActual')} value={formatPct(summary.pctActual, locale)} delta={null} tone="neutral" icon={IconAlert} />
+      </div>
+
+      {/* Nguồn lực: ảnh chụp NGÀY gần nhất có dữ liệu, không phải số theo tháng (Q3) */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <KpiCard
+          label={t('detail.manpower')}
+          value={resources.asOfDate ? `${resources.manpowerActual}/${resources.manpowerPlanned}` : '-'}
+          sub={asOf}
+          delta={null}
+          tone="neutral"
+          icon={IconProject}
+        />
+        <KpiCard
+          label={t('detail.equipment')}
+          value={resources.asOfDate ? `${resources.equipmentActual}/${resources.equipmentPlanned}` : '-'}
+          sub={asOf}
+          delta={null}
+          tone="neutral"
+          icon={IconGauge}
+        />
       </div>
 
       {/* Timeline */}
@@ -340,6 +368,14 @@ export default async function ProjectDetailPage({
               ))}
             </div>
           )}
+        </CardBody>
+      </Card>
+
+      {/* Biểu đồ nhân lực KH vs TT - đặt cuối trang theo yêu cầu */}
+      <Card>
+        <CardHeader title={t('detail.manpowerTrend')} />
+        <CardBody>
+          <ManpowerDailyChart data={manpowerDaily} />
         </CardBody>
       </Card>
     </div>

@@ -42,7 +42,7 @@ export const CHART_COLORS = {
   statusTamDung: '#f59e0b',
 };
 
-const TOOLTIP_STYLE = {
+export const TOOLTIP_STYLE = {
   contentStyle: {
     borderRadius: 12,
     border: '1px solid #e2e8f0',

@@ -181,7 +181,16 @@
     "bottleneck": "Khâu nghẽn",
     "noBottleneck": "Không có khâu nghẽn",
     "planned": "Kế hoạch",
-    "actual": "Thực tế"
+    "actual": "Thực tế",
+    "manpower": "Nhân lực (TT/KH)",
+    "equipment": "Thiết bị (TT/KH)",
+    "asOfDate": "Số liệu ngày {date}",
+    "noDailyData": "Chưa có dữ liệu theo ngày",
+    "manpowerTrend": "Nhân lực theo thời gian (KH vs TT)",
+    "byWeek": "Theo tuần",
+    "byMonth": "Theo tháng",
+    "plannedHeadcount": "Số nhân lực kế hoạch",
+    "actualHeadcount": "Số nhân lực thực tế"
   },
   "stage": {
     "design": "Thiết kế",
