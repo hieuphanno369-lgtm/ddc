@@ -1,0 +1,147 @@
+import type { NextAuthOptions } from 'next-auth';
+import GoogleProvider from 'next-auth/providers/google';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import type { Role, UserAccount } from '@/server/repo/types';
+import { prisma } from '@/server/db';
+import { repo } from '@/server/repo/mock-repo';
+import { logActivity } from '@/lib/activity';
+import { verifyPassword } from '@/lib/password';
+
+const allowedDomains = (process.env.ALLOWED_EMAIL_DOMAINS ?? '')
+  .split(',')
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean);
+
+/** Seed role mapping (mock) - email:role, phân tách bằng dấu phẩy. */
+const roleSeed: Record<string, Role> = (process.env.ROLE_SEED ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+  .reduce<Record<string, Role>>((acc, pair) => {
+    const [email, role] = pair.split(':').map((x) => x.trim());
+    if (email && (role === 'admin' || role === 'bod' || role === 'data-entry' || role === 'viewer')) {
+      acc[email.toLowerCase()] = role;
+    }
+    return acc;
+  }, {});
+
+/** Quyền: đọc từ user_roles (DB) hoặc mock store, fallback ROLE_SEED env. */
+export async function resolveAccess(email: string): Promise<{ role: Role; canViewFinance: boolean }> {
+  const seedRole = roleSeed[email.toLowerCase()] ?? 'viewer';
+  const fallback: { role: Role; canViewFinance: boolean } = { role: seedRole, canViewFinance: seedRole !== 'viewer' };
+  if (process.env.DATABASE_URL) {
+    try {
+      const row = await prisma.userRole.findUnique({ where: { email: email.toLowerCase() } });
+      if (row) return { role: row.role as Role, canViewFinance: row.role !== 'viewer' };
+    } catch {
+      /* ignore */
+    }
+    return fallback;
+  }
+  const u = repo.getUserRoles().find((x) => x.email === email.toLowerCase());
+  return u ? { role: u.role, canViewFinance: u.role !== 'viewer' } : fallback;
+}
+
+async function findAccount(email: string): Promise<UserAccount | null> {
+  const e = email.toLowerCase();
+  if (process.env.DATABASE_URL) {
+    try {
+      const row = await prisma.userRole.findUnique({ where: { email: e } });
+      if (!row) return null;
+      return {
+        email: row.email,
+        name: row.name,
+        passwordHash: row.passwordHash,
+        role: row.role as Role,
+        canViewFinance: row.canViewFinance,
+        isActive: row.isActive,
+        createdAt: row.createdAt.toISOString(),
+        lastLoginAt: row.lastLoginAt?.toISOString() ?? null,
+      };
+    } catch {
+      return null;
+    }
+  }
+  return repo.findAccount(e) ?? null;
+}
+
+async function touchLastLogin(email: string) {
+  if (process.env.DATABASE_URL) {
+    try {
+      await prisma.userRole.update({ where: { email: email.toLowerCase() }, data: { lastLoginAt: new Date() } });
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
+  repo.updateLastLogin(email);
+}
+
+export function isAllowedDomain(email: string): boolean {
+  if (!allowedDomains.length) return true; // chưa cấu hình → cho phép (dev)
+  const domain = email.split('@')[1]?.toLowerCase() ?? '';
+  return allowedDomains.includes(domain);
+}
+
+export const authOptions: NextAuthOptions = {
+  // TODO: bỏ fallback secret - NEXTAUTH_SECRET phải set thật trong env, không hardcode dev (bảo mật).
+  secret: process.env.NEXTAUTH_SECRET ?? 'ddc-local-dev-secret',
+  providers: [
+    CredentialsProvider({
+      name: 'Credentials',
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
+      },
+      async authorize(credentials) {
+        // TODO: rate-limit login chống brute-force - dùng src/lib/rate-limit.ts.
+        const email = (credentials?.email ?? '').toLowerCase().trim();
+        const password = credentials?.password ?? '';
+        if (!email || !password) return null;
+        const account = await findAccount(email);
+        if (!account || !account.isActive || !account.passwordHash) return null;
+        if (!verifyPassword(password, account.passwordHash)) return null;
+        // TODO: thiếu flow "quên mật khẩu" self-service - admin mất pass = chết cứng. Blocker pre-prod.
+        await touchLastLogin(email);
+        return { id: email, email, name: account.name };
+      },
+    }),
+    GoogleProvider({
+      // TODO: bật Google OAuth - set GOOGLE_CLIENT_ID/SECRET thật (đang rỗng = provider không dùng được).
+      clientId: process.env.GOOGLE_CLIENT_ID ?? '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+    }),
+  ],
+  session: { strategy: 'jwt', maxAge: 8 * 60 * 60 }, // session tối đa 8 giờ
+  pages: { signIn: '/login' },
+  callbacks: {
+    async signIn({ user }) {
+      const email = user.email?.toLowerCase() ?? '';
+      const allowed = isAllowedDomain(email);
+      if (allowed) {
+        try {
+          await logActivity({ name: user.name ?? email, email }, 'login');
+        } catch {
+          /* ignore */
+        }
+      }
+      return allowed;
+    },
+    async jwt({ token, user }) {
+      if (user?.email) {
+        const access = await resolveAccess(user.email);
+        token.role = access.role;
+        token.canViewFinance = access.canViewFinance;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        (session.user as { role?: Role }).role = (token.role as Role) ?? 'viewer';
+        // TODO: fail-open - `?? true` mặc định cho xem finance. Phải `?? false` (fail-closed).
+        session.user.canViewFinance = token.canViewFinance ?? true;
+      }
+      return session;
+    },
+  },
+};

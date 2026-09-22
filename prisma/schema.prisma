@@ -1,0 +1,304 @@
+// Prisma schema — mirror src/server/repo/types.ts + MASTER_PROMPT mục 3 (star schema).
+// Column camelCase (Prisma default), table snake_case (khớp ERD). Không dùng relation object,
+// chỉ lưu FK id như mock — FK/constraint thật thêm ở migration sau nếu cần.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---- Dimension ----
+model Customer {
+  id           Int      @id @default(autoincrement())
+  name         String
+  group        String
+  aliases      String[] @default([])
+  isActive     Boolean  @default(true)
+  mergedIntoId Int?
+
+  @@map("dim_customer")
+}
+
+model TeamKd {
+  id           Int      @id @default(autoincrement())
+  name         String
+  picName      String
+  aliases      String[] @default([])
+  isActive     Boolean  @default(true)
+  mergedIntoId Int?
+
+  @@map("dim_team_kd")
+}
+
+model Factory {
+  id                  Int    @id @default(autoincrement())
+  name                String
+  region              String
+  capacityTonPerYear  Float
+
+  @@map("dim_factory")
+}
+
+model Currency {
+  code String @id
+  name String
+
+  @@map("dim_currency")
+}
+
+model ExchangeRate {
+  currencyCode String
+  yearMonth    String
+  rateToVnd    Float
+  updatedBy    String?
+  updatedAt    DateTime?
+
+  @@id([currencyCode, yearMonth])
+  @@map("dim_exchange_rate")
+}
+
+model Project {
+  id                     Int       @id @default(autoincrement())
+  masterCode             String    @unique
+  currentAliasCode       String
+  projectName            String
+  customerId             Int
+  teamKdId               Int
+  marketCode             String
+  projectType            String
+  priority               String
+  contractValue          Float
+  tonnage                Float
+  currencyCode           String
+  contractDate           DateTime?
+  plannedStartDate       DateTime?
+  plannedFinishDate      DateTime?
+  committedHandoverDate  DateTime?
+  actualStartDate        DateTime?
+  actualFinishDate       DateTime?
+  penaltyValue           Float?
+  penalized              Boolean   @default(false)
+  isActive               Boolean   @default(true)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  createdBy              String
+  updatedBy              String
+
+  @@index([teamKdId])
+  @@index([marketCode])
+  @@index([priority])
+  @@map("dim_project")
+}
+
+model ProjectAlias {
+  id            Int       @id @default(autoincrement())
+  projectId     Int
+  aliasCode     String
+  aliasType     String
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  reason        String
+  approvedBy    String
+
+  @@index([projectId])
+  @@map("dim_project_alias")
+}
+
+model ProjectSapCode {
+  id            Int      @id @default(autoincrement())
+  projectId     Int
+  sapCode       String   @unique
+  sourceDocType String
+  linkedAt      DateTime @default(now())
+  linkedBy      String
+  note          String   @default("")
+
+  @@index([projectId])
+  @@map("project_sap_codes")
+}
+
+model ProjectAssignment {
+  projectId     Int
+  userEmail     String
+  roleInProject String
+  assignedBy    String
+  assignedAt    DateTime @default(now())
+
+  @@id([projectId, userEmail])
+  @@index([userEmail])
+  @@map("project_assignments")
+}
+
+model UserRole {
+  email          String    @id
+  name           String    @default("")
+  passwordHash   String    @default("")
+  role           String
+  canViewFinance Boolean   @default(true)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  lastLoginAt    DateTime?
+
+  @@map("user_roles")
+}
+
+// ---- Fact ----
+model FactProgressMonthly {
+  projectId         Int
+  yearMonth         String
+  pctPlan           Float
+  pctActual         Float
+  actualStartDate   DateTime?
+  actualFinishDate  DateTime?
+  bac               Float     @default(0)
+  pv                Float
+  ev                Float
+  ac                Float
+  spi               Float?
+  cpi               Float?
+  bottleneckStage   String?
+  equipmentPlanned  Int
+  equipmentActual   Int
+  snapshotLockedAt  DateTime?
+  lockedBy          String?
+  version           Int       @default(1)
+  changedBy         String    @default("")
+  changedAt         DateTime?
+  changeNote        String    @default("")
+
+  @@id([projectId, yearMonth])
+  @@index([yearMonth, projectId])
+  @@map("fact_progress_monthly")
+}
+
+model ValueChainProgress {
+  projectId   Int
+  stageCode   String
+  yearMonth   String
+  pctComplete Float
+  applicable  Boolean @default(true)
+
+  @@id([projectId, stageCode, yearMonth])
+  @@map("fact_value_chain_progress")
+}
+
+model FactFinancial {
+  projectId            Int
+  yearMonth            String
+  revenuePeriod        Float
+  revenueCumulative    Float
+  costActualPeriod     Float
+  costActualCumulative Float
+  grossProfit          Float
+  grossMarginPct       Float
+  backlog              Float
+  arCollected          Float
+  arOutstanding        Float
+  arOverdue            Float
+  version              Int       @default(1)
+  changedBy            String    @default("")
+  changedAt            DateTime?
+  changeNote           String    @default("")
+
+  @@id([projectId, yearMonth])
+  @@index([yearMonth, projectId])
+  @@map("fact_financial")
+}
+
+model FactVolume {
+  projectId        Int
+  yearMonth        String
+  factoryId        Int
+  tonnageProcessed Float
+
+  @@id([projectId, yearMonth, factoryId])
+  @@index([yearMonth, projectId])
+  @@map("fact_volume")
+}
+
+// Snapshot hồ sơ project trước mỗi lần sửa (append-only).
+model ProjectHistory {
+  id        Int      @id @default(autoincrement())
+  projectId Int
+  at        DateTime
+  by        String
+  note      String   @default("")
+  snapshot  Json
+
+  @@index([projectId])
+  @@map("project_history")
+}
+
+// ---- Log / phụ ----
+model AlertLog {
+  id            Int       @id @default(autoincrement())
+  projectId     Int
+  alertType     String
+  ruleTriggered String
+  message       String
+  openedAt      DateTime
+  closedAt      DateTime?
+  owner         String
+  action        String    @default("")
+  deadline      String
+
+  @@index([projectId])
+  @@map("alert_log")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  tableName String
+  recordId  String
+  field     String
+  oldValue  String
+  newValue  String
+  changedBy String
+  changedAt DateTime @default(now())
+
+  @@map("audit_log")
+}
+
+model ProjectPhoto {
+  id         Int      @id @default(autoincrement())
+  projectId  Int
+  yearMonth  String
+  url        String
+  caption    String   @default("")
+  uploadedBy String
+  uploadedAt DateTime @default(now())
+
+  @@index([projectId, yearMonth])
+  @@map("project_photos")
+}
+
+model SapQueue {
+  id              Int       @id @default(autoincrement())
+  sapCode         String
+  sourceDocType   String
+  projectNameHint String
+  status          String    @default("pending")
+  projectId       Int?
+  detectedAt      DateTime  @default(now())
+
+  @@map("sap_queue")
+}
+
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  userEmail String
+  userName  String
+  action    String
+  detail    String   @default("")
+  ip        String   @default("")
+  userAgent String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("activity_log")
+}

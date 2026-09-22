@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="vi" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DDC Control Tower Redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============ Brand (hằng) ============ */
+:root{
+  --brand:#B91C1C; --brand-deep:#991b1b; --brand-gold:#F5B301;
+  --brand-ink:#fff; --brand-ink-dim:rgba(255,255,255,.74);
+  /* light */
+  --bg:#eef1f6;
+  --surface:rgba(255,255,255,.68);
+  --surface-solid:#fff;
+  --surface-2:rgba(255,255,255,.5);
+  --ink:#0a1f3d; --ink-2:#64748b; --ink-3:#94a3b8;
+  --border:rgba(10,31,61,.09); --border-strong:rgba(10,31,61,.15);
+  --accent:#B91C1C; --accent-soft:#FEE2E2;
+  --gold:#b78a00; --gold-soft:#FEF3C7;
+  --ok:#16a34a; --ok-soft:#dcfce7; --warn:#d97706; --warn-soft:#fef3c7;
+  --danger:#dc2626; --danger-soft:#fee2e2; --info:#0e7490; --info-soft:#cffafe;
+  --navy-soft:rgba(10,31,61,.05);
+  --row-alt:rgba(10,31,61,.025); --row-hover:rgba(10,31,61,.05);
+  --r-card:16px; --r-sm:10px;
+  --shadow:0 1px 2px rgba(10,31,61,.05), 0 4px 14px rgba(10,31,61,.05);
+  --shadow-hover:0 6px 20px rgba(10,31,61,.12);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0a1428; --surface:rgba(17,28,51,.62); --surface-solid:#111c33; --surface-2:rgba(22,35,61,.5);
+    --ink:#e2e8f0; --ink-2:#94a3b8; --ink-3:#64748b;
+    --border:rgba(30,43,71,.7); --border-strong:#1e2b47;
+    --accent:#ef4444; --accent-soft:#2a1420; --gold:#fbbf24; --gold-soft:#2a2210;
+    --ok:#4ade80; --ok-soft:#0f2a1a; --warn:#fbbf24; --warn-soft:#2a2210;
+    --danger:#f87171; --danger-soft:#2a1414; --info:#38bdf8; --info-soft:#0c2433;
+    --navy-soft:rgba(148,163,184,.1); --row-alt:rgba(148,163,184,.05); --row-hover:rgba(148,163,184,.09);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0a1428; --surface:rgba(17,28,51,.62); --surface-solid:#111c33; --surface-2:rgba(22,35,61,.5);
+  --ink:#e2e8f0; --ink-2:#94a3b8; --ink-3:#64748b;
+  --border:rgba(30,43,71,.7); --border-strong:#1e2b47;
+  --accent:#ef4444; --accent-soft:#2a1420; --gold:#fbbf24; --gold-soft:#2a2210;
+  --ok:#4ade80; --ok-soft:#0f2a1a; --warn:#fbbf24; --warn-soft:#2a2210;
+  --danger:#f87171; --danger-soft:#2a1414; --info:#38bdf8; --info-soft:#0c2433;
+  --navy-soft:rgba(148,163,184,.1); --row-alt:rgba(148,163,184,.05); --row-hover:rgba(148,163,184,.09);
+}
+
+/* ============ Base ============ */
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+  background:
+    radial-gradient(900px 460px at 88% -8%, rgba(245,179,1,.08), transparent 60%),
+    radial-gradient(820px 480px at 6% 108%, rgba(185,28,28,.07), transparent 60%),
+    var(--bg);
+  color:var(--ink); font-size:14px; line-height:1.55;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; letter-spacing:-.011em;
+}
+h1,h2,h3,.k-v,.h-v,.vt-v{letter-spacing:-.022em}
+button{font-family:inherit}
+.mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;letter-spacing:0}
+.num{font-variant-numeric:tabular-nums}
+
+/* mockbar */
+.mockbar{
+  position:sticky; top:0; z-index:60; display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  padding:8px 14px; background:rgba(255,255,255,.66); backdrop-filter:blur(20px) saturate(1.5);
+  border-bottom:1px solid rgba(10,31,61,.08); color:#0a1f3d;
+}
+.mockbar .mbtitle{font-size:12.5px;font-weight:600;margin-right:6px}
+.mockbar .mbtitle span{opacity:.5;font-weight:500}
+.mbgroup{display:flex;gap:2px;background:rgba(10,31,61,.06);padding:3px;border-radius:9px}
+.mbbtn{border:0;background:transparent;color:#475569;font-size:12.5px;font-weight:500;padding:5px 13px;border-radius:7px;cursor:pointer}
+.mbbtn.active{background:#fff;color:#0a1f3d;box-shadow:0 1px 2px rgba(10,31,61,.1)}
+.mbspacer{flex:1}
+.mbtheme{border:1px solid rgba(10,31,61,.16);background:transparent;color:#334155;font-size:12px;padding:5px 12px;border-radius:8px;cursor:pointer}
+
+/* shell */
+.screen{display:none}
+.screen.active{display:block}
+.shell{display:flex;min-height:100vh}
+
+/* sidebar */
+.sidebar{
+  width:240px; flex:0 0 240px;
+  background:linear-gradient(180deg,var(--brand),var(--brand-deep));
+  color:var(--brand-ink); display:flex; flex-direction:column;
+  position:sticky; top:0; height:100vh; transition:width .24s cubic-bezier(.4,0,.2,1); overflow:hidden;
+}
+.sidebar.collapsed{width:68px;flex-basis:68px}
+.brand{display:flex;align-items:center;gap:11px;padding:18px 16px 14px;white-space:nowrap}
+.brand .logoimg{width:36px;height:36px;border-radius:9px;background:#fff;padding:3px;object-fit:contain;flex:0 0 36px}
+.brand .bn{font-weight:700;font-size:15px;color:var(--brand-ink);letter-spacing:-.01em}
+.brand .bs{font-size:11px;color:var(--brand-gold);font-weight:600}
+.nav{padding:6px 10px;display:flex;flex-direction:column;gap:3px;flex:1}
+.nav .nl{padding:12px 10px 6px;font-size:10px;color:var(--brand-ink-dim);font-weight:700;letter-spacing:.08em;white-space:nowrap}
+.navitem{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:9px;color:var(--brand-ink-dim);font-size:13.5px;font-weight:500;cursor:pointer;white-space:nowrap;transition:background .15s}
+.navitem:hover{background:rgba(255,255,255,.1);color:var(--brand-ink)}
+.navitem.active{background:rgba(255,255,255,.14);color:var(--brand-gold);font-weight:650}
+.navitem .ic{width:19px;height:19px;flex:0 0 19px;display:grid;place-items:center}
+.navitem .bd{margin-left:auto;background:var(--brand-gold);color:var(--brand-deep);font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 7px}
+.sidebar .sfoot{margin-top:auto;padding:14px 16px;border-top:1px solid rgba(255,255,255,.14);font-size:11.5px;color:var(--brand-ink-dim);white-space:nowrap}
+.sidebar.collapsed .bn,.sidebar.collapsed .bs,.sidebar.collapsed .nl,.sidebar.collapsed .navitem .txt,.sidebar.collapsed .navitem .bd,.sidebar.collapsed .sfoot{display:none}
+.sidebar.collapsed .brand{justify-content:center;padding:18px 0}
+.sidebar.collapsed .navitem{justify-content:center;padding:10px 0}
+.sidebar.collapsed .nav{padding:6px 8px}
+
+/* header */
+.header{display:flex;align-items:center;gap:12px;padding:11px 20px;background:var(--brand);color:var(--brand-ink);position:sticky;top:0;z-index:40;box-shadow:0 1px 0 rgba(0,0,0,.06)}
+.burger{border:0;background:transparent;color:var(--brand-ink);cursor:pointer;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-size:16px}
+.burger:hover{background:rgba(255,255,255,.14)}
+.header .pgtitle{font-size:17px;font-weight:700;color:var(--brand-ink);letter-spacing:-.02em}
+.search{flex:1;max-width:420px;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:10px;padding:7px 12px;color:var(--brand-ink-dim);font-size:13px}
+.search input{border:0;background:transparent;outline:0;color:#fff;font-size:13px;width:100%}
+.search input::placeholder{color:rgba(255,255,255,.55)}
+.kbd{border:1px solid rgba(255,255,255,.28);border-radius:6px;padding:1px 6px;font-size:11px;color:rgba(255,255,255,.6)}
+.huser{display:flex;align-items:center;gap:9px;margin-left:auto}
+.avatar{width:30px;height:30px;border-radius:999px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:700}
+.hrole{font-size:11px;color:var(--brand-gold);font-weight:600}
+
+/* content — spacing rộng */
+.main{flex:1;padding:28px 32px 56px;max-width:1360px;min-width:0}
+
+/* ============ Cards — frosted + lift ============ */
+.card,.kpi,.hstat{
+  background:var(--surface);
+  backdrop-filter:blur(18px) saturate(1.5); -webkit-backdrop-filter:blur(18px) saturate(1.5);
+  border:1px solid var(--border); border-radius:var(--r-card); box-shadow:var(--shadow);
+  transition:transform .22s ease, box-shadow .22s ease;
+}
+.card:hover,.kpi:hover,.hstat:hover{transform:translateY(-2px);box-shadow:var(--shadow-hover)}
+.card-h{display:flex;align-items:baseline;gap:8px;padding:16px 18px 8px}
+.card-h .t{font-size:13.5px;font-weight:650;letter-spacing:-.01em}
+.card-h .s{font-size:11.5px;color:var(--ink-3)}
+.card-b{padding:12px 18px 18px}
+
+/* banner */
+.banner{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--danger-soft);border:1px solid color-mix(in srgb,var(--danger) 26%, transparent);backdrop-filter:blur(18px);border-radius:var(--r-card);padding:14px 18px;margin-bottom:22px}
+.banner .dot{width:8px;height:8px;border-radius:999px;background:var(--danger);box-shadow:0 0 0 4px color-mix(in srgb,var(--danger) 16%, transparent)}
+.banner .bt{font-weight:650;font-size:13px}
+.banner .bs{font-size:12.5px;color:var(--ink-2)}
+.banner .bact{margin-left:auto;border:0;background:var(--accent);color:#fff;font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:9px;cursor:pointer}
+
+/* KPI — scorecard nền ấn tượng */
+.kpis{display:grid;grid-template-columns:repeat(12,1fr);gap:18px;margin-bottom:24px}
+.kpi{grid-column:span 2;padding:16px 18px;position:relative;overflow:hidden;
+  background:linear-gradient(165deg,var(--surface), color-mix(in srgb, var(--tint-soft,transparent) 40%, var(--surface)));}
+.kpi::before{content:"";position:absolute;top:0;left:0;right:0;height:2.5px;background:linear-gradient(90deg,var(--tint,var(--ink-3)),transparent)}
+.kpi::after{content:"";position:absolute;top:-34px;right:-34px;width:110px;height:110px;border-radius:50%;background:radial-gradient(circle, var(--tint-soft,transparent), transparent 70%);opacity:.9}
+.kpi .k-l{font-size:12px;color:var(--ink-2);font-weight:500}
+.kpi .k-v{font-size:28px;font-weight:800;margin-top:5px}
+.kpi .k-d{font-size:11.5px;color:var(--ink-3);margin-top:4px}
+.kpi .k-d .up{color:var(--ok)} .kpi .k-d .down{color:var(--danger)}
+.kpi.ok{--tint:var(--ok);--tint-soft:var(--ok-soft)}
+.kpi.amber{--tint:var(--warn);--tint-soft:var(--warn-soft)}
+.kpi.red{--tint:var(--danger);--tint-soft:var(--danger-soft)}
+.kpi.gold{--tint:var(--brand-gold);--tint-soft:var(--gold-soft)}
+.kpi.hero{grid-column:span 4;border-left:3px solid var(--brand-gold);
+  background:linear-gradient(150deg, color-mix(in srgb,var(--brand-gold) 12%, var(--surface)), var(--surface));}
+.kpi.hero .k-v{font-size:38px}
+.kpi.hero .k-v .unit{font-size:16px;color:var(--ink-3);font-weight:500;margin-left:5px}
+.kpi.red .k-v{color:var(--danger)} .kpi.amber .k-v{color:var(--warn)} .kpi.gold .k-v{color:var(--gold)} .kpi.ok .k-v{color:var(--ok)}
+
+/* grids — spacing rộng */
+.grid2{display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-bottom:24px}
+.grid2eq{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+
+/* table */
+.twrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;font-weight:600;color:var(--ink-3);letter-spacing:.04em;padding:11px 16px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,var(--surface-2),transparent);white-space:nowrap}
+th:first-child,td:first-child{padding-left:20px}
+td{padding:13px 16px;border-bottom:1px solid var(--border);white-space:nowrap}
+tbody tr:nth-child(even){background:var(--row-alt)}
+tbody tr:hover{background:var(--row-hover)}
+tr:last-child td{border-bottom:0}
+td.num{text-align:right}
+.tname{font-weight:600;color:var(--ink)}
+.tsub{font-size:11.5px;color:var(--ink-3)}
+.code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;color:var(--ink-3)}
+
+/* mini bar */
+.minibar{display:inline-flex;align-items:center;gap:8px}
+.minibar .tr{width:64px;height:5px;border-radius:3px;background:var(--navy-soft);overflow:hidden}
+.minibar .tr i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--brand-gold));border-radius:3px;transform-origin:left}
+
+/* badge */
+.badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:11.5px;font-weight:600}
+.badge .bd-dot{width:6px;height:6px;border-radius:999px}
+.b-ok{background:var(--ok-soft);color:var(--ok)} .b-ok .bd-dot{background:var(--ok)}
+.b-warn{background:var(--warn-soft);color:var(--warn)} .b-warn .bd-dot{background:var(--warn)}
+.b-danger{background:var(--danger-soft);color:var(--danger)} .b-danger .bd-dot{background:var(--danger)}
+.b-info{background:var(--info-soft);color:var(--info)} .b-info .bd-dot{background:var(--info)}
+.b-neutral{background:var(--navy-soft);color:var(--ink-2)} .b-neutral .bd-dot{background:var(--ink-3)}
+.pri{font-size:11px;font-weight:700;letter-spacing:.02em}
+
+/* chart */
+.chart{width:100%;height:auto}
+.chart text{font-family:inherit;font-size:11px;fill:var(--ink-3)}
+.chart .grid{stroke:var(--border);stroke-dasharray:3 3}
+.chart .ax{stroke:var(--border-strong)}
+.chart .line{fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+/* value chain */
+.vchain{display:flex;flex-direction:column;gap:13px}
+.vrow{display:grid;grid-template-columns:130px 1fr 46px;align-items:center;gap:14px}
+.vrow .vname{font-size:12.5px;color:var(--ink-2);font-weight:500}
+.vrow .vbar{height:8px;border-radius:5px;background:var(--navy-soft);overflow:hidden}
+.vrow .vbar i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--accent),var(--brand-gold));transform-origin:left}
+.vrow.done .vbar i{background:var(--ok)}
+.vrow .vpct{font-size:12px;font-weight:650;text-align:right;color:var(--ink)}
+.vtotal{margin-top:16px;padding-top:16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px}
+.vtotal .vt-l{font-size:12.5px;color:var(--ink-2)}
+.vtotal .vt-v{font-size:24px;font-weight:800}
+.vtotal .vt-v small{font-size:12px;color:var(--ink-3);font-weight:500}
+
+/* hero strip */
+.hero-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:18px;margin-bottom:24px}
+.hstat{padding:16px 18px}
+.hstat .h-l{font-size:12px;color:var(--ink-2)}
+.hstat .h-v{font-size:26px;font-weight:800;margin-top:4px}
+.hstat.gold{border-left:3px solid var(--brand-gold)}
+.hstat .h-s{font-size:11.5px;color:var(--ink-3);margin-top:3px}
+
+/* breadcrumb + pagehead */
+.crumb{font-size:12px;color:var(--ink-3);margin-bottom:12px}
+.crumb b{color:var(--ink-2);font-weight:500}
+.pagehead{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.pagehead h1{font-size:22px;font-weight:750;margin:0}
+
+/* list */
+.listw{padding:8px 8px 10px}
+.lrow{display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:10px}
+.lrow:hover{background:var(--surface-2)}
+.lrow .lname{font-size:13px;font-weight:600}
+.lrow .lsub{font-size:11.5px;color:var(--ink-3)}
+.lrow .lag{margin-left:auto}
+
+/* login */
+.login{min-height:100vh;display:grid;place-items:center;padding:24px}
+.login .lcard{width:100%;max-width:400px;background:var(--surface);backdrop-filter:blur(18px) saturate(1.5);border:1px solid var(--border);border-radius:20px;padding:40px 36px;box-shadow:0 12px 40px rgba(10,31,61,.1)}
+.llogo{width:52px;height:52px;border-radius:14px;background:#fff;border:1px solid var(--border-strong);padding:4px;object-fit:contain;margin-bottom:20px;display:block}
+.lcard h1{font-size:23px;font-weight:750;margin:0 0 5px}
+.lcard .lsub{font-size:13px;color:var(--ink-2);margin-bottom:24px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-2);margin-bottom:7px}
+.field input{width:100%;border:1px solid var(--border-strong);background:var(--surface-solid);border-radius:11px;padding:11px 13px;font-size:14px;color:var(--ink);outline:0}
+.field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.btn-primary{width:100%;border:0;background:var(--accent);color:#fff;font-size:14px;font-weight:600;padding:12px;border-radius:11px;cursor:pointer}
+.btn-google{width:100%;border:1px solid var(--border-strong);background:var(--surface-solid);color:var(--ink);font-size:13.5px;font-weight:550;padding:11px;border-radius:11px;cursor:pointer;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:8px}
+.ldiv{display:flex;align-items:center;gap:10px;margin:20px 0;color:var(--ink-3);font-size:11.5px}
+.ldiv::before,.ldiv::after{content:"";flex:1;height:1px;background:var(--border)}
+.lfoot{margin-top:22px;text-align:center;font-size:11.5px;color:var(--ink-3)}
+
+/* ============ Animations ============ */
+.grow{transform:scaleX(0);animation:growx 1.1s cubic-bezier(.4,0,.2,1) forwards}
+@keyframes growx{to{transform:scaleX(1)}}
+.chart .line{stroke-dasharray:720;stroke-dashoffset:720;animation:drawline 1.5s cubic-bezier(.4,0,.2,1) forwards}
+.chart .line.l2{animation-delay:.18s}
+.chart .line.l3{animation-delay:.36s}
+@keyframes drawline{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion: reduce){
+  .grow,.chart .line{animation:none;transform:none;stroke-dasharray:none;stroke-dashoffset:0}
+}
+
+/* responsive */
+@media (max-width:900px){
+  .sidebar{position:fixed;left:0;top:0;z-index:55;transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .kpi{grid-column:span 4}.kpi.hero{grid-column:span 12}
+  .grid2{grid-template-columns:1fr}.grid2eq{grid-template-columns:1fr}
+  .hero-strip{grid-template-columns:repeat(2,1fr)}
+  .search{max-width:none}
+}
+</style>
+</head>
+<body>
+
+<div class="mockbar">
+  <div class="mbtitle">DDC Control Tower <span>· redesign mockup</span></div>
+  <div class="mbgroup" id="tabs">
+    <button class="mbbtn active" data-screen="s-overview">Overview</button>
+    <button class="mbbtn" data-screen="s-detail">Project detail</button>
+    <button class="mbbtn" data-screen="s-login">Login</button>
+  </div>
+  <div class="mbspacer"></div>
+  <button class="mbtheme" id="themeBtn">Dark preview</button>
+</div>
+
+<!-- ============ OVERVIEW ============ -->
+<section class="screen active" id="s-overview">
+<div class="shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><img class="logoimg" alt="DDC logo" src="data:image/png;base64,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"><div><div class="bn">Control Tower</div><div class="bs">Đại Dũng Corporation</div></div></div>
+    <nav class="nav">
+      <div class="nl">Tổng quan</div>
+      <div class="navitem active"><span class="ic">◫</span><span class="txt">Overview</span></div>
+      <div class="navitem"><span class="ic">▤</span><span class="txt">Dự án</span></div>
+      <div class="navitem"><span class="ic">✎</span><span class="txt">Nhập liệu</span> <span class="bd">3</span></div>
+      <div class="nl">Hệ thống</div>
+      <div class="navitem"><span class="ic">⇪</span><span class="txt">Import</span></div>
+      <div class="navitem"><span class="ic">▦</span><span class="txt">Data dictionary</span></div>
+      <div class="navitem"><span class="ic">◇</span><span class="txt">Sơ đồ dữ liệu</span></div>
+      <div class="navitem"><span class="ic">⚙</span><span class="txt">Quản trị</span></div>
+    </nav>
+    <div class="sfoot">v0.1 · DDC Control Tower</div>
+  </aside>
+
+  <div class="main">
+    <header class="header">
+      <button class="burger" id="burger" aria-label="Thu gọn sidebar">☰</button>
+      <div class="pgtitle">Overview</div>
+      <div class="search"><span>⌕</span><input placeholder="Tìm dự án, mã, khách hàng…"><span class="kbd">⌘K</span></div>
+      <div class="huser"><span class="hrole">Trưởng phòng · BOD</span><div class="avatar">TD</div></div>
+    </header>
+
+    <div class="banner">
+      <span class="dot"></span>
+      <div><div class="bt">2 dự án P0 đang ở mức Red cần xử lý</div><div class="bs">Nguy cơ phạt hợp đồng · cập nhật trước họp BOD thứ Hai</div></div>
+      <button class="bact">Xem ngay</button>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="k-l">Tổng dự án</div><div class="k-v num"><span class="count-up" data-to="17">0</span></div><div class="k-d">+2 tháng này</div></div>
+      <div class="kpi"><div class="k-l">Đang triển khai</div><div class="k-v num"><span class="count-up" data-to="11">0</span></div><div class="k-d">65% danh mục</div></div>
+      <div class="kpi amber"><div class="k-l">Trễ tiến độ</div><div class="k-v num"><span class="count-up" data-to="3">0</span></div><div class="k-d"><span class="down">▼ SPI &lt; 0.90</span></div></div>
+      <div class="kpi gold"><div class="k-l">Nguy cơ phạt</div><div class="k-v num"><span class="count-up" data-to="2">0</span></div><div class="k-d">đã chốt ngày bàn giao</div></div>
+      <div class="kpi red"><div class="k-l">Đã phạt</div><div class="k-v num"><span class="count-up" data-to="1">0</span></div><div class="k-d">cần theo dõi sát</div></div>
+      <div class="kpi hero gold"><div class="k-l">Backlog tồn đọng</div><div class="k-v num"><span class="count-up" data-to="412">0</span><span class="unit"> tỷ VNĐ</span></div><div class="k-d">giá trị HĐ chưa hoàn thành</div></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="card-h"><span class="t">Đường cong S — giá trị tích lũy</span><span class="s">PV · EV · AC (tỷ VNĐ)</span></div>
+        <div class="card-b">
+          <svg class="chart" viewBox="0 0 560 200" role="img" aria-label="S-curve">
+            <line class="grid" x1="40" y1="20" x2="540" y2="20"/><line class="grid" x1="40" y1="65" x2="540" y2="65"/>
+            <line class="grid" x1="40" y1="110" x2="540" y2="110"/><line class="grid" x1="40" y1="155" x2="540" y2="155"/>
+            <line class="ax" x1="40" y1="165" x2="540" y2="165"/>
+            <text x="40" y="18">600</text><text x="40" y="63">400</text><text x="40" y="108">200</text><text x="40" y="153">0</text>
+            <text x="40" y="182">T3</text><text x="165" y="182">T5</text><text x="290" y="182">T7</text><text x="415" y="182">T9</text><text x="530" y="182">T11</text>
+            <polyline class="line" points="40,155 165,140 290,118 415,80 540,40" stroke="var(--ink-3)" stroke-width="1.6" stroke-dasharray="4 4"/>
+            <polyline class="line l2" points="40,155 165,146 290,120 415,88 540,52" stroke="var(--accent)" stroke-width="2.4"/>
+            <polyline class="line l3" points="40,155 165,150 290,128 415,98 540,66" stroke="var(--gold)" stroke-width="2.4"/>
+            <circle cx="540" cy="52" r="4" fill="var(--accent)"/><circle cx="540" cy="66" r="4" fill="var(--gold)"/>
+          </svg>
+          <div style="display:flex;gap:16px;font-size:11.5px;color:var(--ink-2);margin-top:8px">
+            <span><span style="display:inline-block;width:14px;height:2px;background:var(--ink-3);margin-right:5px"></span>PV (kế hoạch)</span>
+            <span><span style="display:inline-block;width:14px;height:2px;background:var(--accent);margin-right:5px"></span>EV (thực tế)</span>
+            <span><span style="display:inline-block;width:14px;height:2px;background:var(--gold);margin-right:5px"></span>AC (chi phí)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><span class="t">Chưa nộp số liệu tháng 9</span><span class="s">hạn trước ngày 3/10</span></div>
+        <div class="listw">
+          <div class="lrow"><div><div class="lname">Nhà xưởng KCN Bắc Ninh 2</div><div class="lsub">PM Nguyễn Văn A</div></div><span class="badge b-danger lag">Quá hạn</span></div>
+          <div class="lrow"><div><div class="lname">Kết cấu thép Nhà ga T3</div><div class="lsub">PM Trần Thị B</div></div><span class="badge b-warn lag">Còn 2 ngày</span></div>
+          <div class="lrow"><div><div class="lname">Cầu cạn Metro Bến Thành</div><div class="lsub">PM Lê Văn C</div></div><span class="badge b-warn lag">Còn 2 ngày</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><span class="t">Danh sách dự án</span><span class="s">17 dự án · sắp xếp theo % thực tế</span></div>
+      <div class="twrap">
+        <table>
+          <thead><tr><th>Mã dự án</th><th>Dự án</th><th>Khách hàng</th><th>% TT</th><th>SPI</th><th>CPI</th><th>Trạng thái</th><th>Ưu tiên</th></tr></thead>
+          <tbody>
+            <tr><td class="code">MCT-2024-017</td><td><div class="tname">Nhà xưởng KCN Bắc Ninh 2</div><div class="tsub">EPC · 1.240 tấn</div></td><td>CT TNHH Thép Việt</td><td><span class="minibar"><span class="tr"><i class="grow" style="width:62%"></i></span><span class="num">62%</span></span></td><td class="num" style="color:var(--warn)">0.94</td><td class="num">0.98</td><td><span class="badge b-danger"><span class="bd-dot"></span>Trễ</span></td><td><span class="pri" style="color:var(--danger)">P0</span></td></tr>
+            <tr><td class="code">MCT-2024-023</td><td><div class="tname">Kết cấu thép Nhà ga T3</div><div class="tsub">EPC · 2.850 tấn</div></td><td>Tổng thầu ACV</td><td><span class="minibar"><span class="tr"><i class="grow" style="width:78%"></i></span><span class="num">78%</span></span></td><td class="num" style="color:var(--ok)">1.05</td><td class="num" style="color:var(--ok)">1.02</td><td><span class="badge b-ok"><span class="bd-dot"></span>Đúng tiến độ</span></td><td><span class="pri" style="color:var(--warn)">P1</span></td></tr>
+            <tr><td class="code">MCT-2025-008</td><td><div class="tname">Cầu cạn Metro Bến Thành</div><div class="tsub">Cầu giao thông · 940 tấn</div></td><td>Ban QLDA Metro</td><td><span class="minibar"><span class="tr"><i class="grow" style="width:45%"></i></span><span class="num">45%</span></span></td><td class="num" style="color:var(--warn)">0.88</td><td class="num">0.95</td><td><span class="badge b-warn"><span class="bd-dot"></span>Nguy cơ</span></td><td><span class="pri" style="color:var(--danger)">P0</span></td></tr>
+            <tr><td class="code">MCT-2025-014</td><td><div class="tname">Nhà máy thép Long An</div><div class="tsub">Nhà xưởng · 1.560 tấn</div></td><td>CT Thép Miền Nam</td><td><span class="minibar"><span class="tr"><i class="grow" style="width:30%"></i></span><span class="num">30%</span></span></td><td class="num">1.01</td><td class="num">1.00</td><td><span class="badge b-info"><span class="bd-dot"></span>Triển khai</span></td><td><span class="pri" style="color:var(--ink-3)">P2</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ============ PROJECT DETAIL ============ -->
+<section class="screen" id="s-detail">
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><img class="logoimg" alt="DDC logo" src="data:image/png;base64,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"><div><div class="bn">Control Tower</div><div class="bs">Đại Dũng Corporation</div></div></div>
+    <nav class="nav">
+      <div class="nl">Tổng quan</div>
+      <div class="navitem"><span class="ic">◫</span><span class="txt">Overview</span></div>
+      <div class="navitem active"><span class="ic">▤</span><span class="txt">Dự án</span></div>
+      <div class="navitem"><span class="ic">✎</span><span class="txt">Nhập liệu</span> <span class="bd">3</span></div>
+      <div class="nl">Hệ thống</div>
+      <div class="navitem"><span class="ic">⇪</span><span class="txt">Import</span></div>
+      <div class="navitem"><span class="ic">▦</span><span class="txt">Data dictionary</span></div>
+      <div class="navitem"><span class="ic">◇</span><span class="txt">Sơ đồ dữ liệu</span></div>
+      <div class="navitem"><span class="ic">⚙</span><span class="txt">Quản trị</span></div>
+    </nav>
+    <div class="sfoot">v0.1 · DDC Control Tower</div>
+  </aside>
+
+  <div class="main">
+    <header class="header">
+      <button class="burger" aria-label="Thu gọn sidebar">☰</button>
+      <div class="pgtitle">Chi tiết dự án</div>
+      <div class="search"><span>⌕</span><input placeholder="Tìm dự án, mã, khách hàng…"><span class="kbd">⌘K</span></div>
+      <div class="huser"><span class="hrole">Trưởng phòng · BOD</span><div class="avatar">TD</div></div>
+    </header>
+
+    <div class="crumb">Dự án / <b>MCT-2024-017</b></div>
+    <div class="pagehead"><h1>Nhà xưởng KCN Bắc Ninh 2</h1><span class="badge b-danger"><span class="bd-dot"></span>Trễ tiến độ</span><span class="pri" style="color:var(--danger)">P0</span></div>
+
+    <div class="hero-strip">
+      <div class="hstat"><div class="h-l">SPI</div><div class="h-v num" style="color:var(--warn)"><span class="count-up" data-to="0.94" data-dec="2">0</span></div><div class="h-s">dưới ngưỡng 0.90</div></div>
+      <div class="hstat"><div class="h-l">CPI</div><div class="h-v num"><span class="count-up" data-to="0.98" data-dec="2">0</span></div><div class="h-s">vượt ngân sách nhẹ</div></div>
+      <div class="hstat"><div class="h-l">EAC</div><div class="h-v num"><span class="count-up" data-to="1284">0</span><span style="font-size:13px;color:var(--ink-3)"> tỷ</span></div><div class="h-s">dự báo hoàn thành</div></div>
+      <div class="hstat"><div class="h-l">VAC</div><div class="h-v num" style="color:var(--danger)">−<span class="count-up" data-to="84">0</span><span style="font-size:13px;color:var(--ink-3)"> tỷ</span></div><div class="h-s">vượt ngân sách</div></div>
+      <div class="hstat gold"><div class="h-l">% thực tế</div><div class="h-v num"><span class="count-up" data-to="62">0</span>%</div><div class="h-s">chuỗi giá trị 7 giai đoạn</div></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="card-h"><span class="t">Đường cong S</span><span class="s">PV · EV · AC (tỷ VNĐ)</span></div>
+        <div class="card-b">
+          <svg class="chart" viewBox="0 0 560 200" role="img" aria-label="S-curve">
+            <line class="grid" x1="40" y1="20" x2="540" y2="20"/><line class="grid" x1="40" y1="65" x2="540" y2="65"/>
+            <line class="grid" x1="40" y1="110" x2="540" y2="110"/><line class="grid" x1="40" y1="155" x2="540" y2="155"/>
+            <line class="ax" x1="40" y1="165" x2="540" y2="165"/>
+            <text x="40" y="18">800</text><text x="40" y="63">600</text><text x="40" y="108">400</text><text x="40" y="153">200</text>
+            <text x="40" y="182">T3</text><text x="165" y="182">T5</text><text x="290" y="182">T7</text><text x="415" y="182">T9</text><text x="530" y="182">T11</text>
+            <polyline class="line" points="40,155 165,138 290,112 415,74 540,38" stroke="var(--ink-3)" stroke-width="1.6" stroke-dasharray="4 4"/>
+            <polyline class="line l2" points="40,155 165,145 290,118 415,90 540,58" stroke="var(--accent)" stroke-width="2.4"/>
+            <polyline class="line l3" points="40,155 165,150 290,130 415,104 540,76" stroke="var(--gold)" stroke-width="2.4"/>
+            <circle cx="540" cy="58" r="4" fill="var(--accent)"/><circle cx="540" cy="76" r="4" fill="var(--gold)"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><span class="t">Chuỗi giá trị</span><span class="s">7 giai đoạn DDC</span></div>
+        <div class="card-b">
+          <div class="vchain">
+            <div class="vrow done"><div class="vname">Thiết kế</div><div class="vbar"><i class="grow" style="width:100%"></i></div><div class="vpct num">100%</div></div>
+            <div class="vrow"><div class="vname">Shop Drawing</div><div class="vbar"><i class="grow" style="width:85%"></i></div><div class="vpct num">85%</div></div>
+            <div class="vrow"><div class="vname">Vật tư</div><div class="vbar"><i class="grow" style="width:70%"></i></div><div class="vpct num">70%</div></div>
+            <div class="vrow"><div class="vname">Gia công</div><div class="vbar"><i class="grow" style="width:45%"></i></div><div class="vpct num">45%</div></div>
+            <div class="vrow"><div class="vname">Vận chuyển</div><div class="vbar"><i class="grow" style="width:20%"></i></div><div class="vpct num">20%</div></div>
+            <div class="vrow"><div class="vname">Lắp dựng</div><div class="vbar"><i class="grow" style="width:5%"></i></div><div class="vpct num">5%</div></div>
+            <div class="vrow"><div class="vname">Nghiệm thu</div><div class="vbar"><i class="grow" style="width:0%"></i></div><div class="vpct num">0%</div></div>
+            <div class="vtotal"><span class="vt-l">% tổng thể (tự tính)</span><span class="vt-v num"><span class="count-up" data-to="46">0</span>% <small>· giai đoạn hiện tại: Gia công</small></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid2eq">
+      <div class="card">
+        <div class="card-h"><span class="t">SPI &amp; CPI theo tháng</span><span class="s">12 tháng</span></div>
+        <div class="card-b">
+          <svg class="chart" viewBox="0 0 300 140" role="img" aria-label="SPI CPI">
+            <line class="grid" x1="30" y1="20" x2="290" y2="20"/><line class="grid" x1="30" y1="75" x2="290" y2="75"/><line class="grid" x1="30" y1="120" x2="290" y2="120"/>
+            <line class="ax" x1="30" y1="120" x2="290" y2="120"/>
+            <text x="30" y="18">1.2</text><text x="30" y="73">1.0</text><text x="30" y="118">0.8</text>
+            <polyline class="line" points="30,75 55,70 80,74 105,80 130,88 155,92 180,96 205,100 230,104 255,108 280,112" stroke="var(--accent)" stroke-width="2.4"/>
+            <polyline class="line l2" points="30,78 55,72 80,76 105,78 130,84 155,90 180,94 205,98 230,102 255,106 280,110" stroke="var(--gold)" stroke-width="2.4"/>
+          </svg>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><span class="t">Cảnh báo</span><span class="s">2 đang mở</span></div>
+        <div class="listw">
+          <div class="lrow"><div><div class="lname">SPI xuống dưới 0.90 liên tục 2 tháng</div><div class="lsub">Nguy cơ phạt · cập nhật 2 ngày trước</div></div><span class="badge b-danger lag">Red</span></div>
+          <div class="lrow"><div><div class="lname">Khối lượng lắp dựng chậm so với kế hoạch</div><div class="lsub">Khâu nghẽn: Gia công</div></div><span class="badge b-warn lag">Amber</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ============ LOGIN ============ -->
+<section class="screen" id="s-login">
+  <div class="login">
+    <div class="lcard">
+      <img class="llogo" alt="DDC logo" src="data:image/png;base64,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">
+      <h1>Đăng nhập</h1>
+      <div class="lsub">DDC Control Tower · Quản trị danh mục dự án</div>
+      <div class="field"><label>Email công ty</label><input type="email" value="pm@daidung.com.vn" placeholder="ten@daidung.com.vn"></div>
+      <div class="field"><label>Mật khẩu</label><input type="password" value="••••••••••"></div>
+      <button class="btn-primary">Đăng nhập</button>
+      <div class="ldiv">hoặc</div>
+      <button class="btn-google"><span style="font-weight:700;color:var(--accent)">G</span> Tiếp tục với Google</button>
+      <div class="lfoot">Quên mật khẩu? Liên hệ quản trị viên.</div>
+    </div>
+  </div>
+</section>
+
+<script>
+function countUp(el){
+  var to=parseFloat(el.dataset.to), dec=parseInt(el.dataset.dec||'0'), dur=900, t0=null;
+  function step(ts){ if(!t0)t0=ts; var p=Math.min(1,(ts-t0)/dur); var e=1-Math.pow(1-p,3);
+    el.textContent = dec>0 ? (to*e).toFixed(dec) : Math.round(to*e).toString();
+    if(p<1) requestAnimationFrame(step);
+    else el.textContent = dec>0 ? to.toFixed(dec) : Math.round(to).toString(); }
+  requestAnimationFrame(step);
+}
+function runCount(){
+  var s=document.querySelector('.screen.active');
+  if(s) s.querySelectorAll('.count-up').forEach(function(el){el.textContent='0';countUp(el);});
+}
+// tabs
+document.getElementById('tabs').addEventListener('click',function(e){
+  var b=e.target.closest('.mbbtn'); if(!b) return;
+  document.querySelectorAll('.mbbtn').forEach(function(x){x.classList.remove('active')});
+  b.classList.add('active');
+  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active')});
+  document.getElementById(b.dataset.screen).classList.add('active');
+  runCount();
+});
+// theme
+var tb=document.getElementById('themeBtn');
+tb.addEventListener('click',function(){
+  var h=document.documentElement;
+  if(h.getAttribute('data-theme')==='dark'){h.setAttribute('data-theme','light');tb.textContent='Dark preview';}
+  else{h.setAttribute('data-theme','dark');tb.textContent='Light preview';}
+});
+// sidebar collapse
+document.getElementById('burger').addEventListener('click',function(){
+  document.getElementById('sidebar').classList.toggle('collapsed');
+});
+// initial
+runCount();
+</script>
+</body>
+</html>

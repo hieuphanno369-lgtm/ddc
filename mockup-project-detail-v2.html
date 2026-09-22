@@ -1,0 +1,1072 @@
+<!doctype html>
+<html lang="vi" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DDC - Mockup Chi tiet du an v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: light;
+  --bg:#eef1f6;
+  --surface:#ffffff;
+  --surface-2:#f6f8fb;
+  --ink:#0a1f3d; --ink-2:#56677f; --ink-3:#8fa0b5;
+  --border:rgba(10,31,61,.10); --border-2:rgba(10,31,61,.16);
+  --shell:#0e2741; --shell-2:#0a1f3d; --shell-ink:#ffffff; --shell-dim:rgba(255,255,255,.66);
+  --shell-active:rgba(255,255,255,.14); --shell-accent:#f5b301;
+
+  /* Series - da chay validator: PASS toan bo check (all-pairs, light) */
+  --s-plan:#93b8e0;      /* Ke hoach  - navy nhat  (ordinal buoc 1) */
+  --s-actual:#1d5a9e;    /* Thuc te   - navy chu dao (ordinal buoc 2) */
+  --s-cost:#a86a12;      /* AC / Chi phi / Du kien - dong */
+  --s-third:#0f8a63;     /* Thuc te (milestone) - xanh luc tram */
+  --s-third-lt:#6fbf9b;  /* Thuc te BD - buoc nhat */
+  --s-neutral:#c3cddb;
+
+  --ok:#15803d; --ok-soft:#e7f5ec;
+  --warn:#b45309; --warn-soft:#fdf3e3;
+  --danger:#b91c1c; --danger-soft:#fdeaea;
+  --grid:#e6ebf2; --axis:#8fa0b5;
+  --r:14px;
+  --shadow:0 1px 2px rgba(10,31,61,.05), 0 4px 14px rgba(10,31,61,.05);
+  --pop-shadow:0 18px 44px rgba(10,31,61,.20), 0 2px 8px rgba(10,31,61,.10);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --bg:#0a1428; --surface:#111c33; --surface-2:#16233d;
+    --ink:#e2e8f0; --ink-2:#94a3b8; --ink-3:#64748b;
+    --border:#1e2b47; --border-2:#28385a;
+    --shell:#0a1428; --shell-2:#060e1c;
+    --s-plan:#2f6197; --s-actual:#4e8ed0; --s-cost:#c07d1a; --s-third:#12996b; --s-third-lt:#0d6349; --s-neutral:#33456b;
+    --ok:#34d399; --ok-soft:#0f2a1f; --warn:#fbbf24; --warn-soft:#2a2210;
+    --danger:#f87171; --danger-soft:#2a1414;
+    --grid:#1e2b47; --axis:#64748b;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.25);
+    --pop-shadow:0 18px 44px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#0a1428; --surface:#111c33; --surface-2:#16233d;
+  --ink:#e2e8f0; --ink-2:#94a3b8; --ink-3:#64748b;
+  --border:#1e2b47; --border-2:#28385a;
+  --shell:#0a1428; --shell-2:#060e1c;
+  --s-plan:#2f6197; --s-actual:#4e8ed0; --s-cost:#c07d1a; --s-third:#12996b; --s-third-lt:#0d6349; --s-neutral:#33456b;
+  --ok:#34d399; --ok-soft:#0f2a1f; --warn:#fbbf24; --warn-soft:#2a2210;
+  --danger:#f87171; --danger-soft:#2a1414;
+  --grid:#1e2b47; --axis:#64748b;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.25);
+  --pop-shadow:0 18px 44px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.4);
+}
+:root[data-shell="red"]{ --shell:#B91C1C; --shell-2:#991b1b; }
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink);
+  -webkit-font-smoothing:antialiased;font-size:14px}
+h1,h2,h3,h4{margin:0}
+.app{display:flex;min-height:100vh}
+
+.side{width:216px;flex:0 0 216px;background:var(--shell);color:var(--shell-ink);display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.side .brand{display:flex;align-items:center;gap:10px;height:60px;padding:0 14px;border-bottom:1px solid rgba(255,255,255,.1)}
+.side .logo{width:33px;height:33px;border-radius:9px;background:#fff;color:#0a1f3d;display:grid;place-items:center;font-weight:800;font-size:12.5px;flex:0 0 33px}
+.side .brand b{font-size:12px;font-weight:700;line-height:1.28;letter-spacing:.1px}
+.side nav{padding:10px;display:flex;flex-direction:column;gap:2px}
+.side .grp{font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.42);padding:14px 10px 5px}
+.side a{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;color:var(--shell-dim);text-decoration:none;font-size:12.5px;font-weight:500}
+.side a:hover{background:rgba(255,255,255,.08);color:#fff}
+.side a.on{background:var(--shell-active);color:var(--shell-accent);font-weight:600}
+.side .dotico{width:15px;height:15px;border-radius:5px;background:currentColor;opacity:.55;flex:0 0 15px}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+header{position:sticky;top:0;z-index:30;height:60px;display:flex;align-items:center;gap:14px;
+  background:var(--shell);color:#fff;padding:0 18px;box-shadow:0 1px 10px rgba(10,31,61,.18)}
+header .ttl{min-width:0;display:flex;flex-direction:column;justify-content:center}
+header .ttl h1{font-size:15px;font-weight:700;letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40vw}
+header .ttl span{font-size:10.5px;color:rgba(255,255,255,.6);font-weight:500}
+header .search{margin-left:auto;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.22);border-radius:9px;padding:7px 11px;width:190px;color:rgba(255,255,255,.7);font-size:12.5px}
+header .av{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.2);display:grid;place-items:center;font-size:11px;font-weight:700}
+.toolbar{display:flex;gap:6px;align-items:center}
+.tbtn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:8px;
+  padding:5px 9px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+.tbtn:hover{background:rgba(255,255,255,.22)}
+main{padding:18px 18px 60px;display:flex;flex-direction:column;gap:13px}
+
+.tier{display:flex;align-items:center;gap:10px;margin-top:5px}
+.tier b{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.tier i{flex:1;height:1px;background:var(--border);display:block}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow)}
+.card>h3{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  padding:11px 15px;border-bottom:1px solid var(--border);font-size:13px;font-weight:700}
+.card>.b{padding:14px 15px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.stagegrid{display:grid;grid-template-columns:1fr 1fr;gap:2px 26px}
+@media(max-width:1250px){.grid2{grid-template-columns:1fr}.stagegrid{grid-template-columns:1fr}}
+.msdetail{display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:10px 15px;
+  border-bottom:1px solid var(--border);background:var(--surface-2);font-size:12px;color:var(--ink-2)}
+.msdetail .k{display:inline-flex;align-items:center;gap:6px;background:var(--surface);
+  border:1px solid var(--border);border-radius:8px;padding:4px 9px;font-weight:600;
+  animation:chipIn .32s ease-out both}
+.msdetail .k i{width:9px;height:9px;border-radius:3px;flex:0 0 9px}
+.msdetail .k b{color:var(--ink);font-weight:800;font-variant-numeric:tabular-nums}
+.msdetail .hint{color:var(--ink-3);font-style:italic}
+@keyframes chipIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+
+/* ---------- project header + popover ---------- */
+.phead{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;justify-content:space-between;padding:14px 15px}
+.phead .nm{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.phead h2{font-size:18px;font-weight:700;letter-spacing:-.2px}
+.meta{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:6px;font-size:12px;color:var(--ink-2)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:2.5px 8px;border-radius:999px;font-size:10.5px;font-weight:700}
+.b-ok{background:var(--ok-soft);color:var(--ok)}
+.b-warn{background:var(--warn-soft);color:var(--warn)}
+.b-dan{background:var(--danger-soft);color:var(--danger)}
+.b-nav{background:rgba(29,90,158,.1);color:var(--s-actual)}
+
+.hdblock{display:flex;align-items:stretch;gap:14px;flex-wrap:wrap}
+.hdval{text-align:right;align-self:center}
+.hdval .l{font-size:10.5px;font-weight:700;text-transform:uppercase;color:var(--ink-3);letter-spacing:.05em}
+.hdval .v{font-size:22px;font-weight:800;letter-spacing:-.5px;margin-top:2px}
+.hdval .s{font-size:11px;color:var(--ink-3);margin-top:1px}
+
+/* ---- Panel dem nguoc: luon hien canh Gia tri HD ---- */
+.cdpanel{position:relative;width:292px;border-radius:13px;overflow:hidden;color:#fff;
+  background:linear-gradient(135deg,var(--s-actual),#0e2741);
+  box-shadow:0 10px 26px rgba(14,39,65,.28);
+  padding:13px 15px 14px;
+  animation:cdIn .55s cubic-bezier(.2,.9,.3,1.1) both}
+.cdpanel:after{content:"";position:absolute;top:0;bottom:0;width:38%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.14),transparent);
+  animation:cdShine 5.5s ease-in-out infinite;pointer-events:none}
+.cdpanel .t{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:800;
+  letter-spacing:.09em;text-transform:uppercase;opacity:.82}
+.cdpanel .live{width:7px;height:7px;border-radius:50%;background:#7ee2a8;flex:0 0 7px;
+  animation:cdPulse 1s ease-in-out infinite}
+.cdpanel .cd{display:flex;align-items:baseline;gap:4px;margin-top:8px;font-variant-numeric:tabular-nums}
+.cdpanel .cd b{font-size:28px;font-weight:800;line-height:1;letter-spacing:-1px;display:inline-block}
+.cdpanel .cd b.bump{animation:cdBump .5s cubic-bezier(.2,.9,.3,1.3)}
+.cdpanel .cd span{font-size:11.5px;font-weight:600;opacity:.82;margin-right:9px}
+.cdpanel .d{font-size:11px;margin-top:9px;opacity:.86;letter-spacing:.1px;position:relative;z-index:1}
+@keyframes cdIn{from{opacity:0;transform:translateY(-10px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes cdShine{0%{left:-40%}55%{left:105%}100%{left:105%}}
+@keyframes cdPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(126,226,168,.6)}
+  50%{transform:scale(1.25);box-shadow:0 0 0 5px rgba(126,226,168,0)}}
+@keyframes cdBump{0%{transform:translateY(5px);opacity:.25}100%{transform:none;opacity:1}}
+
+/* ---------- scorecards ---------- */
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+@media(max-width:1080px){.kpis{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:640px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 13px;
+  box-shadow:var(--shadow);position:relative;overflow:hidden;min-width:0}
+.kpi:before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:var(--s-neutral)}
+.kpi.k-plan:before{background:var(--s-plan)}
+.kpi.k-cost:before{background:var(--s-cost)}
+.kpi.k-third:before{background:var(--s-third)}
+.kpi .lb{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .vl{font-size:25px;font-weight:800;letter-spacing:-.8px;margin-top:4px;font-variant-numeric:tabular-nums;line-height:1.1}
+.kpi .sub{margin-top:5px;font-size:10.5px;color:var(--ink-2);display:flex;align-items:center;gap:5px;min-height:17px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Nhom trong tam: % Thuc te / SPI / CPI */
+.kpi.hl{border-color:transparent;color:#fff;
+  background:linear-gradient(158deg,#2a6db4 0%,var(--s-actual) 45%,#0e2741 100%);
+  box-shadow:0 2px 4px rgba(10,31,61,.10),0 10px 24px rgba(14,39,65,.26);
+  animation:hlIn .5s cubic-bezier(.2,.9,.3,1.1) both}
+.kpi.hl:nth-of-type(3){animation-delay:.07s}
+.kpi.hl:nth-of-type(4){animation-delay:.14s}
+.kpi.hl:before{height:4px;background:var(--shell-accent)}
+.kpi.hl .lb{color:rgba(255,255,255,.78)}
+.kpi.hl .vl{font-size:29px;color:#fff;text-shadow:0 1px 10px rgba(0,0,0,.18)}
+.kpi.hl .sub{color:rgba(255,255,255,.76)}
+.kpi.hl .warnline.slow{background:#fff;color:var(--danger)}
+.kpi.hl .warnline.fast{background:#fff;color:var(--ok)}
+.kpi.hl .tag{position:absolute;right:10px;top:10px;font-size:8.5px;font-weight:800;letter-spacing:.06em;
+  color:#3b2b00;background:var(--shell-accent);border-radius:5px;padding:2px 6px;text-transform:uppercase}
+@keyframes hlIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+/* Dark mode: the navy phai sang hon nen trang (#0a1428) moi noi bat */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .kpi.hl{
+    background:linear-gradient(158deg,#3d84cf 0%,#1d5a9e 48%,#123a66 100%);
+    border-color:rgba(122,176,234,.32)}
+  :root:not([data-theme="light"]) .cdpanel{
+    background:linear-gradient(135deg,#3d84cf,#123a66);
+    box-shadow:0 10px 26px rgba(0,0,0,.45)}
+}
+:root[data-theme="dark"] .kpi.hl{
+  background:linear-gradient(158deg,#3d84cf 0%,#1d5a9e 48%,#123a66 100%);
+  border-color:rgba(122,176,234,.32)}
+:root[data-theme="dark"] .cdpanel{
+  background:linear-gradient(135deg,#3d84cf,#123a66);
+  box-shadow:0 10px 26px rgba(0,0,0,.45)}
+.kpi.clickable{cursor:pointer;transition:transform .15s, box-shadow .15s, border-color .15s}
+.kpi.clickable:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(10,31,61,.13);border-color:var(--border-2)}
+.kpi .hint{position:absolute;right:10px;top:11px;font-size:9px;font-weight:700;color:var(--ink-3);
+  border:1px solid var(--border-2);border-radius:6px;padding:1.5px 5px}
+.kpi.clickable:hover .hint{color:var(--s-actual);border-color:var(--s-actual)}
+.warnline{font-size:10.5px;font-weight:700;display:inline-flex;align-items:center;gap:3px;padding:1.5px 6px;border-radius:6px}
+.warnline.slow{background:var(--danger-soft);color:var(--danger)}
+.warnline.fast{background:var(--ok-soft);color:var(--ok)}
+
+/* ---------- timeline ---------- */
+.tl{position:relative;padding-top:24px}
+.tlrow{display:grid;grid-template-columns:78px 1fr;gap:11px;align-items:center;margin-bottom:11px}
+.tlrow:last-child{margin-bottom:0}
+.tlrow .lb{font-size:11.5px;font-weight:600;color:var(--ink-2)}
+.tltrack{position:relative;height:28px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border)}
+.tlbar{position:absolute;top:4px;bottom:4px;border-radius:6px;display:flex;align-items:center;
+  padding:0 9px;font-size:10.5px;font-weight:700;white-space:nowrap;overflow:hidden}
+.tlbar.plan{background:var(--s-plan);color:#0a1f3d}
+.tlbar.act{background:var(--s-actual);color:#fff}
+.tlfill{position:absolute;top:4px;bottom:4px;left:0;border-radius:6px;background:rgba(10,31,61,.18)}
+.tlchip{position:absolute;top:50%;transform:translateY(-50%);font-size:11px;font-weight:800;
+  font-variant-numeric:tabular-nums;padding:2px 7px;border-radius:6px;white-space:nowrap;z-index:2}
+.tlchip.p{background:var(--surface);color:var(--s-actual);border:1px solid var(--border-2)}
+.tlchip.a{background:var(--surface);color:var(--s-actual);border:1px solid rgba(29,90,158,.45)}
+.todayline{position:absolute;top:24px;bottom:0;width:0;border-left:2px dashed var(--danger);z-index:4;pointer-events:none}
+.todaypill{position:absolute;top:0;transform:translateX(-50%);background:var(--danger);color:#fff;
+  font-size:9.5px;font-weight:800;letter-spacing:.03em;padding:2.5px 9px;border-radius:999px;white-space:nowrap;z-index:6}
+.todaypill:after{content:"";position:absolute;left:50%;bottom:-4px;transform:translateX(-50%);
+  border-left:4px solid transparent;border-right:4px solid transparent;border-top:4px solid var(--danger)}
+.tlfoot{display:flex;flex-wrap:wrap;gap:6px 20px;margin-top:14px;padding-top:11px;border-top:1px solid var(--border);
+  font-size:11.5px;color:var(--ink-2)}
+
+/* ---------- value chain ---------- */
+.stage{display:grid;grid-template-columns:118px 32px 1fr 50px;gap:9px;align-items:center;
+  padding:6px 8px;border-radius:9px;cursor:pointer;border:1px solid transparent}
+.stage:hover{background:var(--surface-2)}
+.stage.sel{background:rgba(29,90,158,.08);border-color:var(--s-actual)}
+.stage .nm{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stage.sel .nm{color:var(--s-actual)}
+.stage .w{font-size:9.5px;font-weight:800;color:var(--ink-3);background:var(--surface-2);
+  border:1px solid var(--border);border-radius:5px;padding:1px 0;text-align:center}
+.stage .bar{height:11px;border-radius:6px;background:var(--surface-2);border:1px solid var(--border);overflow:hidden}
+.stage .fill{height:100%;background:var(--s-actual);border-radius:5px}
+.stage.bot .fill{background:var(--warn)}
+.stage .pc{font-size:11.5px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.chainfoot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;
+  padding-top:10px;border-top:1px solid var(--border);font-size:11.5px;color:var(--ink-2)}
+
+/* ---------- legend / chart ---------- */
+.legend{display:flex;flex-wrap:wrap;gap:5px 14px;font-size:11px;color:var(--ink-2);font-weight:600}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.legend .ln{width:14px;height:3px;border-radius:2px}
+svg.chart{display:block;width:100%;height:auto;overflow:visible}
+.tip{position:fixed;z-index:90;pointer-events:none;background:var(--surface);border:1px solid var(--border-2);
+  border-radius:10px;box-shadow:var(--pop-shadow);padding:9px 11px;font-size:11.5px;
+  opacity:0;transition:opacity .1s;min-width:150px}
+.tip b{display:block;font-size:11.5px;margin-bottom:5px;color:var(--ink)}
+.tip .r{display:flex;align-items:center;justify-content:space-between;gap:16px;color:var(--ink-2);padding:1px 0}
+.tip .r span:last-child{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.tip i{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:6px}
+.flash{animation:flash 1.6s ease-out}
+@keyframes flash{0%{box-shadow:0 0 0 0 rgba(29,90,158,.45)}100%{box-shadow:0 0 0 16px rgba(29,90,158,0)}}
+
+.note{background:var(--warn-soft);border:1px solid rgba(180,83,9,.28);border-radius:10px;padding:10px 12px;
+  font-size:11.5px;color:var(--ink-2);line-height:1.6}
+.note b{color:var(--warn)}
+.pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;
+  background:var(--surface-2);border:1px solid var(--border);color:var(--ink-2)}
+.slider{width:100%;accent-color:var(--s-actual)}
+.wi{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.wi div{background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:9px 11px}
+.wi .l{font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-3);letter-spacing:.05em}
+.wi .v{font-size:16px;font-weight:800;margin-top:3px;font-variant-numeric:tabular-nums}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--ink-3);padding:6px 7px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:6.5px 7px;border-bottom:1px solid var(--border);white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+@media (prefers-reduced-motion: reduce){
+  .cdpanel,.cdpanel:after,.cdpanel .live,.cdpanel .cd b.bump,.kpi.hl,.msdetail .k{animation:none !important}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <div class="logo">DDC</div>
+      <b>Quản Trị Danh Mục<br>Dự Án</b>
+    </div>
+    <nav>
+      <a href="#"><i class="dotico"></i>Tổng quan</a>
+      <a href="#" class="on"><i class="dotico"></i>Chi tiết dự án</a>
+      <a href="#"><i class="dotico"></i>Nhập liệu</a>
+      <div class="grp">Vận hành</div>
+      <a href="#"><i class="dotico"></i>Báo cáo ban điều hành</a>
+      <a href="#"><i class="dotico"></i>Cảnh báo</a>
+      <a href="#"><i class="dotico"></i>Chưa nộp số liệu</a>
+      <div class="grp">Quản trị</div>
+      <a href="#"><i class="dotico"></i>Nhật ký thay đổi</a>
+      <a href="#"><i class="dotico"></i>Quản trị</a>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <header>
+      <div class="ttl">
+        <h1 id="hdrTitle">Nhà ga hành khách T3 - Tân Sơn Nhất</h1>
+        <span id="hdrSub">Chi tiết dự án &middot; DDC-2026-0147</span>
+      </div>
+      <div class="search">Tìm kiếm dự án…</div>
+      <div class="toolbar">
+        <button class="tbtn" id="btnPage">Xem: Tổng quan</button>
+        <button class="tbtn" id="btnTheme">Tối</button>
+        <button class="tbtn" id="btnShell">Vỏ: Đỏ</button>
+      </div>
+      <div class="av">H</div>
+    </header>
+
+    <main>
+      <div class="note">
+        <b>Mock-up v2 — để duyệt, chưa sửa code thật.</b> Thử: (1) rê chuột / bấm vào khối <b>GIÁ TRỊ HĐ</b> → pop-up đếm ngược ngày &amp; giờ tới Ngày HT KH; (2) bấm scorecard <b>Tổng Số Nhân Lực</b> / <b>Tổng Số Thiết Bị</b> → nhảy xuống Tầng 4; (3) bấm từng thanh <b>Chuỗi giá trị</b> → Key milestone + Biểu đồ so sánh đổi theo giai đoạn, bấm lần nữa để bỏ chọn.
+      </div>
+
+      <div class="card">
+        <div class="phead">
+          <div>
+            <div class="nm">
+              <h2>Nhà ga hành khách T3 - Tân Sơn Nhất</h2>
+              <span class="badge b-nav">Đang triển khai</span>
+              <span class="badge b-warn">P1</span>
+              <span class="badge b-dan">Khâu nghẽn: Lắp dựng</span>
+            </div>
+            <div class="meta">
+              <span class="mono">DDC-2026-0147</span>
+              <span>CĐT: TCT Cảng hàng không VN</span>
+              <span>KD: Nhóm KD Miền Nam</span>
+              <span>EPC</span><span>Trong nước</span>
+            </div>
+          </div>
+
+          <div class="hdblock">
+            <div class="hdval">
+              <div class="l">Giá trị HĐ</div>
+              <div class="v">1.284 tỷ</div>
+              <div class="s">14.050 tấn</div>
+            </div>
+
+            <div class="cdpanel">
+              <div class="t"><span class="live"></span>Còn lại đến ngày HT kế hoạch</div>
+              <div class="cd">
+                <b id="cdD">—</b><span>ngày</span><b id="cdH">—</b><span>giờ</span><b id="cdM">—</b><span>phút</span>
+              </div>
+              <div class="d">Ngày HT KH: <b>28/02/2027</b> &middot; hôm nay <span id="cdNow">—</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= TẦNG 1 ================= -->
+      <div class="tier"><b>Tầng 1 &mdash; Metrics</b><i></i></div>
+      <div class="kpis">
+        <div class="kpi k-plan">
+          <div class="lb">% Kế Hoạch</div>
+          <div class="vl">56,3%</div>
+          <div class="sub">205/364 ngày</div>
+        </div>
+        <div class="kpi hl">
+          <span class="tag">Trọng tâm</span>
+          <div class="lb">% Thực tế</div>
+          <div class="vl">53,5%</div>
+          <div class="sub"><span class="warnline slow">▼ Chậm 2,8%</span></div>
+        </div>
+        <div class="kpi hl">
+          <span class="tag">Trọng tâm</span>
+          <div class="lb">SPI</div>
+          <div class="vl">0,95</div>
+          <div class="sub">Ngưỡng &lt; 0,90</div>
+        </div>
+        <div class="kpi hl">
+          <span class="tag">Trọng tâm</span>
+          <div class="lb">CPI</div>
+          <div class="vl">1,03</div>
+          <div class="sub">Chi phí đang tốt</div>
+        </div>
+        <div class="kpi k-third clickable" id="kpiMan">
+          <span class="hint">Xem ↓</span>
+          <div class="lb">Tổng Số Nhân Lực</div>
+          <div class="vl">486</div>
+          <div class="sub">KH 520 &middot; 6 nhà thầu</div>
+        </div>
+        <div class="kpi k-cost clickable" id="kpiEqp">
+          <span class="hint">Xem ↓</span>
+          <div class="lb">Tổng Số Thiết Bị</div>
+          <div class="vl">63</div>
+          <div class="sub">KH 72 &middot; 7 nhóm TB</div>
+        </div>
+      </div>
+
+      <!-- ================= TẦNG 2 ================= -->
+      <div class="tier"><b>Tầng 2 &mdash; Tiến độ &amp; chuỗi giá trị</b><i></i></div>
+
+      <div class="card">
+        <h3><span>Timeline kế hoạch vs thực tế</span>
+          <span class="legend">
+            <span><i style="background:var(--s-plan)"></i>Kế hoạch</span>
+            <span><i style="background:var(--s-actual)"></i>Thực tế</span>
+            <span><i class="ln" style="background:var(--danger)"></i>Hôm nay</span>
+          </span>
+        </h3>
+        <div class="b">
+          <div class="tl">
+            <div class="todaypill" style="left:calc(89px + (100% - 89px) * 0.563)">Hôm nay &middot; 22/09/2026</div>
+            <div class="todayline" style="left:calc(89px + (100% - 89px) * 0.563)"></div>
+            <div class="tlrow">
+              <div class="lb">Kế hoạch</div>
+              <div class="tltrack">
+                <div class="tlbar plan" style="left:0;width:100%">01/03/2026 → 28/02/2027</div>
+                <div class="tlfill" style="width:56.3%"></div>
+                <div class="tlchip p" style="left:calc(56.3% + 9px)">56,3%</div>
+              </div>
+            </div>
+            <div class="tlrow">
+              <div class="lb">Thực tế</div>
+              <div class="tltrack">
+                <div class="tlbar act" style="left:3%;width:50.5%">12/03/2026 → đang chạy</div>
+                <div class="tlchip a" style="left:calc(53.5% - 52px)">53,5%</div>
+              </div>
+            </div>
+          </div>
+          <div class="tlfoot">
+            <span>Ngày HĐ: 18/01/2026</span>
+            <span>Bàn giao cam kết: <b style="color:var(--ink)">15/03/2027</b></span>
+            <span>Trễ khởi công: <b style="color:var(--danger)">11 ngày</b></span>
+            <span>Khoảng cách KH &minus; TT: <b style="color:var(--danger)">2,8%</b></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3><span>Chuỗi giá trị</span><span class="pill" id="chainMode">Toàn bộ 7 giai đoạn</span></h3>
+        <div class="b">
+          <div id="stageList" class="stagegrid"></div>
+          <div class="chainfoot">
+            <span>Σ trọng số <b style="color:var(--ink)">100%</b> &middot; %TT = Σ(trọng số × %HT giai đoạn)</span>
+            <span style="font-weight:800;color:var(--ink);font-size:13px">53,5%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="cardMilestone">
+        <h3>
+          <span>Key milestone của 7 giai đoạn</span>
+          <span class="legend" id="msLegend"></span>
+        </h3>
+        <div class="msdetail" id="msDetail"></div>
+        <div class="b"><svg class="chart" id="msChart" role="img" aria-label="Các mốc ngày của 7 giai đoạn"></svg></div>
+      </div>
+
+      <div class="card" id="cardCompare">
+        <h3>
+          <span>Biểu đồ so sánh &mdash; <span id="cmpStage" style="color:var(--s-actual)">Gia công</span></span>
+          <span class="legend"><span><i style="background:var(--s-plan)"></i>Kế hoạch (tấn)</span><span><i style="background:var(--s-actual)"></i>Thực tế (tấn)</span></span>
+        </h3>
+        <div class="b"><svg class="chart" id="cmpChart" viewBox="0 0 980 340" role="img" aria-label="So sánh khối lượng kế hoạch và thực tế theo hạng mục"></svg></div>
+      </div>
+
+      <!-- ================= TẦNG 3 ================= -->
+      <div class="tier"><b>Tầng 3 &mdash; Xu hướng &amp; dự báo</b><i></i></div>
+      <div class="grid2">
+        <div class="card">
+          <h3><span>S-curve PV/EV/AC (12 tháng)</span>
+            <span class="legend"><span><i class="ln" style="background:var(--s-plan)"></i>PV</span><span><i class="ln" style="background:var(--s-actual)"></i>EV</span><span><i class="ln" style="background:var(--s-cost)"></i>AC</span></span>
+          </h3>
+          <div class="b"><svg class="chart" id="sCurve" viewBox="0 0 560 250" role="img" aria-label="S-curve PV EV AC"></svg></div>
+        </div>
+        <div class="card">
+          <h3><span>SPI / CPI trend (12 tháng)</span>
+            <span class="legend"><span><i class="ln" style="background:var(--s-actual)"></i>SPI</span><span><i class="ln" style="background:var(--s-third)"></i>CPI</span></span>
+          </h3>
+          <div class="b"><svg class="chart" id="spiCpi" viewBox="0 0 560 250" role="img" aria-label="SPI CPI trend"></svg></div>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <h3>What-if &mdash; % HT tháng sau</h3>
+          <div class="b">
+            <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--ink-2)">
+              <span>Tăng % HT thêm</span><b id="wiPct" style="color:var(--ink)">+5%</b>
+            </div>
+            <input class="slider" type="range" min="0" max="20" value="5" id="wiRange">
+            <div class="wi">
+              <div><div class="l">EAC hiện tại</div><div class="v">1.247 tỷ</div></div>
+              <div><div class="l">EAC mới</div><div class="v" id="wiEac">1.188 tỷ</div></div>
+              <div><div class="l">Giảm chi phí</div><div class="v" id="wiSave" style="color:var(--ok)">59 tỷ</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Lịch sử mã dự án</h3>
+          <div class="b">
+            <table>
+              <thead><tr><th>Mã dự án</th><th>Hiệu lực</th><th>Lý do</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">DDC-2026-0147</td><td>01/03/2026 – …</td><td>Mã hiện hành</td></tr>
+                <tr><td class="mono">TSN-T3-KC</td><td>18/01/2026 – 28/02/2026</td><td>Đổi theo mã CCM mới</td></tr>
+                <tr><td class="mono">PRJ-0147</td><td>05/01/2026 – 17/01/2026</td><td>Mã tạm khi chào thầu</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= TẦNG 4 ================= -->
+      <div class="tier"><b>Tầng 4 &mdash; Huy động nguồn lực</b><i></i></div>
+      <div class="grid2">
+        <div class="card" id="cardMan">
+          <h3><span>Nhân lực huy động theo nhà thầu <span class="pill">Nhập tay</span></span>
+            <span class="legend"><span><i style="background:var(--s-plan)"></i>Kế hoạch</span><span><i style="background:var(--s-third)"></i>Thực tế</span></span>
+          </h3>
+          <div class="b"><svg class="chart" id="manChart" role="img" aria-label="Nhân lực kế hoạch và thực tế theo từng nhà thầu"></svg></div>
+        </div>
+        <div class="card" id="cardEqp">
+          <h3><span>Thiết bị huy động theo nhóm <span class="pill">Nhập tay</span></span>
+            <span class="legend"><span><i style="background:var(--s-plan)"></i>Kế hoạch</span><span><i style="background:var(--s-cost)"></i>Thực tế</span></span>
+          </h3>
+          <div class="b"><svg class="chart" id="eqpChart" role="img" aria-label="Thiết bị kế hoạch và thực tế theo từng nhóm thiết bị"></svg></div>
+        </div>
+      </div>
+
+      <div class="tier"><b>Giữ nguyên &mdash; Alert / Tài chính / SAP / Ảnh hiện trường</b><i></i></div>
+      <div class="card"><div class="b" style="color:var(--ink-3);font-size:12px;text-align:center;padding:24px">
+        Alert &amp; Action &middot; Tài chính chi tiết &middot; Mã SAP &middot; Ảnh hiện trường — giữ nguyên như hiện tại
+      </div></div>
+    </main>
+  </div>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+/* ============================ DỮ LIỆU MẪU ============================ */
+var TODAY = "2026-09-22";
+var SUBS = ["Hệ giàn nâng","Hệ giàn Support","Hệ giàn nâng (gia cường)","Hệ chân Pin","Hệ móc bạt",
+            "Hệ supper Truss MB1","Hệ supper Truss MB2","Hệ mái di động","Hệ Facade","Hệ Walkaway"];
+var BASE = [2500,1800,960,1240,430,2100,2050,1450,980,540];
+
+var STAGES = [
+  {code:"design",     name:"Thiết kế",       w:5,  pct:1.00, mode:"dinh_tinh",
+   bdkh:"2026-03-01", htkh:"2026-04-10", ttbd:"2026-03-12", ttht:"2026-04-18", dk:"2026-04-18"},
+  {code:"shop",       name:"Shop Drawing",   w:10, pct:0.92, mode:"san_luong",
+   bdkh:"2026-04-05", htkh:"2026-06-20", ttbd:"2026-04-14", ttht:null,         dk:"2026-07-04"},
+  {code:"procurement",name:"Vật tư",         w:10, pct:0.78, mode:"san_luong",
+   bdkh:"2026-05-01", htkh:"2026-08-15", ttbd:"2026-05-09", ttht:null,         dk:"2026-08-31"},
+  {code:"fabrication",name:"Gia công",       w:40, pct:0.61, mode:"san_luong",
+   bdkh:"2026-06-01", htkh:"2026-11-30", ttbd:"2026-06-15", ttht:null,         dk:"2026-12-22"},
+  {code:"transport",  name:"Vận chuyển",     w:5,  pct:0.44, mode:"san_luong",
+   bdkh:"2026-07-15", htkh:"2026-12-20", ttbd:"2026-08-02", ttht:null,         dk:"2027-01-10"},
+  {code:"erection",   name:"Lắp dựng",       w:27, pct:0.18, mode:"san_luong", bot:true,
+   bdkh:"2026-09-01", htkh:"2027-02-10", ttbd:"2026-09-20", ttht:null,         dk:"2027-03-05"},
+  {code:"handover",   name:"Nghiệm thu & BG",w:3,  pct:0.00, mode:"dinh_tinh",
+   bdkh:"2027-02-11", htkh:"2027-02-28", ttbd:null,         ttht:null,         dk:"2027-03-15"}
+];
+
+var MONTHS = ["10/25","11/25","12/25","01/26","02/26","03/26","04/26","05/26","06/26","07/26","08/26","09/26"];
+var SC = {pv:[0,0,0,18,52,104,168,246,338,432,528,624],
+          ev:[0,0,0,15,46,96,155,229,318,405,497,593],
+          ac:[0,0,0,16,49,99,160,232,317,398,486,576]};
+var TREND = {spi:[null,null,null,0.83,0.88,0.92,0.92,0.93,0.94,0.94,0.94,0.95],
+             cpi:[null,null,null,0.94,0.94,0.97,0.97,0.99,1.00,1.02,1.02,1.03]};
+/* Nhap tay: danh sach nha thau (nhan luc) - tong khop scorecard 520 / 486 */
+var MANPOWER = [
+  {name:"Cty CP Xây lắp Delta",       note:"Lắp dựng kết cấu",  kh:140, tt:132},
+  {name:"Cơ khí Trường Thành",        note:"Gia công xưởng",    kh:120, tt:118},
+  {name:"Hòa Bình Steel",             note:"Gia công xưởng",    kh:95,  tt:86},
+  {name:"Lilama 18",                  note:"Lắp dựng mái",      kh:80,  tt:71},
+  {name:"Tổ đội DDC (nội bộ)",        note:"Giám sát · QA/QC",  kh:55,  tt:52},
+  {name:"Sơn phủ Nam Việt",           note:"Sơn · hoàn thiện",  kh:30,  tt:27}
+];
+/* Nhap tay: danh sach thiet bi - tong khop scorecard 72 / 63 */
+var EQUIP = [
+  {name:"Máy hàn tự động",            note:"Trường Thành",      kh:18, tt:16},
+  {name:"Xe nâng người (boom lift)",  note:"Delta",             kh:12, tt:11},
+  {name:"Xe vận chuyển chuyên dụng",  note:"Hòa Bình Steel",    kh:11, tt:9},
+  {name:"Máy cắt CNC plasma",         note:"Trường Thành",      kh:9,  tt:9},
+  {name:"Cẩu bánh lốp 80T",           note:"Lilama 18",         kh:8,  tt:7},
+  {name:"Máy phun sơn áp lực",        note:"Nam Việt",          kh:8,  tt:6},
+  {name:"Cẩu bánh xích 150T",         note:"Delta",             kh:6,  tt:5}
+];
+
+function subsOf(st){
+  return SUBS.map(function(n,i){
+    var kh = Math.round(BASE[i] * (st.code==="transport" ? 0.55 : 1));
+    var seed = ((i*37 + st.w*7) % 23) / 100;
+    var r = Math.max(0, Math.min(1.02, st.pct + (seed - 0.11)));
+    var tt = Math.round(kh * r);
+    return {name:n, kh:kh, tt:tt, pct: kh ? tt/kh : 0};
+  });
+}
+
+/* ============================ TIỆN ÍCH ============================ */
+var $ = function(s){return document.querySelector(s)};
+var SVGNS = "http://www.w3.org/2000/svg";
+function el(tag, attrs, parent){
+  var e = document.createElementNS(SVGNS, tag);
+  for(var k in attrs) e.setAttribute(k, attrs[k]);
+  if(parent) parent.appendChild(e);
+  return e;
+}
+function nf(n,d){ d = d===undefined?0:d;
+  return new Intl.NumberFormat("vi-VN",{maximumFractionDigits:d,minimumFractionDigits:d}).format(n); }
+function pctS(v){ return nf(v*100,1)+"%"; }
+function cssv(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function D(s){ return s ? new Date(s+"T00:00:00") : null; }
+function fmtD(s){ if(!s) return "—"; var d=D(s);
+  return ("0"+d.getDate()).slice(-2)+"/"+("0"+(d.getMonth()+1)).slice(-2)+"/"+String(d.getFullYear()).slice(2); }
+function days(a,b){ return Math.round((D(b)-D(a))/86400000); }
+
+var tip = $("#tip");
+function showTip(ev,title,rows){
+  var h = "<b>"+title+"</b>";
+  rows.forEach(function(r){
+    h += '<div class="r"><span>'+(r.c?'<i style="background:'+r.c+'"></i>':'')+r.k+'</span><span'+
+         (r.col?' style="color:'+r.col+'"':'')+'>'+r.v+'</span></div>';
+  });
+  tip.innerHTML=h; tip.style.opacity=1;
+  var w=tip.offsetWidth||170, hh=tip.offsetHeight||100;
+  var x=ev.clientX+15, y=ev.clientY+15;
+  if(x+w>innerWidth-8) x=ev.clientX-w-12;
+  if(y+hh>innerHeight-8) y=ev.clientY-hh-12;
+  tip.style.left=x+"px"; tip.style.top=y+"px";
+}
+function hideTip(){ tip.style.opacity=0; }
+
+/* ============================ POP-UP ĐẾM NGƯỢC ============================ */
+var TARGET = "2027-02-28";
+/* doi so -> chay animation bump cho sinh dong */
+function setDigit(sel, val){
+  var n = $(sel);
+  if(n.textContent === val) return;
+  n.textContent = val;
+  n.classList.remove("bump"); void n.offsetWidth; n.classList.add("bump");
+}
+function tickCountdown(){
+  var now = new Date();
+  var t = new Date(TARGET+"T17:00:00");
+  var ms = t - now;
+  if(ms < 0) ms = 0;
+  var d = Math.floor(ms/86400000);
+  var h = Math.floor(ms%86400000/3600000);
+  var m = Math.floor(ms%3600000/60000);
+  setDigit("#cdD", String(d));
+  setDigit("#cdH", ("0"+h).slice(-2));
+  setDigit("#cdM", ("0"+m).slice(-2));
+  $("#cdNow").textContent = now.toLocaleDateString("vi-VN");
+}
+tickCountdown(); setInterval(tickCountdown, 1000);
+
+/* ============================ CHUỖI GIÁ TRỊ ============================ */
+var selected = null;
+
+function renderStages(){
+  var box=$("#stageList"); box.innerHTML="";
+  STAGES.forEach(function(st){
+    var d=document.createElement("div");
+    d.className="stage"+(st.bot?" bot":"")+(selected===st.code?" sel":"");
+    d.innerHTML='<div class="nm">'+st.name+'</div><div class="w">'+st.w+'%</div>'+
+      '<div class="bar"><div class="fill" style="width:'+(st.pct*100)+'%"></div></div>'+
+      '<div class="pc">'+pctS(st.pct)+'</div>';
+    d.addEventListener("click",function(){
+      selected=(selected===st.code)?null:st.code;
+      renderStages(); renderMilestones(); renderCompare();
+    });
+    d.addEventListener("mousemove",function(ev){
+      showTip(ev,st.name,[
+        {k:"Trọng số",v:st.w+"%"},
+        {k:"% HT giai đoạn",v:pctS(st.pct)},
+        {k:"Đóng góp vào tổng",v:nf(st.w*st.pct,2)+"%"},
+        {k:"Cách nhập",v:st.mode==="dinh_tinh"?"Nhập tay %":"Theo sản lượng"}
+      ]);
+    });
+    d.addEventListener("mouseleave",hideTip);
+    box.appendChild(d);
+  });
+  $("#chainMode").textContent = selected
+    ? STAGES.filter(function(s){return s.code===selected})[0].name
+    : "Toàn bộ 7 giai đoạn";
+}
+
+/* ============================ KEY MILESTONE (line + 6 mốc) ============================ */
+var MS_KEYS = [
+  {k:"bdkh", lb:"Ngày BĐ KH",  cv:"--s-plan",     sh:"ring"},
+  {k:"htkh", lb:"Ngày HT KH",  cv:"--s-actual",   sh:"dot"},
+  {k:"ttbd", lb:"Ngày TT BĐ",  cv:"--s-third-lt", sh:"diamondO"},
+  {k:"ttht", lb:"Ngày TT HT",  cv:"--s-third",    sh:"diamond"},
+  {k:"dk",   lb:"Ngày dự kiến",cv:"--s-cost",     sh:"tri"}
+];
+function mark(g,sh,x,y,c){
+  if(sh==="ring")     el("circle",{cx:x,cy:y,r:5.4,fill:cssv("--surface"),stroke:c,"stroke-width":2.4},g);
+  else if(sh==="dot") el("circle",{cx:x,cy:y,r:5.6,fill:c,stroke:cssv("--surface"),"stroke-width":1.6},g);
+  else if(sh==="diamondO") el("rect",{x:x-4.9,y:y-4.9,width:9.8,height:9.8,fill:cssv("--surface"),stroke:c,
+        "stroke-width":2.2,transform:"rotate(45 "+x+" "+y+")",rx:1},g);
+  else if(sh==="diamond")  el("rect",{x:x-5,y:y-5,width:10,height:10,fill:c,stroke:cssv("--surface"),
+        "stroke-width":1.4,transform:"rotate(45 "+x+" "+y+")",rx:1},g);
+  else if(sh==="tri") el("path",{d:"M "+x+" "+(y-6)+" L "+(x+5.5)+" "+(y+4.5)+" L "+(x-5.5)+" "+(y+4.5)+" Z",
+        fill:c,stroke:cssv("--surface"),"stroke-width":1.3,"stroke-linejoin":"round"},g);
+}
+function renderMsLegend(){
+  var h = MS_KEYS.map(function(m){
+    return '<span><i style="background:var('+m.cv+');'+
+      (m.sh==="ring"||m.sh==="diamondO" ? "background:var(--surface);border:2px solid var("+m.cv+");" : "")+
+      (m.sh.indexOf("diamond")===0?"transform:rotate(45deg);":"")+
+      (m.sh==="tri"?"clip-path:polygon(50% 0,100% 100%,0 100%);border-radius:0;":"")+
+      '"></i>'+m.lb+'</span>';
+  }).join("");
+  h += '<span><i style="background:var(--danger);width:14px;height:3px;border-radius:2px"></i>Hôm nay</span>';
+  h += '<span><i style="background:var(--ink-3);width:14px;height:2px;border-radius:2px"></i>Chênh lệch (ngày)</span>';
+  $("#msLegend").innerHTML = h;
+}
+
+function renderMsDetail(){
+  var box=$("#msDetail");
+  if(!selected){
+    box.innerHTML='<span class="hint">Bấm vào một giai đoạn để xem đầy đủ 6 mốc ngày &middot; rê chuột lên từng hàng để xem nhanh</span>';
+    return;
+  }
+  var st=STAGES.filter(function(s){return s.code===selected})[0];
+  var endD = st.ttht || st.dk, dd = days(st.bdkh,endD);
+  var h = '<span style="font-weight:800;color:var(--ink)">'+st.name+'</span>';
+  MS_KEYS.forEach(function(m){
+    h += '<span class="k"><i style="background:var('+m.cv+')"></i>'+m.lb+' <b>'+fmtD(st[m.k])+'</b></span>';
+  });
+  h += '<span class="k"><i style="background:'+(dd>150?"var(--danger)":"var(--ink-3)")+'"></i>Chênh lệch <b style="color:'+
+       (dd>150?"var(--danger)":"var(--ink)")+'">'+dd+' ngày</b></span>';
+  box.innerHTML=h;
+}
+
+function renderMilestones(){
+  var svg=$("#msChart"); svg.innerHTML="";
+  var W=1000, rowH=54, mt=58, mb=16, ml=212, mr=132;
+  var H = mt + STAGES.length*rowH + mb;
+  svg.setAttribute("viewBox","0 0 "+W+" "+H);
+  var iw = W-ml-mr;
+  var d0=D("2026-03-01"), d1=D("2027-03-31"), span=d1-d0;
+  var X=function(s){ return ml + iw*((D(s)-d0)/span); };
+  var g=el("g",{},svg);
+
+  /* truc thang - chu 11px, chi ghi thang le nen khong dinh nhau */
+  for(var y=2026,m=3; !(y===2027&&m>3); m++){
+    if(m>12){m=1;y++;}
+    var s2=y+"-"+("0"+m).slice(-2)+"-01", x=X(s2);
+    el("line",{x1:x,x2:x,y1:mt-12,y2:mt+STAGES.length*rowH,stroke:cssv("--grid"),"stroke-width":1},g);
+    if(m%2===1) el("text",{x:x,y:mt-19,"text-anchor":"middle","font-size":11,fill:cssv("--axis"),"font-weight":700},g)
+      .textContent = ("0"+m).slice(-2)+"/"+String(y).slice(2);
+  }
+
+  /* moc hom nay */
+  var tx=X(TODAY);
+  el("line",{x1:tx,x2:tx,y1:26,y2:mt+STAGES.length*rowH+4,stroke:cssv("--danger"),"stroke-width":2,
+    "stroke-dasharray":"6 5"},g);
+  var pw=72;
+  el("rect",{x:tx-pw/2,y:4,width:pw,height:20,rx:10,fill:cssv("--danger")},g);
+  el("text",{x:tx,y:17.5,"text-anchor":"middle","font-size":10.5,"font-weight":800,fill:"#fff"},g).textContent="Hôm nay";
+
+  /* tieu de cot phai */
+  el("text",{x:W-6,y:mt-19,"text-anchor":"end","font-size":9.5,"font-weight":800,fill:cssv("--ink-3"),
+    "letter-spacing":.5},g).textContent="CHÊNH LỆCH";
+
+  STAGES.forEach(function(st,i){
+    var top = mt+i*rowH, cy = top + rowH/2;
+    if(selected===st.code)
+      el("rect",{x:2,y:top+3,width:W-4,height:rowH-6,rx:9,fill:"rgba(29,90,158,.10)",
+        stroke:cssv("--s-actual"),"stroke-width":1.2},g);
+    if(i) el("line",{x1:0,x2:W,y1:top,y2:top,stroke:cssv("--grid")},g);
+
+    /* ten giai doan 14px + trong so 11px, cach nhau >= 16px */
+    el("text",{x:8,y:cy+5,"font-size":14,"font-weight":700,
+      fill: selected===st.code?cssv("--s-actual"):cssv("--ink")},g).textContent=st.name;
+    el("text",{x:196,y:cy+5,"text-anchor":"end","font-size":11,"font-weight":800,fill:cssv("--ink-3")},g)
+      .textContent=st.w+"%";
+
+    /* dai KH (tren) + dai TT/du kien (duoi) */
+    var pY=cy-13, aY=cy+4, bh=9;
+    el("rect",{x:X(st.bdkh),y:pY,width:Math.max(X(st.htkh)-X(st.bdkh),3),height:bh,rx:4.5,
+      fill:cssv("--s-plan"),"fill-opacity":.55},g);
+    var aStart = st.ttbd, aEnd = st.ttht || st.dk;
+    if(aStart) el("rect",{x:X(aStart),y:aY,width:Math.max(X(aEnd)-X(aStart),3),height:bh,rx:4.5,
+      fill: st.ttht ? cssv("--s-third") : cssv("--s-cost"),"fill-opacity":.42},g);
+
+    MS_KEYS.forEach(function(mk){
+      if(!st[mk.k]) return;
+      if(mk.k==="dk" && st.ttht) return;     /* trung Ngay TT HT -> bo cho khoi de nhau */
+      var isPlan = (mk.k==="bdkh"||mk.k==="htkh");
+      mark(g, mk.sh, X(st[mk.k]), isPlan ? pY+bh/2 : aY+bh/2, cssv(mk.cv));
+    });
+
+    var dd = days(st.bdkh, aEnd);
+    el("text",{x:W-6,y:cy+5,"text-anchor":"end","font-size":13.5,"font-weight":800,
+      fill: dd>150 ? cssv("--danger") : cssv("--ink")},g).textContent = dd+" ngày";
+
+    var hit=el("rect",{x:0,y:top,width:W,height:rowH,fill:"transparent"},g);
+    hit.style.cursor="pointer";
+    hit.addEventListener("mousemove",function(ev){
+      showTip(ev, st.name+" · trọng số "+st.w+"%", [
+        {k:"Ngày BĐ KH",  v:fmtD(st.bdkh), c:cssv("--s-plan")},
+        {k:"Ngày HT KH",  v:fmtD(st.htkh), c:cssv("--s-actual")},
+        {k:"Ngày TT BĐ",  v:fmtD(st.ttbd), c:cssv("--s-third-lt")},
+        {k:"Ngày TT HT",  v:fmtD(st.ttht), c:cssv("--s-third")},
+        {k:"Ngày dự kiến",v:fmtD(st.dk),   c:cssv("--s-cost")},
+        {k:"Chênh lệch",  v:dd+" ngày", col: dd>150?cssv("--danger"):cssv("--ink")}
+      ]);
+    });
+    hit.addEventListener("mouseleave",hideTip);
+    hit.addEventListener("click",function(){
+      selected=(selected===st.code)?null:st.code;
+      renderStages(); renderMilestones(); renderCompare();
+    });
+  });
+  renderMsLegend();
+  renderMsDetail();
+}
+
+/* ============================ BIỂU ĐỒ SO SÁNH ============================ */
+function shortName(s){ return s.length>19 ? s.slice(0,18)+"…" : s; }
+function renderCompare(){
+  var st = selected ? STAGES.filter(function(s){return s.code===selected})[0]
+                    : STAGES.filter(function(s){return s.code==="fabrication"})[0];
+  $("#cmpStage").textContent = st.name + (selected ? "" : " (mặc định)");
+  var data=subsOf(st), svg=$("#cmpChart"); svg.innerHTML="";
+  var W=980,H=340,ml=48,mr=10,mt=26,mb=92, iw=W-ml-mr, ih=H-mt-mb;
+  var max=Math.max.apply(null,data.map(function(d){return Math.max(d.kh,d.tt)}));
+  max=Math.ceil(max/500)*500||500;
+  var g=el("g",{},svg);
+  for(var i=0;i<=4;i++){
+    var y=mt+ih-ih*i/4;
+    el("line",{x1:ml,x2:W-mr,y1:y,y2:y,stroke:cssv("--grid")},g);
+    el("text",{x:ml-9,y:y+4,"text-anchor":"end","font-size":10,fill:cssv("--axis")},g).textContent=nf(max*i/4);
+  }
+  el("text",{x:ml-9,y:mt-9,"text-anchor":"end","font-size":9.5,fill:cssv("--axis"),"font-weight":600},g).textContent="tấn";
+
+  var bw=iw/data.length, pad=bw*0.17, sw=(bw-pad*2-3)/2;
+  data.forEach(function(d,i){
+    var x0=ml+bw*i+pad;
+    [["Kế hoạch",d.kh,cssv("--s-plan")],["Thực tế",d.tt,cssv("--s-actual")]].forEach(function(p,j){
+      var h=ih*p[1]/max, x=x0+j*(sw+3), y=mt+ih-h;
+      var r=el("rect",{x:x,y:y,width:sw,height:Math.max(h,1),rx:4,fill:p[2]},g);
+      r.style.cursor="pointer";
+      el("text",{x:x+sw/2,y:y-5,"text-anchor":"middle","font-size":9,"font-weight":700,
+        fill: j===0?cssv("--ink-2"):cssv("--s-actual")},g).textContent=nf(p[1]);
+      r.addEventListener("mousemove",function(ev){
+        showTip(ev,d.name,[
+          {k:"Kế hoạch",v:nf(d.kh)+" tấn",c:cssv("--s-plan")},
+          {k:"Thực tế", v:nf(d.tt)+" tấn",c:cssv("--s-actual")},
+          {k:"Chênh lệch",v:nf(d.tt-d.kh)+" tấn",col:cssv("--danger")},
+          {k:"% HT",v:pctS(d.pct)}
+        ]);
+      });
+      r.addEventListener("mouseleave",hideTip);
+    });
+    var lx=ml+bw*i+bw/2, ly=mt+ih+15;
+    el("text",{x:lx,y:ly,"text-anchor":"end","font-size":10,fill:cssv("--ink-2"),"font-weight":500,
+      transform:"rotate(-38 "+lx+" "+ly+")"},g).textContent=shortName(d.name);
+  });
+  el("line",{x1:ml,x2:W-mr,y1:mt+ih,y2:mt+ih,stroke:cssv("--border-2")},g);
+}
+
+/* ============================ S-CURVE ============================ */
+function renderSCurve(){
+  var svg=$("#sCurve"); svg.innerHTML="";
+  var W=560,H=250,ml=44,mr=10,mt=14,mb=32, iw=W-ml-mr, ih=H-mt-mb, max=700;
+  var g=el("g",{},svg);
+  for(var i=0;i<=4;i++){
+    var y=mt+ih-ih*i/4;
+    el("line",{x1:ml,x2:W-mr,y1:y,y2:y,stroke:cssv("--grid")},g);
+    el("text",{x:ml-7,y:y+4,"text-anchor":"end","font-size":10,fill:cssv("--axis")},g).textContent=nf(max*i/4);
+  }
+  var X=function(i){return ml+iw*i/(MONTHS.length-1)}, Y=function(v){return mt+ih-ih*v/max};
+  MONTHS.forEach(function(m,i){ if(i%2===0)
+    el("text",{x:X(i),y:mt+ih+15,"text-anchor":"middle","font-size":9.5,fill:cssv("--axis")},g).textContent=m; });
+  function line(key,color,dash){
+    var d=SC[key].map(function(v,i){return (i?"L":"M")+X(i)+" "+Y(v)}).join(" ");
+    if(!dash) el("path",{d:d+" L"+X(MONTHS.length-1)+" "+Y(0)+" L"+X(0)+" "+Y(0)+" Z",
+      fill:color,"fill-opacity":0.1,stroke:"none"},g);
+    el("path",{d:d,fill:"none",stroke:color,"stroke-width":2.2,"stroke-linejoin":"round",
+      "stroke-dasharray":dash||"none"},g);
+  }
+  line("pv",cssv("--s-plan")); line("ev",cssv("--s-actual")); line("ac",cssv("--s-cost"),"5 4");
+  var cross=el("line",{x1:0,x2:0,y1:mt,y2:mt+ih,stroke:cssv("--border-2"),opacity:0},g);
+  var dots=[cssv("--s-plan"),cssv("--s-actual"),cssv("--s-cost")].map(function(c){
+    return el("circle",{r:4.5,fill:c,stroke:cssv("--surface"),"stroke-width":2,opacity:0},g); });
+  var hit=el("rect",{x:ml,y:mt,width:iw,height:ih,fill:"transparent"},g);
+  hit.addEventListener("mousemove",function(ev){
+    var bb=svg.getBoundingClientRect(), px=(ev.clientX-bb.left)/bb.width*W;
+    var i=Math.max(0,Math.min(MONTHS.length-1,Math.round((px-ml)/iw*(MONTHS.length-1))));
+    cross.setAttribute("x1",X(i)); cross.setAttribute("x2",X(i)); cross.setAttribute("opacity",1);
+    ["pv","ev","ac"].forEach(function(k,j){ dots[j].setAttribute("cx",X(i));
+      dots[j].setAttribute("cy",Y(SC[k][i])); dots[j].setAttribute("opacity",1); });
+    showTip(ev,"Tháng "+MONTHS[i],[
+      {k:"PV",v:nf(SC.pv[i])+" tỷ",c:cssv("--s-plan")},
+      {k:"EV",v:nf(SC.ev[i])+" tỷ",c:cssv("--s-actual")},
+      {k:"AC",v:nf(SC.ac[i])+" tỷ",c:cssv("--s-cost")}]);
+  });
+  hit.addEventListener("mouseleave",function(){hideTip();cross.setAttribute("opacity",0);
+    dots.forEach(function(d){d.setAttribute("opacity",0)})});
+}
+
+/* ============================ SPI / CPI ============================ */
+function renderSpiCpi(){
+  var svg=$("#spiCpi"); svg.innerHTML="";
+  var W=560,H=250,ml=44,mr=10,mt=14,mb=32, iw=W-ml-mr, ih=H-mt-mb, lo=0.7, hi=1.2;
+  var g=el("g",{},svg);
+  var Y=function(v){return mt+ih-ih*(v-lo)/(hi-lo)}, X=function(i){return ml+iw*i/(MONTHS.length-1)};
+  [0.7,0.8,0.9,1.0,1.1,1.2].forEach(function(v){
+    el("line",{x1:ml,x2:W-mr,y1:Y(v),y2:Y(v),stroke:cssv("--grid")},g);
+    el("text",{x:ml-7,y:Y(v)+4,"text-anchor":"end","font-size":10,fill:cssv("--axis")},g).textContent=nf(v,2);
+  });
+  el("line",{x1:ml,x2:W-mr,y1:Y(0.9),y2:Y(0.9),stroke:cssv("--warn"),"stroke-width":1.4,"stroke-dasharray":"5 4"},g);
+  el("text",{x:W-mr,y:Y(0.9)-6,"text-anchor":"end","font-size":9.5,fill:cssv("--warn"),"font-weight":700},g)
+    .textContent="Ngưỡng 0,90";
+  MONTHS.forEach(function(m,i){ if(i%2===0)
+    el("text",{x:X(i),y:mt+ih+15,"text-anchor":"middle","font-size":9.5,fill:cssv("--axis")},g).textContent=m; });
+  ["spi","cpi"].forEach(function(k,j){
+    var c = j===0?cssv("--s-actual"):cssv("--s-third");
+    var pts=TREND[k].map(function(v,i){return v==null?null:[X(i),Y(v)]}).filter(Boolean);
+    el("path",{d:pts.map(function(p,i){return (i?"L":"M")+p[0]+" "+p[1]}).join(" "),fill:"none",
+      stroke:c,"stroke-width":2.2,"stroke-linejoin":"round","stroke-dasharray":j===1?"6 4":"none"},g);
+    pts.forEach(function(p){ el("circle",{cx:p[0],cy:p[1],r:3.2,fill:c},g); });
+    var last=pts[pts.length-1];
+    el("text",{x:last[0]-4,y:last[1]-9,"text-anchor":"end","font-size":10.5,"font-weight":700,fill:cssv("--ink")},g)
+      .textContent=k.toUpperCase()+" "+nf(TREND[k][MONTHS.length-1],2);
+  });
+  var hit=el("rect",{x:ml,y:mt,width:iw,height:ih,fill:"transparent"},g);
+  hit.addEventListener("mousemove",function(ev){
+    var bb=svg.getBoundingClientRect(), px=(ev.clientX-bb.left)/bb.width*W;
+    var i=Math.max(0,Math.min(MONTHS.length-1,Math.round((px-ml)/iw*(MONTHS.length-1))));
+    if(TREND.spi[i]==null){hideTip();return;}
+    showTip(ev,"Tháng "+MONTHS[i],[
+      {k:"SPI",v:nf(TREND.spi[i],2),c:cssv("--s-actual")},
+      {k:"CPI",v:nf(TREND.cpi[i],2),c:cssv("--s-third")}]);
+  });
+  hit.addEventListener("mouseleave",hideTip);
+}
+
+/* ============ DANH SÁCH NHÀ THẦU / THIẾT BỊ (nhập tay) - thanh ngang ============ */
+function fitText(t, maxLen, node){
+  node.textContent = t;
+  if(node.getComputedTextLength() <= maxLen) return;
+  var s2 = t;
+  while(s2.length > 4 && node.getComputedTextLength() > maxLen){
+    s2 = s2.slice(0, -1); node.textContent = s2 + "…";
+  }
+}
+function renderResource(svgId, rows, actualVar, unit){
+  var svg=$(svgId); svg.innerHTML="";
+  var W=560, rowH=32, head=24, foot=32, ml=152, mr=126;
+  var H = head + rows.length*rowH + foot;
+  svg.setAttribute("viewBox","0 0 "+W+" "+H);
+  var iw = W-ml-mr;
+  var max = Math.max.apply(null, rows.map(function(r){return Math.max(r.kh,r.tt)}));
+  var g = el("g",{},svg);
+
+  /* tiêu đề cột - canh phải, cách nhau 42px nên không dính số */
+  var cKH = W-92, cTT = W-46, cPC = W-4;
+  [[ml, "start", "Huy động (thanh: KH / TT)"],[cKH,"end","KH"],[cTT,"end","TT"],[cPC,"end","Đạt"]]
+    .forEach(function(c){
+      el("text",{x:c[0],y:14,"text-anchor":c[1],"font-size":8.5,"font-weight":800,
+        "letter-spacing":.6,fill:cssv("--ink-3")},g).textContent=c[2];
+    });
+  el("line",{x1:0,x2:W,y1:head-5,y2:head-5,stroke:cssv("--border")},g);
+
+  rows.forEach(function(r,i){
+    var top = head + i*rowH, cy = top + rowH/2;
+    if(i) el("line",{x1:0,x2:W,y1:top,y2:top,stroke:cssv("--grid")},g);
+
+    /* tên + ghi chú: 2 dòng, không đè lên vùng thanh */
+    var nm = el("text",{x:4,y:cy-2,"font-size":10.5,"font-weight":650,fill:cssv("--ink")},g);
+    fitText(r.name, ml-16, nm);
+    var nt = el("text",{x:4,y:cy+10,"font-size":9,fill:cssv("--ink-3")},g);
+    fitText(r.note, ml-16, nt);
+
+    /* 2 thanh ngang, cách nhau 2px */
+    var wKH = iw*r.kh/max, wTT = iw*r.tt/max;
+    el("rect",{x:ml,y:cy-9,width:Math.max(wKH,2),height:7,rx:3.5,fill:cssv("--s-plan")},g);
+    el("rect",{x:ml,y:cy+2,width:Math.max(wTT,2),height:7,rx:3.5,fill:cssv(actualVar)},g);
+
+    var pc = r.tt/r.kh;
+    el("text",{x:cKH,y:cy+4,"text-anchor":"end","font-size":11,"font-weight":700,
+      fill:cssv("--ink-2")},g).textContent=nf(r.kh);
+    el("text",{x:cTT,y:cy+4,"text-anchor":"end","font-size":11,"font-weight":800,
+      fill:cssv(actualVar)},g).textContent=nf(r.tt);
+    el("text",{x:cPC,y:cy+4,"text-anchor":"end","font-size":10.5,"font-weight":800,
+      fill: pc<0.85 ? cssv("--danger") : (pc<0.95 ? cssv("--warn") : cssv("--ok"))},g)
+      .textContent = nf(pc*100,0)+"%";
+
+    var hit=el("rect",{x:0,y:top,width:W,height:rowH,fill:"transparent"},g);
+    hit.style.cursor="default";
+    hit.addEventListener("mousemove",function(ev){
+      showTip(ev, r.name, [
+        {k:"Phụ trách", v:r.note},
+        {k:"Kế hoạch",  v:nf(r.kh)+" "+unit, c:cssv("--s-plan")},
+        {k:"Thực tế",   v:nf(r.tt)+" "+unit, c:cssv(actualVar)},
+        {k:"Thiếu",     v:nf(r.kh-r.tt)+" "+unit, col: r.kh>r.tt?cssv("--danger"):cssv("--ink")},
+        {k:"Đạt",       v:nf(pc*100,1)+"%"}
+      ]);
+    });
+    hit.addEventListener("mouseleave",hideTip);
+  });
+
+  /* dòng tổng */
+  var ty = head + rows.length*rowH;
+  el("line",{x1:0,x2:W,y1:ty,y2:ty,stroke:cssv("--border-2"),"stroke-width":1.4},g);
+  var tKH = rows.reduce(function(a,r){return a+r.kh},0);
+  var tTT = rows.reduce(function(a,r){return a+r.tt},0);
+  el("text",{x:4,y:ty+20,"font-size":10.5,"font-weight":800,fill:cssv("--ink")},g)
+    .textContent = "TỔNG ("+rows.length+" "+(unit==="người"?"nhà thầu":"nhóm thiết bị")+")";
+  el("text",{x:cKH,y:ty+20,"text-anchor":"end","font-size":11,"font-weight":700,fill:cssv("--ink-2")},g).textContent=nf(tKH);
+  el("text",{x:cTT,y:ty+20,"text-anchor":"end","font-size":11.5,"font-weight":800,fill:cssv(actualVar)},g).textContent=nf(tTT);
+  el("text",{x:cPC,y:ty+20,"text-anchor":"end","font-size":10.5,"font-weight":800,
+    fill: tTT/tKH<0.9 ? cssv("--warn") : cssv("--ok")},g).textContent = nf(tTT/tKH*100,1)+"%";
+}
+
+/* ============================ TƯƠNG TÁC ============================ */
+function jumpTo(sel){
+  var c=document.querySelector(sel);
+  c.scrollIntoView({behavior:"smooth",block:"center"});
+  c.classList.remove("flash"); void c.offsetWidth; c.classList.add("flash");
+}
+$("#kpiMan").addEventListener("click",function(){jumpTo("#cardMan")});
+$("#kpiEqp").addEventListener("click",function(){jumpTo("#cardEqp")});
+
+$("#wiRange").addEventListener("input",function(e){
+  var p=+e.target.value; $("#wiPct").textContent="+"+p+"%";
+  var eac=1247, ne=Math.round(eac*(1-p*0.0095));
+  $("#wiEac").textContent=nf(ne)+" tỷ"; $("#wiSave").textContent=nf(eac-ne)+" tỷ";
+});
+
+var onDetail=true;
+$("#btnPage").addEventListener("click",function(){
+  onDetail=!onDetail;
+  $("#hdrTitle").textContent = onDetail ? "Nhà ga hành khách T3 - Tân Sơn Nhất" : "Quản Trị Danh Mục Dự Án";
+  $("#hdrSub").textContent   = onDetail ? "Chi tiết dự án · DDC-2026-0147" : "Tổng quan danh mục";
+  this.textContent = onDetail ? "Xem: Tổng quan" : "Xem: Chi tiết DA";
+});
+$("#btnTheme").addEventListener("click",function(){
+  var d=document.documentElement.getAttribute("data-theme")==="dark";
+  document.documentElement.setAttribute("data-theme",d?"light":"dark");
+  this.textContent=d?"Tối":"Sáng"; drawAll();
+});
+$("#btnShell").addEventListener("click",function(){
+  var r=document.documentElement.getAttribute("data-shell")==="red";
+  if(r){document.documentElement.removeAttribute("data-shell");this.textContent="Vỏ: Đỏ";}
+  else {document.documentElement.setAttribute("data-shell","red");this.textContent="Vỏ: Navy";}
+});
+
+function drawAll(){
+  renderMilestones(); renderCompare(); renderSCurve(); renderSpiCpi();
+  renderResource("#manChart",MANPOWER,"--s-third","người");
+  renderResource("#eqpChart",EQUIP,"--s-cost","thiết bị");
+}
+renderStages(); drawAll();
+addEventListener("resize",drawAll);
+</script>
+</body>
+</html>

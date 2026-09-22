@@ -1,0 +1,149 @@
+==========================================================================================
+FILE: _material/DDC_De_Bai_QTDMDA.docx
+==========================================================================================
+ĐỀ BÀI QUẢN TRỊ DANH MỤC DỰ ÁN
+NGÀNH KẾT CẤU THÉP — ĐẠI DŨNG CORPORATION (DDC)
+Kỳ báo cáo: Theo năm tài chính của DDC   |    Phòng KHDATT
+
+--- TABLE 1 ---
+0 | TÓM TẮT ĐIỀU HÀNH (EXECUTIVE SUMMARY)
+0.1 | Điểm nổi bật kỳ báo cáo (highlight)
+0.2 | Danh sách dự án cần BOD chú ý / ra quyết định (watch-list)
+0.3 | So sánh với kỳ trước — xu hướng chính (trend)
+1 | TỔNG QUAN DANH MỤC DỰ ÁN
+1.1 | Tổng số dự án, tổng giá trị hợp đồng
+1.2 | Dự án đã hoàn thành / đang triển khai / chuẩn bị triển khai / tạm dừng
+1.3 | Cơ cấu danh mục theo giá trị hợp đồng
+2 | TIẾN ĐỘ & RỦI RO HỢP ĐỒNG
+2.1 | Dự án đúng tiến độ
+2.2 | Dự án trễ tiến độ
+2.3 | Dự án có nguy cơ bị phạt HĐ
+2.4 | Dự án đã bị phạt HĐ
+2.5 | Dự án có phát sinh thay đổi phạm vi (Variation / Change Order)
+3 | HIỆU QUẢ EVM — DỰ ÁN ĐANG TRIỂN KHAI
+3.1 | SPI trung bình
+3.2 | CPI trung bình
+3.3 | DA có SPI < 0.9
+3.4 | DA có CPI < 0.9
+3.5 | EAC — Dự báo chi phí hoàn thành so với ngân sách
+3.6 | Dự báo ngày hoàn thành thực tế so với hợp đồng
+4 | TÀI CHÍNH DỰ ÁN
+4.1 | Doanh thu ghi nhận kỳ này / lũy kế
+4.2 | Chi phí thực tế kỳ này / lũy kế
+4.3 | Lợi nhuận gộp & biên lợi nhuận theo dự án / toàn danh mục
+4.4 | So sánh với kế hoạch / ngân sách
+5 | BACKLOG & CÔNG NỢ
+5.1 | Backlog (HĐ chưa khởi công, VNĐ)
+5.2 | Tổng công nợ đã thu (VNĐ)
+5.3 | Tổng công nợ chưa thu (VNĐ)
+5.4 | Tổng công nợ quá hạn (VNĐ)
+6 | NĂNG LỰC SẢN XUẤT & NGUỒN LỰC
+6.1 | Sản lượng gia công (tấn thép / tháng)
+6.2 | Công suất xưởng đang khai thác (%)
+6.3 | Nhân sự công trường / xưởng theo dự án
+6.4 | Tồn kho & biến động giá thép tấm / thép hình
+7 | AN TOÀN & CHẤT LƯỢNG
+7.1 | Số vụ tai nạn lao động / mức độ nghiêm trọng
+7.2 | Tỷ lệ lỗi chất lượng (NCR) chưa xử lý
+8 | CƠ CẤU DANH MỤC (tham khảo / drill-down)
+8.1 | Theo tính chất: trong nước / xuất khẩu / nội bộ
+8.2 | Theo phạm vi: có/không lắp dựng, thiết kế, cấp vật tư, vận chuyển
+8.3 | Theo loại hình: EPC, đóng tàu, sân bay, nhà xưởng, cầu cảng, sân vận động, cao tầng...
+8.4 | Theo khách hàng: VIN GROUP, SUN GROUP...
+9 | GIAI ĐOẠN DỰ ÁN (chi tiết vận hành)
+9.1 | Giai đoạn đấu thầu
+9.2 | Giai đoạn thiết kế
+9.3 | Giai đoạn Shop (bản vẽ chế tạo)
+9.4 | Giai đoạn cung cấp vật tư
+9.5 | Giai đoạn gia công
+9.6 | Giai đoạn vận chuyển
+9.7 | Giai đoạn lắp dựng
+9.8 | Giai đoạn nghiệm thu
+9.9 | Giai đoạn đóng mã dự án
+
+
+==========================================================================================
+FILE: _material/QuyUoc_DinhNghia_NguongDanhGia.docx
+==========================================================================================
+QUY ƯỚC ĐỊNH NGHĨA & NGƯỠNG ĐÁNH GIÁ
+BÁO CÁO QUẢN TRỊ DANH MỤC DỰ ÁN
+Phòng Kế hoạch Dự án Trung tâm (KHDATT) — Đại Dũng Corporation
+1. Mục đích
+Văn bản này chốt các định nghĩa, công thức tính và ngưỡng đánh giá dùng thống nhất cho Báo cáo quản trị danh mục dự án hàng tháng trình BOD, nhằm đảm bảo số liệu nhất quán qua các kỳ báo cáo, không phụ thuộc vào cách hiểu của người tổng hợp. Mọi thay đổi ngưỡng phải được BOD/Trưởng phòng phê duyệt và cập nhật phiên bản tại mục 7.
+2. Phân loại trạng thái dự án
+Mỗi dự án tại một thời điểm báo cáo chỉ thuộc một trong ba trạng thái sau, xác định theo Ngày bắt đầu/kết thúc thực tế và % hoàn thành thực tế:
+3. Đúng tiến độ / Trễ tiến độ
+Áp dụng cho dự án ở trạng thái “Đang triển khai”. So sánh % hoàn thành thực tế với % hoàn thành kế hoạch tại cùng thời điểm báo cáo (theo baseline tiến độ đã phê duyệt):
+Ghi chú: Biên độ 5% là đề xuất khởi điểm, có thể điều chỉnh theo đặc thù nhóm dự án (VD: dự án EPC lớn có thể dùng SPI theo EVM thay cho % tiến độ thô — xem mục 6).
+4. Nguy cơ bị phạt hợp đồng / Đã bị phạt hợp đồng
+5. Phân loại theo tính chất hợp đồng
+6. “Lượng & Trị” theo Team kinh doanh
+Áp dụng cho các mục theo dõi hiệu quả kinh doanh theo team, tính trên dự án đang hoạt động trong kỳ báo cáo (không tính dự án Nội bộ trừ khi có yêu cầu riêng):
+Lượng: Tổng khối lượng kết cấu thép (tấn) theo giá trị Gia công/Lắp dựng ghi nhận trong kỳ, theo từng Team KD phụ trách hợp đồng.
+Trị: Tổng giá trị hợp đồng/doanh thu ghi nhận (VNĐ) trong kỳ, theo từng Team KD.
+Kỳ ghi nhận: theo tháng báo cáo (dương lịch), số liệu lấy tại thời điểm khóa số liệu — xem mục 7.
+7. Kỳ báo cáo, nguồn dữ liệu & khóa số liệu
+8. Bảng tổng hợp quy ước (tóm tắt nhanh)
+9. Bổ sung — 4 nhóm chỉ tiêu ưu tiên (v1.1)
+Từ kỳ báo cáo tháng 08/2026, danh mục dự án bổ sung 4 nhóm chỉ tiêu dưới đây, dựa trên năng lực dữ liệu hiện có của phòng (EVM, chuỗi giá trị DDC, mobilization thiết bị).
+Ghi chú: EAC/ETC, dòng tiền chi tiết, VO/Claim, năng suất nhà máy và HSE là các nhóm chỉ tiêu nâng cao, đưa vào các phiên bản tiếp theo khi dữ liệu nguồn (kế toán dự án, QLCL, ATLĐ) được kết nối đầy đủ.
+10. Phê duyệt
+Phiên bản: v1.0 — Ngày ban hành: ___/___/2026
+
+--- TABLE 1 ---
+Trạng thái | Điều kiện xác định | Ghi chú
+Chuẩn bị triển khai | Chưa có Ngày bắt đầu thực tế (chưa khởi công / chưa ký HĐ triển khai) | Bao gồm dự án đang đấu thầu/đàm phán đã có xác nhận trúng thầu
+Đang triển khai | Đã có Ngày bắt đầu thực tế và % hoàn thành thực tế < 100% | Trạng thái mặc định trong suốt vòng đời thi công
+Hoàn thành | % hoàn thành thực tế ≥ 100% và có Ngày kết thúc thực tế / nghiệm thu | Dự án đã bàn giao, có biên bản nghiệm thu hoặc quyết toán
+
+--- TABLE 2 ---
+Phân loại | Ngưỡng | Diễn giải
+Đúng tiến độ | % Thực tế ≥ % Kế hoạch − 5% | Sai lệch trong biên độ chấp nhận, không cần escalation
+Trễ tiến độ | % Thực tế < % Kế hoạch − 5% | Cần nêu nguyên nhân và Action Item trong báo cáo
+
+--- TABLE 3 ---
+Phân loại | Ngưỡng | Diễn giải
+Có nguy cơ bị phạt HĐ | Còn ≤ 30 ngày đến mốc bàn giao cam kết, VÀ % hoàn thành thực tế dự kiến không đạt 100% đúng hạn (chưa bị phạt chính thức) | Cảnh báo sớm để BOD can thiệp nguồn lực
+Đã bị phạt HĐ | Đã quá Ngày cam kết bàn giao mà chưa nghiệm thu, VÀ đã có văn bản/quyết định phạt từ Khách hàng | Ghi nhận giá trị phạt (nếu có) trong báo cáo chi tiết
+Không rủi ro | Còn > 30 ngày đến mốc cam kết, hoặc đã hoàn thành đúng hạn | —
+
+--- TABLE 4 ---
+Loại dự án | Định nghĩa
+Trong nước | Chủ đầu tư/Khách hàng và công trình đều tại Việt Nam
+Xuất khẩu | Sản phẩm kết cấu thép gia công tại DDC, xuất/lắp dựng cho công trình ngoài Việt Nam
+Nội bộ | Dự án phục vụ nội bộ Tập đoàn (không phát sinh doanh thu bên thứ ba) hoặc dự án nghiên cứu/cải tiến
+
+--- TABLE 5 ---
+Nội dung | Quy định
+Nguồn dữ liệu gốc | Sheet “MasterData” trong file DDC_KHDATT_DanhMuc_DuAn.xlsx — cập nhật bởi PM/Điều độ từng dự án
+Chu kỳ cập nhật | Hàng tháng, chốt số liệu trước ngày làm việc thứ 3 của tháng kế tiếp
+Người khóa số liệu | Trưởng phòng KHDATT phê duyệt trước khi đưa vào báo cáo BOD
+Lưu vết lịch sử | Mỗi kỳ chốt được lưu 1 dòng snapshot tại sheet “LichSuThang” để dựng biểu đồ xu hướng
+
+--- TABLE 6 ---
+Chỉ tiêu | Công thức / Ngưỡng
+Tổng số dự án | COUNT toàn bộ dòng MasterData trong kỳ
+Dự án đã hoàn thành | COUNTIF(Trạng thái = "Hoàn thành")
+Dự án đang triển khai | COUNTIF(Trạng thái = "Đang triển khai")
+Dự án chuẩn bị triển khai | COUNTIF(Trạng thái = "Chuẩn bị triển khai")
+Dự án đúng tiến độ | COUNTIFS(Đang triển khai; %TT ≥ %KH − 5%)
+Dự án trễ tiến độ | COUNTIFS(Đang triển khai; %TT < %KH − 5%)
+Dự án bị phạt HĐ | COUNTIF(Trạng thái phạt = "Đã phạt")
+Dự án có nguy cơ bị phạt HĐ | COUNTIFS(Ngày cam kết − Hôm nay ≤ 30; %TT < 100%)
+Dự án trong nước / xuất khẩu / nội bộ | COUNTIF(Loại DA = tương ứng)
+Lượng & Trị theo Team KD | SUMIFS(Khối lượng/Giá trị; Team KD = tương ứng)
+
+--- TABLE 7 ---
+Nhóm chỉ tiêu | Công thức / Định nghĩa | Ngưỡng cảnh báo
+SPI (Schedule Performance Index) | SPI = EV / PV, với PV = Giá trị HĐ × %HT KH; EV = Giá trị HĐ × %HT TT | SPI < 0.9: cảnh báo trễ tiến độ theo giá trị
+CPI (Cost Performance Index) | CPI = EV / AC, với AC = Chi phí thực tế lũy kế | CPI < 0.9: cảnh báo vượt chi phí
+Khâu nghẽn theo chuỗi giá trị | Xác định công đoạn đầu tiên < 100% theo thứ tự: Thiết kế → Shop Drawing → Gia công → Vận chuyển → Lắp dựng | Dùng để định hướng hành động đúng khâu, không chỉ báo trễ/đúng chung
+Huy động thiết bị | So sánh số lượng thiết bị (cần cẩu, xe vận chuyển…) kế hoạch huy động và thực tế huy động | Tỷ lệ đạt huy động < 80%: cảnh báo thiếu nguồn lực hiện trường
+Backlog | Tổng giá trị hợp đồng của các dự án ở trạng thái “Chuẩn bị triển khai” (đã ký, chưa khởi công) | Theo dõi xu hướng tăng/giảm qua các kỳ, không có ngưỡng cố định
+Công nợ quá hạn | Tổng công nợ phải thu quá hạn theo dự án, cập nhật thủ công từ phòng Tài chính/Kế toán | Công nợ quá hạn > 5% giá trị HĐ: cảnh báo rủi ro thu hồi
+
+--- TABLE 8 ---
+Người soạn | Người kiểm soát | Người phê duyệt
+Chuyên viên Kế hoạch | Trưởng phòng KHDATT | Ban Điều hành (BOD)
+
+

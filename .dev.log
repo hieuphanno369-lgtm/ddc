@@ -1,0 +1,1023 @@
+
+> ddc-control-tower@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.15
+  - Local:        http://localhost:3000
+  - Environments: .env
+
+ ✓ Starting...
+ ✓ Ready in 1837ms
+ ✓ Compiled /middleware in 145ms
+ ✓ Compiled (213 modules)
+ ○ Compiling /[locale]/overview ...
+ ✓ Compiled /[locale]/overview in 11s (2601 modules)
+ GET /vi/overview 200 in 4024ms
+ ○ Compiling /api/health ...
+ ✓ Compiled /api/health in 5.5s (1681 modules)
+ GET /api/health 200 in 5658ms
+ ○ Compiling /[locale]/login ...
+ ✓ Compiled /[locale]/login in 823ms (2639 modules)
+ GET /vi/overview?_rsc=q8fvg 200 in 193ms
+ GET /vi/login 200 in 1705ms
+ GET /vi/overview 307 in 168ms
+ GET /en/login 200 in 78ms
+ ✓ Compiled /[locale]/projects in 377ms (2629 modules)
+ ○ Compiling /[locale]/projects/[id] ...
+ ✓ Compiled /[locale]/projects/[id] in 792ms (2671 modules)
+ GET /vi/projects/2?_rsc=1ahgr 200 in 135ms
+ ✓ Compiled /[locale]/report in 440ms (2676 modules)
+ GET /vi/report?_rsc=1oq46 200 in 184ms
+ ✓ Compiled /[locale]/alerts in 459ms (2683 modules)
+ GET /vi/alerts?_rsc=fuo72 200 in 70ms
+ ✓ Compiled /[locale]/compliance in 436ms (2687 modules)
+ GET /vi/compliance?_rsc=vyj68 200 in 127ms
+ ✓ Compiled /[locale]/audit in 441ms (2689 modules)
+ GET /vi/audit?_rsc=ou1a2 200 in 66ms
+ GET /vi/overview?_rsc=otovh 200 in 133ms
+ GET /en/report?_rsc=100kv 200 in 184ms
+ ○ Compiling /api/report/export ...
+ ✓ Compiled /api/report/export in 3.8s (2199 modules)
+ GET /api/report/export 200 in 4404ms
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at new ChildProcessWorker (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:10741)
+    at WorkerPool.createWorker (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:6314)
+    at new BaseWorkerPool (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:8173)
+    at new WorkerPool (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:6110)
+    at new Worker (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:23092)
+    at DevServer.getStaticPathsWorker (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\dev\next-dev-server.js:104:24)
+    at __getStaticPaths (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\dev\next-dev-server.js:488:44)
+    at __wrapper (D:\_project\DDC_Control_Tower\node_modules\next\dist\lib\coalesced-function.js:22:31)
+    at D:\_project\DDC_Control_Tower\node_modules\next\dist\lib\coalesced-function.js:24:24
+    at DevServer.getStaticPaths (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\dev\next-dev-server.js:518:89)
+    at DevServer.renderToResponseWithComponentsImpl (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:1055:44)
+    at D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:1003:121
+    at NextTracerImpl.trace (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\lib\trace\tracer.js:105:20)
+    at DevServer.renderToResponseWithComponents (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:1003:41)
+    at DevServer.renderPageComponent (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:1908:35)
+    at async DevServer.renderToResponseImpl (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:1946:32)
+    at async DevServer.pipeImpl (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:921:25)
+    at async NextNodeServer.handleCatchallRenderRequest (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\next-server.js:272:17)
+    at async DevServer.handleRequestImpl (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:817:17)
+    at async D:\_project\DDC_Control_Tower\node_modules\next\dist\server\dev\next-dev-server.js:339:20
+    at async Span.traceAsyncFn (D:\_project\DDC_Control_Tower\node_modules\next\dist\trace\trace.js:154:20)
+    at async DevServer.handleRequest (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\dev\next-dev-server.js:336:24)
+    at async invokeRender (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\lib\router-server.js:173:21)
+    at async handleRequest (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\lib\router-server.js:350:24)
+    at async requestHandlerImpl (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\lib\router-server.js:374:13)
+    at async Server.requestListener (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\lib\start-server.js:141:13) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at new ChildProcessWorker (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:10741)
+    at WorkerPool.createWorker (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:6314)
+    at new BaseWorkerPool (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:8173)
+    at new WorkerPool (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:6110)
+    at new Worker (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:23092)
+    at DevServer.getStaticPathsWorker (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\dev\next-dev-server.js:104:24)
+    at __getStaticPaths (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\dev\next-dev-server.js:488:44)
+    at __wrapper (D:\_project\DDC_Control_Tower\node_modules\next\dist\lib\coalesced-function.js:22:31)
+    at D:\_project\DDC_Control_Tower\node_modules\next\dist\lib\coalesced-function.js:24:24
+    at DevServer.getStaticPaths (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\dev\next-dev-server.js:518:89)
+    at DevServer.renderToResponseWithComponentsImpl (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:1055:44)
+    at D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:1003:121
+    at NextTracerImpl.trace (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\lib\trace\tracer.js:105:20)
+    at DevServer.renderToResponseWithComponents (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:1003:41)
+    at DevServer.renderPageComponent (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:1908:35)
+    at async DevServer.renderToResponseImpl (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:1946:32)
+    at async DevServer.pipeImpl (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:921:25)
+    at async NextNodeServer.handleCatchallRenderRequest (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\next-server.js:272:17)
+    at async DevServer.handleRequestImpl (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:817:17)
+    at async D:\_project\DDC_Control_Tower\node_modules\next\dist\server\dev\next-dev-server.js:339:20
+    at async Span.traceAsyncFn (D:\_project\DDC_Control_Tower\node_modules\next\dist\trace\trace.js:154:20)
+    at async DevServer.handleRequest (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\dev\next-dev-server.js:336:24)
+    at async invokeRender (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\lib\router-server.js:173:21)
+    at async handleRequest (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\lib\router-server.js:350:24)
+    at async requestHandlerImpl (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\lib\router-server.js:374:13)
+    at async Server.requestListener (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\lib\start-server.js:141:13) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at new ChildProcessWorker (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:10741)
+    at WorkerPool.createWorker (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:6314)
+    at new BaseWorkerPool (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:8173)
+    at new WorkerPool (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:6110)
+    at new Worker (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:23092)
+    at DevServer.getStaticPathsWorker (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\dev\next-dev-server.js:104:24)
+    at __getStaticPaths (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\dev\next-dev-server.js:488:44)
+    at __wrapper (D:\_project\DDC_Control_Tower\node_modules\next\dist\lib\coalesced-function.js:22:31)
+    at D:\_project\DDC_Control_Tower\node_modules\next\dist\lib\coalesced-function.js:24:24
+    at DevServer.getStaticPaths (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\dev\next-dev-server.js:518:89)
+    at DevServer.renderToResponseWithComponentsImpl (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:1055:44)
+    at D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:1003:121
+    at NextTracerImpl.trace (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\lib\trace\tracer.js:105:20)
+    at DevServer.renderToResponseWithComponents (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:1003:41)
+    at DevServer.renderPageComponent (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:1908:35)
+    at async DevServer.renderToResponseImpl (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:1946:32)
+    at async DevServer.pipeImpl (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:921:25)
+    at async NextNodeServer.handleCatchallRenderRequest (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\next-server.js:272:17)
+    at async DevServer.handleRequestImpl (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\base-server.js:817:17)
+    at async D:\_project\DDC_Control_Tower\node_modules\next\dist\server\dev\next-dev-server.js:339:20
+    at async Span.traceAsyncFn (D:\_project\DDC_Control_Tower\node_modules\next\dist\trace\trace.js:154:20)
+    at async DevServer.handleRequest (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\dev\next-dev-server.js:336:24)
+    at async invokeRender (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\lib\router-server.js:173:21)
+    at async handleRequest (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\lib\router-server.js:350:24)
+    at async requestHandlerImpl (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\lib\router-server.js:374:13)
+    at async Server.requestListener (D:\_project\DDC_Control_Tower\node_modules\next\dist\server\lib\start-server.js:141:13) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ Failed to generate static paths for /[locale]/report:
+Error: Jest worker encountered 2 child process exceptions, exceeding retry limit
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11580)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  type: 'WorkerError'
+}
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ GET /vi/report 200 in 2434ms
+ ⨯ Failed to generate static paths for /[locale]/overview:
+Error: Jest worker encountered 2 child process exceptions, exceeding retry limit
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11580)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  type: 'WorkerError'
+}
+ ⨯ Error: Jest worker encountered 2 child process exceptions, exceeding retry limit
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11580)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  type: 'WorkerError',
+  page: '/vi/overview'
+}
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ○ Compiling /_error ...
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ Failed to generate static paths for /[locale]/projects:
+Error: Jest worker encountered 2 child process exceptions, exceeding retry limit
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11580)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  type: 'WorkerError'
+}
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ✓ Compiled /_error in 25.4s (2879 modules)
+ ⨯ Error: Jest worker encountered 2 child process exceptions, exceeding retry limit
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11580)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  type: 'WorkerError',
+  page: '/vi/projects'
+}
+ ⨯ Error: Jest worker encountered 2 child process exceptions, exceeding retry limit
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11580)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  type: 'WorkerError',
+  page: '/vi/projects'
+}
+ ⨯ Error: Jest worker encountered 2 child process exceptions, exceeding retry limit
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11580)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  type: 'WorkerError',
+  page: '/vi/report'
+}
+ GET /vi/report 500 in 3591ms
+ ⨯ Error: Jest worker encountered 2 child process exceptions, exceeding retry limit
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11580)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  type: 'WorkerError',
+  page: '/vi/overview'
+}
+ ○ Compiling /[locale] ...
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ✓ Compiled /[locale] in 17.6s (2867 modules)
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ⨯ Error: Jest worker encountered 2 child process exceptions, exceeding retry limit
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11580)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  type: 'WorkerError',
+  page: '/favicon.ico'
+}
+ GET /favicon.ico 500 in 19789ms
+ ⨯ Error: Jest worker encountered 2 child process exceptions, exceeding retry limit
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11580)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  type: 'WorkerError',
+  page: '/vi/report'
+}
+ GET /vi/report 500 in 3660ms
+ ⨯ Error: Jest worker encountered 2 child process exceptions, exceeding retry limit
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11580)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  type: 'WorkerError',
+  page: '/favicon.ico'
+}
+ GET /favicon.ico 500 in 3030ms
+ ⨯ Error: Jest worker encountered 2 child process exceptions, exceeding retry limit
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11580)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  type: 'WorkerError',
+  page: '/vi/report'
+}
+ GET /vi/report 500 in 5691ms
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ○ Compiling /_not-found ...
+ GET /vi 404 in 115334ms
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ GET /vi 404 in 11916ms
+Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ ⨯ uncaughtException: Error: write EPIPE
+    at target._send (node:internal/child_process:878:20)
+    at target.send (node:internal/child_process:751:19)
+    at ChildProcessWorker.initialize (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:11409)
+    at ChildProcessWorker._onExit (D:\_project\DDC_Control_Tower\node_modules\next\dist\compiled\jest-worker\index.js:1:12545)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  errno: -4047,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+ GET /vi 404 in 4973ms
+ GET /vi 404 in 523463ms
