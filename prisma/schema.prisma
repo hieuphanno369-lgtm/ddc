@@ -12,6 +12,52 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// ---- Enum (thay String trần - chặn giá trị rác ở tầng DB) ----
+enum MarketCode {
+  TN
+  XK
+  NoiBo
+}
+
+enum ProjectTypeCode {
+  EPC
+  San_van_dong
+  San_bay
+  Nha_xuong
+  Cau_cang
+  Cao_tang
+  Dong_tau
+  Cau_giao_thong
+  Khac
+}
+
+enum PriorityCode {
+  P0
+  P1
+  P2
+  P3
+}
+
+enum AlertType {
+  Red
+  Amber
+}
+
+enum RoleInProject {
+  PIC
+  Backup
+}
+
+enum SapQueueStatus {
+  pending
+  resolved
+}
+
+enum StageCalcMode {
+  manual
+  volume
+}
+
 // ---- Dimension ----
 model Customer {
   id           Int      @id @default(autoincrement())
@@ -20,6 +66,10 @@ model Customer {
   aliases      String[] @default([])
   isActive     Boolean  @default(true)
   mergedIntoId Int?
+
+  mergedInto Customer?  @relation("CustomerMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedFrom Customer[] @relation("CustomerMerge")
+  projects   Project[]
 
   @@map("dim_customer")
 }
@@ -32,14 +82,20 @@ model TeamKd {
   isActive     Boolean  @default(true)
   mergedIntoId Int?
 
+  mergedInto TeamKd?   @relation("TeamMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedFrom TeamKd[]  @relation("TeamMerge")
+  projects   Project[]
+
   @@map("dim_team_kd")
 }
 
 model Factory {
-  id                  Int    @id @default(autoincrement())
-  name                String
-  region              String
-  capacityTonPerYear  Float
+  id                 Int    @id @default(autoincrement())
+  name               String
+  region             String
+  capacityTonPerYear Float
+
+  volumes FactVolume[]
 
   @@map("dim_factory")
 }
@@ -47,6 +103,9 @@ model Factory {
 model Currency {
   code String @id
   name String
+
+  projects      Project[]
+  exchangeRates ExchangeRate[]
 
   @@map("dim_currency")
 }
@@ -58,36 +117,61 @@ model ExchangeRate {
   updatedBy    String?
   updatedAt    DateTime?
 
+  currency Currency @relation(fields: [currencyCode], references: [code], onDelete: Cascade)
+
   @@id([currencyCode, yearMonth])
   @@map("dim_exchange_rate")
 }
 
 model Project {
-  id                     Int       @id @default(autoincrement())
-  masterCode             String    @unique
-  currentAliasCode       String
-  projectName            String
-  customerId             Int
-  teamKdId               Int
-  marketCode             String
-  projectType            String
-  priority               String
-  contractValue          Float
-  tonnage                Float
-  currencyCode           String
-  contractDate           DateTime?
-  plannedStartDate       DateTime?
-  plannedFinishDate      DateTime?
-  committedHandoverDate  DateTime?
-  actualStartDate        DateTime?
-  actualFinishDate       DateTime?
-  penaltyValue           Float?
-  penalized              Boolean   @default(false)
-  isActive               Boolean   @default(true)
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
-  createdBy              String
-  updatedBy              String
+  id                    Int             @id @default(autoincrement())
+  masterCode            String          @unique
+  currentAliasCode      String
+  projectName           String
+  customerId            Int
+  teamKdId              Int
+  marketCode            MarketCode
+  projectType           ProjectTypeCode
+  priority              PriorityCode
+  contractValue         Float
+  tonnage               Float
+  currencyCode          String
+  contractDate          DateTime?
+  plannedStartDate      DateTime?
+  plannedFinishDate     DateTime?
+  committedHandoverDate DateTime?
+  actualStartDate       DateTime?
+  actualFinishDate      DateTime?
+  penaltyValue          Float?
+  penalized             Boolean         @default(false)
+  isActive              Boolean         @default(true)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  createdBy             String
+  updatedBy             String
+
+  customer        Customer                  @relation(fields: [customerId], references: [id])
+  team            TeamKd                    @relation(fields: [teamKdId], references: [id])
+  currency        Currency                  @relation(fields: [currencyCode], references: [code])
+  aliases         ProjectAlias[]
+  sapCodes        ProjectSapCode[]
+  assignments     ProjectAssignment[]
+  facts           FactProgressMonthly[]
+  valueChain      ValueChainProgress[]
+  financials      FactFinancial[]
+  volumes         FactVolume[]
+  history         ProjectHistory[]
+  alerts          AlertLog[]
+  photos          ProjectPhoto[]
+  sapQueue        SapQueue[]
+  stageWeights    ProjectStageWeight[]
+  workItems       ProjectWorkItem[]
+  workItemFacts   FactStageWorkItem[]
+  stageMilestones FactStageMilestone[]
+  keyMilestones   ProjectKeyMilestone[]
+  contractors     ProjectContractor[]
+  dailyManpower   FactDailyManpower[]
+  dailyEquipment  FactDailyEquipmentUsage[]
 
   @@index([teamKdId])
   @@index([marketCode])
@@ -105,6 +189,8 @@ model ProjectAlias {
   reason        String
   approvedBy    String
 
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@index([projectId])
   @@map("dim_project_alias")
 }
@@ -118,6 +204,8 @@ model ProjectSapCode {
   linkedBy      String
   note          String   @default("")
 
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@index([projectId])
   @@map("project_sap_codes")
 }
@@ -125,9 +213,11 @@ model ProjectSapCode {
 model ProjectAssignment {
   projectId     Int
   userEmail     String
-  roleInProject String
+  roleInProject RoleInProject
   assignedBy    String
-  assignedAt    DateTime @default(now())
+  assignedAt    DateTime      @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@id([projectId, userEmail])
   @@index([userEmail])
@@ -149,30 +239,40 @@ model UserRole {
 
 // ---- Fact ----
 model FactProgressMonthly {
-  projectId         Int
-  yearMonth         String
-  pctPlan           Float
-  pctActual         Float
-  actualStartDate   DateTime?
-  actualFinishDate  DateTime?
-  bac               Float     @default(0)
-  pv                Float
-  ev                Float
-  ac                Float
-  spi               Float?
-  cpi               Float?
-  bottleneckStage   String?
-  equipmentPlanned  Int
-  equipmentActual   Int
-  snapshotLockedAt  DateTime?
-  lockedBy          String?
-  version           Int       @default(1)
-  changedBy         String    @default("")
-  changedAt         DateTime?
-  changeNote        String    @default("")
+  projectId        Int
+  yearMonth        String
+  version          Int       @default(1)
+  /**
+   * true = bản mới nhất của (projectId, yearMonth). Chỉ 1 dòng true mỗi cặp khoá.
+   */
+  isLatest         Boolean   @default(true)
+  pctPlan          Float
+  pctActual        Float
+  actualStartDate  DateTime?
+  actualFinishDate DateTime?
+  bac              Float     @default(0)
+  pv               Float
+  ev               Float
+  ac               Float
+  spi              Float?
+  cpi              Float?
+  bottleneckStage  String?
+  manpowerPlanned  Int       @default(0)
+  manpowerActual   Int       @default(0)
+  equipmentPlanned Int       @default(0)
+  equipmentActual  Int
+  snapshotLockedAt DateTime?
+  lockedBy         String?
+  changedBy        String    @default("")
+  changedAt        DateTime?
+  changeNote       String    @default("")
 
-  @@id([projectId, yearMonth])
+  project            Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  bottleneckStageRef Stage?  @relation("FactBottleneck", fields: [bottleneckStage], references: [code], onDelete: SetNull)
+
+  @@id([projectId, yearMonth, version])
   @@index([yearMonth, projectId])
+  @@index([projectId, yearMonth, isLatest])
   @@map("fact_progress_monthly")
 }
 
@@ -183,6 +283,9 @@ model ValueChainProgress {
   pctComplete Float
   applicable  Boolean @default(true)
 
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stage   Stage   @relation(fields: [stageCode], references: [code])
+
   @@id([projectId, stageCode, yearMonth])
   @@map("fact_value_chain_progress")
 }
@@ -190,6 +293,8 @@ model ValueChainProgress {
 model FactFinancial {
   projectId            Int
   yearMonth            String
+  version              Int       @default(1)
+  isLatest             Boolean   @default(true)
   revenuePeriod        Float
   revenueCumulative    Float
   costActualPeriod     Float
@@ -200,13 +305,15 @@ model FactFinancial {
   arCollected          Float
   arOutstanding        Float
   arOverdue            Float
-  version              Int       @default(1)
   changedBy            String    @default("")
   changedAt            DateTime?
   changeNote           String    @default("")
 
-  @@id([projectId, yearMonth])
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, yearMonth, version])
   @@index([yearMonth, projectId])
+  @@index([projectId, yearMonth, isLatest])
   @@map("fact_financial")
 }
 
@@ -215,6 +322,9 @@ model FactVolume {
   yearMonth        String
   factoryId        Int
   tonnageProcessed Float
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  factory Factory @relation(fields: [factoryId], references: [id])
 
   @@id([projectId, yearMonth, factoryId])
   @@index([yearMonth, projectId])
@@ -230,6 +340,8 @@ model ProjectHistory {
   note      String   @default("")
   snapshot  Json
 
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@index([projectId])
   @@map("project_history")
 }
@@ -238,7 +350,7 @@ model ProjectHistory {
 model AlertLog {
   id            Int       @id @default(autoincrement())
   projectId     Int
-  alertType     String
+  alertType     AlertType
   ruleTriggered String
   message       String
   openedAt      DateTime
@@ -246,6 +358,8 @@ model AlertLog {
   owner         String
   action        String    @default("")
   deadline      String
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@map("alert_log")
@@ -273,18 +387,22 @@ model ProjectPhoto {
   uploadedBy String
   uploadedAt DateTime @default(now())
 
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@index([projectId, yearMonth])
   @@map("project_photos")
 }
 
 model SapQueue {
-  id              Int       @id @default(autoincrement())
+  id              Int            @id @default(autoincrement())
   sapCode         String
   sourceDocType   String
   projectNameHint String
-  status          String    @default("pending")
+  status          SapQueueStatus @default(pending)
   projectId       Int?
-  detectedAt      DateTime  @default(now())
+  detectedAt      DateTime       @default(now())
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   @@map("sap_queue")
 }
@@ -301,4 +419,201 @@ model ActivityLog {
 
   @@index([createdAt])
   @@map("activity_log")
+}
+
+// ---- ERP: giai đoạn, trọng số, sản lượng, mốc ----
+
+/**
+ * 7 giai đoạn chuỗi giá trị thành dimension thật (trước đây là hằng số trong code).
+ */
+model Stage {
+  code      String        @id
+  nameVi    String
+  nameEn    String
+  sortOrder Int
+  calcMode  StageCalcMode @default(manual)
+
+  weights         ProjectStageWeight[]
+  valueChain      ValueChainProgress[]
+  workItemFacts   FactStageWorkItem[]
+  milestones      FactStageMilestone[]
+  bottleneckFacts FactProgressMonthly[] @relation("FactBottleneck")
+
+  @@index([sortOrder])
+  @@map("dim_stage")
+}
+
+/**
+ * Trọng số từng giai đoạn theo dự án. weightPct là ĐIỂM PHẦN TRĂM 0..100, tổng applicable = 100.
+ */
+model ProjectStageWeight {
+  projectId  Int
+  stageCode  String
+  weightPct  Float   @default(0)
+  applicable Boolean @default(true)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stage   Stage   @relation(fields: [stageCode], references: [code])
+
+  @@id([projectId, stageCode])
+  @@map("project_stage_weight")
+}
+
+/**
+ * Hạng mục động theo dự án (Hệ giàn nâng, Hệ mái, … Hệ Walkaway).
+ */
+model ProjectWorkItem {
+  id        Int    @id @default(autoincrement())
+  projectId Int
+  name      String
+  sortOrder Int    @default(0)
+
+  project Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  facts   FactStageWorkItem[]
+
+  @@unique([projectId, name])
+  @@index([projectId, sortOrder])
+  @@map("project_work_item")
+}
+
+/**
+ * Sản lượng KH/TT (tấn) theo hạng mục × giai đoạn × tháng - nguồn tính %HT giai đoạn volume.
+ */
+model FactStageWorkItem {
+  projectId  Int
+  stageCode  String
+  workItemId Int
+  yearMonth  String
+  qtyPlan    Float  @default(0)
+  qtyActual  Float  @default(0)
+
+  project  Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stage    Stage           @relation(fields: [stageCode], references: [code])
+  workItem ProjectWorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, stageCode, workItemId, yearMonth])
+  @@index([projectId, yearMonth])
+  @@map("fact_stage_work_item")
+}
+
+/**
+ * 5 cột ngày của từng giai đoạn. Mốc thứ 6 "Ngày chênh lệch" (actualFinish − plannedFinish)
+ * CỐ Ý không có cột: tính runtime bằng calcDayVariance() (Q1), tránh dữ liệu tự mâu thuẫn
+ * khi sửa plannedFinish/actualFinish mà quên cập nhật cột dẫn xuất.
+ */
+model FactStageMilestone {
+  projectId     Int
+  stageCode     String
+  plannedStart  DateTime?
+  plannedFinish DateTime?
+  actualStart   DateTime?
+  actualFinish  DateTime?
+  forecastDate  DateTime?
+  updatedAt     DateTime  @updatedAt
+  updatedBy     String    @default("system")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stage   Stage   @relation(fields: [stageCode], references: [code])
+
+  @@id([projectId, stageCode])
+  @@map("fact_stage_milestone")
+}
+
+/**
+ * Mốc chính động của dự án (danh sách do người dùng tự định nghĩa).
+ */
+model ProjectKeyMilestone {
+  id          Int       @id @default(autoincrement())
+  projectId   Int
+  name        String
+  sortOrder   Int       @default(0)
+  plannedDate DateTime?
+  actualDate  DateTime?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, sortOrder])
+  @@map("project_key_milestone")
+}
+
+// ---- ERP: nguồn lực ----
+
+/**
+ * Nhà thầu phụ - theo đúng pattern dim_customer (isActive + mergedIntoId để gộp trùng).
+ */
+model Contractor {
+  id           Int     @id @default(autoincrement())
+  name         String
+  scopeOfWork  String  @default("")
+  isActive     Boolean @default(true)
+  mergedIntoId Int?
+
+  mergedInto Contractor?               @relation("ContractorMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedFrom Contractor[]              @relation("ContractorMerge")
+  projects   ProjectContractor[]
+  manpower   FactDailyManpower[]
+  equipment  FactDailyEquipmentUsage[]
+
+  @@map("dim_contractor")
+}
+
+model ProjectContractor {
+  projectId    Int
+  contractorId Int
+
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contractor Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, contractorId])
+  @@map("project_contractor")
+}
+
+model Equipment {
+  id       Int     @id @default(autoincrement())
+  name     String
+  unit     String  @default("cái")
+  isActive Boolean @default(true)
+
+  usages FactDailyEquipmentUsage[]
+
+  @@map("dim_equipment")
+}
+
+/**
+ * Nhân lực theo NGÀY × nhà thầu.
+ */
+model FactDailyManpower {
+  projectId        Int
+  contractorId     Int
+  workDate         DateTime @db.Date
+  plannedHeadcount Int      @default(0)
+  actualHeadcount  Int      @default(0)
+
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contractor Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, contractorId, workDate])
+  @@index([projectId, workDate])
+  @@map("fact_daily_manpower")
+}
+
+/**
+ * Bảng nối nhiều-nhiều: 1 nhà thầu dùng nhiều thiết bị, 1 thiết bị dùng chung nhiều nhà thầu.
+ * Q4 đã chốt: tách `qtyPlanned`/`qtyActual` (một cột `qty` không thể vừa KH vừa TT).
+ */
+model FactDailyEquipmentUsage {
+  projectId    Int
+  contractorId Int
+  equipmentId  Int
+  workDate     DateTime @db.Date
+  qtyPlanned   Int      @default(0)
+  qtyActual    Int      @default(0)
+
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contractor Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  equipment  Equipment  @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, contractorId, equipmentId, workDate])
+  @@index([projectId, workDate])
+  @@map("fact_daily_equipment_usage")
 }
