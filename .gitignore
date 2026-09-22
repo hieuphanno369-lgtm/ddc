@@ -10,3 +10,4 @@ next-env.d.ts
 .data/
 data/uploads/
 .claude/_skills_src/
+.claude/scheduled_tasks.lock
