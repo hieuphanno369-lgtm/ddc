@@ -28,6 +28,15 @@ async function main() {
   await prisma.exchangeRate.deleteMany();
   await prisma.exchangeRate.createMany({ data: data.exchangeRates });
 
+  await prisma.stage.deleteMany();
+  await prisma.stage.createMany({ data: data.stages });
+
+  await prisma.contractor.deleteMany();
+  await prisma.contractor.createMany({ data: data.contractors });
+
+  await prisma.equipment.deleteMany();
+  await prisma.equipment.createMany({ data: data.equipments });
+
   // ---- Projects ----
   await prisma.project.deleteMany();
   await prisma.project.createMany({
@@ -57,6 +66,20 @@ async function main() {
     data: data.assignments.map((a) => ({ ...a, assignedAt: new Date(a.assignedAt) })),
   });
 
+  await prisma.projectStageWeight.deleteMany();
+  await prisma.projectStageWeight.createMany({ data: data.stageWeights });
+
+  await prisma.projectWorkItem.deleteMany();
+  await prisma.projectWorkItem.createMany({ data: data.workItems });
+
+  await prisma.projectKeyMilestone.deleteMany();
+  await prisma.projectKeyMilestone.createMany({
+    data: data.keyMilestones.map((m) => ({ ...m, plannedDate: d(m.plannedDate), actualDate: d(m.actualDate) })),
+  });
+
+  await prisma.projectContractor.deleteMany();
+  await prisma.projectContractor.createMany({ data: data.projectContractors });
+
   // ---- Facts ----
   await prisma.factProgressMonthly.deleteMany();
   await prisma.factProgressMonthly.createMany({
@@ -79,6 +102,29 @@ async function main() {
 
   await prisma.factVolume.deleteMany();
   await prisma.factVolume.createMany({ data: data.volumes });
+
+  await prisma.factStageWorkItem.deleteMany();
+  await prisma.factStageWorkItem.createMany({ data: data.workItemFacts });
+
+  await prisma.factStageMilestone.deleteMany();
+  await prisma.factStageMilestone.createMany({
+    data: data.stageMilestones.map((m) => ({
+      ...m,
+      plannedStart: d(m.plannedStart), plannedFinish: d(m.plannedFinish),
+      actualStart: d(m.actualStart), actualFinish: d(m.actualFinish),
+      forecastDate: d(m.forecastDate), updatedAt: new Date(m.updatedAt),
+    })),
+  });
+
+  await prisma.factDailyManpower.deleteMany();
+  await prisma.factDailyManpower.createMany({
+    data: data.dailyManpower.map((m) => ({ ...m, workDate: new Date(`${m.workDate}T00:00:00Z`) })),
+  });
+
+  await prisma.factDailyEquipmentUsage.deleteMany();
+  await prisma.factDailyEquipmentUsage.createMany({
+    data: data.dailyEquipment.map((e) => ({ ...e, workDate: new Date(`${e.workDate}T00:00:00Z`) })),
+  });
 
   // ---- Logs / phụ ----
   await prisma.alertLog.deleteMany();
@@ -113,7 +159,7 @@ async function main() {
   // Sync autoincrement sequence sau createMany có id explicit (Prisma createMany KHÔNG bump sequence).
   await syncSequences();
 
-  console.log('Seed xong: 17 dự án + dims + facts + financial + volumes + 4 accounts');
+  console.log('Seed xong: 17 dự án + 7 giai đoạn + 6 nhà thầu + 7 nhóm thiết bị + 10 hạng mục + 5 mốc chính');
 }
 
 /**
@@ -134,6 +180,10 @@ async function syncSequences() {
     'project_photos',
     'sap_queue',
     'activity_log',
+    'project_work_item',
+    'project_key_milestone',
+    'dim_contractor',
+    'dim_equipment',
   ];
   for (const t of tables) {
     await prisma.$executeRawUnsafe(

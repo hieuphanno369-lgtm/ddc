@@ -21,8 +21,8 @@ import { closeAlertAction } from '@/server/actions';
 const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.com.vn', role: 'admin', canViewFinance: true };
 const BOD: CurrentUser = { name: 'BOD', email: 'bod@daidung.com.vn', role: 'bod', canViewFinance: true };
 const VIEWER: CurrentUser = { name: 'Viewer', email: 'viewer@daidung.com.vn', role: 'viewer', canViewFinance: false };
-/** dev@localhost là PIC dự án 1,2,3,5,7,11; pm1@daidung.com.vn giữ 4,6,8,9,10 (seed buildAssignments). */
-const PIC = 'dev@localhost';
+/** pm@daidung.com.vn là PIC dự án 1,2,3,5,7,11; admin@daidung.com.vn giữ phần còn lại (seed buildAssignments). */
+const PIC = 'pm@daidung.com.vn';
 const dataEntry = (email: string): CurrentUser => ({ name: email, email, role: 'data-entry', canViewFinance: false });
 
 function login(user: CurrentUser | null) {
@@ -46,7 +46,7 @@ function picOf(projectId: number) {
 
 function nonPicOf(projectId: number) {
   const pic = picOf(projectId);
-  return pic === PIC ? 'pm1@daidung.com.vn' : PIC;
+  return pic === 'pm@daidung.com.vn' ? 'admin@daidung.com.vn' : 'pm@daidung.com.vn';
 }
 
 const closedAt = (id: number) => repo.getAlerts().find((a) => a.id === id)?.closedAt ?? null;

@@ -1,27 +1,41 @@
 import { buildRepoData, SEED_VERSION, type RepoData } from '@/data/seed/history';
 import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import type { StageInput } from '@/lib/stages';
+import { DEFAULT_STAGE_WEIGHTS, type StageInput } from '@/lib/stages';
+import { calcDayVariance, calcDurationPctComplete, calcSpi } from '@/lib/evm';
+import { endOfMonth } from '@/lib/clock';
 import type {
   ActivityLogEntry,
   AlertLog,
   AuditLogEntry,
+  Contractor,
   CurrencyCode,
   Customer,
+  Equipment,
+  FactDailyEquipmentUsage,
+  FactDailyManpower,
   FactProgressMonthly,
   FactFinancial,
+  FactStageWorkItem,
   FactVolume,
   Market,
   Priority,
   Project,
   ProjectAlias,
   ProjectAssignment,
+  ProjectContractor,
   ProjectHistoryEntry,
+  ProjectKeyMilestone,
   ProjectSapCode,
   ProjectPhoto,
+  ProjectStageWeight,
   ProjectType,
+  ProjectWorkItem,
   Role,
   SapQueueItem,
+  Stage,
+  StageCode,
+  StageMilestoneView,
   TeamKd,
   UserAccount,
   ValueChainProgress,
@@ -96,25 +110,13 @@ export const repo = {
     return getData().projects.find((p) => p.id === id && p.isActive);
   },
 
-  /** Fact bất biến (append-only): trả về version mới nhất mỗi (projectId, yearMonth). */
+  /** Fact bất biến (append-only): trả về bản isLatest mỗi (projectId, yearMonth). */
   _latestFacts(): FactProgressMonthly[] {
-    const map = new Map<string, FactProgressMonthly>();
-    for (const f of getData().facts) {
-      const k = `${f.projectId}|${f.yearMonth}`;
-      const cur = map.get(k);
-      if (!cur || f.version > cur.version) map.set(k, f);
-    }
-    return [...map.values()];
+    return getData().facts.filter((f) => f.isLatest);
   },
 
   _latestFinancial(): FactFinancial[] {
-    const map = new Map<string, FactFinancial>();
-    for (const f of getData().financial) {
-      const k = `${f.projectId}|${f.yearMonth}`;
-      const cur = map.get(k);
-      if (!cur || f.version > cur.version) map.set(k, f);
-    }
-    return [...map.values()];
+    return getData().financial.filter((f) => f.isLatest);
   },
 
   getFacts(projectId: number): FactProgressMonthly[] {
@@ -147,6 +149,70 @@ export const repo = {
 
   getValueChain(projectId: number, yearMonth: string): ValueChainProgress[] {
     return getData().valueChain.filter((v) => v.projectId === projectId && v.yearMonth === yearMonth);
+  },
+
+  // ---- ERP v2 ----
+  getStages(): Stage[] {
+    return [...getData().stages].sort((a, b) => a.sortOrder - b.sortOrder);
+  },
+
+  /** Không có dòng nào cho dự án → rơi về bộ trọng số mặc định (không trả mảng rỗng). */
+  getStageWeights(projectId: number): ProjectStageWeight[] {
+    const rows = getData().stageWeights.filter((w) => w.projectId === projectId);
+    return rows.length
+      ? rows
+      : DEFAULT_STAGE_WEIGHTS.map((w) => ({ projectId, stageCode: w.stageCode, weightPct: w.weightPct, applicable: w.applicable }));
+  },
+
+  getWorkItems(projectId: number): ProjectWorkItem[] {
+    return getData().workItems
+      .filter((w) => w.projectId === projectId)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+  },
+
+  getWorkItemFacts(projectId: number, yearMonth: string, stageCode?: StageCode): FactStageWorkItem[] {
+    return getData().workItemFacts.filter(
+      (f) => f.projectId === projectId && f.yearMonth === yearMonth && (!stageCode || f.stageCode === stageCode),
+    );
+  },
+
+  /** Trả StageMilestoneView: 5 cột DB + "Ngày chênh lệch" tính runtime (Q1). */
+  getStageMilestones(projectId: number): StageMilestoneView[] {
+    return getData().stageMilestones
+      .filter((m) => m.projectId === projectId)
+      .map((m) => ({ ...m, dayVariance: calcDayVariance(m.plannedFinish, m.actualFinish) }));
+  },
+
+  getKeyMilestones(projectId: number): ProjectKeyMilestone[] {
+    return getData().keyMilestones
+      .filter((m) => m.projectId === projectId)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+  },
+
+  getContractors(projectId?: number): Contractor[] {
+    const all = getData().contractors.filter((c) => c.isActive);
+    if (projectId == null) return all;
+    const ids = new Set(
+      getData().projectContractors.filter((pc) => pc.projectId === projectId).map((pc) => pc.contractorId),
+    );
+    return all.filter((c) => ids.has(c.id));
+  },
+
+  getEquipments(): Equipment[] {
+    return getData().equipments.filter((e) => e.isActive);
+  },
+
+  /** from/to là 'YYYY-MM-DD', bao gồm cả hai đầu. */
+  getDailyManpower(projectId: number, from: string, to: string): FactDailyManpower[] {
+    return getData().dailyManpower
+      .filter((m) => m.projectId === projectId && m.workDate >= from && m.workDate <= to)
+      .sort((a, b) => a.workDate.localeCompare(b.workDate));
+  },
+
+  getDailyEquipment(projectId: number, from: string, to: string): FactDailyEquipmentUsage[] {
+    return getData().dailyEquipment
+      .filter((e) => e.projectId === projectId && e.workDate >= from && e.workDate <= to)
+      .sort((a, b) => a.workDate.localeCompare(b.workDate));
   },
 
   getFinancial(projectId: number): FactFinancial[] {
@@ -376,6 +442,14 @@ export const repo = {
     d.assignments = d.assignments.filter((x) => x.projectId !== id);
     d.projectHistory = d.projectHistory.filter((x) => x.snapshot.id !== id);
     d.sapQueue = d.sapQueue.filter((x) => x.projectId !== id);
+    d.stageWeights = d.stageWeights.filter((x) => x.projectId !== id);
+    d.workItems = d.workItems.filter((x) => x.projectId !== id);
+    d.workItemFacts = d.workItemFacts.filter((x) => x.projectId !== id);
+    d.stageMilestones = d.stageMilestones.filter((x) => x.projectId !== id);
+    d.keyMilestones = d.keyMilestones.filter((x) => x.projectId !== id);
+    d.projectContractors = d.projectContractors.filter((x) => x.projectId !== id);
+    d.dailyManpower = d.dailyManpower.filter((x) => x.projectId !== id);
+    d.dailyEquipment = d.dailyEquipment.filter((x) => x.projectId !== id);
     // dim cleanup: xóa customer/team khi không còn project nào dùng
     if (!d.projects.some((x) => x.customerId === proj.customerId)) {
       d.customers = d.customers.filter((x) => x.id !== proj.customerId);
@@ -499,6 +573,15 @@ export const repo = {
     d.sapQueue = [];
     d.auditLog = [];
     d.projectHistory = [];
+    d.stageWeights = [];
+    d.workItems = [];
+    d.workItemFacts = [];
+    d.stageMilestones = [];
+    d.keyMilestones = [];
+    d.projectContractors = [];
+    d.dailyManpower = [];
+    d.dailyEquipment = [];
+    // giữ nguyên: stages, contractors, equipments - là dim, không phải data nghiệp vụ.
   },
 
   // ---- Mutations (mock: mutate in-memory) ----
@@ -515,13 +598,18 @@ export const repo = {
     const fields = Object.keys(patch) as (keyof typeof patch)[];
     const note = fields.map((k) => `${k}: ${String(prev[k])} → ${String(patch[k])}`).join('; ');
     const bac = proj.contractValue; // snapshot BAC tại thời điểm ghi
-    const pctPlan = patch.pctPlan ?? prev.pctPlan;
+    const pctPlan = patch.pctPlan ?? prev.pctPlan;          // số nhập tay, chỉ lưu để audit
     const pctActual = patch.pctActual ?? prev.pctActual;
     const ac = patch.ac ?? prev.ac;
-    const pv = pctPlan * bac;
+    // Mốc là ngày CUỐI THÁNG đang lưu - sửa lại tháng cũ phải ra đúng PV của tháng đó.
+    const at = new Date(`${endOfMonth(yearMonth)}T00:00:00Z`);
+    const pctPlanDuration = calcDurationPctComplete(proj.plannedStartDate, proj.plannedFinishDate, at) ?? 0;
+    const pv = pctPlanDuration * bac;
     const ev = pctActual * bac;
-    const spi = pv ? ev / pv : null;
+    const spi = calcSpi(ev, pv);
     const cpi = ac ? ev / ac : null;
+    // Append-only: hạ cờ bản cũ rồi thêm bản mới - chỉ 1 dòng isLatest = true mỗi (projectId, yearMonth).
+    for (const f of d.facts) if (f.projectId === projectId && f.yearMonth === yearMonth) f.isLatest = false;
     d.facts.push({
       ...prev,
       ...patch,
@@ -533,6 +621,7 @@ export const repo = {
       ev,
       spi,
       cpi,
+      isLatest: true,
       version: prev.version + 1,
       changedBy,
       changedAt: new Date().toISOString(),
@@ -598,6 +687,7 @@ export const repo = {
       ...prev,
       ...patch,
       arOutstanding: Math.round((contractValue - collected - overdue) * 10) / 10,
+      isLatest: true,
       version: prev.version + 1,
       changedBy,
       changedAt: new Date().toISOString(),
@@ -607,6 +697,8 @@ export const repo = {
     next.grossMarginPct = next.revenueCumulative
       ? (next.revenueCumulative - next.costActualCumulative) / next.revenueCumulative
       : 0;
+    // Append-only: hạ cờ bản cũ rồi thêm bản mới - chỉ 1 dòng isLatest = true mỗi (projectId, yearMonth).
+    for (const f of d.financial) if (f.projectId === projectId && f.yearMonth === yearMonth) f.isLatest = false;
     d.financial.push(next);
     this.logAudit('fact_financial', `${projectId}/${yearMonth}`, fields.join(','), '', note, changedBy);
   },

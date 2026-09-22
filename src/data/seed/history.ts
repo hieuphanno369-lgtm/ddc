@@ -1,25 +1,41 @@
-import { findBottleneck, penaltyState } from '@/lib/evm';
+import { calcDurationPctComplete, calcSpi, findBottleneck, penaltyState } from '@/lib/evm';
 import { THRESHOLDS } from '@/lib/thresholds';
+import { DEFAULT_STAGE_WEIGHTS, STAGE_CALC_MODE, STAGE_ORDER } from '@/lib/stages';
+import { endOfMonth } from '@/lib/clock';
 import { hashSync } from 'bcryptjs';
 import type {
   ActivityLogEntry,
   AlertLog,
   AuditLogEntry,
+  Contractor,
+  Equipment,
+  FactDailyEquipmentUsage,
+  FactDailyManpower,
   FactFinancial,
   FactProgressMonthly,
+  FactStageWorkItem,
+  FactStageMilestone,
   FactVolume,
   Project,
   ProjectAlias,
   ProjectAssignment,
+  ProjectContractor,
+  ProjectKeyMilestone,
   ProjectSapCode,
   ProjectPhoto,
   ProjectHistoryEntry,
+  ProjectStageWeight,
+  ProjectWorkItem,
   SapQueueItem,
-  StageCode,
+  Stage,
   UserAccount,
   ValueChainProgress,
 } from '@/server/repo/types';
 import { customers, exchangeRates, factories, teams, currencies } from './dims';
+import {
+  DAY_FACTORS, ERP_DETAIL_PROJECT_ID, contractors, equipmentLastDay, equipments,
+  keyMilestoneSeed, manpowerLastDay, stages, workItemNames,
+} from './erp';
 import { seedProjects, type SeedProject } from './projects';
 
 // Hằng số seed - CHỈ dùng để sinh dữ liệu mẫu. Code production đọc src/lib/clock.ts.
@@ -42,15 +58,11 @@ export const SEED_HISTORY_MONTHS = [
   '2026-09',
 ];
 
-const STAGE_WEIGHTS: { stage: StageCode; weight: number }[] = [
-  { stage: 'design', weight: 0.06 },
-  { stage: 'shop', weight: 0.12 },
-  { stage: 'procurement', weight: 0.1 },
-  { stage: 'fabrication', weight: 0.34 },
-  { stage: 'transport', weight: 0.05 },
-  { stage: 'erection', weight: 0.28 },
-  { stage: 'handover', weight: 0.05 },
-];
+/** buildValueChain dùng phân số, còn DEFAULT_STAGE_WEIGHTS là điểm phần trăm → chia 100. */
+const STAGE_WEIGHT_FRACTIONS = DEFAULT_STAGE_WEIGHTS.map((w) => ({
+  stage: w.stageCode,
+  weight: w.weightPct / 100,
+}));
 
 function smoothstep(t: number): number {
   const x = Math.max(0, Math.min(1, t));
@@ -88,7 +100,7 @@ function monthlyProgress(p: SeedProject): number[] {
 function buildValueChain(pctActual: number, projectId: number, yearMonth: string): ValueChainProgress[] {
   let cumBefore = 0;
   const rows: ValueChainProgress[] = [];
-  for (const { stage, weight } of STAGE_WEIGHTS) {
+  for (const { stage, weight } of STAGE_WEIGHT_FRACTIONS) {
     const pct = Math.max(0, Math.min(1, (pctActual - cumBefore) / weight));
     rows.push({ projectId, stageCode: stage, yearMonth, pctComplete: pct, applicable: true });
     cumBefore += weight;
@@ -256,19 +268,187 @@ function buildPhotos(projects: Project[]): ProjectPhoto[] {
 }
 
 /**
- * Phân quyền PIC từng dự án (project_assignments) - mock.
- * Data-entry (dev@localhost) chỉ thấy các dự án mình là PIC.
+ * Phân quyền PIC từng dự án. Email PHẢI khớp userRoles bên dưới, nếu không
+ * data-entry/viewer sẽ không đọc được dự án nào sau khi requireProjectRead có hiệu lực.
  */
 function buildAssignments(projects: Project[]): ProjectAssignment[] {
-  const devOwns = new Set([1, 2, 3, 5, 7, 11]);
-  const pm1Owns = new Set([4, 6, 8, 9, 10]);
-  return projects.map((p) => ({
+  const pmOwns = new Set([1, 2, 3, 5, 7, 11]);       // pm@daidung.com.vn là PIC
+  const viewerSees = new Set([1, 2, 4, 6, 8, 10]);   // viewer@ được gán Backup để có quyền đọc
+  const out: ProjectAssignment[] = [];
+  for (const p of projects) {
+    out.push({
+      projectId: p.id,
+      userEmail: pmOwns.has(p.id) ? 'pm@daidung.com.vn' : 'admin@daidung.com.vn',
+      roleInProject: 'PIC',
+      assignedBy: 'Trưởng phòng KHDATT',
+      assignedAt: '2026-01-01T00:00:00Z',
+    });
+    if (viewerSees.has(p.id)) {
+      out.push({
+        projectId: p.id,
+        userEmail: 'viewer@daidung.com.vn',
+        roleInProject: 'Backup',
+        assignedBy: 'Trưởng phòng KHDATT',
+        assignedAt: '2026-01-01T00:00:00Z',
+      });
+    }
+  }
+  return out;
+}
+
+/** Mọi dự án nhận trọng số mặc định (5/10/10/40/5/27/3). */
+function buildStageWeights(projects: Project[]): ProjectStageWeight[] {
+  return projects.flatMap((p) =>
+    DEFAULT_STAGE_WEIGHTS.map((w) => ({
+      projectId: p.id,
+      stageCode: w.stageCode,
+      weightPct: w.weightPct,
+      applicable: w.applicable,
+    })),
+  );
+}
+
+/** 7 mốc giai đoạn cho mọi dự án: chia đều khoảng KH bắt đầu → KH kết thúc theo trọng số lũy kế. */
+function buildStageMilestones(projects: Project[]): FactStageMilestone[] {
+  const out: FactStageMilestone[] = [];
+  for (const p of projects) {
+    if (!p.plannedStartDate || !p.plannedFinishDate) continue;
+    const t0 = new Date(p.plannedStartDate).getTime();
+    const span = new Date(p.plannedFinishDate).getTime() - t0;
+    let cum = 0;
+    for (const w of DEFAULT_STAGE_WEIGHTS) {
+      const from = cum / 100;
+      cum += w.weightPct;
+      const to = cum / 100;
+      const start = new Date(t0 + span * from).toISOString().slice(0, 10);
+      const finish = new Date(t0 + span * to).toISOString().slice(0, 10);
+      const done = p.actualStartDate != null && to <= 0.5; // demo: nửa đầu chuỗi coi như đã xong
+      out.push({
+        projectId: p.id,
+        stageCode: w.stageCode,
+        plannedStart: start,
+        plannedFinish: finish,
+        actualStart: p.actualStartDate ? start : null,
+        actualFinish: done ? finish : null,
+        forecastDate: done ? null : finish,
+        updatedAt: '2026-09-02T00:00:00Z',
+        updatedBy: 'system',
+      });
+    }
+  }
+  return out;
+}
+
+/** 10 hạng mục + sản lượng KH/TT theo từng giai đoạn - chỉ cho dự án chi tiết. */
+function buildWorkItems(projects: Project[]): {
+  workItems: ProjectWorkItem[];
+  facts: FactStageWorkItem[];
+} {
+  const p = projects.find((x) => x.id === ERP_DETAIL_PROJECT_ID);
+  if (!p) return { workItems: [], facts: [] };
+
+  const workItems: ProjectWorkItem[] = workItemNames.map((name, i) => ({
+    id: i + 1,
     projectId: p.id,
-    userEmail: devOwns.has(p.id) ? 'dev@localhost' : pm1Owns.has(p.id) ? 'pm1@daidung.com.vn' : 'pm2@daidung.com.vn',
-    roleInProject: 'PIC' as const,
-    assignedBy: 'Trưởng phòng KHDATT',
-    assignedAt: '2026-01-01T00:00:00Z',
+    name,
+    sortOrder: i + 1,
   }));
+
+  // Chia tấn của dự án cho 10 hạng mục theo tỷ trọng giảm dần, tổng = p.tonnage.
+  const shares = [0.18, 0.15, 0.13, 0.12, 0.1, 0.09, 0.07, 0.06, 0.055, 0.045];
+  const volumeStages = DEFAULT_STAGE_WEIGHTS
+    .filter((w) => STAGE_CALC_MODE[w.stageCode] === 'volume')
+    .map((w) => w.stageCode);
+
+  const facts: FactStageWorkItem[] = [];
+  for (const wi of workItems) {
+    const itemTon = Math.round(p.tonnage * shares[wi.sortOrder - 1]);
+    for (const stageCode of volumeStages) {
+      // %TT giai đoạn giảm dần theo thứ tự chuỗi giá trị (Shop xong nhiều hơn Lắp dựng).
+      const idx = STAGE_ORDER.indexOf(stageCode);
+      const ratio = Math.max(0, Math.min(1, 1.15 - idx * 0.12));
+      facts.push({
+        projectId: p.id,
+        stageCode,
+        workItemId: wi.id,
+        yearMonth: SEED_CURRENT_MONTH,
+        qtyPlan: itemTon,
+        qtyActual: Math.round(itemTon * ratio),
+      });
+    }
+  }
+  return { workItems, facts };
+}
+
+function buildKeyMilestones(): ProjectKeyMilestone[] {
+  return keyMilestoneSeed.map((m, i) => ({
+    id: i + 1,
+    projectId: ERP_DETAIL_PROJECT_ID,
+    name: m.name,
+    sortOrder: i + 1,
+    plannedDate: m.plannedDate,
+    actualDate: m.actualDate,
+  }));
+}
+
+/** 7 ngày tracking gần nhất tính lùi từ SEED_REPORT_DATE (ngày cuối = SEED_REPORT_DATE). */
+function trackingDates(): string[] {
+  const end = SEED_REPORT_DATE.getTime();
+  return DAY_FACTORS.map((_, i) =>
+    new Date(end - (DAY_FACTORS.length - 1 - i) * 86_400_000).toISOString().slice(0, 10),
+  );
+}
+
+function buildDailyResources(): {
+  projectContractors: ProjectContractor[];
+  manpower: FactDailyManpower[];
+  equipmentUsage: FactDailyEquipmentUsage[];
+} {
+  const pid = ERP_DETAIL_PROJECT_ID;
+  const dates = trackingDates();
+
+  const projectContractors: ProjectContractor[] = contractors.map((c) => ({
+    projectId: pid,
+    contractorId: c.id,
+  }));
+
+  const manpower: FactDailyManpower[] = [];
+  const equipmentUsage: FactDailyEquipmentUsage[] = [];
+
+  dates.forEach((workDate, d) => {
+    const f = DAY_FACTORS[d];
+    for (const row of manpowerLastDay) {
+      manpower.push({
+        projectId: pid,
+        contractorId: row.contractorId,
+        workDate,
+        plannedHeadcount: Math.round(row.planned * f),
+        actualHeadcount: Math.round(row.actual * f),
+      });
+    }
+    for (const row of equipmentLastDay) {
+      equipmentUsage.push({
+        projectId: pid,
+        contractorId: row.contractorId,
+        equipmentId: row.equipmentId,
+        workDate,
+        qtyPlanned: Math.round(row.planned * f),
+        qtyActual: Math.round(row.actual * f),
+      });
+    }
+  });
+
+  return { projectContractors, manpower, equipmentUsage };
+}
+
+/**
+ * % KH theo thời gian của MỘT tháng = mốc ngày cuối tháng đó.
+ * Export ra để history.test.ts kiểm PV bằng đúng công thức này, không chép lại số.
+ * Hàm thuần - endOfMonth không đọc đồng hồ nên seed vẫn deterministic.
+ */
+export function seedPctPlanDuration(p: SeedProject, yearMonth: string): number {
+  const at = new Date(`${endOfMonth(yearMonth)}T00:00:00Z`);
+  return calcDurationPctComplete(p.plannedStartDate, p.plannedFinishDate, at) ?? 0;
 }
 
 export interface RepoData {
@@ -292,6 +472,17 @@ export interface RepoData {
   factories: typeof factories;
   currencies: typeof currencies;
   exchangeRates: typeof exchangeRates;
+  stages: Stage[];
+  stageWeights: ProjectStageWeight[];
+  workItems: ProjectWorkItem[];
+  workItemFacts: FactStageWorkItem[];
+  stageMilestones: FactStageMilestone[];
+  keyMilestones: ProjectKeyMilestone[];
+  contractors: Contractor[];
+  projectContractors: ProjectContractor[];
+  equipments: Equipment[];
+  dailyManpower: FactDailyManpower[];
+  dailyEquipment: FactDailyEquipmentUsage[];
 }
 
 export function buildRepoData(): RepoData {
@@ -314,12 +505,12 @@ export function buildRepoData(): RepoData {
       const pctActual = progress[m];
       const span = nMonths - startIdx;
       const tPlan = m < startIdx ? 0 : span <= 1 ? 1 : (m - startIdx) / (span - 1);
-      const pctPlan = p.finalPctPlan * tPlan;
-      const pv = pctPlan * bac;
+      const pctPlan = p.finalPctPlan * tPlan;              // số nhập tay, KHÔNG dùng để tính PV nữa
+      const pv = seedPctPlanDuration(p, yearMonth) * bac;
       const ev = pctActual * bac;
       // CPI giả định không đổi theo tháng (= finalCpi); AC = EV / CPI (khớp dữ liệu thật)
       const acVal = p.finalCpi ? ev / p.finalCpi : 0;
-      const spi = pv ? ev / pv : null;
+      const spi = calcSpi(ev, pv);
       const cpi = acVal ? ev / acVal : null;
 
       facts.push({
@@ -336,8 +527,11 @@ export function buildRepoData(): RepoData {
         spi,
         cpi,
         bottleneckStage: null,
-        equipmentPlanned: 10,
-        equipmentActual: Math.round(10 * (pctActual > 0 ? 0.7 + 0.3 * (pctActual / p.finalPctActual || 0) : 0)),
+        isLatest: true,
+        manpowerPlanned: p.id === ERP_DETAIL_PROJECT_ID ? 520 : 0,
+        manpowerActual: p.id === ERP_DETAIL_PROJECT_ID ? 486 : 0,
+        equipmentPlanned: p.id === ERP_DETAIL_PROJECT_ID ? 72 : 10,
+        equipmentActual: p.id === ERP_DETAIL_PROJECT_ID ? 63 : Math.round(10 * (pctActual > 0 ? 0.7 + 0.3 * (pctActual / p.finalPctActual || 0) : 0)),
         snapshotLockedAt: m < SEED_HISTORY_MONTHS.length - 1 ? '2026-09-02T00:00:00Z' : null,
         lockedBy: m < SEED_HISTORY_MONTHS.length - 1 ? 'Trưởng phòng KHDATT' : null,
         version: 1,
@@ -364,6 +558,7 @@ export function buildRepoData(): RepoData {
         arOutstanding: Math.round(Math.max(0, ev - arCollected - arOverdue) * 10) / 10,
         arOverdue,
         version: 1,
+        isLatest: true,
         changedBy: 'system',
         changedAt: '2026-09-02T00:00:00Z',
         changeNote: '',
@@ -389,6 +584,9 @@ export function buildRepoData(): RepoData {
     const latest = facts.filter((f) => f.projectId === p.id && f.yearMonth === SEED_CURRENT_MONTH);
     if (latest.length) latest[latest.length - 1].bottleneckStage = bottleneck;
   }
+
+  const wi = buildWorkItems(projects);
+  const res = buildDailyResources();
 
   return {
     projects,
@@ -416,5 +614,16 @@ export function buildRepoData(): RepoData {
     factories,
     currencies,
     exchangeRates,
+    stages,
+    stageWeights: buildStageWeights(projects),
+    workItems: wi.workItems,
+    workItemFacts: wi.facts,
+    stageMilestones: buildStageMilestones(projects),
+    keyMilestones: buildKeyMilestones(),
+    contractors,
+    projectContractors: res.projectContractors,
+    equipments,
+    dailyManpower: res.manpower,
+    dailyEquipment: res.equipmentUsage,
   };
 }

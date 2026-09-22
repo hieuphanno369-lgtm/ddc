@@ -21,8 +21,8 @@ import { getCurrentUser } from '@/lib/session';
 import { addPhotoAction, deletePhotoAction } from '@/server/actions';
 
 const YM = '2026-09';
-const PID_PIC = 1; // dev@localhost là PIC
-const PID_OTHER = 4; // pm1@daidung.com.vn là PIC - dev@localhost KHÔNG phải PIC
+const PID_PIC = 1; // pm@daidung.com.vn là PIC
+const PID_OTHER = 4; // admin@daidung.com.vn là PIC - pm@daidung.com.vn KHÔNG phải PIC
 
 const dataEntry = (email: string): CurrentUser => ({ name: email, email, role: 'data-entry', canViewFinance: false });
 const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.com.vn', role: 'admin', canViewFinance: true };
@@ -62,7 +62,7 @@ beforeEach(() => {
 
 describe('addPhotoAction', () => {
   it('PIC upload: ghi file vào data/uploads/<projectId>/<YYYY-MM>/ và tạo record DB', async () => {
-    login(dataEntry('dev@localhost'));
+    login(dataEntry('pm@daidung.com.vn'));
 
     const res = await addPhotoAction(uploadForm(PID_PIC, png()));
 
@@ -70,7 +70,7 @@ describe('addPhotoAction', () => {
     const photo = repo.getPhotoById(res.id!);
     expect(photo).not.toBeNull();
     expect(photo!.url).toMatch(new RegExp(`^${PID_PIC}/${YM}/`));
-    expect(photo!.uploadedBy).toBe('dev@localhost');
+    expect(photo!.uploadedBy).toBe('pm@daidung.com.vn');
     expect(existsSync(path.join(UPLOAD_ROOT, photo!.url))).toBe(true);
   });
 
@@ -91,7 +91,7 @@ describe('addPhotoAction', () => {
   });
 
   it('data-entry KHÔNG phải PIC của dự án → Forbidden', async () => {
-    login(dataEntry('dev@localhost'));
+    login(dataEntry('pm@daidung.com.vn'));
     const before = repo.getPhotos(PID_OTHER).length;
 
     const res = await addPhotoAction(uploadForm(PID_OTHER, png()));
@@ -107,7 +107,7 @@ describe('addPhotoAction', () => {
   });
 
   it('file không phải ảnh → từ chối', async () => {
-    login(dataEntry('dev@localhost'));
+    login(dataEntry('pm@daidung.com.vn'));
     const pdf = new File([Buffer.from('%PDF-1.4')], 'tai-lieu.pdf', { type: 'application/pdf' });
 
     const res = await addPhotoAction(uploadForm(PID_PIC, pdf));
@@ -117,7 +117,7 @@ describe('addPhotoAction', () => {
   });
 
   it('file vượt 5MB → từ chối', async () => {
-    login(dataEntry('dev@localhost'));
+    login(dataEntry('pm@daidung.com.vn'));
     const huge = new File([Buffer.alloc(5 * 1024 * 1024 + 1)], 'to.png', { type: 'image/png' });
 
     const res = await addPhotoAction(uploadForm(PID_PIC, huge));
@@ -126,13 +126,13 @@ describe('addPhotoAction', () => {
   });
 
   it('yearMonth sai định dạng → từ chối', async () => {
-    login(dataEntry('dev@localhost'));
+    login(dataEntry('pm@daidung.com.vn'));
     const res = await addPhotoAction(uploadForm(PID_PIC, png(), { yearMonth: '09-2026' }));
     expect(res.ok).toBe(false);
   });
 
   it('thiếu file → từ chối', async () => {
-    login(dataEntry('dev@localhost'));
+    login(dataEntry('pm@daidung.com.vn'));
     const res = await addPhotoAction(uploadForm(PID_PIC, null));
     expect(res.ok).toBe(false);
   });
@@ -152,8 +152,8 @@ describe('deletePhotoAction - ma trận quyền', () => {
   });
 
   it('người upload xóa được ảnh của chính mình', async () => {
-    login(dataEntry('dev@localhost'));
-    const { photo, abs } = await seedPhoto(PID_PIC, 'dev@localhost');
+    login(dataEntry('pm@daidung.com.vn'));
+    const { photo, abs } = await seedPhoto(PID_PIC, 'pm@daidung.com.vn');
 
     const res = await deletePhotoAction(photo.id);
 
@@ -164,7 +164,7 @@ describe('deletePhotoAction - ma trận quyền', () => {
 
   it('data-entry LÀ PIC của dự án xóa được ảnh người khác upload', async () => {
     const { photo, abs } = await seedPhoto(PID_PIC, 'nguoi-khac@daidung.com.vn');
-    login(dataEntry('dev@localhost'));
+    login(dataEntry('pm@daidung.com.vn'));
 
     const res = await deletePhotoAction(photo.id);
 
@@ -175,7 +175,7 @@ describe('deletePhotoAction - ma trận quyền', () => {
 
   it('data-entry KHÁC PIC → Forbidden, giữ nguyên cả record lẫn file', async () => {
     const { photo, abs } = await seedPhoto(PID_OTHER, 'nguoi-khac@daidung.com.vn');
-    login(dataEntry('dev@localhost')); // PIC của dự án 4 là pm1@..., không phải dev@localhost
+    login(dataEntry('pm@daidung.com.vn')); // PIC của dự án 4 là admin@..., không phải pm@daidung.com.vn
 
     const res = await deletePhotoAction(photo.id);
 
@@ -185,7 +185,7 @@ describe('deletePhotoAction - ma trận quyền', () => {
   });
 
   it('viewer → Forbidden, giữ nguyên record', async () => {
-    const { photo } = await seedPhoto(PID_PIC, 'dev@localhost');
+    const { photo } = await seedPhoto(PID_PIC, 'pm@daidung.com.vn');
     login({ name: 'V', email: 'viewer@daidung.com.vn', role: 'viewer', canViewFinance: false });
 
     const res = await deletePhotoAction(photo.id);
@@ -195,7 +195,7 @@ describe('deletePhotoAction - ma trận quyền', () => {
   });
 
   it('chưa đăng nhập → Forbidden', async () => {
-    const { photo } = await seedPhoto(PID_PIC, 'dev@localhost');
+    const { photo } = await seedPhoto(PID_PIC, 'pm@daidung.com.vn');
     login(null);
 
     const res = await deletePhotoAction(photo.id);

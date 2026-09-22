@@ -73,7 +73,7 @@ describe('photos (mock repo)', () => {
   });
 
   it('getAssignmentsForUser trả đúng dự án PIC (cơ sở kiểm quyền xóa/xem)', () => {
-    expect(repo.getAssignmentsForUser('dev@localhost')).toEqual([1, 2, 3, 5, 7, 11]);
+    expect(repo.getAssignmentsForUser('pm@daidung.com.vn')).toEqual([1, 2, 3, 5, 7, 11]);
     expect(repo.getAssignmentsForUser('khong-ton-tai@localhost')).toEqual([]);
   });
 });

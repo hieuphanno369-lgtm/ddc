@@ -23,7 +23,7 @@ import { importExcelAction, saveMonthlyData } from '@/server/actions';
 
 const YM = '2026-09';
 const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.com.vn', role: 'admin', canViewFinance: true };
-/** dev@localhost là PIC dự án 1, 2, 3, 5, 7, 11 - KHÔNG phải PIC dự án 16. */
+/** pm@daidung.com.vn là PIC dự án 1, 2, 3, 5, 7, 11 - KHÔNG phải PIC dự án 16. */
 const dataEntry = (email: string): CurrentUser => ({ name: email, email, role: 'data-entry', canViewFinance: false });
 
 function login(user: CurrentUser | null) {
@@ -38,7 +38,7 @@ beforeEach(() => {
 describe('P3 - chỉ Admin/BOD được ghi field tài chính', () => {
   it('data-entry (PIC) gửi revenueCumulative → Forbidden, KHÔNG ghi financial', async () => {
     const id = 1;
-    login(dataEntry('dev@localhost'));
+    login(dataEntry('pm@daidung.com.vn'));
     const beforeFin = JSON.stringify(repo.getFinancial(id));
 
     const res = await saveMonthlyData(id, YM, { revenueCumulative: 999 });
@@ -48,7 +48,7 @@ describe('P3 - chỉ Admin/BOD được ghi field tài chính', () => {
   });
 
   it('data-entry (PIC) gửi field hồ sơ không tài chính → vẫn lưu được', async () => {
-    login(dataEntry('dev@localhost'));
+    login(dataEntry('pm@daidung.com.vn'));
 
     const res = await saveMonthlyData(1, YM, { projectName: 'TÊN ĐỔI' });
 
@@ -112,7 +112,7 @@ describe('P6 - preview import không lộ projectId ngoài assignment (data-entr
   type Result = { ok: boolean; mapped?: number; preview?: { status: string; projectId: number | null }[] };
 
   it('data-entry: bỏ dòng mapped thuộc dự án ngoài assignment, giữ dòng của mình + dòng chờ ghép', async () => {
-    login(dataEntry('dev@localhost'));
+    login(dataEntry('pm@daidung.com.vn'));
 
     const res = (await importExcelAction(xlsxForm())) as Result;
 
