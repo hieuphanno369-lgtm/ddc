@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 import { getCurrentUser } from '@/lib/session';
 import { getReportData } from '@/server/report';
-import { currentMonth } from '@/server/repo';
+import { currentMonth } from '@/lib/clock';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +11,7 @@ export async function GET() {
   if (!user || !['admin', 'bod'].includes(user.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
-  const { kpis, p0Red, rows } = await getReportData(currentMonth);
+  const { kpis, p0Red, rows } = await getReportData(currentMonth());
 
   const wb = new ExcelJS.Workbook();
 

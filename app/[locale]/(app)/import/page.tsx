@@ -1,7 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 import { repo } from '@/server/repo';
-import { currentMonth } from '@/server/queries';
-import { HISTORY_MONTHS } from '@/data/seed/history';
+import { currentMonth, historyMonths } from '@/lib/clock';
 import { ImportPanel } from '@/components/form/ImportPanel';
 
 export default async function ImportPage() {
@@ -12,7 +11,7 @@ export default async function ImportPage() {
   return (
     <div className="mx-auto max-w-4xl">
       <h1 className="mb-4 text-lg font-semibold text-navy-900">{t('import.title')}</h1>
-      <ImportPanel projects={projects} queue={queue} months={HISTORY_MONTHS} currentMonth={currentMonth} />
+      <ImportPanel projects={projects} queue={queue} months={historyMonths()} currentMonth={currentMonth()} />
     </div>
   );
 }

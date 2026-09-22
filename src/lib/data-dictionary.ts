@@ -2,6 +2,7 @@
  * Từ điển dữ liệu - giải thích ý nghĩa + công thức từng field, ngôn ngữ dễ hiểu cho người non-tech.
  * Hiển thị trong modal Data Dictionary ở phần Settings.
  */
+import { THRESHOLDS } from './thresholds';
 
 export interface DictEntry {
   fieldVi: string;
@@ -93,7 +94,7 @@ export const DATA_DICTIONARY: DictSection[] = [
     titleVi: 'Ngưỡng đánh giá & màu',
     titleEn: 'Thresholds & Colors',
     entries: [
-      { fieldVi: 'SPI / CPI < 0.9', fieldEn: 'SPI / CPI < 0.9', meaningVi: 'Cảnh báo Amber (Vàng) - gửi nhóm KHDATT.', meaningEn: 'Amber alert - sent to KHDATT team.' },
+      { fieldVi: `SPI / CPI < ${THRESHOLDS.spiWarn}`, fieldEn: `SPI / CPI < ${THRESHOLDS.spiWarn}`, meaningVi: 'Cảnh báo Amber (Vàng) - gửi nhóm KHDATT.', meaningEn: 'Amber alert - sent to KHDATT team.' },
       { fieldVi: 'Quá hạn / nguy cơ phạt', fieldEn: 'Overdue / penalty risk', meaningVi: 'Cảnh báo Red (Đỏ) - báo BOD.', meaningEn: 'Red alert - escalated to BOD.' },
       { fieldVi: 'Dồn tải xưởng', fieldEn: 'Factory overload', meaningVi: 'Sản lượng tháng > 85% công suất tháng của nhà máy.', meaningEn: 'Monthly output > 85% of factory monthly capacity.' },
       { fieldVi: 'Công nợ quá hạn', fieldEn: 'Overdue receivables', meaningVi: 'Công nợ quá hạn > 5% giá trị HĐ → cảnh báo đỏ.', meaningEn: 'Overdue > 5% of contract value → red alert.' },
@@ -108,7 +109,7 @@ export const DATA_DICTIONARY: DictSection[] = [
       { fieldVi: 'Donut trạng thái', fieldEn: 'Status donut', meaningVi: 'Tỷ lệ dự án theo trạng thái. Click 1 lát để lọc bảng dưới.', meaningEn: 'Project mix by status. Click a slice to filter the table below.' },
       { fieldVi: 'Bar Lượng & Trị (Team KD)', fieldEn: 'Bar Tonnage & Value', meaningVi: 'Cột = Trị (tỷ, trục trái), đường = Lượng (tấn, trục phải). So sánh quy mô giữa các nhóm kinh doanh.', meaningEn: 'Bars = value (billion, left axis), line = tonnage (right axis). Compare scale across sales teams.' },
       { fieldVi: 'Bar Sản lượng vs Công suất', fieldEn: 'Bar Output vs Capacity', meaningVi: 'Cột xám = công suất tháng của nhà máy, cột màu = sản lượng thực tế. Cột vàng/cam = quá tải (>85%).', meaningEn: 'Grey bar = monthly factory capacity, colored = actual output. Amber = overloaded (>85%).' },
-      { fieldVi: 'Line SPI/CPI trend', fieldEn: 'SPI/CPI line', meaningVi: '2 đường theo 6 tháng. Đường ngang 0.9 là ngưỡng - dưới 0.9 là cần chú ý.', meaningEn: '2 lines over 6 months. The 0.9 horizontal line is the threshold - below it needs attention.' },
+      { fieldVi: 'Line SPI/CPI trend', fieldEn: 'SPI/CPI line', meaningVi: `2 đường theo 6 tháng. Đường ngang ${THRESHOLDS.spiWarn} là ngưỡng - dưới ${THRESHOLDS.spiWarn} là cần chú ý.`, meaningEn: `2 lines over 6 months. The ${THRESHOLDS.spiWarn} horizontal line is the threshold - below it needs attention.` },
       { fieldVi: 'Đường cong S (S-curve)', fieldEn: 'S-curve', meaningVi: 'PV/EV/AC cộng dồn theo tháng. EV nằm dưới PV = chậm tiến độ; AC nằm trên EV = đang tiêu nhiều hơn giá trị làm ra.', meaningEn: 'Cumulative PV/EV/AC. EV below PV = behind; AC above EV = spending more than earned.' },
       { fieldVi: 'Sparkline (đường nhỏ)', fieldEn: 'Sparkline', meaningVi: 'Đường trend nhỏ 6 kỳ của Backlog và Công nợ quá hạn - thấy xu hướng tăng/giảm nhanh.', meaningEn: 'Small 6-period trend of Backlog and Overdue - quick up/down trend.' },
       { fieldVi: 'Watchlist', fieldEn: 'Watchlist', meaningVi: 'Dự án đang trễ/nguy cơ - cần xử lý trước. Click mở chi tiết.', meaningEn: 'Projects behind or at risk - act first. Click to open detail.' },

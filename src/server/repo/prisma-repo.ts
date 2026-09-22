@@ -1,5 +1,4 @@
 import { prisma } from '@/server/db';
-import { CURRENT_MONTH } from '@/data/seed/history';
 import type { StageInput } from '@/lib/stages';
 import type {
   ActivityLogEntry,
@@ -888,5 +887,3 @@ export const repo = {
     ]);
   },
 };
-
-export const currentMonth = CURRENT_MONTH;

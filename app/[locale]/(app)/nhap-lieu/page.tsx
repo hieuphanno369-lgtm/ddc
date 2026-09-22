@@ -1,7 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 import { repo } from '@/server/repo';
-import { currentMonth } from '@/server/queries';
-import { HISTORY_MONTHS } from '@/data/seed/history';
+import { currentMonth, historyMonths } from '@/lib/clock';
 import { getCurrentUser } from '@/lib/session';
 import { DataEntryForm } from '@/components/form/DataEntryForm';
 import { CreateProjectForm } from '@/components/form/CreateProjectForm';
@@ -26,10 +25,11 @@ export default async function NhapLieuPage({
   const selectedId =
     Number.isFinite(selectedRaw) && all.some((p) => p.id === selectedRaw) ? selectedRaw : all[0]?.id;
 
+  const months = historyMonths();
   const month =
-    typeof searchParams.month === 'string' && HISTORY_MONTHS.includes(searchParams.month)
+    typeof searchParams.month === 'string' && months.includes(searchParams.month)
       ? searchParams.month
-      : currentMonth;
+      : currentMonth();
 
   const dims = await repo.getDims();
   const project = (await repo.getProject(selectedId)) ?? (await repo.getProject(projects[0]?.id));
@@ -70,7 +70,7 @@ export default async function NhapLieuPage({
             sapCodes={sapCodes}
             photos={photos}
             month={month}
-            months={HISTORY_MONTHS}
+            months={months}
             locked={locked}
             canLock={user?.role === 'admin'}
             customers={dims.customers}

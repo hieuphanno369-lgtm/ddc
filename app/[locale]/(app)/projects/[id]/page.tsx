@@ -3,10 +3,12 @@ import dynamic from 'next/dynamic';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { repo } from '@/server/repo';
-import { currentMonth, getProjectSummary } from '@/server/queries';
+import { getProjectSummary } from '@/server/queries';
+import { currentMonth } from '@/lib/clock';
 import { getCurrentUser } from '@/lib/session';
 import { stageKey } from '@/lib/labels';
 import { STAGE_ORDER } from '@/lib/stages';
+import { THRESHOLDS } from '@/lib/thresholds';
 import { formatDate, formatDateTime, formatPct, formatRatio, formatTyd } from '@/lib/format';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { MarketLabel, PriorityBadge, StatusBadge, TypeLabel } from '@/components/ui/Badges';
@@ -34,7 +36,7 @@ export default async function ProjectDetailPage({
   searchParams: Record<string, string | string[] | undefined>;
 }) {
   const id = Number(params.id);
-  const month = typeof searchParams.month === 'string' && searchParams.month !== 'all' ? searchParams.month : currentMonth;
+  const month = typeof searchParams.month === 'string' && searchParams.month !== 'all' ? searchParams.month : currentMonth();
   const t = await getTranslations();
   const locale = await getLocale();
   const user = await getCurrentUser();
@@ -109,8 +111,8 @@ export default async function ProjectDetailPage({
 
       {/* 6 KPI cards */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <KpiCard label={t('metric.spi')} value={formatRatio(summary.spi)} delta={null} tone={summary.spi != null && summary.spi < 0.9 ? 'warn' : 'ok'} hero icon={IconTrend} />
-        <KpiCard label={t('metric.cpi')} value={formatRatio(summary.cpi)} delta={null} tone={summary.cpi != null && summary.cpi < 0.9 ? 'warn' : 'ok'} icon={IconMoney} />
+        <KpiCard label={t('metric.spi')} value={formatRatio(summary.spi)} delta={null} tone={summary.spi != null && summary.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'} hero icon={IconTrend} />
+        <KpiCard label={t('metric.cpi')} value={formatRatio(summary.cpi)} delta={null} tone={summary.cpi != null && summary.cpi < THRESHOLDS.cpiWarn ? 'warn' : 'ok'} icon={IconMoney} />
         <KpiCard label={t('metric.eac')} value={formatTyd(summary.eac, locale)} delta={null} tone="neutral" icon={IconGauge} />
         <KpiCard label={t('metric.vac')} value={formatTyd(summary.vac, locale)} delta={null} tone={summary.vac != null && summary.vac < 0 ? 'danger' : 'ok'} icon={IconFlag} />
         <KpiCard label={t('metric.pctPlan')} value={formatPct(summary.pctPlan, locale)} delta={null} tone="neutral" icon={IconProject} />
@@ -209,7 +211,7 @@ export default async function ProjectDetailPage({
         <Card>
           <CardHeader title={t('whatif.title')} />
           <CardBody>
-            <WhatIf ac={latest.ac} pctActual={latest.pctActual} />
+            <WhatIf ac={latest.ac} pctActual={latest.pctActual} bac={latest.bac || project.contractValue} />
           </CardBody>
         </Card>
       )}

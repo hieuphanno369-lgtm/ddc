@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRepoData, CURRENT_MONTH, HISTORY_MONTHS } from './history';
+import { buildRepoData, SEED_CURRENT_MONTH, SEED_HISTORY_MONTHS } from './history';
 
 describe('Seed dữ liệu', () => {
   const data = buildRepoData();
@@ -9,7 +9,7 @@ describe('Seed dữ liệu', () => {
   });
 
   it('12 tháng lịch sử × 17 dự án = 204 bản ghi tiến độ', () => {
-    expect(HISTORY_MONTHS.length).toBe(12);
+    expect(SEED_HISTORY_MONTHS.length).toBe(12);
     expect(data.facts.length).toBe(17 * 12);
   });
 
@@ -29,7 +29,7 @@ describe('Seed dữ liệu', () => {
   });
 
   it('Khâu nghẽn được gán cho tháng hiện tại', () => {
-    const latest = data.facts.filter((f) => f.yearMonth === CURRENT_MONTH);
+    const latest = data.facts.filter((f) => f.yearMonth === SEED_CURRENT_MONTH);
     expect(latest.length).toBe(17);
   });
 

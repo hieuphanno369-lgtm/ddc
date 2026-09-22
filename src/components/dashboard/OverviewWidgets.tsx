@@ -12,8 +12,9 @@ import {
 } from '@/server/cache';
 import { getScopedProjectIds, type DashboardFilters, type GroupBy } from '@/server/queries';
 import { repo } from '@/server/repo';
-import { HISTORY_MONTHS } from '@/data/seed/history';
+import { historyMonths } from '@/lib/clock';
 import { formatTyd } from '@/lib/format';
+import { THRESHOLDS } from '@/lib/thresholds';
 import { KpiCard } from './KpiCard';
 import { Watchlist } from './Watchlist';
 import { ProjectTable } from './ProjectTable';
@@ -107,7 +108,7 @@ export async function SpiCpiCard({ filters }: { filters: DashboardFilters }) {
   const trend = (await loadSpiCpiTrend(filters)).slice(-6);
   return (
     <Card>
-      <CardHeader title={t('overview.spiCpiTrend')} subtitle={`${t('overview.threshold')}: 0.9`} />
+      <CardHeader title={t('overview.spiCpiTrend')} subtitle={`${t('overview.threshold')}: ${THRESHOLDS.spiWarn}`} />
       <CardBody>
         <SpiCpiLine data={trend} />
       </CardBody>
@@ -120,20 +121,21 @@ export async function BacklogOverdueCard({ month, filters }: { month: string; fi
   const locale = await getLocale();
   const scopedIds = await getScopedProjectIds(filters);
   const kpis = await loadPortfolioKpis(month, filters);
+  const months = historyMonths();
   const backlogTrend = await Promise.all(
-    HISTORY_MONTHS.map(async (m) =>
+    months.map(async (m) =>
       (await repo.getFinancialForMonth(m)).filter((f) => scopedIds.has(f.projectId)).reduce((a, b) => a + b.backlog, 0),
     ),
   );
   const overdueTrend = await Promise.all(
-    HISTORY_MONTHS.map(async (m) =>
+    months.map(async (m) =>
       (await repo.getFinancialForMonth(m)).filter((f) => scopedIds.has(f.projectId)).reduce((a, b) => a + b.arOverdue, 0),
     ),
   );
   const totalOverdue = (await repo.getFinancialForMonth(month))
     .filter((f) => scopedIds.has(f.projectId))
     .reduce((a, b) => a + b.arOverdue, 0);
-  const data = HISTORY_MONTHS.map((m, i) => ({ month: m, backlog: backlogTrend[i], overdue: overdueTrend[i] }));
+  const data = months.map((m, i) => ({ month: m, backlog: backlogTrend[i], overdue: overdueTrend[i] }));
   return (
     <Card>
       <CardHeader title={t('overview.backlogOverdue')} />

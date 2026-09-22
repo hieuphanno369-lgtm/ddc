@@ -3,18 +3,19 @@
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { formatPct, formatTyd } from '@/lib/format';
+import { calcCpi, calcEac, calcEv } from '@/lib/evm';
 
 /**
  * What-if (Phase 2): thử "nếu %HT tháng sau tăng X% thì EAC còn bao nhiêu".
- * EAC = AC / pctActual (do CPI = EV/AC, EAC = BAC/CPI). Tăng %HT → EAC giảm.
+ * Gọi đúng công thức ở evm.ts (calcEv/calcCpi/calcEac) - không tự tính lại inline. Tăng %HT → EAC giảm.
  */
-export function WhatIf({ ac, pctActual }: { ac: number; pctActual: number }) {
+export function WhatIf({ ac, pctActual, bac }: { ac: number; pctActual: number; bac: number }) {
   const t = useTranslations();
   const locale = useLocale();
   const [delta, setDelta] = useState(0);
 
-  const baseEac = pctActual ? ac / pctActual : null;
-  const newEac = pctActual + delta ? ac / (pctActual + delta) : null;
+  const baseEac = calcEac(bac, calcCpi(calcEv(pctActual, bac), ac));
+  const newEac = calcEac(bac, calcCpi(calcEv(pctActual + delta, bac), ac));
   const saving = baseEac != null && newEac != null ? baseEac - newEac : null;
 
   return (

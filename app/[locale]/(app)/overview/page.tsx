@@ -3,7 +3,8 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { getCurrentUser } from '@/lib/session';
 import { repo } from '@/server/repo';
 import { formatDateTime } from '@/lib/format';
-import { currentMonth, type DashboardFilters, type GroupBy } from '@/server/queries';
+import { type DashboardFilters, type GroupBy } from '@/server/queries';
+import { currentMonth, historyMonths } from '@/lib/clock';
 import type { Market, Priority, ProjectType, Status } from '@/server/repo/types';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { FilterBar } from '@/components/dashboard/FilterBar';
@@ -46,7 +47,7 @@ export default async function OverviewPage({
   const lastUpdate = (await repo.getAuditLog())[0]?.changedAt ?? null;
   const dims = await repo.getDims();
 
-  const month = p(searchParams, 'month') === 'all' ? 'all' : p(searchParams, 'month') || currentMonth;
+  const month = p(searchParams, 'month') === 'all' ? 'all' : p(searchParams, 'month') || currentMonth();
   const groupBy = (p(searchParams, 'groupBy') as GroupBy) || 'team';
 
   const filters: DashboardFilters = {
@@ -73,7 +74,7 @@ export default async function OverviewPage({
       </p>
 
       <Suspense fallback={null}>
-        <FilterBar teams={dims.teams} customers={dims.customers} />
+        <FilterBar teams={dims.teams} customers={dims.customers} months={historyMonths()} currentMonth={currentMonth()} />
       </Suspense>
 
       {isAdmin && (

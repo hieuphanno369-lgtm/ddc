@@ -12,7 +12,7 @@ import type { StageCode } from '@/server/repo/types';
 vi.mock('next/cache', () => ({ revalidateTag: vi.fn(), revalidatePath: vi.fn() }));
 vi.mock('@/server/repo', async () => {
   const mockRepo = await import('@/server/repo/mock-repo');
-  return { repo: mockRepo.repo, currentMonth: () => '2026-09' };
+  return { repo: mockRepo.repo };
 });
 vi.mock('@/lib/session', () => ({ getCurrentUser: vi.fn() }));
 
@@ -39,14 +39,14 @@ beforeEach(() => {
 });
 
 describe('saveMonthlyData - % tổng & khâu nghẽn tự suy từ chain', () => {
-  it('%TT = trung bình 7 giai đoạn áp dụng; bottleneckStage = giai đoạn áp dụng đầu tiên < 100%', async () => {
+  it('%TT = tổng CÓ TRỌNG SỐ 7 giai đoạn áp dụng; bottleneckStage = giai đoạn áp dụng đầu tiên < 100%', async () => {
     const id = pid();
 
     const res = await saveMonthlyData(id, YM, { chain: chain([1, 0.8, 0.6, 0, 0, 0, 0]) });
 
     expect(res).toEqual({ ok: true });
     const fact = repo.getLatestFact(id, YM)!;
-    expect(fact.pctActual).toBeCloseTo((1 + 0.8 + 0.6) / 7);
+    expect(fact.pctActual).toBeCloseTo((5 * 1 + 10 * 0.8 + 10 * 0.6) / 100, 10);
     expect(fact.bottleneckStage).toBe('shop'); // design đã 100%, shop mới 80% → khâu nghẽn đầu tiên
   });
 
@@ -58,7 +58,8 @@ describe('saveMonthlyData - % tổng & khâu nghẽn tự suy từ chain', () =>
     });
 
     const fact = repo.getLatestFact(id, YM)!;
-    expect(fact.pctActual).toBe(0.75); // (0.5 + 1.0)/2, KHÔNG phải (0.5+1.0+0.9)/3 = 0.8
+    // (5×0.5+10×1.0)/15, KHÔNG phải trung bình cộng 0.75
+    expect(fact.pctActual).toBeCloseTo((5 * 0.5 + 10 * 1.0) / 15, 10);
     expect(fact.bottleneckStage).toBe('design');
   });
 
@@ -84,7 +85,7 @@ describe('saveMonthlyData - % tổng & khâu nghẽn tự suy từ chain', () =>
     await saveMonthlyData(id, YM, { chain: chain([1, 1, 1, 1, 1, 1, 1]) });
 
     const fact = repo.getLatestFact(id, YM)!;
-    expect(fact.pctActual).toBe(1);
+    expect(fact.pctActual).toBeCloseTo(1, 10);
     expect(fact.bottleneckStage).toBeNull();
   });
 
@@ -129,6 +130,19 @@ describe('saveMonthlyData - % tổng & khâu nghẽn tự suy từ chain', () =>
 
     expect(res).toEqual({ ok: false, error: 'Forbidden' });
     expect(repo.getLatestFact(id, YM)!.version).toBe(beforeVersion);
+  });
+
+  it('cùng bộ %HT, đổi giai đoạn hoàn thành → %TT khác nhau theo trọng số (Gia công 40 >> Thiết kế 5)', async () => {
+    const id = pid();
+
+    await saveMonthlyData(id, YM, { chain: chain([1, 0, 0, 0, 0, 0, 0]) });   // chỉ Thiết kế xong
+    const chiThietKe = repo.getLatestFact(id, YM)!.pctActual;
+
+    await saveMonthlyData(id, YM, { chain: chain([0, 0, 0, 1, 0, 0, 0]) });   // chỉ Gia công xong
+    const chiGiaCong = repo.getLatestFact(id, YM)!.pctActual;
+
+    expect(chiThietKe).toBeCloseTo(0.05, 10);
+    expect(chiGiaCong).toBeCloseTo(0.40, 10);
   });
 });
 

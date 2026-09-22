@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   calcCpi,
+  calcDayVariance,
+  calcDurationPctComplete,
   calcEac,
   calcEv,
   calcPv,
+  calcScheduleGap,
   calcSpi,
   calcVac,
   computeEvm,
@@ -16,6 +19,8 @@ import {
   penaltyState,
 } from './evm';
 import type { ValueChainProgress } from '@/server/repo/types';
+
+const D = (s: string) => new Date(`${s}T00:00:00Z`);
 
 describe('EVM công thức', () => {
   it('PV = %KH × BAC', () => {
@@ -129,5 +134,79 @@ describe('Cảnh báo ngưỡng', () => {
   it('Huy động thiết bị < 80%', () => {
     expect(isEquipmentWarning(7, 10)).toBe(true);
     expect(isEquipmentWarning(9, 10)).toBe(false);
+  });
+});
+
+describe('calcDurationPctComplete - "% Kế Hoạch" theo thời gian trôi', () => {
+  const start = '2026-01-01';
+  const finish = '2026-12-31';   // 364 ngày
+
+  it('trước/đúng ngày bắt đầu → 0', () => {
+    expect(calcDurationPctComplete(start, finish, D('2025-06-30'))).toBe(0);
+    expect(calcDurationPctComplete(start, finish, D('2026-01-01'))).toBe(0);
+  });
+  it('đúng/sau ngày kết thúc → 1 (kẹp, không vượt 100%)', () => {
+    expect(calcDurationPctComplete(start, finish, D('2026-12-31'))).toBe(1);
+    expect(calcDurationPctComplete(start, finish, D('2030-01-01'))).toBe(1);
+  });
+  it('giữa kỳ → tỷ lệ ngày đã trôi', () => {
+    expect(calcDurationPctComplete(start, finish, D('2026-07-01'))).toBeCloseTo(181 / 364, 6);
+  });
+  it('thiếu ngày → null (không đoán)', () => {
+    expect(calcDurationPctComplete(null, finish, D('2026-07-01'))).toBeNull();
+    expect(calcDurationPctComplete(start, null, D('2026-07-01'))).toBeNull();
+    expect(calcDurationPctComplete(null, null, D('2026-07-01'))).toBeNull();
+  });
+  it('ngày rác → null', () => {
+    expect(calcDurationPctComplete('khong-phai-ngay', finish, D('2026-07-01'))).toBeNull();
+  });
+  it('finish < start (data lỗi) → null, KHÔNG trả số âm', () => {
+    expect(calcDurationPctComplete('2026-12-31', '2026-01-01', D('2026-07-01'))).toBeNull();
+  });
+  it('finish === start (dự án 1 ngày) → không chia 0', () => {
+    expect(calcDurationPctComplete('2026-05-05', '2026-05-05', D('2026-05-04'))).toBe(0);
+    expect(calcDurationPctComplete('2026-05-05', '2026-05-05', D('2026-05-05'))).toBe(1);
+  });
+  it('nhận cả Date lẫn ISO string đầy đủ', () => {
+    expect(calcDurationPctComplete(D(start), D(finish), D('2026-12-31'))).toBe(1);
+    expect(calcDurationPctComplete('2026-01-01T00:00:00.000Z', finish, D('2026-01-01'))).toBe(0);
+  });
+});
+
+describe('calcScheduleGap', () => {
+  it('chậm hơn kế hoạch → behind, pct là độ lớn dương', () => {
+    const r = calcScheduleGap(0.8, 0.7);
+    expect(r.direction).toBe('behind');
+    expect(r.pct).toBeCloseTo(0.1, 10);
+  });
+  it('nhanh hơn kế hoạch → ahead', () => {
+    expect(calcScheduleGap(0.7, 0.8).direction).toBe('ahead');
+  });
+  it('bằng nhau → ahead với gap 0 (union chỉ có 2 giá trị)', () => {
+    expect(calcScheduleGap(0.5, 0.5)).toEqual({ pct: 0, direction: 'ahead' });
+  });
+});
+
+describe('calcDayVariance - "Ngày chênh lệch" của mốc giai đoạn (Q1)', () => {
+  it('kết thúc muộn hơn kế hoạch → số DƯƠNG bằng số ngày trễ', () => {
+    expect(calcDayVariance('2026-09-15', '2026-09-22')).toBe(7);
+  });
+  it('kết thúc sớm hơn kế hoạch → số ÂM', () => {
+    expect(calcDayVariance('2026-09-22', '2026-09-15')).toBe(-7);
+  });
+  it('đúng hạn → 0', () => {
+    expect(calcDayVariance('2026-09-22', '2026-09-22')).toBe(0);
+  });
+  it('chưa kết thúc thực tế → null, KHÔNG phải 0 (phân biệt với đúng hạn)', () => {
+    expect(calcDayVariance('2026-09-22', null)).toBeNull();
+    expect(calcDayVariance(null, '2026-09-22')).toBeNull();
+    expect(calcDayVariance(null, null)).toBeNull();
+  });
+  it('ngày rác → null', () => {
+    expect(calcDayVariance('khong-phai-ngay', '2026-09-22')).toBeNull();
+  });
+  it('qua ranh giới tháng/năm và nhận cả Date', () => {
+    expect(calcDayVariance('2026-12-28', '2027-01-03')).toBe(6);
+    expect(calcDayVariance(D('2026-02-26'), D('2026-03-02'))).toBe(4);
   });
 });

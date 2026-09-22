@@ -1,4 +1,4 @@
-import { buildRepoData, CURRENT_MONTH, SEED_VERSION, type RepoData } from '@/data/seed/history';
+import { buildRepoData, SEED_VERSION, type RepoData } from '@/data/seed/history';
 import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import type { StageInput } from '@/lib/stages';
@@ -716,5 +716,3 @@ export const repo = {
     return true;
   },
 };
-
-export const currentMonth = CURRENT_MONTH;

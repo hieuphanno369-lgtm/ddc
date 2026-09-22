@@ -2,12 +2,13 @@ import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { getCurrentUser, homeForRole } from '@/lib/session';
 import { getReportData } from '@/server/report';
-import { currentMonth } from '@/server/repo';
+import { currentMonth } from '@/lib/clock';
 import { Link } from '@/i18n/navigation';
 import { formatPct, formatRatio, formatTyd } from '@/lib/format';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { PenaltyBadge, PriorityBadge } from '@/components/ui/Badges';
+import { THRESHOLDS } from '@/lib/thresholds';
 import {
   IconAlert,
   IconExport,
@@ -25,7 +26,7 @@ export default async function ReportPage() {
   if (!user) redirect(`/${locale}/login`);
   if (!['admin', 'bod'].includes(user.role)) redirect(`/${locale}${homeForRole(user.role)}`);
   const t = await getTranslations();
-  const { kpis, p0Red, rows } = await getReportData(currentMonth);
+  const { kpis, p0Red, rows } = await getReportData(currentMonth());
   const prevLabel = t('common.previousMonth');
 
   return (
@@ -93,12 +94,12 @@ export default async function ReportPage() {
                       </Link>
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums">
-                      <span className={r.spi != null && r.spi < 0.9 ? 'font-medium text-amber-600' : 'text-slate-700'}>
+                      <span className={r.spi != null && r.spi < THRESHOLDS.spiWarn ? 'font-medium text-amber-600' : 'text-slate-700'}>
                         {formatRatio(r.spi)}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums">
-                      <span className={r.cpi != null && r.cpi < 0.9 ? 'font-medium text-amber-600' : 'text-slate-700'}>
+                      <span className={r.cpi != null && r.cpi < THRESHOLDS.cpiWarn ? 'font-medium text-amber-600' : 'text-slate-700'}>
                         {formatRatio(r.cpi)}
                       </span>
                     </td>

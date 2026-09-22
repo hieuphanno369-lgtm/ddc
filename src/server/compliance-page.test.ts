@@ -28,7 +28,7 @@ vi.mock('@/lib/session', () => ({
 }));
 vi.mock('@/server/repo', async () => {
   const mockRepo = await import('@/server/repo/mock-repo');
-  return { repo: mockRepo.repo, currentMonth: '2026-09' };
+  return { repo: mockRepo.repo };
 });
 // Link của next-intl cần provider → thay bằng thẻ <a> để render tĩnh được.
 vi.mock('@/i18n/navigation', () => ({

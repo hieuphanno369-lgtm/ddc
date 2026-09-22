@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { getCurrentUser, homeForRole } from '@/lib/session';
-import { repo, currentMonth } from '@/server/repo';
+import { repo } from '@/server/repo';
+import { currentMonth } from '@/lib/clock';
 import { deriveStatus } from '@/lib/evm';
 import { Link } from '@/i18n/navigation';
 import { formatDateTime } from '@/lib/format';
@@ -19,7 +20,7 @@ export default async function CompliancePage() {
   const projects = await repo.listProjects();
   const assignments = await repo.getAssignments();
   const users = await repo.getUserRoles();
-  const month = currentMonth;
+  const month = currentMonth();
   const rows = (
     await Promise.all(
       projects.map(async (p) => {

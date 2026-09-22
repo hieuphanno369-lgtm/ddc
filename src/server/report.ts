@@ -1,5 +1,6 @@
 import { loadPortfolioKpis, loadWatchlist } from '@/server/cache';
-import { repo, currentMonth } from '@/server/repo';
+import { repo } from '@/server/repo';
+import { currentMonth } from '@/lib/clock';
 import type { PortfolioKpis, ProjectSummary } from '@/server/queries';
 
 export interface ReportRow {
@@ -19,7 +20,7 @@ export interface ReportData {
 }
 
 /** Nguồn data chung cho trang /report + export Excel. */
-export async function getReportData(month: string = currentMonth): Promise<ReportData> {
+export async function getReportData(month: string = currentMonth()): Promise<ReportData> {
   const kpis = await loadPortfolioKpis(month, {});
   const watchlist = await loadWatchlist(month, {});
   const p0Red = watchlist.filter(

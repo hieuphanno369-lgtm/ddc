@@ -518,8 +518,8 @@ export function DataEntryForm({
               <div className="rounded-lg bg-slate-50 p-3">
                 <p className="text-xs font-medium uppercase text-slate-400">{t('form.preview')}</p>
                 <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-navy-800">
-                  <span>SPI: <b className={evm.spi != null && evm.spi < 0.9 ? 'text-amber-600' : ''}>{formatRatio(evm.spi)}</b></span>
-                  <span>CPI: <b className={evm.cpi != null && evm.cpi < 0.9 ? 'text-amber-600' : ''}>{formatRatio(evm.cpi)}</b></span>
+                  <span>SPI: <b className={evm.spi != null && evm.spi < THRESHOLDS.spiWarn ? 'text-amber-600' : ''}>{formatRatio(evm.spi)}</b></span>
+                  <span>CPI: <b className={evm.cpi != null && evm.cpi < THRESHOLDS.cpiWarn ? 'text-amber-600' : ''}>{formatRatio(evm.cpi)}</b></span>
                   <span>EAC: <b>{formatRatio(evm.eac)}</b></span>
                   <span>VAC: <b>{formatRatio(evm.vac)}</b></span>
                 </div>

@@ -13,7 +13,7 @@ import type { CurrentUser } from '@/lib/session';
 vi.mock('next/cache', () => ({ revalidateTag: vi.fn(), revalidatePath: vi.fn() }));
 vi.mock('@/server/repo', async () => {
   const mockRepo = await import('@/server/repo/mock-repo');
-  return { repo: mockRepo.repo, currentMonth: () => '2026-09' };
+  return { repo: mockRepo.repo };
 });
 vi.mock('@/lib/session', () => ({ getCurrentUser: vi.fn() }));
 

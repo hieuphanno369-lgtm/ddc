@@ -5,13 +5,13 @@ import * as XLSX from 'xlsx';
 import { getCurrentUser, type CurrentUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
 import { hashPassword, verifyPassword } from '@/lib/password';
-import { calcChainPctActual, findCurrentStage } from '@/lib/stages';
+import { calcChainPctActual, findCurrentStage, normPct } from '@/lib/stages';
 import type { CurrencyCode, Market, Priority, Project, ProjectType, Role, StageCode } from './repo/types';
 import { listTag, overviewTag, profileTag, trendTag } from './cache';
 import { addPhotoSchema, addSapCodeSchema, changePasswordSchema, commitImportSchema, createAccountSchema, createDimSchema, createProjectSchema, deletePhotoSchema, importFileSchema, lockMonthSchema, mergeDimSchema, photoFileSchema, renameDimSchema, resetPasswordSchema, saveMonthlyDataSchema, userRoleSchema } from './validation';
 import { repo } from './repo';
 import { deletePhotoFile, savePhotoFile } from '@/lib/uploads';
-import { HISTORY_MONTHS } from '@/data/seed/history';
+import { historyMonths } from '@/lib/clock';
 
 /** Chặn write theo role - viewer không được ghi, khóa số liệu chỉ Admin/Trưởng phòng. */
 async function requireRole(allowed: Role[]): Promise<CurrentUser | null> {
@@ -206,7 +206,7 @@ export async function createProjectAction(input: {
   await logActivity(user, 'create_project', p.projectName);
   revalidateTag(profileTag);
   revalidateTag(trendTag);
-  for (const m of HISTORY_MONTHS) {
+  for (const m of historyMonths()) {
     revalidateTag(overviewTag(m));
     revalidateTag(listTag(m));
   }
@@ -220,7 +220,7 @@ export async function resetDataAction() {
   await repo.resetAllData();
   revalidateTag(profileTag);
   revalidateTag(trendTag);
-  for (const m of HISTORY_MONTHS) {
+  for (const m of historyMonths()) {
     revalidateTag(overviewTag(m));
     revalidateTag(listTag(m));
   }
@@ -257,7 +257,7 @@ export async function removeProjectAction(id: number) {
   await logActivity(user, 'remove_project', String(id));
   revalidateTag(profileTag);
   revalidateTag(trendTag);
-  for (const m of HISTORY_MONTHS) {
+  for (const m of historyMonths()) {
     revalidateTag(overviewTag(m));
     revalidateTag(listTag(m));
   }
@@ -330,7 +330,7 @@ export async function closeAlertAction(alertId: number, action: string) {
   if (!user) return { ok: false, error: 'Forbidden' };
   await repo.closeAlert(alertId, action, user.email);
   await logActivity(user, 'close_alert', `alert ${alertId}`);
-  for (const m of HISTORY_MONTHS) revalidateTag(overviewTag(m));
+  for (const m of historyMonths()) revalidateTag(overviewTag(m));
   return { ok: true };
 }
 
@@ -440,8 +440,8 @@ export async function importExcelAction(formData: FormData) {
 
     if (!sapCode) continue;
 
-    const pctActual = pctRaw ? Number(String(pctRaw).replace('%', '').replace(',', '.')) : null;
-    const norm = pctActual != null && pctActual > 1.5 ? pctActual / 100 : pctActual; // nhập "50" → 0.5
+    // Dùng đúng hàm chuẩn hoá của lớp tính toán, không viết lại quy ước /100 (Task 1)
+    const norm = pctRaw ? normPct(String(pctRaw).replace('%', '').replace(',', '.')) : null;
 
     const match = known.find((s) => s.sapCode.toLowerCase() === String(sapCode).toLowerCase());
     if (match) {

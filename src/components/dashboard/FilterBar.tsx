@@ -4,7 +4,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import type { Market, Priority, ProjectType, Status } from '@/server/repo/types';
 import { marketKey, statusKey, typeKey } from '@/lib/labels';
-import { HISTORY_MONTHS } from '@/data/seed/history';
 import { IconFilter } from '@/components/icons';
 
 const STATUSES: Status[] = ['Chuan_bi', 'Dang_trien_khai', 'Hoan_thanh', 'Tam_dung'];
@@ -27,9 +26,13 @@ const SCOPE_KEYS = ['status', 'team', 'customer', 'priority', 'market', 'type', 
 export function FilterBar({
   teams,
   customers,
+  months,
+  currentMonth,
 }: {
   teams: { id: number; name: string }[];
   customers: { id: number; name: string }[];
+  months: string[];
+  currentMonth: string;
 }) {
   const t = useTranslations();
   const router = useRouter();
@@ -66,9 +69,9 @@ export function FilterBar({
         {t('common.filter')}
       </span>
 
-      <select className={selectCls} value={searchParams.get('month') ?? '2026-09'} onChange={(e) => update('month', e.target.value)}>
+      <select className={selectCls} value={searchParams.get('month') ?? currentMonth} onChange={(e) => update('month', e.target.value)}>
         <option value="all">{t('common.all')}</option>
-        {HISTORY_MONTHS.map((m) => (
+        {months.map((m) => (
           <option key={m} value={m}>
             {m}
           </option>

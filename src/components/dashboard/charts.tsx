@@ -181,7 +181,7 @@ export function SpiCpiLine({
             y={THRESHOLDS.spiWarn}
             stroke={CHART_COLORS.amber}
             strokeDasharray="4 4"
-            label={{ value: '0.9', fontSize: 10, fill: '#f59e0b' }}
+            label={{ value: String(THRESHOLDS.spiWarn), fontSize: 10, fill: '#f59e0b' }}
           />
           <Line type="monotone" dataKey="spi" name="SPI" stroke={CHART_COLORS.spi} strokeWidth={2} dot={{ r: 3 }}>
             <LabelList dataKey="spi" content={valueLabel(spiSel)} />

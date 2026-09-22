@@ -25,7 +25,7 @@ vi.mock('@/lib/session', () => ({
 }));
 vi.mock('@/server/repo', async () => {
   const mockRepo = await import('@/server/repo/mock-repo');
-  return { repo: mockRepo.repo, currentMonth: '2026-09' };
+  return { repo: mockRepo.repo };
 });
 vi.mock('@/server/actions', () => ({ closeAlertAction: vi.fn() }));
 vi.mock('@/server/report', () => ({

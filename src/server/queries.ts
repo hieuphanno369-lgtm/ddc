@@ -1,7 +1,7 @@
-import { deriveStatus, isOnTrack, penaltyState, type PenaltyState } from '@/lib/evm';
+import { calcDurationPctComplete, calcEac, calcVac, deriveStatus, isOnTrack, penaltyState, type PenaltyState } from '@/lib/evm';
 import { THRESHOLDS } from '@/lib/thresholds';
-import { repo, currentMonth } from './repo';
-import { HISTORY_MONTHS, REPORT_DATE } from '@/data/seed/history';
+import { repo } from './repo';
+import { currentMonth, historyMonths, prevMonth, today } from '@/lib/clock';
 import type {
   FactProgressMonthly,
   Market,
@@ -28,7 +28,7 @@ export interface ProjectSummary {
   penalty: PenaltyState;
   contractValue: number;
   tonnage: number;
-  pctPlan: number;
+  pctPlan: number | null;   // % KH THEO THỜI GIAN (duration); null = thiếu ngày kế hoạch
   pctActual: number;
   spi: number | null;
   cpi: number | null;
@@ -64,9 +64,12 @@ async function summarize(project: Project, fact: FactProgressMonthly | undefined
     committedHandoverDate: project.committedHandoverDate,
     pctActual: fact?.pctActual ?? 0,
     penalized: project.penalized,
-    today: REPORT_DATE,
+    today: today(),
   });
   const bac = fact?.bac ?? project.contractValue;
+  // % Kế hoạch = thời gian đã trôi. KHÔNG dùng fact.pctPlan nữa - đó chỉ còn là số nhập tay (audit).
+  const pctPlan = calcDurationPctComplete(project.plannedStartDate, project.plannedFinishDate, today());
+  const eac = calcEac(bac, fact?.cpi ?? null);
   return {
     id: project.id,
     masterCode: project.masterCode,
@@ -80,18 +83,23 @@ async function summarize(project: Project, fact: FactProgressMonthly | undefined
     marketCode: project.marketCode,
     priority: project.priority,
     status,
-    onTrack: status === 'Dang_trien_khai' && isOnTrack(fact?.pctActual ?? 0, fact?.pctPlan ?? 0),
+    onTrack: status === 'Dang_trien_khai' && isOnTrack(fact?.pctActual ?? 0, pctPlan ?? 0),
     penalty,
     contractValue: project.contractValue,
     tonnage: project.tonnage,
-    pctPlan: fact?.pctPlan ?? 0,
+    pctPlan,
     pctActual: fact?.pctActual ?? 0,
-    spi: fact?.spi != null ? Math.round(fact.spi * 100) / 100 : null,
-    cpi: fact?.cpi != null ? Math.round(fact.cpi * 100) / 100 : null,
-    eac: fact?.cpi ? Math.round((bac / fact.cpi) * 100) / 100 : null,
-    vac: fact?.cpi ? Math.round((bac - bac / fact.cpi) * 100) / 100 : null,
+    spi: round2(fact?.spi ?? null),
+    cpi: round2(fact?.cpi ?? null),
+    eac: round2(eac),
+    vac: round2(calcVac(bac, eac)),
     bottleneckStage: fact?.bottleneckStage ?? null,
   };
+}
+
+/** Làm tròn 2 chữ số, giữ null. Chỉ để hiển thị - KHÔNG dùng để tính tiếp. */
+function round2(v: number | null): number | null {
+  return v == null ? null : Math.round(v * 100) / 100;
 }
 
 async function matchesGroup(project: Project, groupKey: string, groupBy: GroupBy): Promise<boolean> {
@@ -182,10 +190,9 @@ async function kpisForMonth(yearMonth: string, filters: DashboardFilters) {
 }
 
 export async function getPortfolioKpis(yearMonth: string, filters: DashboardFilters = {}): Promise<PortfolioKpis> {
-  const idx = HISTORY_MONTHS.indexOf(yearMonth);
-  const prevMonth = idx > 0 ? HISTORY_MONTHS[idx - 1] : yearMonth;
+  const prevYm = prevMonth(yearMonth);
   const cur = await kpisForMonth(yearMonth, filters);
-  const prev = await kpisForMonth(prevMonth, filters);
+  const prev = await kpisForMonth(prevYm, filters);
   return {
     ...cur,
     delta: {
@@ -268,7 +275,7 @@ export async function getCapacityData(yearMonth: string, filters: DashboardFilte
 export async function getSpiCpiTrend(filters: DashboardFilters = {}) {
   const ids = await getScopedProjectIds(filters);
   return Promise.all(
-    HISTORY_MONTHS.map(async (m) => {
+    historyMonths().map(async (m) => {
       const facts = (await repo.getFactsForMonth(m)).filter((f) => ids.has(f.projectId));
       const spis = facts.map((f) => f.spi).filter((x): x is number => x != null);
       const cpis = facts.map((f) => f.cpi).filter((x): x is number => x != null);
@@ -283,7 +290,7 @@ export async function getSpiCpiTrend(filters: DashboardFilters = {}) {
 export async function getPortfolioSCurve(filters: DashboardFilters = {}) {
   const ids = await getScopedProjectIds(filters);
   return Promise.all(
-    HISTORY_MONTHS.map(async (m) => {
+    historyMonths().map(async (m) => {
       const facts = (await repo.getFactsForMonth(m)).filter((f) => ids.has(f.projectId));
       return {
         month: m,
@@ -339,7 +346,7 @@ export interface ProjectListParams {
 }
 
 export async function listProjects(params: ProjectListParams) {
-  const { month = currentMonth, filters = {}, page = 1, pageSize = 10 } = params;
+  const { month = currentMonth(), filters = {}, page = 1, pageSize = 10 } = params;
   let rows = await getProjectSummaries(month, filters);
 
   if (params.search) {
@@ -382,5 +389,3 @@ export async function listProjects(params: ProjectListParams) {
 export async function exportProjects(params: ProjectListParams) {
   return (await listProjects({ ...params, page: 1, pageSize: 100000 })).items;
 }
-
-export { currentMonth };

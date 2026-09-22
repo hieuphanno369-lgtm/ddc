@@ -1,4 +1,5 @@
 import { findBottleneck, penaltyState } from '@/lib/evm';
+import { THRESHOLDS } from '@/lib/thresholds';
 import { hashSync } from 'bcryptjs';
 import type {
   ActivityLogEntry,
@@ -21,11 +22,12 @@ import type {
 import { customers, exchangeRates, factories, teams, currencies } from './dims';
 import { seedProjects, type SeedProject } from './projects';
 
+// Hằng số seed - CHỈ dùng để sinh dữ liệu mẫu. Code production đọc src/lib/clock.ts.
 /** Kỳ báo cáo hiện tại (tháng 09/2026). */
-export const SEED_VERSION = '2026-09-17b';
-export const REPORT_DATE = new Date('2026-09-16T00:00:00Z');
-export const CURRENT_MONTH = '2026-09';
-export const HISTORY_MONTHS = [
+export const SEED_VERSION = '2026-09-22-erp-v2';
+export const SEED_REPORT_DATE = new Date('2026-09-16T00:00:00Z');
+export const SEED_CURRENT_MONTH = '2026-09';
+export const SEED_HISTORY_MONTHS = [
   '2025-10',
   '2025-11',
   '2025-12',
@@ -55,19 +57,19 @@ function smoothstep(t: number): number {
   return x * x * (3 - 2 * x);
 }
 
-/** Tháng bắt đầu (index trong HISTORY_MONTHS) của 1 dự án, theo ngày BĐ thực tế. */
+/** Tháng bắt đầu (index trong SEED_HISTORY_MONTHS) của 1 dự án, theo ngày BĐ thực tế. */
 function startIndexOf(p: SeedProject): number {
   if (!p.actualStartDate) return 0;
   const ym = p.actualStartDate.slice(0, 7);
-  const idx = HISTORY_MONTHS.indexOf(ym);
+  const idx = SEED_HISTORY_MONTHS.indexOf(ym);
   if (idx >= 0) return idx;
   // Trước cửa sổ → 0; sau cửa sổ (chưa khởi công) → không có tiến độ
-  return ym > HISTORY_MONTHS[HISTORY_MONTHS.length - 1] ? HISTORY_MONTHS.length : 0;
+  return ym > SEED_HISTORY_MONTHS[SEED_HISTORY_MONTHS.length - 1] ? SEED_HISTORY_MONTHS.length : 0;
 }
 
 /** Sinh lịch sử tiến độ (S-curve) cho 1 dự án - 0 trước ngày BĐ thực tế. */
 function monthlyProgress(p: SeedProject): number[] {
-  const n = HISTORY_MONTHS.length;
+  const n = SEED_HISTORY_MONTHS.length;
   const s = startIndexOf(p);
   const span = n - s;
   const out: number[] = [];
@@ -126,17 +128,17 @@ function toProject(p: SeedProject): Project {
 
 function buildAlerts(projects: Project[], facts: FactProgressMonthly[]): AlertLog[] {
   const alerts: AlertLog[] = [];
-  const latest = facts.filter((f) => f.yearMonth === CURRENT_MONTH);
+  const latest = facts.filter((f) => f.yearMonth === SEED_CURRENT_MONTH);
   let id = 1;
   for (const proj of projects) {
     const f = latest.find((x) => x.projectId === proj.id);
     if (!f) continue;
-    if (f.spi != null && f.spi < 0.9) {
+    if (f.spi != null && f.spi < THRESHOLDS.spiWarn) {
       alerts.push({
         id: id++,
         projectId: proj.id,
         alertType: 'Amber',
-        ruleTriggered: 'SPI < 0.9',
+        ruleTriggered: `SPI < ${THRESHOLDS.spiWarn}`,
         message: `SPI = ${f.spi.toFixed(2)} - trễ tiến độ theo giá trị`,
         openedAt: '2026-09-05T08:00:00Z',
         closedAt: null,
@@ -145,12 +147,12 @@ function buildAlerts(projects: Project[], facts: FactProgressMonthly[]): AlertLo
         deadline: '2026-09-30',
       });
     }
-    if (f.cpi != null && f.cpi < 0.9) {
+    if (f.cpi != null && f.cpi < THRESHOLDS.cpiWarn) {
       alerts.push({
         id: id++,
         projectId: proj.id,
         alertType: 'Amber',
-        ruleTriggered: 'CPI < 0.9',
+        ruleTriggered: `CPI < ${THRESHOLDS.cpiWarn}`,
         message: `CPI = ${f.cpi.toFixed(2)} - vượt chi phí`,
         openedAt: '2026-09-05T08:00:00Z',
         closedAt: null,
@@ -163,7 +165,7 @@ function buildAlerts(projects: Project[], facts: FactProgressMonthly[]): AlertLo
       committedHandoverDate: proj.committedHandoverDate,
       pctActual: f.pctActual,
       penalized: proj.penalized,
-      today: REPORT_DATE,
+      today: SEED_REPORT_DATE,
     });
     if (pen === 'penalized' || pen === 'risk') {
       alerts.push({
@@ -245,7 +247,7 @@ function buildPhotos(projects: Project[]): ProjectPhoto[] {
   return projects.slice(0, 4).map((p, i) => ({
     id: i + 1,
     projectId: p.id,
-    yearMonth: CURRENT_MONTH,
+    yearMonth: SEED_CURRENT_MONTH,
     url: '',
     caption: 'Ảnh hiện trường tháng 09/2026',
     uploadedBy: 'PM dự án',
@@ -303,12 +305,12 @@ export function buildRepoData(): RepoData {
     const bac = p.contractValue;
     const progress = monthlyProgress(p);
     const startIdx = startIndexOf(p);
-    const nMonths = HISTORY_MONTHS.length;
+    const nMonths = SEED_HISTORY_MONTHS.length;
     let prevEv = 0;
     let prevAc = 0;
 
     for (let m = 0; m < nMonths; m++) {
-      const yearMonth = HISTORY_MONTHS[m];
+      const yearMonth = SEED_HISTORY_MONTHS[m];
       const pctActual = progress[m];
       const span = nMonths - startIdx;
       const tPlan = m < startIdx ? 0 : span <= 1 ? 1 : (m - startIdx) / (span - 1);
@@ -336,8 +338,8 @@ export function buildRepoData(): RepoData {
         bottleneckStage: null,
         equipmentPlanned: 10,
         equipmentActual: Math.round(10 * (pctActual > 0 ? 0.7 + 0.3 * (pctActual / p.finalPctActual || 0) : 0)),
-        snapshotLockedAt: m < HISTORY_MONTHS.length - 1 ? '2026-09-02T00:00:00Z' : null,
-        lockedBy: m < HISTORY_MONTHS.length - 1 ? 'Trưởng phòng KHDATT' : null,
+        snapshotLockedAt: m < SEED_HISTORY_MONTHS.length - 1 ? '2026-09-02T00:00:00Z' : null,
+        lockedBy: m < SEED_HISTORY_MONTHS.length - 1 ? 'Trưởng phòng KHDATT' : null,
         version: 1,
         changedBy: 'system',
         changedAt: '2026-09-02T00:00:00Z',
@@ -381,10 +383,10 @@ export function buildRepoData(): RepoData {
     }
 
     // Chuỗi giá trị + khâu nghẽn cho tháng hiện tại
-    const chain = buildValueChain(p.finalPctActual, p.id, CURRENT_MONTH);
+    const chain = buildValueChain(p.finalPctActual, p.id, SEED_CURRENT_MONTH);
     valueChain.push(...chain);
     const bottleneck = findBottleneck(chain);
-    const latest = facts.filter((f) => f.projectId === p.id && f.yearMonth === CURRENT_MONTH);
+    const latest = facts.filter((f) => f.projectId === p.id && f.yearMonth === SEED_CURRENT_MONTH);
     if (latest.length) latest[latest.length - 1].bottleneckStage = bottleneck;
   }
 

@@ -6,7 +6,6 @@ import type { StageCode, Status, ValueChainProgress } from '@/server/repo/types'
  * Business logic EVM - nguồn duy nhất cho mọi công thức tính.
  * Spec mục 4 + QuyUoc_DinhNghia_NguongDanhGia.docx.
  * Pure functions, unit-test được.
- * TODO: audit EVM inline dup - mọi nơi tính SPI/CPI/EAC phải gọi hàm ở đây, không tự tính lại.
  */
 
 export function calcPv(pctPlan: number, bac: number): number {
@@ -43,6 +42,62 @@ export function calcSv(ev: number, pv: number): number {
 
 export function calcCv(ev: number, ac: number): number {
   return ev - ac;
+}
+
+/** Parse 'YYYY-MM-DD' | ISO đầy đủ | Date. Rác → null. */
+function toDate(v: string | Date | null): Date | null {
+  if (v == null) return null;
+  const d = v instanceof Date ? v : new Date(v.length === 10 ? `${v}T00:00:00Z` : v);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * "% Kế Hoạch" = số ngày đã trôi / tổng số ngày kế hoạch, kẹp [0, 1].
+ * Thiếu ngày hoặc finish < start → null (không đoán, tầng trên hiển thị "-").
+ */
+export function calcDurationPctComplete(
+  plannedStart: string | Date | null,
+  plannedFinish: string | Date | null,
+  today: Date,
+): number | null {
+  const start = toDate(plannedStart);
+  const finish = toDate(plannedFinish);
+  if (!start || !finish) return null;
+  const totalMs = finish.getTime() - start.getTime();
+  if (totalMs < 0) return null;
+  const elapsedMs = today.getTime() - start.getTime();
+  if (totalMs === 0) return elapsedMs >= 0 ? 1 : 0;
+  return Math.max(0, Math.min(1, elapsedMs / totalMs));
+}
+
+export type ScheduleDirection = 'ahead' | 'behind';
+export interface ScheduleGap {
+  /** Độ lớn chênh lệch (luôn >= 0); dấu nằm ở `direction`. */
+  pct: number;
+  direction: ScheduleDirection;
+}
+
+/** Chênh lệch %TT so với %KH. Bằng nhau coi là 'ahead' với gap 0. */
+export function calcScheduleGap(pctPlan: number, pctActual: number): ScheduleGap {
+  return {
+    pct: Math.abs(pctActual - pctPlan),
+    direction: pctActual >= pctPlan ? 'ahead' : 'behind',
+  };
+}
+
+/**
+ * "Ngày chênh lệch" (mốc thứ 6 của fact_stage_milestone) = TT kết thúc − KH hoàn thành.
+ * Dẫn xuất, KHÔNG lưu cột: 2 ngày gốc sửa lúc nào cũng được, lưu cứng sẽ tự mâu thuẫn.
+ * Chưa có ngày kết thúc thực tế → null (khác hẳn 0 = đúng hạn).
+ */
+export function calcDayVariance(
+  plannedFinish: string | Date | null,
+  actualFinish: string | Date | null,
+): number | null {
+  const planned = toDate(plannedFinish);
+  const actual = toDate(actualFinish);
+  if (!planned || !actual) return null;
+  return Math.round((actual.getTime() - planned.getTime()) / 86_400_000);
 }
 
 /**
