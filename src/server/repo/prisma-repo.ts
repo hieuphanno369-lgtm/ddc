@@ -1,15 +1,22 @@
 import { prisma } from '@/server/db';
-import type { StageInput } from '@/lib/stages';
+import { DEFAULT_STAGE_WEIGHTS, type StageInput } from '@/lib/stages';
+import { calcCpi, calcDayVariance, calcDurationPctComplete, calcEv, calcPv, calcSpi } from '@/lib/evm';
+import { endOfMonth } from '@/lib/clock';
 import type {
   ActivityLogEntry,
   AlertLog,
   AuditLogEntry,
+  Contractor,
   Customer,
   Currency,
   CurrencyCode,
+  Equipment,
   ExchangeRate,
+  FactDailyEquipmentUsage,
+  FactDailyManpower,
   FactFinancial,
   FactProgressMonthly,
+  FactStageWorkItem,
   FactVolume,
   Factory,
   Market,
@@ -17,12 +24,20 @@ import type {
   Project,
   ProjectAlias,
   ProjectAssignment,
+  ProjectContractor,
   ProjectHistoryEntry,
+  ProjectKeyMilestone,
   ProjectPhoto,
   ProjectSapCode,
+  ProjectStageWeight,
   ProjectType,
+  ProjectWorkItem,
   Role,
   SapQueueItem,
+  Stage,
+  StageCalcMode,
+  StageCode,
+  StageMilestoneView,
   TeamKd,
   UserAccount,
   ValueChainProgress,
@@ -33,13 +48,17 @@ import type {
  * Swap mock→Prisma: đổi import ở tầng trên từ './mock-repo' sang './prisma-repo'
  * (hoặc qua barrel './index'), không đổi tầng gọi.
  *
- * Append-only: fact/financial dùng upsert 1 row (projectId, yearMonth) + bump
- * `version`; lịch sử change nằm ở audit_log + project_history. Không code nào
- * đọc version cũ (mock chỉ trả latest), nên hành vi app không đổi.
+ * Append-only THẬT: fact/financial luôn INSERT bản mới (version += 1, isLatest = true)
+ * trong 1 transaction hạ cờ bản cũ - không upsert đè, lịch sử version trước đó vẫn còn
+ * nguyên trong bảng (đối chiếu audit_log + project_history khi cần).
  */
 
 const iso = (d: Date | null | undefined): string | null => (d ? d.toISOString() : null);
 const d8 = (s: string | null | undefined): Date | null => (s ? new Date(s) : null);
+/** Date → 'YYYY-MM-DD' (cột @db.Date). */
+const day = (d: Date | null | undefined): string | null => (d ? d.toISOString().slice(0, 10) : null);
+/** 'YYYY-MM-DD' → Date tại 00:00:00Z, để so sánh với cột @db.Date. */
+const dayStart = (s: string): Date => new Date(`${s}T00:00:00Z`);
 
 // ---- Mappers: Prisma row → app type (Date → ISO string) ----
 
@@ -84,7 +103,8 @@ function mapProject(p: {
 function mapFact(f: {
   projectId: number; yearMonth: string; pctPlan: number; pctActual: number;
   actualStartDate: Date | null; actualFinishDate: Date | null; bac: number; pv: number; ev: number; ac: number;
-  spi: number | null; cpi: number | null; bottleneckStage: string | null;
+  spi: number | null; cpi: number | null; bottleneckStage: string | null; isLatest: boolean;
+  manpowerPlanned: number; manpowerActual: number;
   equipmentPlanned: number; equipmentActual: number; snapshotLockedAt: Date | null; lockedBy: string | null;
   version: number; changedBy: string; changedAt: Date | null; changeNote: string;
 }): FactProgressMonthly {
@@ -102,6 +122,9 @@ function mapFact(f: {
     spi: f.spi,
     cpi: f.cpi,
     bottleneckStage: (f.bottleneckStage ?? null) as FactProgressMonthly['bottleneckStage'],
+    isLatest: f.isLatest,
+    manpowerPlanned: f.manpowerPlanned,
+    manpowerActual: f.manpowerActual,
     equipmentPlanned: f.equipmentPlanned,
     equipmentActual: f.equipmentActual,
     snapshotLockedAt: iso(f.snapshotLockedAt),
@@ -117,7 +140,7 @@ function mapFinancial(f: {
   projectId: number; yearMonth: string; revenuePeriod: number; revenueCumulative: number;
   costActualPeriod: number; costActualCumulative: number; grossProfit: number; grossMarginPct: number;
   backlog: number; arCollected: number; arOutstanding: number; arOverdue: number;
-  version: number; changedBy: string; changedAt: Date | null; changeNote: string;
+  version: number; isLatest: boolean; changedBy: string; changedAt: Date | null; changeNote: string;
 }): FactFinancial {
   return {
     projectId: f.projectId,
@@ -133,6 +156,7 @@ function mapFinancial(f: {
     arOutstanding: f.arOutstanding,
     arOverdue: f.arOverdue,
     version: f.version,
+    isLatest: f.isLatest,
     changedBy: f.changedBy,
     changedAt: iso(f.changedAt) ?? '',
     changeNote: f.changeNote,
@@ -153,34 +177,28 @@ export const repo = {
 
   async getFacts(projectId: number): Promise<FactProgressMonthly[]> {
     const rows = await prisma.factProgressMonthly.findMany({
-      where: { projectId },
+      where: { projectId, isLatest: true },
       orderBy: { yearMonth: 'asc' },
     });
     return rows.map(mapFact);
   },
 
   async getLatestFact(projectId: number, yearMonth: string): Promise<FactProgressMonthly | undefined> {
-    if (yearMonth === 'all') {
-      const row = await prisma.factProgressMonthly.findFirst({
-        where: { projectId },
-        orderBy: { yearMonth: 'desc' },
-      });
-      return row ? mapFact(row) : undefined;
-    }
-    const row = await prisma.factProgressMonthly.findUnique({
-      where: { projectId_yearMonth: { projectId, yearMonth } },
+    const row = await prisma.factProgressMonthly.findFirst({
+      where: { projectId, isLatest: true, ...(yearMonth === 'all' ? {} : { yearMonth }) },
+      orderBy: { yearMonth: 'desc' },
     });
     return row ? mapFact(row) : undefined;
   },
 
   async getFactsForMonth(yearMonth: string): Promise<FactProgressMonthly[]> {
     if (yearMonth === 'all') {
-      const rows = await prisma.factProgressMonthly.findMany({ orderBy: { yearMonth: 'asc' } });
+      const rows = await prisma.factProgressMonthly.findMany({ where: { isLatest: true }, orderBy: { yearMonth: 'asc' } });
       const map = new Map<number, FactProgressMonthly>();
       for (const f of rows.map(mapFact)) map.set(f.projectId, f); // last = latest (asc order)
       return [...map.values()];
     }
-    const rows = await prisma.factProgressMonthly.findMany({ where: { yearMonth } });
+    const rows = await prisma.factProgressMonthly.findMany({ where: { yearMonth, isLatest: true } });
     return rows.map(mapFact);
   },
 
@@ -195,9 +213,94 @@ export const repo = {
     }));
   },
 
+  // ---- ERP v2 ----
+  async getStages(): Promise<Stage[]> {
+    const rows = await prisma.stage.findMany({ orderBy: { sortOrder: 'asc' } });
+    return rows.map((s) => ({
+      code: s.code as StageCode, nameVi: s.nameVi, nameEn: s.nameEn,
+      sortOrder: s.sortOrder, calcMode: s.calcMode as StageCalcMode,
+    }));
+  },
+
+  /** Chưa cấu hình trọng số → rơi về bộ mặc định, KHÔNG trả mảng rỗng (sẽ làm %TT = 0). */
+  async getStageWeights(projectId: number): Promise<ProjectStageWeight[]> {
+    const rows = await prisma.projectStageWeight.findMany({ where: { projectId } });
+    if (!rows.length) {
+      return DEFAULT_STAGE_WEIGHTS.map((w) => ({
+        projectId, stageCode: w.stageCode, weightPct: w.weightPct, applicable: w.applicable,
+      }));
+    }
+    return rows.map((w) => ({
+      projectId: w.projectId, stageCode: w.stageCode as StageCode,
+      weightPct: w.weightPct, applicable: w.applicable,
+    }));
+  },
+
+  async getWorkItems(projectId: number): Promise<ProjectWorkItem[]> {
+    return prisma.projectWorkItem.findMany({ where: { projectId }, orderBy: { sortOrder: 'asc' } });
+  },
+
+  async getWorkItemFacts(projectId: number, yearMonth: string, stageCode?: StageCode): Promise<FactStageWorkItem[]> {
+    const rows = await prisma.factStageWorkItem.findMany({
+      where: { projectId, yearMonth, ...(stageCode ? { stageCode } : {}) },
+    });
+    return rows.map((f) => ({ ...f, stageCode: f.stageCode as StageCode }));
+  },
+
+  /** Trả StageMilestoneView: 5 cột DB + "Ngày chênh lệch" tính runtime (Q1) - giống hệt mock-repo. */
+  async getStageMilestones(projectId: number): Promise<StageMilestoneView[]> {
+    const rows = await prisma.factStageMilestone.findMany({
+      where: { projectId },
+      orderBy: { stage: { sortOrder: 'asc' } },
+    });
+    return rows.map((m) => ({
+      projectId: m.projectId, stageCode: m.stageCode as StageCode,
+      plannedStart: day(m.plannedStart), plannedFinish: day(m.plannedFinish),
+      actualStart: day(m.actualStart), actualFinish: day(m.actualFinish),
+      forecastDate: day(m.forecastDate),
+      dayVariance: calcDayVariance(day(m.plannedFinish), day(m.actualFinish)),
+      updatedAt: m.updatedAt.toISOString(), updatedBy: m.updatedBy,
+    }));
+  },
+
+  async getKeyMilestones(projectId: number): Promise<ProjectKeyMilestone[]> {
+    const rows = await prisma.projectKeyMilestone.findMany({ where: { projectId }, orderBy: { sortOrder: 'asc' } });
+    return rows.map((m) => ({
+      id: m.id, projectId: m.projectId, name: m.name, sortOrder: m.sortOrder,
+      plannedDate: day(m.plannedDate), actualDate: day(m.actualDate),
+    }));
+  },
+
+  async getContractors(projectId?: number): Promise<Contractor[]> {
+    return prisma.contractor.findMany({
+      where: { isActive: true, ...(projectId != null ? { projects: { some: { projectId } } } : {}) },
+      orderBy: { id: 'asc' },
+    });
+  },
+
+  async getEquipments(): Promise<Equipment[]> {
+    return prisma.equipment.findMany({ where: { isActive: true }, orderBy: { id: 'asc' } });
+  },
+
+  async getDailyManpower(projectId: number, from: string, to: string): Promise<FactDailyManpower[]> {
+    const rows = await prisma.factDailyManpower.findMany({
+      where: { projectId, workDate: { gte: dayStart(from), lte: dayStart(to) } },
+      orderBy: [{ workDate: 'asc' }, { contractorId: 'asc' }],
+    });
+    return rows.map((m) => ({ ...m, workDate: day(m.workDate)! }));
+  },
+
+  async getDailyEquipment(projectId: number, from: string, to: string): Promise<FactDailyEquipmentUsage[]> {
+    const rows = await prisma.factDailyEquipmentUsage.findMany({
+      where: { projectId, workDate: { gte: dayStart(from), lte: dayStart(to) } },
+      orderBy: [{ workDate: 'asc' }, { contractorId: 'asc' }, { equipmentId: 'asc' }],
+    });
+    return rows.map((e) => ({ ...e, workDate: day(e.workDate)! }));
+  },
+
   async getFinancial(projectId: number): Promise<FactFinancial[]> {
     const rows = await prisma.factFinancial.findMany({
-      where: { projectId },
+      where: { projectId, isLatest: true },
       orderBy: { yearMonth: 'asc' },
     });
     return rows.map(mapFinancial);
@@ -205,12 +308,12 @@ export const repo = {
 
   async getFinancialForMonth(yearMonth: string): Promise<FactFinancial[]> {
     if (yearMonth === 'all') {
-      const rows = await prisma.factFinancial.findMany({ orderBy: { yearMonth: 'asc' } });
+      const rows = await prisma.factFinancial.findMany({ where: { isLatest: true }, orderBy: { yearMonth: 'asc' } });
       const map = new Map<number, FactFinancial>();
       for (const f of rows.map(mapFinancial)) map.set(f.projectId, f);
       return [...map.values()];
     }
-    const rows = await prisma.factFinancial.findMany({ where: { yearMonth } });
+    const rows = await prisma.factFinancial.findMany({ where: { yearMonth, isLatest: true } });
     return rows.map(mapFinancial);
   },
 
@@ -616,15 +719,15 @@ export const repo = {
   // ---- Snapshot / lock ----
   async lockMonth(yearMonth: string, lockedBy: string) {
     await prisma.factProgressMonthly.updateMany({
-      where: { yearMonth },
+      where: { yearMonth, isLatest: true },
       data: { snapshotLockedAt: new Date(), lockedBy },
     });
   },
 
   async isMonthLocked(yearMonth: string): Promise<boolean> {
     const [total, locked] = await Promise.all([
-      prisma.factProgressMonthly.count({ where: { yearMonth } }),
-      prisma.factProgressMonthly.count({ where: { yearMonth, snapshotLockedAt: { not: null } } }),
+      prisma.factProgressMonthly.count({ where: { yearMonth, isLatest: true } }),
+      prisma.factProgressMonthly.count({ where: { yearMonth, isLatest: true, snapshotLockedAt: { not: null } } }),
     ]);
     return total > 0 && locked === total;
   },
@@ -633,46 +736,57 @@ export const repo = {
   async saveMonthlyFact(
     projectId: number,
     yearMonth: string,
-    patch: Partial<Pick<FactProgressMonthly, 'pctPlan' | 'pctActual' | 'ac' | 'equipmentActual' | 'bottleneckStage'>>,
+    patch: Partial<Pick<FactProgressMonthly,
+      'pctPlan' | 'pctActual' | 'ac' | 'equipmentActual' | 'manpowerActual' | 'bottleneckStage'>>,
     changedBy = 'system',
   ) {
     const prev = await this.getLatestFact(projectId, yearMonth);
     if (!prev) return;
     const proj = await prisma.project.findUnique({ where: { id: projectId } });
     if (!proj) return;
+
     const fields = Object.keys(patch) as (keyof typeof patch)[];
     const note = fields.map((k) => `${k}: ${String(prev[k])} → ${String(patch[k])}`).join('; ');
-    const bac = proj.contractValue;
-    const pctPlan = patch.pctPlan ?? prev.pctPlan;
+    const bac = proj.contractValue;                 // snapshot BAC tại thời điểm ghi
+    const pctPlan = patch.pctPlan ?? prev.pctPlan;  // số nhập tay - chỉ lưu để audit (Q2)
     const pctActual = patch.pctActual ?? prev.pctActual;
     const ac = patch.ac ?? prev.ac;
-    const pv = pctPlan * bac;
-    const ev = pctActual * bac;
-    const spi = pv ? ev / pv : null;
-    const cpi = ac ? ev / ac : null;
+    // % KH = thời gian đã trôi tới CUỐI THÁNG đang lưu, không phải số nhập tay, không phải "hôm nay".
+    const at = new Date(`${endOfMonth(yearMonth)}T00:00:00Z`);
+    const pctPlanDuration = calcDurationPctComplete(proj.plannedStartDate, proj.plannedFinishDate, at) ?? 0;
+    const pv = calcPv(pctPlanDuration, bac);
+    const ev = calcEv(pctActual, bac);
 
-    await prisma.factProgressMonthly.upsert({
-      where: { projectId_yearMonth: { projectId, yearMonth } },
-      create: {
-        projectId, yearMonth, pctPlan, pctActual, ac, pv, ev, spi, cpi,
-        bac, equipmentPlanned: 0, equipmentActual: patch.equipmentActual ?? 0,
-        bottleneckStage: patch.bottleneckStage ?? null,
-        version: 1, changedBy, changedAt: new Date(), changeNote: note,
-      },
-      update: {
-        ...(patch.pctPlan != null ? { pctPlan } : {}),
-        ...(patch.pctActual != null ? { pctActual } : {}),
-        ...(patch.ac != null ? { ac } : {}),
-        ...(patch.equipmentActual != null ? { equipmentActual: patch.equipmentActual } : {}),
-        ...(patch.bottleneckStage !== undefined ? { bottleneckStage: patch.bottleneckStage } : {}),
-        pv, ev, spi, cpi,
-        version: prev.version + 1,
-        changedBy,
-        changedAt: new Date(),
-        changeNote: note,
-      },
-    });
-    await prisma.project.update({ where: { id: projectId }, data: { updatedAt: new Date() } });
+    // Append-only: hạ cờ bản cũ rồi INSERT bản mới, trong CÙNG 1 transaction.
+    // Partial unique index ux_fact_progress_latest chặn 2 dòng isLatest cùng lúc.
+    await prisma.$transaction([
+      prisma.factProgressMonthly.updateMany({
+        where: { projectId, yearMonth, isLatest: true },
+        data: { isLatest: false },
+      }),
+      prisma.factProgressMonthly.create({
+        data: {
+          projectId, yearMonth,
+          version: prev.version + 1,
+          isLatest: true,
+          pctPlan, pctActual, ac, pv, ev,
+          spi: calcSpi(ev, pv),
+          cpi: calcCpi(ev, ac),
+          bac,
+          actualStartDate: d8(prev.actualStartDate),
+          actualFinishDate: d8(prev.actualFinishDate),
+          bottleneckStage: patch.bottleneckStage !== undefined ? patch.bottleneckStage : prev.bottleneckStage,
+          manpowerPlanned: prev.manpowerPlanned,
+          manpowerActual: patch.manpowerActual ?? prev.manpowerActual,
+          equipmentPlanned: prev.equipmentPlanned,     // KHÔNG hardcode 0 nữa - đó là lý do
+          equipmentActual: patch.equipmentActual ?? prev.equipmentActual, // isEquipmentWarning không bao giờ chạy
+          snapshotLockedAt: d8(prev.snapshotLockedAt),
+          lockedBy: prev.lockedBy,
+          changedBy, changedAt: new Date(), changeNote: note,
+        },
+      }),
+      prisma.project.update({ where: { id: projectId }, data: { updatedAt: new Date() } }),
+    ]);
     await this.logAudit('fact_progress_monthly', `${projectId}/${yearMonth}`, fields.join(','), '', note, changedBy);
   },
 
@@ -714,8 +828,8 @@ export const repo = {
     patch: Partial<Pick<FactFinancial, 'revenueCumulative' | 'costActualCumulative' | 'arCollected' | 'arOutstanding' | 'arOverdue'>>,
     changedBy = 'system',
   ) {
-    const prev = await prisma.factFinancial.findUnique({
-      where: { projectId_yearMonth: { projectId, yearMonth } },
+    const prev = await prisma.factFinancial.findFirst({
+      where: { projectId, yearMonth, isLatest: true },
     });
     if (!prev) return;
     const fields = Object.keys(patch) as (keyof typeof patch)[];
@@ -730,26 +844,25 @@ export const repo = {
     const grossProfit = Math.round((revenueCumulative - costActualCumulative) * 10) / 10;
     const grossMarginPct = revenueCumulative ? (revenueCumulative - costActualCumulative) / revenueCumulative : 0;
 
-    await prisma.factFinancial.upsert({
-      where: { projectId_yearMonth: { projectId, yearMonth } },
-      create: {
-        projectId, yearMonth,
-        revenuePeriod: 0, revenueCumulative, costActualPeriod: 0, costActualCumulative,
-        grossProfit, grossMarginPct, backlog: 0, arCollected: collected, arOutstanding, arOverdue: overdue,
-        version: 1, changedBy, changedAt: new Date(), changeNote: note,
-      },
-      update: {
-        ...(patch.revenueCumulative != null ? { revenueCumulative } : {}),
-        ...(patch.costActualCumulative != null ? { costActualCumulative } : {}),
-        ...(patch.arCollected != null ? { arCollected: collected } : {}),
-        ...(patch.arOverdue != null ? { arOverdue: overdue } : {}),
-        arOutstanding, grossProfit, grossMarginPct,
-        version: prev.version + 1,
-        changedBy,
-        changedAt: new Date(),
-        changeNote: note,
-      },
-    });
+    // Append-only: hạ cờ bản cũ rồi INSERT bản mới, trong CÙNG 1 transaction (giống saveMonthlyFact).
+    await prisma.$transaction([
+      prisma.factFinancial.updateMany({
+        where: { projectId, yearMonth, isLatest: true },
+        data: { isLatest: false },
+      }),
+      prisma.factFinancial.create({
+        data: {
+          projectId, yearMonth,
+          version: prev.version + 1,
+          isLatest: true,
+          revenuePeriod: prev.revenuePeriod, revenueCumulative,
+          costActualPeriod: prev.costActualPeriod, costActualCumulative,
+          grossProfit, grossMarginPct, backlog: prev.backlog,
+          arCollected: collected, arOutstanding, arOverdue: overdue,
+          changedBy, changedAt: new Date(), changeNote: note,
+        },
+      }),
+    ]);
     await this.logAudit('fact_financial', `${projectId}/${yearMonth}`, fields.join(','), '', note, changedBy);
   },
 
@@ -848,21 +961,9 @@ export const repo = {
   async removeProject(id: number) {
     const proj = await prisma.project.findUnique({ where: { id } });
     if (!proj) return;
-    await prisma.$transaction([
-      prisma.project.deleteMany({ where: { id } }),
-      prisma.factProgressMonthly.deleteMany({ where: { projectId: id } }),
-      prisma.valueChainProgress.deleteMany({ where: { projectId: id } }),
-      prisma.factFinancial.deleteMany({ where: { projectId: id } }),
-      prisma.factVolume.deleteMany({ where: { projectId: id } }),
-      prisma.alertLog.deleteMany({ where: { projectId: id } }),
-      prisma.projectAlias.deleteMany({ where: { projectId: id } }),
-      prisma.projectSapCode.deleteMany({ where: { projectId: id } }),
-      prisma.projectPhoto.deleteMany({ where: { projectId: id } }),
-      prisma.projectAssignment.deleteMany({ where: { projectId: id } }),
-      prisma.projectHistory.deleteMany({ where: { projectId: id } }),
-      prisma.sapQueue.deleteMany({ where: { projectId: id } }),
-    ]);
-    // dim cleanup: xóa customer/team khi không còn project dùng
+    // FK onDelete: Cascade khai ở schema tự dọn mọi bảng con - không xoá tay từng bảng nữa.
+    await prisma.project.delete({ where: { id } });
+    // dim cleanup: chỉ xoá customer/team khi không còn dự án nào dùng (FK Restrict sẽ chặn nếu còn).
     const stillUsesCustomer = await prisma.project.findFirst({ where: { customerId: proj.customerId } });
     if (!stillUsesCustomer) await prisma.customer.deleteMany({ where: { id: proj.customerId } });
     const stillUsesTeam = await prisma.project.findFirst({ where: { teamKdId: proj.teamKdId } });
@@ -870,19 +971,10 @@ export const repo = {
   },
 
   async resetAllData() {
+    // cascade dọn hết bảng con (fact_*, value_chain_progress, project_stage_weight, project_work_item…).
+    // KHÔNG xoá stage/contractor/equipment/customer/teamKd/factory/currency - đó là dimension.
     await prisma.$transaction([
       prisma.project.deleteMany(),
-      prisma.factProgressMonthly.deleteMany(),
-      prisma.valueChainProgress.deleteMany(),
-      prisma.factFinancial.deleteMany(),
-      prisma.factVolume.deleteMany(),
-      prisma.alertLog.deleteMany(),
-      prisma.projectAlias.deleteMany(),
-      prisma.projectSapCode.deleteMany(),
-      prisma.projectPhoto.deleteMany(),
-      prisma.projectAssignment.deleteMany(),
-      prisma.projectHistory.deleteMany(),
-      prisma.sapQueue.deleteMany(),
       prisma.auditLog.deleteMany(),
     ]);
   },

@@ -12,6 +12,11 @@ const d = (s: string | null | undefined): Date | null => (s ? new Date(s) : null
 async function main() {
   const data = buildRepoData();
 
+  // Xoá project TRƯỚC dims: project giờ có FK thật tới customer/team/currency/stage/contractor/
+  // equipment (Task 4), xoá dim trước sẽ dính RESTRICT vì project cũ còn tham chiếu. Cascade từ
+  // project dọn sạch toàn bộ fact_*/project_* con, dims phía dưới xoá lại là an toàn.
+  await prisma.project.deleteMany();
+
   // ---- Dims ----
   await prisma.customer.deleteMany();
   await prisma.customer.createMany({ data: data.customers });

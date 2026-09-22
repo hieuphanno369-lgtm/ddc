@@ -132,7 +132,9 @@ export async function saveMonthlyData(
   let bottleneckStage: StageCode | null | undefined;
   if (chain) {
     await repo.saveValueChain(projectId, month, chain, by);
-    derivedPctActual = calcChainPctActual(chain);
+    // Trọng số theo dự án, không dùng mặc định cứng - dự án có thể bỏ giai đoạn.
+    const weights = await repo.getStageWeights(projectId);
+    derivedPctActual = calcChainPctActual(chain, weights);
     bottleneckStage = findCurrentStage(chain);
   }
   if (pctPlan != null || derivedPctActual != null || ac != null || equipmentActual != null || bottleneckStage !== undefined) {
