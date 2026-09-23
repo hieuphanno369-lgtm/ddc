@@ -63,18 +63,24 @@ Playwright thật (không tin sẵn chẩn đoán tester) rồi sửa tối thi�
 tester mới, agent này đã có sẵn ngữ cảnh vòng 1). Đếm vòng test-debug: **1/2** đã dùng — quá 2 vòng
 mà vẫn rớt thì dừng lại báo chủ dự án, không tự ý giao debugger sửa lần 3.
 
-**⚠️ ĐỔI ACCOUNT/PHIÊN NGAY LÚC TESTER ĐANG CHẠY (2026-09-23, ghi lúc gần chạm ngưỡng usage 5h):**
-Agent tester `a045103b661032c7a` đang chạy nền lúc phiên này sắp dừng, CHƯA có kết quả. Phiên mới
-(kể cả account khác) mở lên:
-1. Chạy `ListAgents` xem `a045103b661032c7a` đang `running`/`completed`/`stopped`.
-2. Nếu `completed` nhưng chưa thấy thông báo → đọc thẳng `.bangiao/ket-qua-test.md` xem đã cập
-   nhật kết luận vòng 2 chưa (tìm dòng có "vòng 2"/"xác nhận sau sửa"); nếu file chưa có mục vòng 2
-   → agent có thể đã báo kết quả cho phiên cũ (không tới được phiên mới) → `SendMessage` tới đúng
-   id đó hỏi lại kết quả, ĐỪNG giao tester mới từ đầu.
-3. Nếu `stopped` (bị ngắt giữa chừng) → `SendMessage` resume đúng id, kèm tóm tắt: "phiên trước bị
-   ngắt, bạn đang xác nhận lại 2 lỗi debugger vừa sửa (commit `e35a540`) — tiếp tục đúng việc đó."
-4. Kết quả vòng 2: PASS → chuyển security-reviewer (chặng 4/6 dây chuyền, chưa làm). FAIL → dừng
-   lại, báo chủ dự án (đã hết 2/2 vòng test-debug, không tự ý sửa thêm lần 3).
+**Tester XONG vòng 2 — KẾT LUẬN: PASS (2026-09-23).** Tự đo lại độc lập bằng script/Playwright
+riêng (không copy số của debugger) — cả 2 lỗi đã hết thật: hết đè chữ ở toàn dải 360-681px (cả
+vi/en, cả 2 điểm biên sát ngưỡng 680px), khoảng trắng `/vi/admin` + `/vi/import` đúng 1 ký tự
+`" "` thật trong DOM. `tsc` sạch, **545/545 test xanh**. Rà nhanh hồi quy diện rộng (overview
+desktop, alerts) — không phát sinh gì mới. Chi tiết đầy đủ + số đo trong `.bangiao/ket-qua-test.md`
+mục 7 "VÒNG 2" (giữ nguyên lịch sử vòng 1 FAIL phía trên).
+
+**⚠️ PHIÊN NÀY ĐÃ DỪNG THEO YÊU CẦU CHỦ DỰ ÁN (đổi account) — CHƯA giao security-reviewer.**
+Đây là chặng kế tiếp còn treo (chặng 4/6 dây chuyền ship: planner✅ → coder✅ → tester✅ PASS →
+**security-reviewer (CHƯA LÀM)** → reviewer). Phiên/account mới mở lên, muốn tiếp tục thì:
+1. Đọc `.bangiao/ket-qua-test.md` để tự xác nhận PASS thật (không cần tin suông dòng này).
+2. Giao việc mới cho subagent `ddc-tower:security-reviewer` — đọc `.bangiao/thay-doi.md` (toàn bộ
+   thay đổi 12 Task + CAN SUA #1) rồi rà bảo mật. Đây là redesign THUẦN GIAO DIỆN (constraint #1
+   trong `ke-hoach.md`: không đụng `src/server/**`/`src/lib/**`/`prisma/**`/business logic) nên rủi
+   ro bảo mật MỚI phát sinh từ chính đợt này nhiều khả năng thấp — nhưng vẫn phải chạy đúng quy
+   trình dây chuyền, không tự ý bỏ qua chặng này.
+3. Ghi kết quả vào `.bangiao/danh-gia-bao-mat.md`, rồi mới tới `reviewer` (chặng cuối, đọc cả
+   `danh-gia.md` lẫn `danh-gia-bao-mat.md`, tìm phán quyết CHỐT/CẦN SỬA/CHẶN).
 
 **8 quyết định Q1-Q8 đã chốt (2026-09-23, tóm tắt — chi tiết đầy đủ trong `ke-hoach.md`):**
 Q1 logo: giữ `logo.png` đỏ trên nền trắng bo góc (KHÔNG dùng `.appicon` navy vẽ tay). Q2 công tắc
