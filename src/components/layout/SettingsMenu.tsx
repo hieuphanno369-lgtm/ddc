@@ -78,10 +78,10 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="border-b border-slate-100 dark:border-slate-700">
+    <div className="border-b border-sep">
       <button
         onClick={onToggle}
-        className="flex w-full items-center gap-2 px-3 py-2 text-xs font-medium uppercase text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"
+        className="flex w-full items-center gap-2 px-3 py-2 text-caption2 font-bold uppercase tracking-[.06em] text-label3 hover:bg-fill"
       >
         <span className="flex-1 text-left">{label}</span>
         <IconChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -133,9 +133,10 @@ export function SettingsMenu({ user }: { user: CurrentUser }) {
     signOut({ redirect: true, callbackUrl: '/login' });
   }
 
-  const itemCls = 'flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700';
-  const activeCls = 'text-accent';
-  const idleCls = 'text-navy-800 dark:text-slate-200';
+  const itemCls =
+    'flex w-full items-center gap-2 px-3 py-2 text-footnote transition-colors duration-fast ease-std hover:bg-fill';
+  const activeCls = 'text-brand font-semibold';
+  const idleCls = 'text-label2';
 
   const configItems = CONFIG.filter((n) => n.roles.includes(user.role));
 
@@ -143,22 +144,22 @@ export function SettingsMenu({ user }: { user: CurrentUser }) {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="rounded-lg p-2 text-navy-300 hover:bg-white/10 hover:text-white"
+        className="rounded-sm p-2 text-label3 transition-colors duration-fast ease-std hover:bg-fill hover:text-label"
         title={t('settings.title')}
       >
         <IconConfig size={19} />
       </button>
 
       {open && (
-        <div className="absolute bottom-full right-0 z-50 mb-1 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800">
+        <div className="mat mat-chrome absolute bottom-full right-0 z-50 mb-1 w-56 overflow-hidden rounded-md">
           {/* User */}
-          <div className="flex items-center gap-3 border-b border-slate-100 px-3 py-3 dark:border-slate-700">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-navy-800 text-sm font-semibold text-white">
+          <div className="flex items-center gap-3 border-b border-sep px-3 py-3">
+            <div className="avatar" style={{ width: 36, height: 36, flex: '0 0 36px' }}>
               {user.name.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">
-              <div className="truncate text-sm font-medium text-navy-900 dark:text-slate-100">{user.name}</div>
-              <div className="text-[11px] text-slate-500">{t(ROLE_LABEL[user.role])}</div>
+              <div className="truncate text-footnote font-medium text-label">{user.name}</div>
+              <div className="text-caption2 text-label3">{t(ROLE_LABEL[user.role])}</div>
             </div>
           </div>
 
@@ -218,7 +219,7 @@ export function SettingsMenu({ user }: { user: CurrentUser }) {
                 setShowPw(true);
                 setOpen(false);
               }}
-              className={`${itemCls} text-navy-800 dark:text-slate-200`}
+              className={`${itemCls} text-label2`}
             >
               <IconUser size={16} />
               {t('auth.changePassword')}
@@ -226,7 +227,7 @@ export function SettingsMenu({ user }: { user: CurrentUser }) {
           </Section>
 
           <div className="pt-1">
-            <button onClick={logout} className={`${itemCls} text-red-600 dark:text-red-400`}>
+            <button onClick={logout} className={`${itemCls} text-danger`}>
               <IconLogout size={16} />
               {t('auth.signOut')}
             </button>

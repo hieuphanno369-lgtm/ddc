@@ -22,8 +22,8 @@ export function SyncProgressBar() {
   if (progress == null) return null;
 
   return (
-    <div className="fixed inset-x-0 top-0 z-[100] h-1">
-      <div className="h-full bg-[#F5B301] transition-[width] duration-100" style={{ width: `${progress}%` }} />
+    <div className="progbar">
+      <i style={{ width: `${progress}%` }} />
     </div>
   );
 }
