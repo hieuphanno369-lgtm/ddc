@@ -18,11 +18,13 @@ import { Rise } from '@/components/ui/Rise';
 import { Legend } from '@/components/ui/Legend';
 import { MarketLabel, PriorityBadge, StatusBadge, TypeLabel } from '@/components/ui/Badges';
 import { Badge } from '@/components/ui/Badge';
+import { HelpTip } from '@/components/ui/HelpTip';
 import { PlanActualTimeline } from '@/components/project/PlanActualTimeline';
 const SCurve = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SCurve), { ssr: false, loading: () => <div className="sk h-60" /> });
 const CountdownPanel = dynamic(() => import('@/components/project/CountdownPanel').then((m) => m.CountdownPanel), { ssr: false, loading: () => <div className="sk" style={{ width: 240, height: 88 }} /> });
 const ResourceBreakdownChart = dynamic(() => import('@/components/project/ResourceBreakdownChart').then((m) => m.ResourceBreakdownChart), { ssr: false, loading: () => <div className="sk h-60" /> });
 const WeeklyTrackingCard = dynamic(() => import('@/components/project/WeeklyTrackingCard').then((m) => m.WeeklyTrackingCard), { ssr: false, loading: () => <div className="sk h-60" /> });
+const KeyMilestoneChart = dynamic(() => import('@/components/project/KeyMilestoneChart').then((m) => m.KeyMilestoneChart), { ssr: false, loading: () => <div className="sk h-60" /> });
 const SpiCpiLine = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SpiCpiLine), { ssr: false, loading: () => <div className="sk h-60" /> });
 const ManpowerDailyChart = dynamic(
   () => import('@/components/project/ManpowerDailyChart').then((m) => m.ManpowerDailyChart),
@@ -35,6 +37,7 @@ import { ProjectSwitcher } from '@/components/project/ProjectSwitcher';
 import {
   IconChevronRight,
   IconAlert,
+  IconDataEntry,
   IconFlag,
   IconGauge,
   IconMoney,
@@ -87,6 +90,8 @@ export default async function ProjectDetailPage({
   const manpowerDaily = await getManpowerDaily(id, month);
   const breakdown = await getResourceBreakdown(id, month);
   const tracking = await getWeeklyTracking(id, month);
+  const keyMilestones = await repo.getKeyMilestones(id);
+  const canEditMs = user?.role === 'admin' || user?.role === 'data-entry';
   // N-6 (danh-gia.md, vòng 2): nhân lực và thiết bị có thể nhập lệch ngày - MỖI card phải hiện
   // đúng ngày CỦA CHÍNH NÓ, không dùng chung 1 nhãn (asOfDate cũ = ngày mới hơn trong 2 ngày,
   // khiến card có dữ liệu cũ hơn hiện nhầm ngày của card kia).
@@ -212,6 +217,30 @@ export default async function ProjectDetailPage({
             <span>{t('detail.tl.gap')}: <b style={{ color: !gap ? 'var(--label)' : gap.direction === 'behind' && gap.pct > 0 ? 'var(--danger)' : 'var(--ok)' }}>{gap ? formatPct(gap.pct, locale) : '-'}</b></span>
           </div>
         </CardBody>
+      </Card>
+
+      {/* Cac moc chinh cua du an (mock-up dong 678-700) */}
+      <Card className="overflow-visible">
+        <CardHeader
+          title={t('detail.keyMs.title')}
+          subtitle={locale === 'vi' ? t('detail.keyMs.titleEn') : undefined}
+          titleExtra={<HelpTip text={t('detail.keyMs.help')} label={t('common.explain')} />}
+          action={
+            <div className="flex flex-wrap items-center gap-2.5">
+              <Legend items={[
+                { label: t('detail.keyMs.legendPlanned'), color: 'var(--s-plan)' },
+                { label: t('detail.keyMs.legendDone'), color: 'var(--s-third)' },
+                { label: t('common.today'), color: 'var(--danger)', line: true },
+              ]} />
+              {canEditMs && (
+                <Link href={`/nhap-lieu?project=${project.id}&step=profile#key-milestones`} className="btn ghost" style={{ padding: '6px 12px', fontSize: 'var(--t-caption1)' }}>
+                  <IconDataEntry size={16} />{t('detail.keyMs.edit')}
+                </Link>
+              )}
+            </div>
+          }
+        />
+        <CardBody><KeyMilestoneChart milestones={keyMilestones} today={today} /></CardBody>
       </Card>
 
       {/* Value chain + EVM */}

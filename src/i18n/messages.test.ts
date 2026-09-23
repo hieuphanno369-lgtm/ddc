@@ -45,6 +45,8 @@ const CHANGED_SOURCES: Record<string, string> = {
   'CountdownPanel': 'src/components/project/CountdownPanel.tsx',
   'ResourceBreakdownChart': 'src/components/project/ResourceBreakdownChart.tsx',
   'WeeklyTrackingCard': 'src/components/project/WeeklyTrackingCard.tsx',
+  'KeyMilestoneChart': 'src/components/project/KeyMilestoneChart.tsx',
+  'keyMsText': 'src/components/project/keyMsText.ts',
 };
 
 describe('i18n: vi/en phủ key như nhau', () => {

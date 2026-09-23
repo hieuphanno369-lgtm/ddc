@@ -252,6 +252,25 @@
       "weekday": { "d0": "CN", "d1": "T2", "d2": "T3", "d3": "T4", "d4": "T5", "d5": "T6", "d6": "T7" },
       "sumLeft": "Tuần {from} - {to} · <b>{contractors}</b> nhà thầu · <b>{equipments}</b> nhóm thiết bị được huy động",
       "sumRight": "{day} <b>{actual}/{planned}</b> người · cả tuần đạt <b>{pct}</b> so với kế hoạch"
+    },
+    "keyMs": {
+      "title": "Các mốc chính của dự án",
+      "titleEn": "Key Milestones of the Project",
+      "help": "Danh sách mốc là động: mỗi dự án có bộ mốc riêng (sân bay có \"Lifting Zone\", cầu có \"Hợp long\"...). Thêm / xoá / đổi tên mốc ở Nhập liệu → Hồ sơ dự án → Các mốc chính, biểu đồ cập nhật ngay. Mỗi mốc có ngày kế hoạch (bắt buộc) và ngày thực tế (điền khi đã đạt); có ngày thực tế thì mốc chuyển sang \"Đã xong\" kèm số ngày sớm/trễ so với kế hoạch.",
+      "legendPlanned": "Mốc kế hoạch",
+      "legendDone": "Đã đạt",
+      "edit": "Sửa mốc",
+      "empty": "Chưa có mốc nào - thêm ở Nhập liệu → Hồ sơ dự án",
+      "doneLate": "Đã xong · trễ {n}đ",
+      "doneEarly": "Đã xong · sớm {n}đ",
+      "doneOnTime": "Đã xong · đúng hạn",
+      "late": "Trễ {n} ngày",
+      "left": "Còn {n} ngày",
+      "plannedDate": "Ngày kế hoạch",
+      "actualDate": "Ngày thực tế",
+      "status": "Trạng thái",
+      "prev": "Mốc trước đó",
+      "first": "- đây là mốc đầu -"
     }
   },
   "stage": {

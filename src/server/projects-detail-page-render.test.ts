@@ -78,3 +78,15 @@ describe('Task 2 - Timeline KH/TT dang thanh', () => {
     expect(out).not.toContain('class="tlbar act"');
   });
 });
+
+describe('Task 6 - the "Cac moc chinh" + nut "Sua moc" theo vai tro', () => {
+  it('admin thay the + link toi dung buoc Ho so', async () => {
+    const out = await render();
+    expect(out).toContain('detail.keyMs.title');
+    expect(out).toContain('href="/nhap-lieu?project=1&amp;step=profile#key-milestones"');
+  });
+  it('bod va viewer KHONG thay nut sua', async () => {
+    expect(await render({}, '1', BOD)).not.toContain('step=profile');
+    expect(await render({}, '1', VIEWER)).not.toContain('step=profile');
+  });
+});

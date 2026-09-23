@@ -252,6 +252,25 @@
       "weekday": { "d0": "Sun", "d1": "Mon", "d2": "Tue", "d3": "Wed", "d4": "Thu", "d5": "Fri", "d6": "Sat" },
       "sumLeft": "Week {from} - {to} · <b>{contractors}</b> contractors · <b>{equipments}</b> equipment groups mobilised",
       "sumRight": "{day} <b>{actual}/{planned}</b> people · week at <b>{pct}</b> of plan"
+    },
+    "keyMs": {
+      "title": "Key milestones",
+      "titleEn": "Key Milestones of the Project",
+      "help": "The milestone list is dynamic: each project has its own set (airports have \"Lifting Zone\", bridges have \"Closure\"...). Add / remove / rename milestones in Data entry → Project profile → Key milestones and this chart updates immediately. Each milestone has a planned date (required) and an actual date (filled once achieved); with an actual date it becomes \"Done\" with days early/late versus plan.",
+      "legendPlanned": "Planned",
+      "legendDone": "Achieved",
+      "edit": "Edit milestones",
+      "empty": "No milestones yet - add them in Data entry → Project profile",
+      "doneLate": "Done · {n}d late",
+      "doneEarly": "Done · {n}d early",
+      "doneOnTime": "Done · on time",
+      "late": "{n} days overdue",
+      "left": "{n} days left",
+      "plannedDate": "Planned date",
+      "actualDate": "Actual date",
+      "status": "Status",
+      "prev": "Previous milestone",
+      "first": "- first milestone -"
     }
   },
   "stage": {
