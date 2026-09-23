@@ -26,7 +26,8 @@ export function ResetDataButton() {
     return (
       <button
         onClick={() => setConfirming(true)}
-        className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+        className="btn ghost"
+        style={{ color: 'var(--danger)', borderColor: 'var(--danger-fill)', padding: '6px 12px', fontSize: 'var(--t-caption1)' }}
       >
         {t('admin.resetData')}
       </button>
@@ -35,15 +36,20 @@ export function ResetDataButton() {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-red-600">{t('admin.resetConfirm')}</span>
+      <span className="chip c-dan">{t('admin.resetConfirm')}</span>
       <button
         onClick={run}
         disabled={busy}
-        className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+        className="btn danger disabled:opacity-50"
+        style={{ padding: '6px 12px', fontSize: 'var(--t-caption1)' }}
       >
         {t('common.delete')}
       </button>
-      <button onClick={() => setConfirming(false)} className="rounded-lg px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-50">
+      <button
+        onClick={() => setConfirming(false)}
+        className="btn ghost"
+        style={{ padding: '6px 12px', fontSize: 'var(--t-caption1)' }}
+      >
         {t('common.cancel')}
       </button>
     </div>

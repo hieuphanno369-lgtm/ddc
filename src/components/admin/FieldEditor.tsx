@@ -43,24 +43,24 @@ export function FieldEditor({ field, values }: { field: 'customer' | 'team'; val
 
   return (
     <div className="space-y-2">
-      {msg && <p className="text-xs text-red-600">{msg}</p>}
+      {msg && <p className="sumbar bad">{msg}</p>}
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder={t('common.search')}
-        className="h-8 w-full rounded-lg border border-slate-200 px-2.5 text-sm focus:border-accent focus:outline-none"
+        className="inp"
       />
-      <div className="max-h-64 overflow-auto">
-      <table className="w-full text-sm">
+      <div className="scroll" style={{ maxHeight: 256 }}>
+      <table className="tbl sticky">
         <thead>
-          <tr className="text-left text-xs uppercase text-slate-400">
-            <th className="py-1.5 font-medium">Tên</th>
-            <th className="py-1.5 font-medium"># dự án</th>
-            <th className="py-1.5 font-medium">Đổi tên</th>
-            <th className="py-1.5 font-medium">Merge →</th>
+          <tr>
+            <th>Tên</th>
+            <th># dự án</th>
+            <th>Đổi tên</th>
+            <th>Merge →</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody>
           {filtered.map((v) => (
             <DimRow
               key={v.id}
@@ -95,13 +95,13 @@ function DimRow({
 
   return (
     <tr className={v.isActive ? '' : 'opacity-50'}>
-      <td className="py-2 pr-2">
+      <td>
         {editing ? (
           <div className="flex items-center gap-1">
             <input
               value={text}
               onChange={(e) => setText(e.target.value)}
-              className="h-8 w-40 rounded-lg border border-slate-200 px-2 text-sm"
+              className="inp w-40"
             />
             <button
               onClick={async () => {
@@ -111,33 +111,38 @@ function DimRow({
                 setEditing(false);
               }}
               disabled={busy || !text.trim()}
-              className="rounded-lg bg-accent px-2 py-1 text-xs text-white disabled:opacity-50"
+              className="btn disabled:opacity-50"
+              style={{ padding: '4px 10px', fontSize: 'var(--t-caption1)' }}
             >
               ✓
             </button>
-            <button onClick={() => { setEditing(false); setText(v.name); }} className="px-2 py-1 text-xs text-slate-400">
+            <button
+              onClick={() => { setEditing(false); setText(v.name); }}
+              className="btn ghost"
+              style={{ padding: '4px 10px', fontSize: 'var(--t-caption1)' }}
+            >
               ✕
             </button>
           </div>
         ) : (
           <button
             onClick={() => setEditing(true)}
-            className="font-medium text-navy-900 hover:text-accent"
+            style={{ fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}
             title={v.mergedIntoId ? `Đã merge vào #${v.mergedIntoId}` : undefined}
           >
             {v.name}
           </button>
         )}
       </td>
-      <td className="py-2 text-xs text-slate-500">{v.refCount}</td>
-      <td className="py-2 text-xs text-slate-400">{editing ? '' : 'nhấn tên để sửa'}</td>
-      <td className="py-2">
+      <td className="text-caption1 text-label3">{v.refCount}</td>
+      <td className="text-caption1 text-label3">{editing ? '' : 'nhấn tên để sửa'}</td>
+      <td>
         {v.isActive ? (
           <div className="flex items-center gap-1">
             <select
               value={toId}
               onChange={(e) => setToId(Number(e.target.value))}
-              className="h-8 w-32 rounded-lg border border-slate-200 px-2 text-xs"
+              className="inp w-32"
             >
               <option value={0}>-</option>
               {targets.map((x) => (
@@ -154,13 +159,14 @@ function DimRow({
                 setToId(0);
               }}
               disabled={busy || !toId}
-              className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-navy-800 hover:bg-slate-50 disabled:opacity-40"
+              className="btn ghost disabled:opacity-40"
+              style={{ padding: '4px 10px', fontSize: 'var(--t-caption1)' }}
             >
               Merge
             </button>
           </div>
         ) : (
-          <span className="text-xs text-slate-400">merged → #{v.mergedIntoId}</span>
+          <span className="text-caption1 text-label3">merged → #{v.mergedIntoId}</span>
         )}
       </td>
     </tr>

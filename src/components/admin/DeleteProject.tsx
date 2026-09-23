@@ -33,7 +33,7 @@ export function DeleteProject({ projects }: { projects: { id: number; name: stri
       <select
         value={id}
         onChange={(e) => setId(Number(e.target.value))}
-        className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 px-2.5 text-sm text-navy-800 focus:border-accent focus:outline-none sm:max-w-xs"
+        className="inp min-w-0 flex-1 sm:max-w-xs"
       >
         <option value={0}>{t('common.select')}</option>
         {projects.map((p) => (
@@ -45,11 +45,11 @@ export function DeleteProject({ projects }: { projects: { id: number; name: stri
       <button
         onClick={del}
         disabled={busy || !id}
-        className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-40"
+        className="btn danger disabled:opacity-40"
       >
         {t('admin.delete')}
       </button>
-      {msg && <span className="text-xs text-emerald-600">{msg}</span>}
+      {msg && <span className="chip c-ok">{msg}</span>}
     </div>
   );
 }
