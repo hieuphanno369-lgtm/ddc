@@ -1,6 +1,7 @@
 import { addDaysIso, currentMonth, endOfMonth, isValidYearMonth, todayIso, type IsoDate } from '@/lib/clock';
 import { sumByDate, type DailyPoint } from '@/lib/daily-series';
 import type { ResourceRow } from '@/lib/resources';
+import { TRACKING_DAYS, type WeeklyTracking } from '@/lib/tracking';
 import { repo } from './repo';
 
 /** Cửa sổ đọc bảng theo ngày: đủ dài để vẽ ~6 tháng mà không quét cả bảng. */
@@ -107,6 +108,34 @@ export async function getResourceBreakdown(projectId: number, yearMonth: string)
     ...r, note: [...users].sort((a, b) => a - b).map((id) => contractors.get(id)?.name ?? `#${id}`).join(', '),
   }));
   return { manpowerAsOfDate, equipmentAsOfDate, manpower: [...man.values()].sort(byPlannedDesc), equipment: equipmentRows.sort(byPlannedDesc) };
+}
+
+/**
+ * 7 ngày tracking liên tiếp, kết thúc ở ngày cuối CÓ số liệu (nhân lực hoặc thiết bị) trong
+ * resourceWindow(month) - Q4 mặc định (a). Không có số liệu → null.
+ * Nhà thầu = danh sách project_contractor + nhà thầu có số liệu nhưng không còn trong danh sách.
+ */
+export async function getWeeklyTracking(projectId: number, yearMonth: string): Promise<WeeklyTracking | null> {
+  const { from, to } = resourceWindow(yearMonth);
+  const manpowerAll = await repo.getDailyManpower(projectId, from, to);
+  const equipmentAll = await repo.getDailyEquipment(projectId, from, to);
+  const lastDay = [manpowerAll.at(-1)?.workDate, equipmentAll.at(-1)?.workDate].filter((d): d is IsoDate => d != null).sort().at(-1);
+  if (!lastDay) return null;
+  const days = Array.from({ length: TRACKING_DAYS }, (_, i) => addDaysIso(lastDay, i - (TRACKING_DAYS - 1)));
+  const inWeek = (d: IsoDate) => d >= days[0] && d <= lastDay;
+  const manpower = manpowerAll.filter((m) => inWeek(m.workDate));
+  const equipmentUsage = equipmentAll.filter((e) => inWeek(e.workDate));
+
+  const all = new Map((await repo.getContractors()).map((c) => [c.id, c]));
+  const contractors = (await repo.getContractors(projectId)).map((c) => ({ id: c.id, name: c.name, scopeOfWork: c.scopeOfWork }));
+  const extra = [...new Set([...manpower.map((m) => m.contractorId), ...equipmentUsage.map((e) => e.contractorId)])]
+    .filter((id) => !contractors.some((c) => c.id === id)).sort((a, b) => a - b);
+  for (const id of extra) contractors.push({ id, name: all.get(id)?.name ?? `#${id}`, scopeOfWork: all.get(id)?.scopeOfWork ?? '' });
+
+  const eqNames = new Map((await repo.getEquipments()).map((e) => [e.id, e.name]));
+  const equipments = [...new Set(equipmentUsage.map((e) => e.equipmentId))].sort((a, b) => a - b)
+    .map((id) => ({ id, name: eqNames.get(id) ?? `#${id}` }));
+  return { days, today: todayIso(), contractors, equipments, manpower, equipmentUsage };
 }
 
 /** Chuỗi nhân lực theo ngày (đã cộng ngang nhà thầu) để client tự gộp tuần/tháng. */

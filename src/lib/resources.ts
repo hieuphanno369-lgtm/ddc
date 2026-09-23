@@ -20,3 +20,8 @@ export function mobilizationTotalTone(ratio: number | null): MobilizationTone {
 }
 export const TONE_VAR: Record<MobilizationTone, string> = { ok: 'var(--ok)', warn: 'var(--warn)', danger: 'var(--danger)', neutral: 'var(--label3)' };
 export const TONE_CHIP: Record<MobilizationTone, string> = { ok: 'c-ok', warn: 'c-warn', danger: 'c-dan', neutral: 'c-plain' };
+
+export function daysUsedTone(n: number): MobilizationTone {
+  if (n >= THRESHOLDS.equipmentDaysUsedOk) return 'ok';
+  return n >= THRESHOLDS.equipmentDaysUsedWarn ? 'warn' : 'neutral';
+}

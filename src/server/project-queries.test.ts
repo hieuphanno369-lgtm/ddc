@@ -8,7 +8,7 @@ vi.mock('@/server/repo', async () => {
 import { currentMonth, isValidYearMonth } from '@/lib/clock';
 import { repo } from '@/server/repo';
 import { getProjectSummary } from './queries';
-import { getManpowerDaily, getResourceBreakdown, getResourceSnapshot, resourceWindow } from './project-queries';
+import { getManpowerDaily, getResourceBreakdown, getResourceSnapshot, getWeeklyTracking, resourceWindow } from './project-queries';
 
 const MONTH = '2026-09';
 
@@ -104,6 +104,42 @@ describe('getResourceBreakdown - "Nhan luc theo nha thau" / "Thiet bi theo nhom"
     const r = await getResourceBreakdown(1, MONTH);
     expect(r.manpower[0].name).toBe('#99');
     expect(r.equipment[0]).toMatchObject({ name: '#98', note: '#99' });
+  });
+});
+
+describe('getWeeklyTracking - 7 ngay tracking + nha thau/thiet bi xuat hien trong tuan', () => {
+  it('du an 1: 7 ngay lien tiep ket thuc 16/09, du 6 nha thau + 7 thiet bi', async () => {
+    const w = await getWeeklyTracking(1, MONTH);
+    expect(w).not.toBeNull();
+    expect(w!.days).toEqual(['2026-09-10', '2026-09-11', '2026-09-12', '2026-09-13', '2026-09-14', '2026-09-15', '2026-09-16']);
+    expect(w!.today).toBe('2026-09-16');
+    expect(w!.contractors.map((c) => c.id)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(w!.equipments.map((e) => e.id)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(w!.manpower).toHaveLength(42);
+    expect(w!.equipmentUsage).toHaveLength(70);
+  });
+
+  it('du an 17 (chua co so lieu) -> null', async () => {
+    expect(await getWeeklyTracking(17, MONTH)).toBeNull();
+  });
+
+  it('ngay cuoi = ngay cuoi CO so lieu (nhan luc hoac thiet bi), khong phai hom nay', async () => {
+    vi.spyOn(repo, 'getDailyManpower').mockResolvedValueOnce([
+      { projectId: 1, contractorId: 1, workDate: '2026-09-12', plannedHeadcount: 10, actualHeadcount: 9 },
+    ]);
+    vi.spyOn(repo, 'getDailyEquipment').mockResolvedValueOnce([
+      { projectId: 1, contractorId: 1, equipmentId: 1, workDate: '2026-09-14', qtyPlanned: 1, qtyActual: 1 },
+    ]);
+    const w = await getWeeklyTracking(1, MONTH);
+    expect(w!.days.at(-1)).toBe('2026-09-14');
+  });
+
+  it('nha thau khong con trong danh sach nhung co so lieu -> hien "#id", nam SAU cac nha thau da gan', async () => {
+    vi.spyOn(repo, 'getDailyManpower').mockResolvedValueOnce([
+      { projectId: 1, contractorId: 99, workDate: '2026-09-16', plannedHeadcount: 3, actualHeadcount: 2 },
+    ]);
+    const w = await getWeeklyTracking(1, MONTH);
+    expect(w!.contractors.at(-1)).toEqual({ id: 99, name: '#99', scopeOfWork: '' });
   });
 });
 

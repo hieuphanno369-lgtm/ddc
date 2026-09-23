@@ -32,6 +32,10 @@ export const THRESHOLDS = {
   mobilizationWarnPct: 0.95,
   /** Dòng TỔNG của bảng nguồn lực và cả tuần tracking (mock-up dòng 1616, 1922): < 90% cảnh báo */
   mobilizationTotalWarnPct: 0.9,
+  /** "Ngày sử dụng" 1 thiết bị trong 7 ngày tracking (mock-up dòng 1893): >= 5 xanh */
+  equipmentDaysUsedOk: 5,
+  /** ... >= 3 vàng, còn lại trung tính */
+  equipmentDaysUsedWarn: 3,
 } as const;
 
 export type ThresholdKey = keyof typeof THRESHOLDS;

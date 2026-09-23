@@ -44,6 +44,7 @@ const CHANGED_SOURCES: Record<string, string> = {
   'trang /projects/[id]': 'app/[locale]/(app)/projects/[id]/page.tsx',
   'CountdownPanel': 'src/components/project/CountdownPanel.tsx',
   'ResourceBreakdownChart': 'src/components/project/ResourceBreakdownChart.tsx',
+  'WeeklyTrackingCard': 'src/components/project/WeeklyTrackingCard.tsx',
 };
 
 describe('i18n: vi/en phủ key như nhau', () => {

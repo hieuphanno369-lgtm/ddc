@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatRatio, formatTyd, formatVndTyd } from './format';
+import { formatDateShort, formatDayMonth, formatRatio, formatTyd, formatVndTyd } from './format';
 
 /**
  * Mục 1 - tooltip S-curve hiển thị "tỷ VNĐ" + dấu phẩy ngàn; SPI/CPI toFixed(2).
@@ -48,5 +48,24 @@ describe('formatRatio - tooltip SPI/CPI (Mục 1)', () => {
     for (const v of inputs) {
       expect(formatRatio(v)).toMatch(/^(-|-?\d+\.\d{2})$/);
     }
+  });
+});
+
+describe('formatDateShort / formatDayMonth', () => {
+  it('formatDateShort: YYYY-MM-DD -> DD/MM/YY', () => {
+    expect(formatDateShort('2026-09-16')).toBe('16/09/26');
+  });
+  it('formatDateShort: nhan ISO day du', () => {
+    expect(formatDateShort('2026-09-16T00:00:00.000Z')).toBe('16/09/26');
+  });
+  it('formatDateShort: null hoac chuoi sai dinh dang -> "-"', () => {
+    expect(formatDateShort(null)).toBe('-');
+    expect(formatDateShort('abc')).toBe('-');
+  });
+  it('formatDayMonth: YYYY-MM-DD -> DD/MM', () => {
+    expect(formatDayMonth('2026-09-16')).toBe('16/09');
+  });
+  it('formatDayMonth: null -> "-"', () => {
+    expect(formatDayMonth(null)).toBe('-');
   });
 });

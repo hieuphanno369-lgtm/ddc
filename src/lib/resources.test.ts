@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mobilizationRatio, mobilizationTone, mobilizationTotalTone } from './resources';
+import { daysUsedTone, mobilizationRatio, mobilizationTone, mobilizationTotalTone } from './resources';
 
 describe('mobilizationRatio', () => {
   it('actual/planned binh thuong', () => expect(mobilizationRatio(96, 100)).toBe(0.96));
@@ -28,5 +28,16 @@ describe('mobilizationTotalTone', () => {
     [null, 'neutral'],
   ] as const)('%s -> %s', (ratio, tone) => {
     expect(mobilizationTotalTone(ratio)).toBe(tone);
+  });
+});
+
+describe('daysUsedTone', () => {
+  it.each([
+    [5, 'ok'],
+    [4, 'warn'],
+    [3, 'warn'],
+    [2, 'neutral'],
+  ] as const)('%s -> %s', (n, tone) => {
+    expect(daysUsedTone(n)).toBe(tone);
   });
 });

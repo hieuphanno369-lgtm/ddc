@@ -22,12 +22,13 @@ import { PlanActualTimeline } from '@/components/project/PlanActualTimeline';
 const SCurve = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SCurve), { ssr: false, loading: () => <div className="sk h-60" /> });
 const CountdownPanel = dynamic(() => import('@/components/project/CountdownPanel').then((m) => m.CountdownPanel), { ssr: false, loading: () => <div className="sk" style={{ width: 240, height: 88 }} /> });
 const ResourceBreakdownChart = dynamic(() => import('@/components/project/ResourceBreakdownChart').then((m) => m.ResourceBreakdownChart), { ssr: false, loading: () => <div className="sk h-60" /> });
+const WeeklyTrackingCard = dynamic(() => import('@/components/project/WeeklyTrackingCard').then((m) => m.WeeklyTrackingCard), { ssr: false, loading: () => <div className="sk h-60" /> });
 const SpiCpiLine = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SpiCpiLine), { ssr: false, loading: () => <div className="sk h-60" /> });
 const ManpowerDailyChart = dynamic(
   () => import('@/components/project/ManpowerDailyChart').then((m) => m.ManpowerDailyChart),
   { ssr: false, loading: () => <div className="sk h-60" /> },
 );
-import { getManpowerDaily, getResourceBreakdown, getResourceSnapshot } from '@/server/project-queries';
+import { getManpowerDaily, getResourceBreakdown, getResourceSnapshot, getWeeklyTracking } from '@/server/project-queries';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { WhatIf } from '@/components/project/WhatIf';
 import { ProjectSwitcher } from '@/components/project/ProjectSwitcher';
@@ -85,6 +86,7 @@ export default async function ProjectDetailPage({
   const resources = await getResourceSnapshot(id, month);
   const manpowerDaily = await getManpowerDaily(id, month);
   const breakdown = await getResourceBreakdown(id, month);
+  const tracking = await getWeeklyTracking(id, month);
   // N-6 (danh-gia.md, vòng 2): nhân lực và thiết bị có thể nhập lệch ngày - MỖI card phải hiện
   // đúng ngày CỦA CHÍNH NÓ, không dùng chung 1 nhãn (asOfDate cũ = ngày mới hơn trong 2 ngày,
   // khiến card có dữ liệu cũ hơn hiện nhầm ngày của card kia).
@@ -436,6 +438,15 @@ export default async function ProjectDetailPage({
           <CardBody><ResourceBreakdownChart rows={breakdown.equipment} kind="equipment" /></CardBody>
         </Card>
       </div>
+
+      {tracking ? (
+        <WeeklyTrackingCard data={tracking} locale={locale} />
+      ) : (
+        <Card>
+          <CardHeader title={t('detail.track.title')} />
+          <CardBody><p className="empty">{t('detail.noDailyData')}</p></CardBody>
+        </Card>
+      )}
 
       {/* Biểu đồ nhân lực KH vs TT - đặt cuối trang theo yêu cầu */}
       <Card>

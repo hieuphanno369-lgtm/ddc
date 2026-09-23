@@ -80,7 +80,8 @@
     "today": "Today",
     "previousMonth": "vs last month",
     "showMore": "Show more",
-    "showLess": "Show less"
+    "showLess": "Show less",
+    "explain": "Explain"
   },
   "role": {
     "admin": "Admin",
@@ -223,6 +224,34 @@
       "shortfall": "Shortfall",
       "people": "people",
       "units": "units"
+    },
+    "track": {
+      "title": "Weekly mobilisation tracking - last 7 days",
+      "help": "Recorded daily: each contractor sets planned headcount and reports actual attendance, plus the equipment used that day. Many-to-many: one contractor can use several pieces of equipment, and one piece of equipment can be shared by several contractors on the same day.",
+      "tabLog": "Daily log",
+      "tabMatrix": "Manpower matrix",
+      "tabEquipment": "By equipment",
+      "colDate": "Date",
+      "colContractor": "Contractor",
+      "colScope": "Scope",
+      "colPlanned": "Planned",
+      "colActual": "Actual",
+      "colDiff": "Diff.",
+      "colEquipment": "Equipment used",
+      "colWeekAvg": "Week",
+      "colEquipmentName": "Equipment",
+      "colDaysUsed": "Days used",
+      "noEquipment": "- no equipment -",
+      "eqTypes": "{n} equipment types",
+      "noDataDay": "No data for this day",
+      "siteTotal": "SITE TOTAL",
+      "planShort": "Plan {n}",
+      "contractorsUnit": "contractors",
+      "peopleN": "{n} people",
+      "dayOn": "On {date}",
+      "weekday": { "d0": "Sun", "d1": "Mon", "d2": "Tue", "d3": "Wed", "d4": "Thu", "d5": "Fri", "d6": "Sat" },
+      "sumLeft": "Week {from} - {to} · <b>{contractors}</b> contractors · <b>{equipments}</b> equipment groups mobilised",
+      "sumRight": "{day} <b>{actual}/{planned}</b> people · week at <b>{pct}</b> of plan"
     }
   },
   "stage": {

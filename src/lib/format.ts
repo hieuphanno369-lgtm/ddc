@@ -61,6 +61,18 @@ export function formatDateTime(value: string | Date | null | undefined, locale: 
   }).format(d);
 }
 
+const ISO_PREFIX = /^\d{4}-\d{2}-\d{2}/;
+/** 'YYYY-MM-DD' (hoặc ISO đầy đủ) → 'DD/MM/YY' - nhãn ngắn biểu đồ/bảng (mock-up fmtD dòng 1319). */
+export function formatDateShort(iso: string | null | undefined): string {
+  if (!iso || !ISO_PREFIX.test(iso)) return '-';
+  return `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(2, 4)}`;
+}
+/** 'YYYY-MM-DD' → 'DD/MM' (mock-up dLabel dòng 1825). */
+export function formatDayMonth(iso: string | null | undefined): string {
+  if (!iso || !ISO_PREFIX.test(iso)) return '-';
+  return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+}
+
 /** Làm tròn 2 chữ số thập phân cho value input số (bỏ trailing zero). */
 export function fmtNum(v: string): string {
   if (v === '' || v == null) return '';

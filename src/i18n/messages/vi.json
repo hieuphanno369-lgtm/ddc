@@ -80,7 +80,8 @@
     "today": "Hôm nay",
     "previousMonth": "So tháng trước",
     "showMore": "Xem thêm",
-    "showLess": "Thu gọn"
+    "showLess": "Thu gọn",
+    "explain": "Giải thích"
   },
   "role": {
     "admin": "Admin",
@@ -223,6 +224,34 @@
       "shortfall": "Thiếu",
       "people": "người",
       "units": "thiết bị"
+    },
+    "track": {
+      "title": "Tracking huy động theo tuần - 7 ngày gần nhất",
+      "help": "Ghi nhận theo ngày: mỗi ngày từng nhà thầu chốt số nhân lực kế hoạch và báo lại số thực tế có mặt, kèm danh sách thiết bị đã dùng hôm đó. Quan hệ nhiều-nhiều: một nhà thầu có thể dùng nhiều thiết bị, và một thiết bị có thể được nhiều nhà thầu dùng chung trong cùng ngày.",
+      "tabLog": "Nhật ký theo ngày",
+      "tabMatrix": "Ma trận nhân lực",
+      "tabEquipment": "Theo thiết bị",
+      "colDate": "Ngày",
+      "colContractor": "Nhà thầu",
+      "colScope": "Hạng mục phụ trách",
+      "colPlanned": "NL kế hoạch",
+      "colActual": "NL thực tế",
+      "colDiff": "Chênh",
+      "colEquipment": "Thiết bị đã dùng",
+      "colWeekAvg": "TB tuần",
+      "colEquipmentName": "Thiết bị",
+      "colDaysUsed": "Ngày sử dụng",
+      "noEquipment": "- không dùng thiết bị -",
+      "eqTypes": "{n} loại thiết bị",
+      "noDataDay": "Chưa có số liệu ngày này",
+      "siteTotal": "TỔNG CÔNG TRƯỜNG",
+      "planShort": "KH {n}",
+      "contractorsUnit": "nhà thầu",
+      "peopleN": "{n} người",
+      "dayOn": "Ngày {date}",
+      "weekday": { "d0": "CN", "d1": "T2", "d2": "T3", "d3": "T4", "d4": "T5", "d5": "T6", "d6": "T7" },
+      "sumLeft": "Tuần {from} - {to} · <b>{contractors}</b> nhà thầu · <b>{equipments}</b> nhóm thiết bị được huy động",
+      "sumRight": "{day} <b>{actual}/{planned}</b> người · cả tuần đạt <b>{pct}</b> so với kế hoạch"
     }
   },
   "stage": {
