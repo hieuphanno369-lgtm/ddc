@@ -4,7 +4,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { repo } from '@/server/repo';
 import { getProjectSummary } from '@/server/queries';
-import { currentMonth } from '@/lib/clock';
+import { currentMonth, isValidYearMonth } from '@/lib/clock';
 import { getCurrentUser } from '@/lib/session';
 import { stageKey } from '@/lib/labels';
 import { STAGE_ORDER } from '@/lib/stages';
@@ -41,7 +41,9 @@ export default async function ProjectDetailPage({
   searchParams: Record<string, string | string[] | undefined>;
 }) {
   const id = Number(params.id);
-  const month = typeof searchParams.month === 'string' && searchParams.month !== 'all' ? searchParams.month : currentMonth();
+  // month rác (vd ?month=abc) từng lọt qua thẳng vào endOfMonth() và ném RangeError (500) -
+  // validate đúng format 'YYYY-MM' trước khi dùng, sai thì rơi về tháng hiện tại.
+  const month = typeof searchParams.month === 'string' && isValidYearMonth(searchParams.month) ? searchParams.month : currentMonth();
   const t = await getTranslations();
   const locale = await getLocale();
   const user = await getCurrentUser();

@@ -218,6 +218,26 @@ CREATE INDEX "fact_financial_projectId_yearMonth_isLatest_idx" ON "fact_financia
 -- CreateIndex
 CREATE INDEX "fact_progress_monthly_projectId_yearMonth_isLatest_idx" ON "fact_progress_monthly"("projectId", "yearMonth", "isLatest");
 
+-- 1) dim_stage phai co du lieu TRUOC khi gan FK tro vao no (goc cua loi deploy tren DB da co du lieu).
+-- 7 dong lay dung tu src/data/seed/erp.ts:5-14.
+INSERT INTO "dim_stage" ("code","nameVi","nameEn","sortOrder","calcMode") VALUES
+  ('design','Thiết kế','Design',1,'manual'),
+  ('shop','Shop Drawing','Shop Drawing',2,'volume'),
+  ('procurement','Vật tư','Materials',3,'volume'),
+  ('fabrication','Gia công','Fabrication',4,'volume'),
+  ('transport','Vận chuyển','Transport',5,'volume'),
+  ('erection','Lắp dựng','Erection',6,'volume'),
+  ('handover','Nghiệm thu & Bàn giao','Handover',7,'manual')
+ON CONFLICT ("code") DO NOTHING;
+
+-- 2) Chi don phan THAT SU mo coi - co WHERE, khong xoa mu (khong co du lieu rac vi 7 ma vua INSERT o tren).
+UPDATE "fact_progress_monthly" SET "bottleneckStage" = NULL
+ WHERE "bottleneckStage" IS NOT NULL
+   AND "bottleneckStage" NOT IN (SELECT "code" FROM "dim_stage");
+
+DELETE FROM "fact_value_chain_progress"
+ WHERE "stageCode" NOT IN (SELECT "code" FROM "dim_stage");
+
 -- AddForeignKey
 ALTER TABLE "dim_customer" ADD CONSTRAINT "dim_customer_mergedIntoId_fkey" FOREIGN KEY ("mergedIntoId") REFERENCES "dim_customer"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 

@@ -190,8 +190,23 @@ async function kpisForMonth(yearMonth: string, filters: DashboardFilters) {
 }
 
 export async function getPortfolioKpis(yearMonth: string, filters: DashboardFilters = {}): Promise<PortfolioKpis> {
-  const prevYm = prevMonth(yearMonth);
   const cur = await kpisForMonth(yearMonth, filters);
+  // 'all' không có tháng liền trước hợp lệ (prevMonth('all') ra chuỗi rác) - giữ đúng hành vi
+  // cũ trước Run 1: delta = 0 khi đang xem "Tất cả", không bịa số từ dữ liệu rỗng.
+  if (yearMonth === 'all') {
+    return {
+      ...cur,
+      delta: {
+        totalProjects: 0,
+        inProgress: 0,
+        behindSchedule: 0,
+        penaltyRisk: 0,
+        penalized: 0,
+        backlog: 0,
+      },
+    };
+  }
+  const prevYm = prevMonth(yearMonth);
   const prev = await kpisForMonth(prevYm, filters);
   return {
     ...cur,
