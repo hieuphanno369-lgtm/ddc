@@ -468,7 +468,7 @@ Code khớp kế hoạch, đã tính cả các chỉnh sửa theo Global Constra
 2. **Commit `PROGRESS.md`**: cập nhật trạng thái thành "Reviewer VÒNG 3 CHỐT".
 3. **Các file `.bangiao/` nên commit** (để đồng bộ với `thay-doi.md` đã commit):
    - `ke-hoach.md`, `danh-gia.md`, `danh-gia-bao-mat.md`.
-   - `ket-qua-test.md`, **nhưng phải che mật khẩu seed trước**. Có 3 chỗ: dòng **407** (`Admin@***`), **409** (`Viewer@***`), **615** (`Admin@***`). Đổi thành kiểu "xem `src/data/seed`". Sau khi che, grep lại `@123` cho chắc.
+   - `ket-qua-test.md`, **nhưng phải che mật khẩu seed trước**. Có 3 chỗ: dòng **407** (`Admin@***`), **409** (`Viewer@***`), **615** (`Admin@***`). Đổi thành kiểu "xem `src/data/seed`". Sau khi che, grep lại để chắc không còn sót mật khẩu thật nào.
    - Ngoài phạm vi yêu cầu nhưng cùng loại: `thay-doi.md:175` (**đã commit** trên nhánh) cũng ghi `Admin@***`. Nên che luôn trong cùng lượt. Nếu cần xoá khỏi lịch sử git thì đó là việc riêng của chủ dự án. Mật khẩu này đằng nào cũng đã có sẵn trong `src/data/seed/history.ts`, nên điều quan trọng là đổi mật khẩu hoặc khoá tài khoản seed trước khi go-live (T-2).
 4. **Không commit:**
    - `.bangiao/checkpoint.md`: file cũ do Stop-hook sinh ra cho nhánh `feature/erp-model-v2`. Nên xoá hoặc thêm vào ignore.

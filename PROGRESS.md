@@ -3,23 +3,19 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
-### ⚠️ RESUME SAU KHI ĐỔI ACCOUNT (ghi 2026-09-23, phiên dừng vì gần limit) — ĐỌC TRƯỚC
-Coder 12/12 Task + mọi vòng vá ĐÃ XONG, KHÔNG chạy lại planner/coder/tester. Dây chuyền đang ở
-**chặng cuối: reviewer VÒNG 3** (vòng review chốt, sau 2 vòng CAN SUA đã dùng hết 2/2).
-Commit code cuối: `1e34b26` (B-1..B-5). Chuỗi vá: `0c77fdd` CS-1/CS-2 → `9941505` CS-3 motion →
-`1e34b26` B-1..B-5. Test 548/548, `tsc` sạch, `npm run build` sạch (coder + tester build độc lập).
+### ✅ Redesign Apple Glass — CHỐT kỹ thuật + ĐÃ MERGE vào `main` (2026-09-23)
+Coder 12/12 Task + mọi vòng vá đã xong. Dây chuyền ship 6 agent (planner→coder→tester→debugger→
+security-reviewer→reviewer) đã CHỐT ở reviewer VÒNG 3 (vòng review chốt, sau 2 vòng CAN SUA đã dùng
+hết 2/2). Commit code cuối trước merge: `1e34b26` (B-1..B-5). Chuỗi vá: `0c77fdd` CS-1/CS-2 →
+`9941505` CS-3 motion → `1e34b26` B-1..B-5. Test 548/548, `tsc` sạch, `npm run build` sạch.
 
 1. ✅ **reviewer VÒNG 3 = CHỐT** (2026-09-23, tự chạy lại tsc/test 548/548/build sạch ở `1e34b26`,
    ghi trong `.bangiao/danh-gia.md`). Dây chuyền ship redesign HOÀN TẤT về kỹ thuật.
-2. **Việc còn lại: dọn + merge — chủ dự án ĐÃ CHỐT trực tiếp (2026-09-23): merge trước, làm phần mock-up còn thiếu sau**, đúng thứ tự:
-   1. commit RIÊNG `.gitignore` trước mọi `git add` rộng (chặn `.playwright-mcp/` có mật khẩu);
-   2. commit `PROGRESS.md`;
-   3. commit `.bangiao/ke-hoach.md`, `danh-gia.md`, `danh-gia-bao-mat.md`;
-   4. che mật khẩu seed trong `.bangiao/ket-qua-test.md` dòng ~407 (`Admin@***`), ~409
-      (`Viewer@***`), ~615 (`Admin@***`) và `.bangiao/thay-doi.md:175` (đã commit) → rồi commit;
-   5. KHÔNG commit `checkpoint.md`; `archive/` (Run 1) mặc định không commit;
-   6. tuỳ chọn `git rm .bangiao/_test.md` (file rác có dòng `PHAN QUYET: CAN SUA` gây đọc nhầm);
-   7. merge `feature/apple-glass-redesign` → `main` (local, KHÔNG push nếu chưa được yêu cầu).
+2. ✅ **Dọn file + merge XONG** (release-manager, 2026-09-23, chủ dự án chốt trực tiếp "merge trước,
+   làm phần mock-up còn thiếu sau"): che mật khẩu seed trong `.bangiao/` + `PROGRESS.md`, xoá
+   `.bangiao/_test.md` (file rác), merge `feature/apple-glass-redesign` → `main` fast-forward —
+   **local, CHƯA push**. `main` hiện ở HEAD `1ee7d9d`. `tsc` sạch + 548/548 test xanh xác nhận lại
+   sau merge. Nhánh `feature/apple-glass-redesign` vẫn còn (trỏ cùng commit), chưa xoá.
 3. **App CHƯA giống mock-up 100% — dù plan 12 Task đã xong** (đối chiếu class mock-up dòng 591-1135
    với code, 2026-09-23). Phần mock-up có mà app chưa có, trang Chi tiết dự án:
    - `.cdpanel` "Còn lại đến ngày HT kế hoạch" (đếm ngược) + `.tl` "Timeline kế hoạch vs thực tế"
@@ -31,7 +27,8 @@ Commit code cuối: `1e34b26` (B-1..B-5). Chuỗi vá: `0c77fdd` CS-1/CS-2 → `
      tính năng dữ liệu (nhà thầu × thiết bị, nhiều-nhiều theo ngày), vượt Constraint #1 "thuần giao
      diện" → nếu làm phải là 1 đợt riêng (planner mới).
    - Cố ý khác, đã chốt: Q1 logo đỏ, Q5 không HUD FPS, Q6 quả cầu đứng yên.
-   Chờ chủ dự án quyết: làm thêm trước khi merge, hay merge trước rồi làm đợt sau.
+   **ĐÃ CHỐT (2026-09-23): merge trước** (xong, xem mục 2) — phần mock-up còn thiếu ở trên để lại
+   làm đợt riêng sau (cần planner mới vì vượt phạm vi "thuần giao diện").
 4. **Chủ dự án xem qua (thẩm mỹ, không chặn):** thẻ "Trọng tâm" ở `/overview` + `/report` giờ luôn
    hiện số màu VÀNG (2 trang truyền `tone="warn"` cố định) — giữ vàng, hay đổi về trắng như mock-up.
    Backlog reviewer thêm N-7: unit test `spring()`/`riseIn()` với rAF giả.
