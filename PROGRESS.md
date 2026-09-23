@@ -48,11 +48,19 @@ hết 2/2). Commit code cuối trước merge: `1e34b26` (B-1..B-5). Chuỗi vá
      (mã gốc/mã CT tách bạch, nguyên tệ, mức ưu tiên, nhà thầu tham gia, PIC/backup, mã SAP...) với
      mock-up dòng 866-1123 — mới xem qua, chưa soát kỹ từng ô.
 
-   **Next khi chủ dự án gõ "tiếp tục":** giao `ddc-tower:planner` viết `.bangiao/ke-hoach.md` cho
-   "Đợt 2" gồm ít nhất 6 hạng mục trên (không cần chạy scout/architect/plan-critic riêng, khảo sát ở
-   trên đã đủ) + rà soát form còn thiếu ở trên, rồi chạy `ddc-tower:ship` (coder→tester→debugger→
-   security-reviewer→reviewer) như bình thường. Việc thẩm mỹ tag vàng (mục 4 dưới) và lỗi avatar
-   (mục 5 dưới) vẫn treo riêng, không thuộc Đợt 2 này trừ khi chủ dự án nói thêm.
+   **Việc thẩm mỹ tag vàng (mục 4 dưới) và lỗi avatar (mục 5 dưới) vẫn treo riêng**, không thuộc
+   Đợt 2 trừ khi chủ dự án nói thêm.
+
+   **Đợt 2 — tiến độ (2026-09-23):** nhánh `feature/apple-glass-mock-parity` (từ `main`). Planner
+   XONG → `.bangiao/ke-hoach.md` (10 Task, không migration). Đã lưu hồ sơ redesign cũ vào
+   `.bangiao/archive/apple-glass-redesign-2026-09-23/`. **Coder XONG cả 10/10 Task** (10 commit
+   `feat(parity):` từ `8438794` đến `719b6bd`) — `tsc` sạch, **699/699 test xanh** (tăng 151 so với
+   mốc 548 trước Đợt 2), `npm run build` sạch. Không lệch đáng kể so với plan. `.bangiao/thay-doi.md`
+   đã có, cố ý CHƯA commit (để tester soát trước). Còn thiếu: kiểm mắt qua trình duyệt thật (sáng/tối
+   + nhiều khổ màn hình) — coder không có trình duyệt, để tester tự làm.
+   **Next: giao `ddc-tower:tester` cho Đợt 2**, rồi tiếp `ddc-tower:ship` (security-reviewer→
+   reviewer) như bình thường. Mục "Rà soát form Tạo/Sửa dự án" trong `ke-hoach.md` (20 điểm G-1…G-20,
+   nhiều điểm cần migration/luồng ghi mới) CỐ Ý để ngoài Đợt 2, chờ chủ dự án chọn hạng mục.
 4. **Chủ dự án xem qua (thẩm mỹ, không chặn):** thẻ "Trọng tâm" ở `/overview` + `/report` giờ luôn
    hiện số màu VÀNG (2 trang truyền `tone="warn"` cố định) — giữ vàng, hay đổi về trắng như mock-up.
    Backlog reviewer thêm N-7: unit test `spring()`/`riseIn()` với rAF giả.
