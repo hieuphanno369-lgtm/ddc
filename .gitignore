@@ -11,3 +11,5 @@ next-env.d.ts
 data/uploads/
 .claude/_skills_src/
 .claude/scheduled_tasks.lock
+.playwright-mcp/
+.obsidian/
