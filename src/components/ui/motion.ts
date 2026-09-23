@@ -6,6 +6,12 @@ import { useEffect, type RefObject } from 'react';
  * Port nguyen ham "MOTION ENGINE" cua mockup-apple-glass.html (dong 1156-1230)
  * sang TypeScript - tich phan semi-implicit Euler chay theo rAF, KHONG xap xi
  * bang CSS keyframes. Q4=(a).
+ *
+ * Da gan (CS-3): useRise o src/components/ui/Rise.tsx (bao .kpis), useHoverLift
+ * o src/components/ui/Card.tsx, usePressable o nut dang nhap chinh trong
+ * LoginForm.tsx. spring()/riseIn() deu tra ve ham huy de cleanup dung trong
+ * useEffect return - khong con vong rAF/setTimeout chay tiep sau khi unmount,
+ * khong con 2 spring chong nhau tren cung 1 phan tu khi bam/re nhanh lien tiep.
  */
 
 type SpringPreset = 'snappy' | 'smooth' | 'gentle' | 'bouncy';
@@ -34,8 +40,14 @@ interface SpringOptions {
   onDone?: () => void;
 }
 
-/** Tich phan spring vat ly - dung y het cong thuc mock-up dong 1164-1187. */
-export function spring(opts: SpringOptions): void {
+/**
+ * Tich phan spring vat ly - dung y het cong thuc mock-up dong 1164-1187.
+ * Tra ve ham huy: goi de dung vong rAF giua chung (unmount, hoac spring moi
+ * tren cung 1 phan tu can thay spring cu - xem usePressable/useHoverLift).
+ * Neu khong co requestAnimationFrame (moi truong test khong co window/rAF)
+ * thi nhay thang ve gia tri dich, khong throw, khong treo.
+ */
+export function spring(opts: SpringOptions): () => void {
   const cfg = opts.preset ? SPRING[opts.preset] : SPRING.smooth;
   const k = opts.stiffness || cfg.stiffness;
   const c = opts.damping || cfg.damping;
@@ -45,18 +57,21 @@ export function spring(opts: SpringOptions): void {
   const to = opts.to;
   const { onUpdate, onDone, delay = 0 } = opts;
 
-  if (reducedMotion()) {
+  if (reducedMotion() || typeof requestAnimationFrame === 'undefined') {
     onUpdate(to);
     onDone?.();
-    return;
+    return () => {};
   }
 
+  let cancelled = false;
+  let rafId = 0;
   let t0: number | null = null;
   let last = 0;
   function frame(ts: number) {
+    if (cancelled) return;
     if (t0 === null) t0 = ts;
     if (ts - t0 < delay * 1000) {
-      requestAnimationFrame(frame);
+      rafId = requestAnimationFrame(frame);
       return;
     }
     // dt lay theo nhip that cua man hinh, kep de khong no khi tab bi treo
@@ -76,23 +91,31 @@ export function spring(opts: SpringOptions): void {
       onDone?.();
       return;
     }
-    requestAnimationFrame(frame);
+    rafId = requestAnimationFrame(frame);
   }
-  requestAnimationFrame(frame);
+  rafId = requestAnimationFrame(frame);
+  return () => {
+    cancelled = true;
+    cancelAnimationFrame(rafId);
+  };
 }
 
-/** Card troi len theo stagger - "spatial elevation" chuan Apple (mock-up dong 1190-1205). */
-function riseIn(scope: ParentNode, baseDelay: number): void {
+/**
+ * Card troi len theo stagger - "spatial elevation" chuan Apple (mock-up dong 1190-1205).
+ * Tra ve ham huy: clear setTimeout failsafe + huy tat ca spring con dang chay
+ * (component unmount giua luc dang troi len).
+ */
+function riseIn(scope: ParentNode, baseDelay: number): () => void {
   const els = Array.from(scope.querySelectorAll<HTMLElement>('.rise'));
   if (reducedMotion()) {
     els.forEach((el) => {
       el.style.opacity = '';
       el.style.transform = '';
     });
-    return;
+    return () => {};
   }
   // failsafe: neu rAF khong chay (tab an, snapshot...) thi tra lai hien thi sau 900ms
-  setTimeout(() => {
+  const timeoutId = setTimeout(() => {
     els.forEach((el) => {
       if (parseFloat(el.style.opacity || '1') < 1) {
         el.style.opacity = '';
@@ -100,25 +123,32 @@ function riseIn(scope: ParentNode, baseDelay: number): void {
       }
     });
   }, 900);
+  const cancelSprings: Array<() => void> = [];
   els.forEach((el, i) => {
     el.style.opacity = '0';
     el.style.transform = 'translate3d(0,14px,0)';
-    spring({
-      preset: 'smooth',
-      from: 0,
-      to: 1,
-      delay: baseDelay + i * 0.035,
-      onUpdate: (p) => {
-        el.style.opacity = String(Math.min(1, p));
-        el.style.transform = `translate3d(0,${(14 * (1 - p)).toFixed(2)}px,0)`;
-      },
-      onDone: () => {
-        el.style.transform = '';
-        el.style.opacity = '';
-        el.style.willChange = 'auto';
-      },
-    });
+    cancelSprings.push(
+      spring({
+        preset: 'smooth',
+        from: 0,
+        to: 1,
+        delay: baseDelay + i * 0.035,
+        onUpdate: (p) => {
+          el.style.opacity = String(Math.min(1, p));
+          el.style.transform = `translate3d(0,${(14 * (1 - p)).toFixed(2)}px,0)`;
+        },
+        onDone: () => {
+          el.style.transform = '';
+          el.style.opacity = '';
+          el.style.willChange = 'auto';
+        },
+      }),
+    );
   });
+  return () => {
+    clearTimeout(timeoutId);
+    cancelSprings.forEach((cancel) => cancel());
+  };
 }
 
 /** Chay riseIn cho moi phan tu .rise trong pham vi ref khi mount. Chi dung trong Client Component. */
@@ -126,19 +156,26 @@ export function useRise(ref: RefObject<HTMLElement>, baseDelay = 0): void {
   useEffect(() => {
     const scope = ref.current;
     if (!scope) return;
-    riseIn(scope, baseDelay);
+    return riseIn(scope, baseDelay);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }
 
-/** Nhan: co lai roi bat ve bang spring, giong UIKit (mock-up dong 1207-1218). */
+/**
+ * Nhan: co lai roi bat ve bang spring, giong UIKit (mock-up dong 1207-1218).
+ * Huy spring dang chay truoc khi tao spring moi tren cung phan tu (bam/tha
+ * nhanh lien tiep se khong con 2 vong rAF cung ghi el.style.transform).
+ */
 export function usePressable(ref: RefObject<HTMLElement>, scaleTo = 0.972): void {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
+    let cancelCurrent: (() => void) | null = null;
+
     function onDown() {
-      spring({
+      cancelCurrent?.();
+      cancelCurrent = spring({
         preset: 'snappy',
         from: 1,
         to: scaleTo,
@@ -148,9 +185,10 @@ export function usePressable(ref: RefObject<HTMLElement>, scaleTo = 0.972): void
       });
     }
     function onRelease() {
+      cancelCurrent?.();
       const match = el!.style.transform.match(/scale\(([\d.]+)\)/);
       const from = match ? parseFloat(match[1]) : 1;
-      spring({
+      cancelCurrent = spring({
         preset: 'bouncy',
         from,
         to: 1,
@@ -165,6 +203,7 @@ export function usePressable(ref: RefObject<HTMLElement>, scaleTo = 0.972): void
     el.addEventListener('pointerleave', onRelease);
     el.addEventListener('pointercancel', onRelease);
     return () => {
+      cancelCurrent?.();
       el.removeEventListener('pointerdown', onDown);
       el.removeEventListener('pointerup', onRelease);
       el.removeEventListener('pointerleave', onRelease);
@@ -173,14 +212,21 @@ export function usePressable(ref: RefObject<HTMLElement>, scaleTo = 0.972): void
   }, [ref, scaleTo]);
 }
 
-/** Hover nang do cao (elevation e2 -> e3), mock-up dong 1220-1230. */
+/**
+ * Hover nang do cao (elevation e2 -> e3), mock-up dong 1220-1230.
+ * Huy spring dang chay truoc khi tao spring moi tren cung phan tu (re chuot
+ * ra/vao nhanh lien tiep se khong con 2 vong rAF cung ghi el.style.transform).
+ */
 export function useHoverLift(ref: RefObject<HTMLElement>, dy = 3): void {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
+    let cancelCurrent: (() => void) | null = null;
+
     function onEnter() {
-      spring({
+      cancelCurrent?.();
+      cancelCurrent = spring({
         preset: 'snappy',
         from: 0,
         to: 1,
@@ -190,7 +236,8 @@ export function useHoverLift(ref: RefObject<HTMLElement>, dy = 3): void {
       });
     }
     function onLeave() {
-      spring({
+      cancelCurrent?.();
+      cancelCurrent = spring({
         preset: 'smooth',
         from: 1,
         to: 0,
@@ -203,6 +250,7 @@ export function useHoverLift(ref: RefObject<HTMLElement>, dy = 3): void {
     el.addEventListener('pointerenter', onEnter);
     el.addEventListener('pointerleave', onLeave);
     return () => {
+      cancelCurrent?.();
       el.removeEventListener('pointerenter', onEnter);
       el.removeEventListener('pointerleave', onLeave);
     };

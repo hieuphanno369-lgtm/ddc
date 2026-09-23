@@ -203,12 +203,14 @@
   .alert .mt{display:flex;gap:6px 16px;flex-wrap:wrap;margin-top:8px;font-size:var(--t-caption2);color:var(--label3)}
 
   /* Ho tro: card bi overflow:hidden se cat dropdown ben trong.
-     Cho nao co Combobox/menu thi them utility "overflow-visible". */
+     Cho nao co Combobox/menu thi them utility "overflow-visible".
+     CS-3: transform khi hover do useHoverLift (motion.ts) dieu khien bang JS
+     tren chinh Card.tsx - KHONG dat transform o day nua de tranh 2 co che
+     cung ghi de len el.style.transform (JS luon thang vi la inline style). */
   .card-hover {
-    transition: transform var(--dur-base) var(--ease-ios),
-                box-shadow var(--dur-base) var(--ease-ios);
+    transition: box-shadow var(--dur-base) var(--ease-ios);
   }
-  .card-hover:hover { transform: translate3d(0, -3px, 0); box-shadow: var(--e3), var(--inner-hi); }
+  .card-hover:hover { box-shadow: var(--e3), var(--inner-hi); }
 
   /* Khung xuong tai trang */
   .sk {
@@ -221,7 +223,9 @@
 
   /* Q4=(a): rise/press/hover-lift chay bang engine spring that trong
      src/components/ui/motion.ts (useRise/usePressable/useHoverLift), khong
-     dung CSS keyframes/`: active` xap xi. .rise chi la marker de JS truy van. */
+     dung CSS keyframes/`: active` xap xi. .rise chi la marker de JS truy van.
+     Da gan (CS-3): useRise o Rise.tsx (bao .kpis), useHoverLift o Card.tsx,
+     usePressable o nut dang nhap chinh (LoginForm.tsx). */
 
   /* --- Task 4: The KPI (mockup-apple-glass.html dong 254-280, copy nguyen van) --- */
   .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}

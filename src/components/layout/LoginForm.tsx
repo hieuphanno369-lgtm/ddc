@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import { PasswordInput } from '@/components/ui/PasswordInput';
+import { usePressable } from '@/components/ui/motion';
 
 export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
   const t = useTranslations();
@@ -14,6 +15,10 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // CS-3: nut dang nhap chinh - "nut quan trong" duoc gan usePressable (co
+  // lai khi bam roi bat ve bang spring, dung engine motion.ts, Q4=(a)).
+  const submitRef = useRef<HTMLButtonElement>(null);
+  usePressable(submitRef);
 
   const inputCls = 'inp';
 
@@ -52,6 +57,7 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
           <p className="sumbar bad">{error}</p>
         )}
         <button
+          ref={submitRef}
           type="submit"
           disabled={busy}
           className="btn w-full justify-center"

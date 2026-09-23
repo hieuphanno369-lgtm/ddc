@@ -12,6 +12,7 @@ import { STAGE_ORDER } from '@/lib/stages';
 import { THRESHOLDS } from '@/lib/thresholds';
 import { formatDate, formatDateTime, formatPct, formatRatio, formatTyd } from '@/lib/format';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
+import { Rise } from '@/components/ui/Rise';
 import { MarketLabel, PriorityBadge, StatusBadge, TypeLabel } from '@/components/ui/Badges';
 import { Badge } from '@/components/ui/Badge';
 const SCurve = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SCurve), { ssr: false, loading: () => <div className="sk h-60" /> });
@@ -129,17 +130,17 @@ export default async function ProjectDetailPage({
       </Card>
 
       {/* 6 KPI cards */}
-      <div className="kpis">
+      <Rise className="kpis">
         <KpiCard label={t('metric.spi')} value={formatRatio(summary.spi)} delta={null} tone={summary.spi != null && summary.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'} hero heroTagLabel={t('kpi.focusTag')} icon={IconTrend} />
         <KpiCard label={t('metric.cpi')} value={formatRatio(summary.cpi)} delta={null} tone={summary.cpi != null && summary.cpi < THRESHOLDS.cpiWarn ? 'warn' : 'ok'} icon={IconMoney} />
         <KpiCard label={t('metric.eac')} value={formatTyd(summary.eac, locale)} delta={null} tone="neutral" icon={IconGauge} />
         <KpiCard label={t('metric.vac')} value={formatTyd(summary.vac, locale)} delta={null} tone={summary.vac != null && summary.vac < 0 ? 'danger' : 'ok'} icon={IconFlag} />
         <KpiCard label={t('metric.pctPlan')} value={formatPct(summary.pctPlan, locale)} delta={null} tone="neutral" icon={IconProject} />
         <KpiCard label={t('metric.pctActual')} value={formatPct(summary.pctActual, locale)} delta={null} tone="neutral" icon={IconAlert} />
-      </div>
+      </Rise>
 
       {/* Nguồn lực: ảnh chụp NGÀY gần nhất có dữ liệu, không phải số theo tháng (Q3) */}
-      <div className="kpis k2">
+      <Rise className="kpis k2">
         <KpiCard
           label={t('detail.manpower')}
           value={resources.manpowerAsOfDate ? `${resources.manpowerActual}/${resources.manpowerPlanned}` : '-'}
@@ -156,7 +157,7 @@ export default async function ProjectDetailPage({
           tone="neutral"
           icon={IconGauge}
         />
-      </div>
+      </Rise>
 
       {/* Timeline */}
       <Card>

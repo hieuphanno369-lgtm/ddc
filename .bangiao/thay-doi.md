@@ -513,3 +513,106 @@ thật nếu máy Tester có mạng tới npm registry).
 4. **CS-3 (motion engine) CHƯA đụng tới** — theo đúng chỉ đạo, chờ chủ dự án
    chọn 1 trong 3 phương án ở `danh-gia.md` mục CS-3 trước khi có Task tiếp
    theo.
+
+---
+
+## 9. Bật thật motion engine theo Q4=(a)/CS-3 (chủ dự án chọn phương án "bật thật")
+
+Skill đã dùng: `ddc-tower:coding-standards`, `ddc-tower:frontend-patterns`.
+Phạm vi: đúng những gì `danh-gia.md` mục CS-3 nêu — vá 3 lỗi kỹ thuật đã biết
+trong `motion.ts`, rồi gắn 3 hook vào đúng 3 chỗ ưu tiên đã chỉ định. Không
+đụng CS-1/CS-2 (đã xong ở mục 8), không đổi business logic/server, không gắn
+motion vào `.wall` (Q6 vẫn đứng yên).
+
+### 9.1. Vá 3 lỗi kỹ thuật trong `src/components/ui/motion.ts`
+
+- **`spring()` không trả cleanup** → giờ trả về hàm huỷ (`() => void`): đặt cờ
+  `cancelled` kiểm tra ở đầu mỗi `frame()`, lưu `rafId` để `cancelAnimationFrame`
+  khi gọi hàm huỷ. Thêm luôn nhánh an toàn cho môi trường không có
+  `requestAnimationFrame` (test chạy env `node`, không phải chỉ `prefers-reduced-motion`)
+  — nhảy thẳng về giá trị đích, không throw.
+- **`setTimeout` 900ms trong `riseIn()` không bị clear** → `riseIn()` giờ cũng
+  trả về hàm huỷ: `clearTimeout` + gọi huỷ toàn bộ spring con (mỗi `.rise` một
+  spring) đang chạy. `useRise` `return riseIn(...)` để React tự gọi cleanup này
+  trong `useEffect` khi unmount.
+- **2 spring chồng nhau khi bấm/rê nhanh liên tiếp** → `usePressable` và
+  `useHoverLift` lưu `cancelCurrent` (hàm huỷ của spring đang chạy trên chính
+  phần tử đó); mỗi lần có sự kiện mới (`pointerdown`/`pointerup`/`pointerenter`/
+  `pointerleave`...) gọi `cancelCurrent?.()` huỷ spring cũ trước khi tạo spring
+  mới, và cleanup của hook cũng gọi `cancelCurrent?.()` khi unmount.
+
+### 9.2. Gắn 3 hook vào 3 chỗ ưu tiên (không mở rộng thêm ra ngoài)
+
+1. **`useRise`** — tạo mới `src/components/ui/Rise.tsx`: client wrapper mỏng
+   (`<div ref>` + gọi `useRise(ref, baseDelay)`), không đổi markup/logic bên
+   trong. Bọc quanh cả 4 lưới `.kpis` đang chứa `KpiCard` (đã có sẵn class
+   `.rise` từ Task 4, chỉ chưa ai gọi `riseIn` bao giờ):
+   `src/components/dashboard/OverviewWidgets.tsx` (`KpiGrid`),
+   `app/[locale]/(app)/report/page.tsx`, và 2 lưới trong
+   `app/[locale]/(app)/projects/[id]/page.tsx` (`.kpis` 6 thẻ + `.kpis k2`
+   nguồn lực). **Không sửa `KpiCard.tsx`** — giữ đúng yêu cầu cũ của nó (không
+   `'use client'`, không async, để `renderToStaticMarkup` trong 3 test render
+   trang thật vẫn dùng được), vì `Rise` chỉ bọc ngoài, không cần
+   `KpiCard` tự biết gì về motion.
+2. **`useHoverLift`** — gắn trực tiếp vào `src/components/ui/Card.tsx` (nơi
+   sinh ra class `card-hover` dùng ở rất nhiều nơi trong app). `Card` giờ là
+   `'use client'`, có `useRef` + gọi `useHoverLift(ref)`; `CardHeader`/`CardBody`
+   cùng file nên cũng thành client component nhưng không có gì đặc biệt cần
+   server, không ảnh hưởng.
+3. **`usePressable`** — gắn vào nút "Đăng nhập" chính trong
+   `src/components/layout/LoginForm.tsx` (đã sẵn `'use client'`, không phải
+   thêm boundary mới) — chọn đây làm "nút quan trọng" vì app không có component
+   `Button` chung nào để gắn 1 lần cho nhiều nơi (12 file dùng class `.btn` rời
+   rạc), gắn từng nút một sẽ vượt phạm vi; nút đăng nhập là điểm chạm rõ ràng
+   nhất, rủi ro thấp nhất (1 file, không đổi logic submit).
+
+### 9.3. Tránh 2 cơ chế hover giằng co nhau ở `.card-hover` (`app/globals.css:207-211`)
+
+Trước: `.card-hover:hover{transform:translate3d(0,-3px,0);box-shadow:...}` —
+CSS tự lo cả transform lẫn box-shadow. Giờ `Card.tsx` đã dùng `useHoverLift`
+ghi `transform` trực tiếp vào `el.style.transform` (inline style, luôn thắng
+mọi rule trong stylesheet, kể cả khi hover đã kết thúc và giá trị JS còn để
+lại `translate3d(0,0.00px,0)`) — nên CSS còn giữ `transform` ở `:hover` sẽ
+**không bao giờ chạy được**, chỉ là code chết gây hiểu nhầm. Đã bỏ hẳn
+`transform` khỏi cả `.card-hover` (transition) và `.card-hover:hover` (rule),
+chỉ giữ lại `box-shadow` — tách rõ theo thuộc tính: `transform` do JS lo 100%,
+`box-shadow` do CSS lo 100%, không thuộc tính nào bị 2 cơ chế cùng ghi.
+
+### 9.4. Cổng kiểm tra cuối
+
+1. `npx tsc --noEmit` → sạch, 0 lỗi.
+2. `npm test` → **546/546 xanh (31 file test)** — tăng đúng 1 test so với
+   545/545 trước đó vì `legacy-style-guard.test.ts` tự động quét thêm file mới
+   `Rise.tsx` (không có hex/`dark:`/class Tailwind màu cũ nào). Không file test
+   nào bị sửa nội dung; 3 test render trang thật
+   (`operation-pages-render.test.ts`, `compliance-page.test.ts`,
+   `projects-detail-page-month-guard.test.ts`) vẫn xanh dù `Card`/`Rise` giờ
+   là client component có `useEffect` — vì cả 3 đều render qua
+   `renderToStaticMarkup`, không commit thật nên `useEffect` không bao giờ
+   chạy trong test (chỉ chạy trong browser thật), an toàn theo đúng yêu cầu.
+3. `npx next lint` → vẫn không có cấu hình ESLint trong repo, bỏ qua như mọi
+   Task trước.
+
+### 9.5. Chỗ Tester nên soi kỹ
+
+1. **Kiểm mắt thật trên browser** (test tự động không thấy được motion): mở
+   `/vi/overview`, `/vi/report`, `/vi/projects/1` — KPI card phải trồi lên so
+   le (~35ms/thẻ) khi trang tải xong; rê chuột qua bất kỳ `Card` (không phải
+   KPI, vì `KpiCard` không dùng component `Card`) phải thấy nhấc nhẹ + đổ bóng
+   sâu hơn; bấm nút "Đăng nhập" ở `/vi/login` phải thấy co lại rồi bật về.
+2. **`KpiCard` (thẻ `.kpi`) không có `useHoverLift`/`usePressable`** — mock-up
+   gốc chỉ gắn `hoverLift`/`pressable` cho `.kpi`, không gắn cho `.card` chung;
+   ở đây làm ngược lại theo đúng chỉ đạo của lượt việc này (ưu tiên gắn vào
+   `Card` dùng chung, không mở rộng thêm engine để tự động dò `.kpi` bên trong
+   `Rise`) — nếu muốn `.kpi` cũng nhấc khi hover, cần một quyết định/])Task
+   riêng, không tự thêm ở đây vì ngoài phạm vi 3 chỗ đã chỉ định.
+3. **`prefers-reduced-motion: reduce`** — `spring()` đã có nhánh tắt hẳn motion
+   (nhảy thẳng về giá trị đích) từ trước, không đổi ở lượt vá này; nên test tay
+   thêm 1 lần với cờ này bật trong DevTools để chắc UI vẫn dùng được, không bị
+   kẹt ở trạng thái `opacity:0`/`scale` giữa đường.
+4. **`Card.tsx`/`Rise.tsx` giờ là Client Component** nhưng vẫn được gọi trực
+   tiếp từ nhiều Server Component (page async) — đây là pattern hợp lệ của
+   Next.js App Router (Server Component render Client Component, truyền nội
+   dung server-rendered qua `children`), không phải lỗi, nhưng nếu sau này có
+   ai thêm logic chỉ-chạy-server vào bên trong `Card`/`Rise` (gọi DB, đọc
+   cookie server...) sẽ vỡ ngay vì 2 file này giờ thuộc client boundary.

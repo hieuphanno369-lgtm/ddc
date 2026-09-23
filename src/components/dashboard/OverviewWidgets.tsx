@@ -19,6 +19,7 @@ import { KpiCard } from './KpiCard';
 import { Watchlist } from './Watchlist';
 import { ProjectTable } from './ProjectTable';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
+import { Rise } from '@/components/ui/Rise';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { IconAlert, IconFlag, IconMoney, IconProject, IconFactory, IconTrend } from '@/components/icons';
 
@@ -53,7 +54,7 @@ export async function KpiGrid({ month, filters, canViewFinance }: { month: strin
   const kpis = await loadPortfolioKpis(month, filters);
   const prevLabel = t('common.previousMonth');
   return (
-    <div className={`kpis${canViewFinance ? '' : ' k5'}`}>
+    <Rise className={`kpis${canViewFinance ? '' : ' k5'}`}>
       <KpiCard label={t('kpi.totalProjects')} value={String(kpis.totalProjects)} delta={kpis.delta.totalProjects} deltaSuffix={prevLabel} icon={IconProject} />
       <KpiCard label={t('kpi.inProgress')} value={String(kpis.inProgress)} delta={kpis.delta.inProgress} deltaSuffix={prevLabel} tone="ok" icon={IconFactory} />
       <KpiCard label={t('kpi.behindSchedule')} value={String(kpis.behindSchedule)} delta={kpis.delta.behindSchedule} deltaSuffix={prevLabel} tone="warn" invertDelta hero heroTagLabel={t('kpi.focusTag')} icon={IconTrend} />
@@ -62,7 +63,7 @@ export async function KpiGrid({ month, filters, canViewFinance }: { month: strin
       {canViewFinance && (
         <KpiCard label={t('kpi.backlog')} value={formatTyd(kpis.backlog, locale)} delta={kpis.delta.backlog} deltaSuffix={prevLabel} tone="neutral" icon={IconMoney} />
       )}
-    </div>
+    </Rise>
   );
 }
 
