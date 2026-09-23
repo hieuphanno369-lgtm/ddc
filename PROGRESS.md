@@ -19,18 +19,25 @@
 ### Trạng thái 12 Task (redesign) — cập nhật khi có commit `style(glass):` mới
 | Task | Nội dung | Trạng thái |
 |---|---|---|
-| 1 | Token màu/blur/elevation + cơ chế theme + 2 test canh | Chưa xong |
-| 2 | Shell (sidebar/topbar/progress bar) | Chưa xong |
-| 3 | Card / chip / alert / skeleton + motion engine | Chưa xong |
-| 4 | KPI + tag vàng "Trọng tâm" | Chưa xong |
-| 5 | Bảng | Chưa xong |
-| 6 | Form nền tảng + modal | Chưa xong |
-| 7 | Wizard nhập liệu + import | Chưa xong |
-| 8 | 5 editor quản trị | Chưa xong |
-| 9 | Recharts (màu series + tooltip kính) | Chưa xong |
-| 10 | Tổng quan + Chi tiết dự án | Chưa xong |
-| 11 | 10 trang còn lại (gồm trang không có trong mock-up) | Chưa xong |
-| 12 | Login + dọn sạch di sản | Chưa xong |
+| 1 | Token màu/blur/elevation + cơ chế theme + 2 test canh | XONG (`3e3cbe5`) |
+| 2 | Shell (sidebar/topbar/progress bar) | XONG (`7fd7964`) |
+| 3 | Card / chip / alert / skeleton + motion engine | XONG (`c3e6922`) |
+| 4 | KPI + tag vàng "Trọng tâm" | XONG (`a11ac45`) — lệch nhỏ so với plan, xem `.bangiao/thay-doi.md` mục 3.1 |
+| 5 | Bảng | XONG (`623f6e5`) |
+| 6 | Form nền tảng + modal | XONG (`6143966`) |
+| 7 | Wizard nhập liệu + import | XONG (`7e7de59`) |
+| 8 | 5 editor quản trị | XONG (`a5b46aa`) |
+| 9 | Recharts (màu series + tooltip kính) | XONG (`aae5f62`) |
+| 10 | Tổng quan + Chi tiết dự án | XONG (`decc12c`) |
+| 11 | 10 trang còn lại (gồm trang không có trong mock-up) | XONG (`aec8d86`) |
+| 12 | Login + dọn sạch di sản | XONG (`4b515e1`) |
+
+**Coder XONG cả 12/12 Task (2026-09-23).** 537/537 test xanh, `tsc` 0 lỗi, đã build + kiểm HTTP
+thật (không có công cụ chụp màn hình trong phiên coder nên CHƯA xem bằng mắt thật — việc này giao
+cho tester). Đang chuyển sang chặng **tester** của dây chuyền ship — agent nền `a045103b661032c7a`
+(nếu ListAgents báo `stopped` mà chưa có `.bangiao/ket-qua-test.md`, resume bằng SendMessage tới
+đúng id này thay vì giao việc mới từ đầu; nếu id không còn tồn tại/không resume được thì mới giao
+lại tester mới, kèm toàn bộ ngữ cảnh ở mục "Chỗ Tester nên soi kỹ" trong `.bangiao/thay-doi.md`).
 
 **8 quyết định Q1-Q8 đã chốt (2026-09-23, tóm tắt — chi tiết đầy đủ trong `ke-hoach.md`):**
 Q1 logo: giữ `logo.png` đỏ trên nền trắng bo góc (KHÔNG dùng `.appicon` navy vẽ tay). Q2 công tắc
