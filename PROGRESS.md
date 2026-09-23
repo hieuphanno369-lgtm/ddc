@@ -32,12 +32,25 @@
 | 11 | 10 trang còn lại (gồm trang không có trong mock-up) | XONG (`aec8d86`) |
 | 12 | Login + dọn sạch di sản | XONG (`4b515e1`) |
 
-**Coder XONG cả 12/12 Task (2026-09-23).** 537/537 test xanh, `tsc` 0 lỗi, đã build + kiểm HTTP
-thật (không có công cụ chụp màn hình trong phiên coder nên CHƯA xem bằng mắt thật — việc này giao
-cho tester). Đang chuyển sang chặng **tester** của dây chuyền ship — agent nền `a045103b661032c7a`
-(nếu ListAgents báo `stopped` mà chưa có `.bangiao/ket-qua-test.md`, resume bằng SendMessage tới
-đúng id này thay vì giao việc mới từ đầu; nếu id không còn tồn tại/không resume được thì mới giao
-lại tester mới, kèm toàn bộ ngữ cảnh ở mục "Chỗ Tester nên soi kỹ" trong `.bangiao/thay-doi.md`).
+**Coder XONG cả 12/12 Task (2026-09-23).** 537/537 test xanh, `tsc` 0 lỗi.
+
+**Tester XONG vòng 1 — KẾT LUẬN: FAIL (2026-09-23).** Xem bằng mắt qua Playwright thật, tìm ra
+**2 lỗi thật do redesign gây ra** (chi tiết + bằng chứng trong `.bangiao/ket-qua-test.md`):
+1. Tag vàng "Trọng tâm" đè chữ nhãn KPI ở màn hình hẹp (~360-410px, iPhone SE/12/13/14) — đo được
+   chồng lấn 12.5-21.2px thật. Gốc: `.kpi .lb{padding-right:30px}` trong `app/globals.css` không
+   đủ chỗ cho tag chữ (~75px), chỉ tính cho icon 26px.
+2. Mất khoảng cách chữ (dính liền) ở `/vi/admin` ("Adminadmin@...") và `/vi/import` ("File Excel
+   File .xlsx...") — do đổi class `.en` làm mất `margin-left` cũ. Có **test RED thật**:
+   `src/components/admin/ActivityViewer.test.ts`.
+
+`npm test`: 544/545 (1 rớt đúng lỗi #2 ở trên). 3 quan sát khác xác nhận có TỪ TRƯỚC redesign
+(không phải lỗi mới, ngoài phạm vi): aria-label sai ở nút hamburger, thiếu key i18n `admin.delete`,
+404 mặc định Next.js cho URL lạ (giới hạn kiến trúc, không phải bug).
+
+**Đang chuyển sang debugger (vòng CAN SUA #1)** để sửa đúng gốc rễ 2 lỗi trên, không tự ý mở rộng
+phạm vi — agent nền `a8950778b71d058fe` (cách resume giống hệt agent tester/coder ở trên, dùng
+SendMessage tới đúng id nếu bị `stopped` giữa chừng). Đếm vòng: **1/2** — quá 2 vòng mà vẫn rớt
+thì dừng lại báo chủ dự án.
 
 **8 quyết định Q1-Q8 đã chốt (2026-09-23, tóm tắt — chi tiết đầy đủ trong `ke-hoach.md`):**
 Q1 logo: giữ `logo.png` đỏ trên nền trắng bo góc (KHÔNG dùng `.appicon` navy vẽ tay). Q2 công tắc
