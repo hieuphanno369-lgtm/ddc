@@ -24,6 +24,53 @@ export interface ClampTipPositionInput {
 
 export interface TipPosition { x: number; y: number }
 
+/** Phần tử tối thiểu cần để đo-rồi-định-vị (khớp HTMLElement, nhưng test được bằng đối tượng giả). */
+export interface MeasurableTipElement {
+  style: { left: string; top: string };
+  offsetWidth: number;
+  offsetHeight: number;
+}
+
+/**
+ * Đo bề rộng/cao THẬT của phần tử tooltip rồi tính vị trí đã kẹp trong viewport, và gán thẳng vào
+ * `el.style.left/top`.
+ *
+ * Vòng debug 2 (CAN-2): sửa vòng 1 (đo bằng getBoundingClientRect() NGAY TẠI vị trí ước lượng ban
+ * đầu) không có tác dụng vì phép đo đó "tự ứng nghiệm". CSS2.1 §10.3.7 case 3 — phần tử
+ * `position:fixed` có `left` xác định, `width:auto`, `right:auto` (đúng CSS `.tip` hiện tại) —
+ * trình duyệt tính "used width" bằng thuật toán shrink-to-fit bị chặn trên bởi khoảng trống còn
+ * lại BÊN PHẢI của `left` hiện tại (= viewportWidth - left), KHÔNG phải bởi bề rộng nội dung mong
+ * muốn. Ví dụ left ước lượng ban đầu = 1260 trong khổ 1440px chỉ còn ~180px bên phải: đo tại đó
+ * luôn ra một bề rộng bị bó hẹp gần đúng bằng khoảng trống đó, rồi clampTipPosition lại tính ra
+ * một vị trí gần giống hệt vị trí sai ban đầu (điểm bất động sai) — tooltip có vẻ như "không bao
+ * giờ đo lại", dù effect vẫn chạy và setState vẫn xảy ra.
+ *
+ * Cách sửa: đặt phần tử về `left:0;top:0` (còn nguyên viewport bên phải/dưới) TRƯỚC khi đọc
+ * `offsetWidth/offsetHeight`, để phép đo chỉ còn bị chặn bởi CSS `min-width/max-width` (đúng ý
+ * muốn) chứ không phải bởi vị trí hiện tại. Dùng `offsetWidth/offsetHeight` (không phải
+ * `getBoundingClientRect()`) vì không bị ảnh hưởng bởi `transform: scale()`.
+ */
+export function measureAndClampTip(
+  el: MeasurableTipElement,
+  tip: { clientX: number; clientY: number },
+  viewportWidth: number,
+  viewportHeight: number,
+): TipPosition {
+  el.style.left = '0px';
+  el.style.top = '0px';
+  const pos = clampTipPosition({
+    clientX: tip.clientX,
+    clientY: tip.clientY,
+    width: el.offsetWidth,
+    height: el.offsetHeight,
+    viewportWidth,
+    viewportHeight,
+  });
+  el.style.left = `${pos.x}px`;
+  el.style.top = `${pos.y}px`;
+  return pos;
+}
+
 export function clampTipPosition({
   clientX,
   clientY,
