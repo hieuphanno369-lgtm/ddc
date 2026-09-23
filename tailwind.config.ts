@@ -66,7 +66,7 @@ const config: Config = {
       transitionTimingFunction: {
         ios: 'var(--ease-ios)', out: 'var(--ease-out)', std: 'var(--ease-std)',
       },
-      transitionDuration: { fast: '180', base: '320', slow: '520' },
+      transitionDuration: { fast: 'var(--dur-fast)', base: 'var(--dur-base)', slow: 'var(--dur-slow)' },
       backdropBlur: {
         ultrathin: 'var(--mat-ultrathin)', thin: 'var(--mat-thin)',
         regular: 'var(--mat-regular)', thick: 'var(--mat-thick)',

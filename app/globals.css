@@ -255,11 +255,16 @@
   /* Fix CAN SUA #1: padding-right:30px (dong tren) chi du cho icon .ic 26px
      dung o the thuong. The .key (hero) thay icon bang tag chu ".tag" - voi
      nhan dai nhu "Tre tien do"/"Behind Schedule", tag de vao dung vung chu
-     tren man hinh hep (do that bang Playwright: de 8-32px o 360-410px, ca 2
-     locale). Man hinh hep trung dung luoi 2 cot ben duoi (@680px) - tai day
-     cho tag xuong dong rieng, tra lai toan bo be rong cho nhan, thay vi doan
-     mot con so padding co dinh se lai vo neu sau nay doi nhan/tag dai hon. */
-  @media(max-width:680px){
+     khi BE RONG THE (khong phai viewport) nho hon ~210px. Dung sat mep
+     @media(max-width:680px) se lot vung 1181-1450px o luoi 6 cot (KPI-1
+     reviewer chi ra): viewport rong nhung the van hep vi 6 cot, hoac sidebar
+     thu gon 68px lam viewport-check sai lech. Dung @container (container-type
+     dat tren chinh .kpi.key) de bat dung theo be rong THE thuc te, dung o moi
+     so cot/viewport/trang thai sidebar. Nguong 210px = K_max~186px (en) + bien
+     an toan, da do overlapX that bang Chrome DevTools Protocol (headless) -
+     xem .bangiao/thay-doi.md. */
+  .kpi.key{container-type:inline-size}
+  @container (max-width: 210px){
     .kpi.key .tag{position:static;display:inline-block;margin:0 0 6px}
     .kpi.key .lb{padding-right:0}
   }

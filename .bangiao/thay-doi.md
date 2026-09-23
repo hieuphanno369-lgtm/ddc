@@ -347,3 +347,169 @@ File .xlsx/.csv - cột: Mã SAP, Tên dự án, % TT"` — hết dính liền.
 ImportPanel.tsx` (1 dòng). Không đụng `KpiCard.tsx`, không đụng file test nào
 của Tester/Coder, không đụng 3 quan sát ngoài phạm vi ở mục 3 của
 `ket-qua-test.md`.
+
+---
+
+## 8. Vá CS-1 + CS-2 (Reviewer vòng 1 chấm CẦN SỬA trong `danh-gia.md`)
+
+Skill đã dùng: `ddc-tower:coding-standards`, `ddc-tower:frontend-patterns`.
+Phạm vi: ĐÚNG 2 điểm reviewer chỉ ra (`danh-gia.md` mục CS-1, CS-2), không đụng
+CS-3 (chờ chủ dự án quyết) và không đụng 3 ghi chú nhỏ/backlog khác trong cùng
+file.
+
+### 8.1. CS-1 — tag "Trọng tâm"/"Focus" đè nhãn KPI ở 1181–~1450px (desktop)
+
+**Sửa theo đúng phương án (a) reviewer khuyến nghị** — điều kiện theo BỀ RỘNG
+THẺ thay vì viewport, vì gốc rễ là thẻ hẹp (lưới 6 cột), còn viewport chỉ là
+đại lượng gián tiếp và sai lệch khi sidebar thu gọn còn 68px:
+
+`app/globals.css` — thay khối `@media(max-width:680px)` (dòng ~262) bằng:
+```css
+.kpi.key{container-type:inline-size}
+@container (max-width: 210px){
+  .kpi.key .tag{position:static;display:inline-block;margin:0 0 6px}
+  .kpi.key .lb{padding-right:0}
+}
+```
+Nội dung 2 dòng bên trong `@container` giữ nguyên y hệt bản cũ (chỉ đổi
+selector bọc ngoài từ `@media` viewport sang `@container` bề rộng thẻ thật) —
+không đổi màu/token/bố cục nào khác.
+
+**Phương pháp đo (quan trọng — không suy đoán bằng mắt):** `npm registry`
+trong sandbox này bị chặn (`SELF_SIGNED_CERT_IN_CHAIN`) nên không cài được
+`playwright` qua `npx`. Đã dùng thay thế tương đương: **Chrome DevTools
+Protocol thật** trên Microsoft Edge headless có sẵn trên máy (`msedge.exe
+--headless=new --remote-debugging-port`), điều khiển bằng Node (WebSocket CDP
+thuần, không qua thư viện nào) — vẫn là trình duyệt thật render CSS thật,
+không phải tính tay.
+
+Dựng 1 trang tĩnh nạp **nguyên văn** `app/tokens.css` + `app/globals.css` (2
+file `@tailwind ...` ở đầu bị trình duyệt bỏ qua vô hại, các rule `.kpi`
+không dùng `@apply` nên không cần build Tailwind), dựng lại đúng cây DOM thật
+(`.app > .side/.main > .page > .kpis > .kpi.key > .tag + .lb`, lấy nguyên
+class từ `AppShell.tsx`/`KpiCard.tsx`) với đúng chữ nhãn/tag thật của
+`vi.json`/`en.json` ("Trễ tiến độ"/"Trọng tâm", "Behind Schedule"/"Focus"),
+đủ cả lưới 6 cột (`canViewFinance`/`report`) và lưới 5 cột (`.k5`), đủ cả
+sidebar 236px và `is-collapsed` 68px — dùng CDP `Emulation.
+setDeviceMetricsOverride` đổi bề rộng cửa sổ qua từng mốc, đo
+`getBoundingClientRect()` thật của `.tag`/`.lb`.
+
+`overlapX` định nghĩa theo đúng công thức reviewer dùng: mép phải TỰ NHIÊN
+(không bị `ellipsis` cắt) của `.lb` trừ mép trái thật của `.tag`. overlapX > 0
+nghĩa là còn đè; ≤ 0 là hết đè. Khi ngưỡng `@container` kích hoạt, `.tag`
+chuyển `position:static` (nằm trong luồng, phía trên nhãn) — về mặt cấu trúc
+**không thể đè** nữa (đánh dấu "static — an toàn cấu trúc" thay vì overlapX).
+
+**Số đo overlapX SAU khi vá — dải bắt buộc theo "Điều kiện đóng CS-1" (1181–1920px), sidebar MỞ (236px):**
+
+| Viewport | vi · 6 cột | vi · 5 cột (k5) | en · 6 cột | en · 5 cột (k5) |
+|---|---|---|---|---|
+| 1181 | rộng 139px · static (an toàn) | rộng 169px · static | rộng 139px · static | rộng 169px · static |
+| 1200 | rộng 142px · static | rộng 173px · static | rộng 142px · static | rộng 173px · static |
+| 1280 | rộng 156px · static | rộng 189px · static | rộng 156px · static | rộng 189px · static |
+| 1366 | rộng 170px · static | rộng 206px · static | rộng 170px · static | rộng 206px · static |
+| 1440 | rộng 182px · static | rộng 221px · static | rộng 182px · static | rộng 221px · static |
+| 1536 | rộng 198px · static | rộng 240px · static | rộng 198px · static | rộng 240px · static |
+| 1920 | rộng 262px · **-93.1px** | rộng 317px · **-148.0px** | rộng 262px · **-84.4px** | rộng 317px · **-139.3px** |
+
+**Cùng dải, sidebar THU GỌN (68px):**
+
+| Viewport | vi · 6 cột | vi · 5 cột (k5) | en · 6 cột | en · 5 cột (k5) |
+|---|---|---|---|---|
+| 1181 | rộng 167px · static | rộng 203px · static | rộng 167px · static | rộng 203px · static |
+| 1200 | rộng 170px · static | rộng 207px · static | rộng 170px · static | rộng 207px · static |
+| 1280 | rộng 184px · static | rộng 223px · static | rộng 184px · static | rộng 223px · static |
+| 1366 | rộng 198px · static | rộng 240px · static | rộng 198px · static | rộng 240px · static |
+| 1440 | rộng 210px · static | rộng 255px · **-85.6px** | rộng 210px · static | rộng 255px · **-76.9px** |
+| 1536 | rộng 226px · static | rộng 274px · **-104.8px** | rộng 226px · static | rộng 274px · **-96.1px** |
+| 1920 | rộng 290px · **-121.1px** | rộng 351px · **-181.6px** | rộng 290px · **-112.4px** | rộng 351px · **-172.9px** |
+
+Không có ô nào dương (còn đè) trong toàn bộ 56 tổ hợp (7 viewport × 2 trạng
+thái sidebar × 2 locale × 2 số cột) của dải bắt buộc.
+
+**Quét hồi quy 360–720px** (đề bài yêu cầu, tránh vá hỏng lại lỗi vòng 1):
+
+| Viewport | Rộng thẻ | Trạng thái | overlapX (vi / en) |
+|---|---|---|---|
+| 360 | 149px | static | an toàn cấu trúc |
+| 375 | 157px | static | an toàn cấu trúc |
+| 414 | 176px | static | an toàn cấu trúc |
+| 480 | 209px | static | an toàn cấu trúc |
+| 600 | 269px | absolute | -99.8 / -91.1 |
+| 680 | 309px | absolute | -139.8 / -131.1 |
+| 681 | 202px | static (chuyển 3 cột) | an toàn cấu trúc |
+| 720 | 215px | static | an toàn cấu trúc |
+
+Không hồi quy: dải 360–480 (đúng dải BUG #1 debugger từng vá ở mục 7.1) vẫn
+static/an toàn; dải 600–680 dùng lưới 2 cột nên thẻ đã đủ rộng, tag ở
+`absolute` nhưng không đè (margin âm lớn).
+
+**Kết luận CS-1:** không còn tổ hợp nào overlapX dương trong toàn bộ phạm vi
+yêu cầu (`/overview` 6 thẻ + `.k5` 5 thẻ, `vi`/`en`, sidebar mở/thu gọn,
+360–1920px). File script đo (`cs1-overlap-test.html` + `cs1-measure.mjs`) nằm
+ở thư mục scratchpad phiên làm việc, không phải một phần của repo — Tester
+muốn lặp lại phép đo cần tự dựng lại theo mô tả trên (hoặc dùng Playwright
+thật nếu máy Tester có mạng tới npm registry).
+
+### 8.2. CS-2 — `transitionDuration` sinh CSS không hợp lệ (thiếu đơn vị)
+
+`tailwind.config.ts` dòng 69:
+```diff
+- transitionDuration: { fast: '180', base: '320', slow: '520' },
++ transitionDuration: { fast: 'var(--dur-fast)', base: 'var(--dur-base)', slow: 'var(--dur-slow)' },
+```
+3 biến `--dur-fast/base/slow` đã có sẵn trong `app/tokens.css` (`.18s/.32s/.52s`
+ở khối sáng, không đổi theo theme tối).
+
+**Xác nhận bằng CSS build thật** (`npm run build` thành công, 0 lỗi type/CSS),
+đọc `.next/static/css/*.css`:
+- Trước khi vá (ghi lại từ `danh-gia.md`): `.duration-fast{transition-duration:180}`
+  — không hợp lệ, trình duyệt bỏ qua.
+- Sau khi vá: `.duration-fast{transition-duration:var(--dur-fast)}` — hợp lệ,
+  resolve ra `.18s` tại runtime qua CSS variable.
+- `.duration-base`/`.duration-slow` chưa xuất hiện trong CSS build (Tailwind
+  JIT chỉ sinh class thật sự được dùng trong `.tsx`; đúng như reviewer ghi
+  nhận "12 chỗ dùng" hiện tại đều là `duration-fast`) — không phải lỗi, chỉ là
+  chưa ai dùng `duration-base`/`slow` trong code, token vẫn đúng sẵn cho lúc
+  cần.
+- Đã kiểm tra `@container (max-width: 210px)` (CS-1) cũng có mặt nguyên vẹn
+  trong cùng file CSS build, không bị PostCSS/Tailwind làm hỏng cú pháp.
+
+### 8.3. Cổng kiểm tra cuối
+
+1. `npx tsc --noEmit` → sạch, 0 lỗi.
+2. `npm test` → **545/545 xanh (31 file test)**, không đổi số so với trước khi
+   vá (không thêm/bớt test nào — 2 điểm CS-1/CS-2 đều là lỗi hình học/CSS-build
+   mà bộ test hiện có không bắt được, đúng như reviewer chỉ ra ở mục 2 của
+   `danh-gia.md`).
+3. `npm run build` → biên dịch xong, generate static pages thành công, dùng để
+   soát CSS build thật cho cả CS-1 lẫn CS-2 (mục 8.1/8.2).
+
+**File đã sửa (đúng 2 file, tối thiểu):** `app/globals.css` (đổi selector bọc
+1 khối CSS có sẵn từ `@media` sang `@container`, thêm 1 dòng
+`container-type:inline-size`, không sửa nội dung 2 dòng CSS bên trong),
+`tailwind.config.ts` (1 dòng). Không đụng `KpiCard.tsx`, không đụng CS-3
+(`src/components/ui/motion.ts`), không đụng `.gitignore`/`.bangiao/*.md` khác.
+
+### 8.4. Chỗ Tester nên soi kỹ
+
+1. **Ngưỡng 210px của `@container`** — đây là hằng số reviewer tính từ
+   `K_max≈186px (en)` cộng biên an toàn, không phải số đo trực tiếp một viewport
+   cụ thể. Nếu sau này đổi bản dịch `kpi.focusTag`/`kpi.behindSchedule` dài hơn
+   đáng kể, nên đo lại `K` (công thức ở mục CS-1 của `danh-gia.md`) thay vì tin
+   210px là bất biến.
+2. **Hiệu ứng thị giác mới ở 1181–~1595px (sidebar mở, 6 cột)** — do ngưỡng
+   210px khá rộng, dải thẻ hẹp (bao gồm cả laptop văn phòng phổ biến
+   1280/1366/1440/1536) giờ hiển thị tag "Trọng tâm" nằm TRÊN nhãn (trong
+   luồng, không còn ở góc phải) thay vì đè ở góc như mock-up gốc — đây là đánh
+   đổi có chủ ý theo đúng phương án (a) reviewer khuyến nghị (ưu tiên không đè
+   chữ hơn giữ đúng vị trí góc của mock-up), nhưng đáng để nhìn mắt thật một
+   lần trên `/vi/overview` ở 1280/1366px xem có chấp nhận được về thẩm mỹ
+   không — nếu không, quay lại chủ dự án để chọn phương án (b) của CS-1 (tag
+   luôn trong luồng ở mọi bề rộng).
+3. **CS-2 chỉ đổi được 3 token `fast/base/slow`, chưa có chỗ nào dùng
+   `duration-base`/`duration-slow` trong code thật** — kiểm tra bằng CSS build
+   thật xác nhận đúng, không phải lỗi bỏ sót của bản vá này.
+4. **CS-3 (motion engine) CHƯA đụng tới** — theo đúng chỉ đạo, chờ chủ dự án
+   chọn 1 trong 3 phương án ở `danh-gia.md` mục CS-3 trước khi có Task tiếp
+   theo.
