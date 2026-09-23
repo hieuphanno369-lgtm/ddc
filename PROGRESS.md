@@ -4,7 +4,7 @@
 **Run 1 — ERP data model v2 (nhánh `feature/erp-model-v2`) — dây chuyền `/ddc-tower:ship` ĐÃ CHỐT (2026-09-23, chạy tự động qua scheduled task).**
 Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. Redesign UI Apple-style + 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
-### Trạng thái dây chuyền ship — Run 1 — **PHAN QUYET CUOI CUNG: CHOT** (1 ràng buộc cứng còn lại + sổ nợ kỹ thuật, xem "Next step")
+### Trạng thái dây chuyền ship — Run 1 — **PHAN QUYET CUOI CUNG: CHOT** (kỹ thuật xong hết, chỉ còn 3 quyết định nghiệp vụ B-1/B-2/B-3, xem "Next step")
 Dây chuyền ship có đúng **6 agent**: planner, coder, tester, debugger, security-reviewer, reviewer.
 
 | Chặng | Trạng thái | Bàn giao |
@@ -60,34 +60,10 @@ Dây chuyền ship có đúng **6 agent**: planner, coder, tester, debugger, sec
 
 ## Next step
 
-### Ưu tiên 0 — N-1: còn 1 bước THỦ CÔNG cần chủ dự án tự chạy (không AI-agent nào được phép tự ý làm)
-Migration `20260922220000_erp_model_v2` đã được **kiểm chứng độc lập đầy đủ** (2026-09-23, trên 1 DB
-Postgres tạm tự tạo/tự xoá trong phiên, KHÔNG đụng DB dev thật):
-- Áp cả 4 migration (kể cả `20260923025310_b5_dim_fk_restrict` mới) từ DB RỖNG → thành công.
-- Kịch bản nâng cấp từ schema CŨ (mô phỏng đúng tình huống original coder gặp: 1 dự án có
-  `fact_progress_monthly.bottleneckStage` rác + 2 dòng `fact_value_chain_progress` — 1 hợp lệ,
-  1 rác) → migration dọn ĐÚNG: giá trị rác → NULL/xoá, giá trị hợp lệ được giữ nguyên.
-- `prisma db seed` chạy sạch sau đó.
-
-→ **Migration ĐÚNG.** Vấn đề CÒN LẠI chỉ là bookkeeping: DB dev thật (`ddc_control_tower`) có
-checksum LỆCH trong bảng `_prisma_migrations` (file `migration.sql` bị sửa ở vòng CAN SUA #1
-SAU KHI đã apply lên DB đó) → `prisma migrate dev/deploy` từ chối chạy tiếp trên DB này cho tới
-khi checksum được đồng bộ lại. Sửa bookkeeping bảng nội bộ của Prisma trên DB dev thật là hành
-động chạm **shared resource thật** — phiên làm việc này bị chặn tự thực hiện, đúng như Prisma
-tự chặn AI agent chạy `migrate reset`. **Bạn (chủ dự án) tự chạy 1 trong 2 cách sau:**
-
-1. **Cách nhanh (không mất dữ liệu, chỉ sửa bookkeeping):** kết nối `ddc_control_tower`
-   (`localhost:5433`) rồi chạy:
-   ```sql
-   UPDATE _prisma_migrations SET checksum = '1acf260db75a0c1e6efe929671b7fad8ce61cd2d3b5734206ecfdedf3fffbd1e'
-   WHERE migration_name = '20260922220000_erp_model_v2' AND finished_at IS NOT NULL;
-   ```
-   rồi chạy `npx prisma migrate deploy` (sẽ áp nốt `20260923025310_b5_dim_fk_restrict`).
-2. **Cách sạch (mất dữ liệu, seed lại):** `npx prisma migrate reset` (Prisma sẽ đòi biến môi
-   trường `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION` — chỉ bạn tự set khi chạy tay).
-
-Sau khi xong 1 trong 2 cách trên, migration `b5_dim_fk_restrict` (B-5, đã test riêng, xem "Đã
-xong") sẽ lên DB dev thật.
+### ~~N-1~~ ĐÃ XONG (2026-09-23) — chủ dự án tự chạy UPDATE checksum + `prisma migrate deploy`
+DB dev thật (`ddc_control_tower`) đã đồng bộ checksum + áp nốt `20260923025310_b5_dim_fk_restrict`.
+`npx prisma migrate status` xác nhận **"Database schema is up to date!"**. Không còn việc kỹ thuật
+nào treo cho Run 1.
 
 ### Ưu tiên 1 — 3 quyết định NGHIỆP VỤ cần chủ dự án chốt (KHÔNG tự vá — đổi định nghĩa KPI cho BOD)
 - **B-1/B-2:** dự án thiếu ngày kế hoạch (`plannedStartDate`/`plannedFinishDate` = null) →
@@ -120,4 +96,4 @@ theo đúng quy ước làm việc đã có [tự quyết nghiệp vụ], phần
 - Smoke UI bằng Playwright (redesign + 4 trang mới) — cần restart Claude Code để MCP nạp tool.
 - Điều tra MCP không tới subagent.
 
-> Cập nhật: 2026-09-23 (dây chuyền ship Run 1 đã CHỐT qua scheduled task; sau đó vá tuần tự N-2→N-8 + B-4, B-5 trong phiên tương tác — không merge/push/PR, giữ nguyên nhánh `feature/erp-model-v2`. Còn lại: N-1 cần 1 bước thủ công từ chủ dự án (xem "Next step" Ưu tiên 0), B-1/B-2/B-3 cần chủ dự án chốt nghiệp vụ (Ưu tiên 1))
+> Cập nhật: 2026-09-23 (dây chuyền ship Run 1 đã CHỐT qua scheduled task; vá tuần tự N-2→N-8 + B-4, B-5 trong phiên tương tác; N-1 chủ dự án đã tự chạy xong (`prisma migrate status` → up to date). Toàn bộ phần KỸ THUẬT của Run 1 đã xong. Còn lại DUY NHẤT: B-1/B-2/B-3 cần chủ dự án chốt nghiệp vụ (xem "Next step" Ưu tiên 1) trước khi merge/push/PR — chưa làm gì trong 3 việc đó)
