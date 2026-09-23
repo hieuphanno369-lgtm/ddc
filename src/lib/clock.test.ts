@@ -1,11 +1,14 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   addDaysIso, addMonths, currentMonth, daysBetween, endOfMonth, historyMonths,
   isValidIsoDate, isValidYearMonth, monthOf, prevMonth, today, todayIso,
 } from './clock';
 
 const FAKE = process.env.DDC_FAKE_TODAY;
-afterEach(() => { if (FAKE) process.env.DDC_FAKE_TODAY = FAKE; else delete process.env.DDC_FAKE_TODAY; });
+afterEach(() => {
+  if (FAKE) process.env.DDC_FAKE_TODAY = FAKE; else delete process.env.DDC_FAKE_TODAY;
+  vi.unstubAllEnvs();
+});
 
 describe('clock - DDC_FAKE_TODAY ghi đè được (demo giữ dữ liệu seed 09/2026)', () => {
   it('đặt DDC_FAKE_TODAY → today()/currentMonth() bám theo', () => {
@@ -26,6 +29,62 @@ describe('clock - DDC_FAKE_TODAY ghi đè được (demo giữ dữ liệu seed 
     const a = today();
     a.setUTCFullYear(1999);
     expect(today().getUTCFullYear()).toBe(2026);
+  });
+});
+
+/**
+ * N-8 (danh-gia.md, vòng 2): trước fix, todayIso() đọc DDC_FAKE_TODAY ở MỌI NODE_ENV - biến này
+ * lọt vào production (copy từ deploy demo, CI export, Dockerfile cũ) sẽ ghim đồng hồ đứng im
+ * mãi mãi, mọi cảnh báo phạt hợp đồng theo ngày im lặng không bao giờ bắn. Test dùng
+ * vi.resetModules() + import động để có state module SẠCH mỗi lần (đặc biệt cờ "đã cảnh báo 1
+ * lần" - không thể test qua module import tĩnh vì nó chia sẻ state giữa các test trong cùng file).
+ */
+describe('clock - N-8: DDC_FAKE_TODAY bị chặn ở NODE_ENV=production', () => {
+  beforeEach(() => { vi.resetModules(); });
+
+  it('phải thất bại (oracle công thức CŨ): với code hiện tại, production KHÔNG được để override ghim đồng hồ', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    process.env.DDC_FAKE_TODAY = '2020-01-01';
+    const clock = await import('./clock');
+    // Nếu code cũ (không chặn) còn tồn tại thì dòng dưới sẽ ra '2020-01-01' - assertion này PHẢI
+    // đúng với code MỚI (đã vá), tức chứng minh production không bị ghim theo giá trị giả.
+    expect(clock.todayIso()).not.toBe('2020-01-01');
+  });
+
+  it('NODE_ENV=production + DDC_FAKE_TODAY set -> bỏ qua override, todayIso() ra ngày thật hôm nay', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    process.env.DDC_FAKE_TODAY = '2020-01-01';
+    const clock = await import('./clock');
+    const realToday = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date());
+    expect(clock.todayIso()).toBe(realToday);
+  });
+
+  it('NODE_ENV=production + DDC_FAKE_TODAY set -> console.warn ĐÚNG MỘT LẦN dù gọi todayIso() nhiều lần', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    process.env.DDC_FAKE_TODAY = '2020-01-01';
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const clock = await import('./clock');
+
+    clock.todayIso();
+    clock.todayIso();
+    clock.todayIso();
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0][0]).toContain('DDC_FAKE_TODAY');
+    warnSpy.mockRestore();
+  });
+
+  it('NODE_ENV khác production (vd "test"/"development") -> override vẫn có hiệu lực như trước, không cảnh báo', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    process.env.DDC_FAKE_TODAY = '2020-01-01';
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const clock = await import('./clock');
+
+    expect(clock.todayIso()).toBe('2020-01-01');
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });
 

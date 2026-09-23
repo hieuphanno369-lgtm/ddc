@@ -962,7 +962,14 @@ export const repo = {
     const proj = await prisma.project.findUnique({ where: { id } });
     if (!proj) return;
     // FK onDelete: Cascade khai ở schema tự dọn mọi bảng con - không xoá tay từng bảng nữa.
-    await prisma.project.delete({ where: { id } });
+    // NGOẠI LỆ: sap_queue.projectId là ON DELETE SET NULL (không phải Cascade) - nếu không xoá
+    // tay, dòng SAP queue của dự án vừa xoá vẫn còn nguyên sapCode/projectNameHint (tên dự án
+    // đã xoá), hiện lại ở /import như mục chờ ghép "ma" (N-2, danh-gia.md vòng 2 - nửa còn lại
+    // của A-5, mock-repo đã làm việc này nên trước đây mock/prisma lệch nhau).
+    await prisma.$transaction([
+      prisma.sapQueue.deleteMany({ where: { projectId: id } }),
+      prisma.project.delete({ where: { id } }),
+    ]);
     // dim cleanup: chỉ xoá customer/team khi không còn dự án nào dùng (FK Restrict sẽ chặn nếu còn).
     const stillUsesCustomer = await prisma.project.findFirst({ where: { customerId: proj.customerId } });
     if (!stillUsesCustomer) await prisma.customer.deleteMany({ where: { id: proj.customerId } });

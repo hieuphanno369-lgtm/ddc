@@ -31,10 +31,26 @@ export function isValidIsoDate(s: string): boolean {
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
 }
 
+let warnedFakeTodayInProd = false;
+
 /** Ngày hôm nay theo múi giờ VN (en-CA cho ra đúng 'YYYY-MM-DD'). */
 export function todayIso(): IsoDate {
   const override = process.env.DDC_FAKE_TODAY?.trim();
-  if (override && isValidIsoDate(override)) return override;
+  if (override && isValidIsoDate(override)) {
+    // N-8 (danh-gia.md, vòng 2): DDC_FAKE_TODAY lọt vào env production (copy từ deploy demo, CI
+    // export, Dockerfile cũ) sẽ ghim đồng hồ đứng im mãi mãi, mọi cảnh báo nguy cơ phạt hợp đồng
+    // theo ngày im lặng không bao giờ bắn, không để lại dấu vết nào ở log lẫn UI. Chỉ cho override
+    // có hiệu lực ngoài production, và cảnh báo MỘT LẦN nếu nó lỡ xuất hiện ở production.
+    if (process.env.NODE_ENV !== 'production') return override;
+    if (!warnedFakeTodayInProd) {
+      warnedFakeTodayInProd = true;
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[clock] DDC_FAKE_TODAY="${override}" bị BỎ QUA vì NODE_ENV=production - đồng hồ dùng giờ thật. ` +
+        'Xoá biến này khỏi môi trường production (chỉ dùng cho test/demo).',
+      );
+    }
+  }
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: APP_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(new Date());
