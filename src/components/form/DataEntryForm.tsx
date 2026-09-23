@@ -35,6 +35,7 @@ import { KeyMilestoneEditor } from './KeyMilestoneEditor';
 import { Badge, Dot } from '@/components/ui/Badge';
 import { StatusBadge } from '@/components/ui/Badges';
 import { IconProject } from '@/components/icons';
+import { HelpTip } from '@/components/ui/HelpTip';
 
 export type DataEntryStep = 'progress' | 'finance' | 'profile' | 'extras';
 type Step = DataEntryStep;
@@ -744,9 +745,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
       <span className="lb">
         {label}
         {hint && (
-          <button type="button" className="help" aria-label={hint}>
-            ?<span className="bub">{hint}</span>
-          </button>
+          <HelpTip text={hint} label={hint} />
         )}
       </span>
       {children}

@@ -99,3 +99,33 @@ export function clampTipPosition({
 
   return { x, y };
 }
+
+/**
+ * GOP-3 (Dot 2): bong bong `.help .bub` (HelpTip.tsx) mac dinh can giua theo nut (`.help`) hoac neo
+ * mep phai (`.help.rt`) — ca 2 huong co dinh deu tran viewport tuy vi tri nut (vd heading tieng Anh
+ * ngan hon tieng Viet). Ham nay tinh vi tri ngang THAT: can giua theo nut nhung kep trong
+ * [margin, viewportWidth - margin]. Tra ve toa do tuong doi voi mep trai nut (de gan `left` cho
+ * `.bub` position:absolute) + vi tri mui ten (tuong doi voi mep trai bong bong).
+ */
+export function clampBubbleX({
+  anchorLeft,
+  anchorWidth,
+  bubbleWidth,
+  viewportWidth,
+  margin = 12,
+}: {
+  anchorLeft: number;
+  anchorWidth: number;
+  bubbleWidth: number;
+  viewportWidth: number;
+  margin?: number;
+}): { left: number; arrow: number } {
+  const center = anchorLeft + anchorWidth / 2;
+  const w = Math.min(bubbleWidth, viewportWidth - margin * 2);
+  const minX = margin;
+  const maxX = Math.max(minX, viewportWidth - margin - w);
+  const x = Math.min(Math.max(center - w / 2, minX), maxX);
+  // Mui ten luon chi vao tam nut, nhung khong lot ra ngoai 2 goc bo tron cua bong bong.
+  const arrow = Math.min(Math.max(center - x, 12), w - 12);
+  return { left: x - anchorLeft, arrow };
+}

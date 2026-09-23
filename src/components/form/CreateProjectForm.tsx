@@ -12,6 +12,7 @@ import { createDimValueAction, createProjectAction } from '@/server/actions';
 import { Combobox } from './Combobox';
 import { KeyMilestoneEditor } from './KeyMilestoneEditor';
 import { IconPlus } from '@/components/icons';
+import { HelpTip } from '@/components/ui/HelpTip';
 
 const TYPES: ProjectType[] = ['EPC', 'San_van_dong', 'San_bay', 'Nha_xuong', 'Cau_cang', 'Cao_tang', 'Dong_tau', 'Cau_giao_thong', 'Khac'];
 const PRIORITIES: Priority[] = ['P0', 'P1', 'P2', 'P3'];
@@ -135,9 +136,7 @@ export function CreateProjectForm({
             <div className="field" style={{ gridColumn: '1 / -1' }}>
               <span className="lb">
                 {t('form.projectName')} *
-                <button type="button" className="help" aria-label={t('form.hintLabel.projectName')}>
-                  ?<span className="bub">{t('form.hintLabel.projectName')}</span>
-                </button>
+                <HelpTip text={t('form.hintLabel.projectName')} label={t('form.hintLabel.projectName')} />
               </span>
               <input value={form.projectName} onChange={(e) => set('projectName', e.target.value.toUpperCase())} className={inputCls} />
             </div>
@@ -208,7 +207,7 @@ export function CreateProjectForm({
               <input type="number" step="0.1" value={fmtNum(form.tonnage)} onChange={(e) => set('tonnage', e.target.value)} className={inputCls} />
             </Field>
 
-            <div style={{ gridColumn: '1 / -1' }}>
+            <div style={{ gridColumn: '1 / -1', minWidth: 0 }}>
               <KeyMilestoneEditor id="key-milestones-new" value={msRows} onChange={setMsRows} today={today} errors={msErrors} />
             </div>
 
@@ -239,9 +238,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
       <span className="lb">
         {label}
         {hint && (
-          <button type="button" className="help" aria-label={hint}>
-            ?<span className="bub">{hint}</span>
-          </button>
+          <HelpTip text={hint} label={hint} />
         )}
       </span>
       {children}

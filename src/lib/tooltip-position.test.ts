@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clampTipPosition, measureAndClampTip, type MeasurableTipElement } from './tooltip-position';
+import { clampBubbleX, clampTipPosition, measureAndClampTip, type MeasurableTipElement } from './tooltip-position';
 
 const VIEWPORT = { viewportWidth: 1440, viewportHeight: 1000 };
 
@@ -104,5 +104,36 @@ describe('measureAndClampTip (CAN-2, vong debug 2)', () => {
     const second = measureAndClampTip(el, { clientX: 1243.99, clientY: 100 }, VIEWPORT.viewportWidth, VIEWPORT.viewportHeight);
     expect(second).toEqual(first);
     expect(second.x + 329).toBeLessThanOrEqual(VIEWPORT.viewportWidth - 10);
+  });
+});
+
+describe('clampBubbleX (GOP-3 - bong bong HelpTip)', () => {
+  const btn = { anchorWidth: 15, bubbleWidth: 268 };
+
+  it('du cho -> can giua theo nut, mui ten o giua bong bong', () => {
+    const { left, arrow } = clampBubbleX({ ...btn, anchorLeft: 700, viewportWidth: 1600 });
+    expect(left).toBeCloseTo(7.5 - 134, 5);
+    expect(arrow).toBeCloseTo(134, 5);
+  });
+
+  it('nut sat mep phai (heading tieng Viet dai, mobile 433) -> khong tran phai, mui ten van chi vao nut', () => {
+    const anchorLeft = 362;
+    const { left, arrow } = clampBubbleX({ ...btn, anchorLeft, viewportWidth: 433 });
+    const x = anchorLeft + left;
+    expect(x + 268).toBeLessThanOrEqual(433 - 12);
+    expect(x + arrow).toBeCloseTo(anchorLeft + 7.5, 5);
+  });
+
+  it('nut gan mep trai (heading tieng Anh ngan, .rt tung tran trai -102px) -> khong tran trai', () => {
+    const anchorLeft = 150;
+    const { left } = clampBubbleX({ ...btn, anchorLeft, viewportWidth: 433 });
+    expect(anchorLeft + left).toBeGreaterThanOrEqual(12);
+  });
+
+  it('viewport hep hon bong bong -> thu nho vua (vw - 2*margin), nam gon 2 mep', () => {
+    const anchorLeft = 100;
+    const { left, arrow } = clampBubbleX({ ...btn, anchorLeft, viewportWidth: 250 });
+    expect(anchorLeft + left).toBe(12);
+    expect(arrow).toBeLessThanOrEqual(250 - 24 - 12);
   });
 });

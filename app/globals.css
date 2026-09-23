@@ -354,15 +354,27 @@
     backdrop-filter:blur(var(--mat-thick)) saturate(var(--mat-sat));
     border:.5px solid var(--glass-stroke);box-shadow:var(--e4);
     color:var(--label2);font-size:var(--t-caption1);font-weight:500;line-height:1.5;letter-spacing:0;
-    opacity:0;visibility:hidden;pointer-events:none;
+    opacity:0;visibility:hidden;pointer-events:none;max-width:calc(100vw - 24px);
+    /* GOP-3: an han (display:none) khi khong hien - visibility:hidden van tinh vao vung cuon, gay tran ngang
+       ~70px o mobile. Fade-in giu bang @starting-style ben duoi. */
+    display:none;
     transition:opacity var(--dur-fast) var(--ease-out),transform var(--dur-fast) var(--ease-out),visibility var(--dur-fast)}
   .help .bub b{color:var(--label);font-weight:700}
   .help .bub:after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);
     border:5px solid transparent;border-top-color:var(--glass-stroke)}
-  .help:hover .bub,.help:focus-visible .bub{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0) scale(1)}
+  .help:hover .bub,.help:focus-visible .bub{display:block;opacity:1;visibility:visible;transform:translateX(-50%) translateY(0) scale(1)}
   .help.rt .bub{left:auto;right:-8px;transform:translateY(4px) scale(.97)}
   .help.rt:hover .bub,.help.rt:focus-visible .bub{transform:translateY(0) scale(1)}
   .help.rt .bub:after{left:auto;right:12px;transform:none}
+  /* GOP-3: vi tri da kep theo viewport (HelpTip.tsx gan --bub-left/--bub-arrow khi mo) - thang ca .rt */
+  .help .bub.clamped{left:var(--bub-left);right:auto;width:min(268px,calc(100vw - 24px));transform:translateY(4px) scale(.97)}
+  .help:hover .bub.clamped,.help:focus-visible .bub.clamped{transform:translateY(0) scale(1)}
+  .help .bub.clamped:after{left:var(--bub-arrow);right:auto;transform:translateX(-50%)}
+  @starting-style{
+    .help:hover .bub,.help:focus-visible .bub{opacity:0;transform:translateX(-50%) translateY(4px) scale(.97)}
+    .help.rt:hover .bub,.help.rt:focus-visible .bub{transform:translateY(4px) scale(.97)}
+    .help:hover .bub.clamped,.help:focus-visible .bub.clamped{transform:translateY(4px) scale(.97)}
+  }
 
   /* dong 461-494 */
   .fsec{border-top:.5px solid var(--sep);padding-top:16px;margin-top:4px}
