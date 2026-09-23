@@ -48,6 +48,9 @@ const CHANGED_SOURCES: Record<string, string> = {
   'KeyMilestoneChart': 'src/components/project/KeyMilestoneChart.tsx',
   'keyMsText': 'src/components/project/keyMsText.ts',
   'KeyMilestoneEditor': 'src/components/form/KeyMilestoneEditor.tsx',
+  'StageExplorer': 'src/components/project/StageExplorer.tsx',
+  'StageTimelineChart': 'src/components/project/StageTimelineChart.tsx',
+  'stageText': 'src/components/project/stageText.ts',
 };
 
 describe('i18n: vi/en phủ key như nhau', () => {

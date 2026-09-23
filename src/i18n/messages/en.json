@@ -271,6 +271,20 @@
       "status": "Status",
       "prev": "Previous milestone",
       "first": "- first milestone -"
+    },
+    "stageMs": {
+      "title": "7-stage timeline",
+      "plannedStart": "Planned start",
+      "plannedFinish": "Planned finish",
+      "actualStart": "Actual start",
+      "actualFinish": "Actual finish",
+      "forecast": "Forecast",
+      "variance": "Variance",
+      "varianceCol": "VARIANCE",
+      "days": "{n} days",
+      "weight": "weight {n}%",
+      "hint": "Click a stage to see all 6 dates · hover a row for a quick look",
+      "empty": "No stage dates yet"
     }
   },
   "stage": {

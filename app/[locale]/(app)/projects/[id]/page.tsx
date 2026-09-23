@@ -12,6 +12,7 @@ import { STAGE_ORDER } from '@/lib/stages';
 import { THRESHOLDS } from '@/lib/thresholds';
 import { calcScheduleGap } from '@/lib/evm';
 import { buildPlanActualTimeline } from '@/lib/timeline';
+import { buildStageTimelineRows } from '@/lib/stage-timeline';
 import { formatDate, formatDateTime, formatPct, formatRatio, formatTyd } from '@/lib/format';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Rise } from '@/components/ui/Rise';
@@ -25,6 +26,7 @@ const CountdownPanel = dynamic(() => import('@/components/project/CountdownPanel
 const ResourceBreakdownChart = dynamic(() => import('@/components/project/ResourceBreakdownChart').then((m) => m.ResourceBreakdownChart), { ssr: false, loading: () => <div className="sk h-60" /> });
 const WeeklyTrackingCard = dynamic(() => import('@/components/project/WeeklyTrackingCard').then((m) => m.WeeklyTrackingCard), { ssr: false, loading: () => <div className="sk h-60" /> });
 const KeyMilestoneChart = dynamic(() => import('@/components/project/KeyMilestoneChart').then((m) => m.KeyMilestoneChart), { ssr: false, loading: () => <div className="sk h-60" /> });
+const StageExplorer = dynamic(() => import('@/components/project/StageExplorer').then((m) => m.StageExplorer), { ssr: false, loading: () => <div className="sk h-60" /> });
 const SpiCpiLine = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SpiCpiLine), { ssr: false, loading: () => <div className="sk h-60" /> });
 const ManpowerDailyChart = dynamic(
   () => import('@/components/project/ManpowerDailyChart').then((m) => m.ManpowerDailyChart),
@@ -92,6 +94,7 @@ export default async function ProjectDetailPage({
   const tracking = await getWeeklyTracking(id, month);
   const keyMilestones = await repo.getKeyMilestones(id);
   const canEditMs = user?.role === 'admin' || user?.role === 'data-entry';
+  const stageRows = buildStageTimelineRows(await repo.getStageMilestones(id), await repo.getStageWeights(id));
   // N-6 (danh-gia.md, vòng 2): nhân lực và thiết bị có thể nhập lệch ngày - MỖI card phải hiện
   // đúng ngày CỦA CHÍNH NÓ, không dùng chung 1 nhãn (asOfDate cũ = ngày mới hơn trong 2 ngày,
   // khiến card có dữ liệu cũ hơn hiện nhầm ngày của card kia).
@@ -294,6 +297,8 @@ export default async function ProjectDetailPage({
           </CardBody>
         </Card>
       </div>
+
+      <StageExplorer rows={stageRows} today={today} locale={locale} />
 
       {/* Charts */}
       <div className="g2">
