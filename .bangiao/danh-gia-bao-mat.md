@@ -41,3 +41,6 @@ Khoảng trống chung của mọi server action, có từ trước.
 PASS. 3 LOW + 3 INFO, vá sau được, không chặn merge.
 
 *(Agent security-reviewer không có công cụ ghi file; điều phối viên chép lại nguyên văn nội dung báo cáo.)*
+
+
+**Cập nhật 2026-09-23 — I-3 đã chốt:** chủ dự án chọn (a) — Backup ĐƯỢC ghi (giữ logic `requireProject` theo assignment). Chỉ sửa comment trong `src/server/actions.ts` cho khớp.

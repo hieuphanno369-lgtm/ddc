@@ -23,7 +23,7 @@ async function requireRole(allowed: Role[]): Promise<CurrentUser | null> {
 /** Field tài chính - chỉ Admin/BOD được ghi (không cho data-entry/viewer). */
 const FINANCE_FIELDS = ['revenueCumulative', 'costActualCumulative', 'arCollected', 'arOutstanding', 'arOverdue'] as const;
 
-/** Chặn write theo project_assignments - data-entry chỉ sửa dự án mình là PIC. */
+/** Chặn write theo project_assignments - data-entry chỉ sửa dự án mình được gán (PIC hoặc Backup - chủ dự án chốt 2026-09-23, I-3). */
 async function requireProject(projectId: number): Promise<CurrentUser | null> {
   const user = await getCurrentUser();
   if (!user) return null;
@@ -68,7 +68,7 @@ export async function saveMonthlyData(
   const user = await requireProject(projectId);
   if (!user) return { ok: false, error: 'Forbidden' };
   if (await repo.isMonthLocked(month)) return { ok: false, error: 'locked' };
-  // RBAC tài chính: data-entry/viewer không được ghi field tài chính dù là PIC dự án.
+  // RBAC tài chính: data-entry/viewer không được ghi field tài chính dù được gán vào dự án.
   if (!['admin', 'bod'].includes(user.role) && FINANCE_FIELDS.some((f) => patch[f] != null)) {
     return { ok: false, error: 'Forbidden' };
   }
@@ -218,7 +218,7 @@ export async function createProjectAction(input: {
   return { ok: true, id: p.id };
 }
 
-/** Thay toàn bộ "Các mốc chính" của dự án. Quyền như saveMonthlyData: admin, hoặc data-entry là PIC dự án. */
+/** Thay toàn bộ "Các mốc chính" của dự án. Quyền như saveMonthlyData: admin, hoặc data-entry được gán vào dự án (PIC/Backup). */
 export async function saveKeyMilestonesAction(projectId: number, rows: KeyMilestoneInput[]) {
   const user = await requireProject(projectId);
   if (!user) return { ok: false, error: 'Forbidden' };
@@ -341,7 +341,7 @@ export async function toggleAccountActiveAction(email: string, isActive: boolean
 
 export async function closeAlertAction(alertId: number, action: string) {
   const alert = (await repo.getAlerts()).find((a) => a.id === alertId);
-  // Admin đóng mọi alert; data-entry chỉ alert dự án mình là PIC (requireProject).
+  // Admin đóng mọi alert; data-entry chỉ alert dự án mình được gán (requireProject).
   // BOD (Trưởng phòng) cũng được đóng mọi alert - không phải PIC theo assignment nên xét riêng.
   const user = (await requireProject(alert?.projectId ?? -1)) ?? (await requireRole(['bod']));
   if (!user) return { ok: false, error: 'Forbidden' };
@@ -385,7 +385,7 @@ export async function addPhotoAction(formData: FormData) {
   return { ok: true, id: photo.id };
 }
 
-/** Xóa ảnh - owner / Admin / data-entry là PIC dự án đó được xóa (cả file lẫn record). */
+/** Xóa ảnh - owner / Admin / data-entry được gán vào dự án đó (PIC/Backup) được xóa (cả file lẫn record). */
 export async function deletePhotoAction(photoId: number) {
   const parsed = deletePhotoSchema.safeParse({ photoId });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
@@ -444,7 +444,7 @@ export async function importExcelAction(formData: FormData) {
   const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' });
 
   const known = await repo.getSapCodes();
-  // data-entry chỉ thấy preview dự án mình là PIC - không lộ projectId ngoài assignment.
+  // data-entry chỉ thấy preview dự án mình được gán - không lộ projectId ngoài assignment.
   const owned = user.role === 'data-entry' ? new Set(await repo.getAssignmentsForUser(user.email)) : null;
   const preview: ImportRow[] = [];
   let mapped = 0;
