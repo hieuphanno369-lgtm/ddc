@@ -1,0 +1,68 @@
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
+import * as React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import type { CurrentUser } from '@/lib/session';
+
+/**
+ * Dot 2 - render THAT trang app/[locale]/(app)/projects/[id]/page.tsx cho tung Task khop
+ * mock-up. Dung chung boilerplate voi projects-detail-page-month-guard.test.ts (dong 1-46).
+ */
+
+vi.mock('next/navigation', () => ({ notFound: () => { throw new Error('NOT_FOUND'); } }));
+vi.mock('next-intl/server', () => ({
+  getLocale: vi.fn(async () => 'vi'),
+  getTranslations: vi.fn(async () => (key: string) => key),
+}));
+vi.mock('@/lib/session', () => ({ getCurrentUser: vi.fn() }));
+vi.mock('@/server/repo', async () => {
+  const mockRepo = await import('@/server/repo/mock-repo');
+  return { repo: mockRepo.repo };
+});
+vi.mock('@/i18n/navigation', () => ({
+  Link: (props: { href: string; children?: React.ReactNode; className?: string }) =>
+    React.createElement('a', { href: props.href, className: props.className }, props.children),
+}));
+// Badges/WhatIf/ProjectSwitcher là client component (useTranslations/useLocale/useRouter) -
+// không gọi được ở renderToStaticMarkup, in thẳng prop cần kiểm ra HTML giống pattern có sẵn
+// ở operation-pages-render.test.ts.
+vi.mock('@/components/ui/Badges', () => ({
+  MarketLabel: () => null,
+  PriorityBadge: () => null,
+  StatusBadge: (p: { status: string }) => React.createElement('span', null, `status:${p.status}`),
+  TypeLabel: () => null,
+}));
+vi.mock('@/components/project/WhatIf', () => ({ WhatIf: () => null }));
+vi.mock('@/components/project/ProjectSwitcher', () => ({ ProjectSwitcher: () => null }));
+
+import { getCurrentUser } from '@/lib/session';
+import ProjectDetailPage from '../../app/[locale]/(app)/projects/[id]/page';
+
+(globalThis as unknown as { React: typeof React }).React = React;
+
+const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.com.vn', role: 'admin', canViewFinance: true };
+const BOD: CurrentUser = { name: 'BOD', email: 'bod@daidung.com.vn', role: 'bod', canViewFinance: true };
+const VIEWER: CurrentUser = { name: 'Viewer', email: 'viewer@daidung.com.vn', role: 'viewer', canViewFinance: false };
+
+async function render(searchParams: Record<string, string> = {}, projectId = '1', user: CurrentUser = ADMIN) {
+  (getCurrentUser as Mock).mockResolvedValue(user);
+  return renderToStaticMarkup(
+    (await ProjectDetailPage({ params: { id: projectId, locale: 'vi' }, searchParams })) as React.ReactElement,
+  );
+}
+
+afterEach(() => vi.clearAllMocks());
+
+describe('Task 1 - 3 the "Trong tam" (%TT, SPI, CPI) dung canh nhau', () => {
+  it('dung 3 the .kpi.key, gan dung %TT/SPI/CPI', async () => {
+    const out = await render();
+    const keys = [...out.matchAll(/class="kpi rise key"><span class="tag">kpi\.focusTag<\/span><div class="lb">([^<]+)<\/div>/g)].map((m) => m[1]);
+    expect(keys).toEqual(['metric.pctActual', 'metric.spi', 'metric.cpi']);
+  });
+  it('thu tu 6 the: %KH, %TT, SPI, CPI, EAC, VAC', async () => {
+    const out = await render();
+    const pos = ['metric.pctPlan', 'metric.pctActual', 'metric.spi', 'metric.cpi', 'metric.eac', 'metric.vac']
+      .map((k) => out.indexOf(`<div class="lb">${k}</div>`));
+    expect(pos.every((p) => p >= 0)).toBe(true);
+    expect([...pos].sort((a, b) => a - b)).toEqual(pos);
+  });
+});
