@@ -20,6 +20,7 @@ import { MarketLabel, PriorityBadge, StatusBadge, TypeLabel } from '@/components
 import { Badge } from '@/components/ui/Badge';
 import { PlanActualTimeline } from '@/components/project/PlanActualTimeline';
 const SCurve = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SCurve), { ssr: false, loading: () => <div className="sk h-60" /> });
+const CountdownPanel = dynamic(() => import('@/components/project/CountdownPanel').then((m) => m.CountdownPanel), { ssr: false, loading: () => <div className="sk" style={{ width: 240, height: 88 }} /> });
 const SpiCpiLine = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SpiCpiLine), { ssr: false, loading: () => <div className="sk h-60" /> });
 const ManpowerDailyChart = dynamic(
   () => import('@/components/project/ManpowerDailyChart').then((m) => m.ManpowerDailyChart),
@@ -137,6 +138,10 @@ export default async function ProjectDetailPage({
             <div className="v">{formatTyd(project.contractValue, locale)}</div>
             <div className="s">{formatTon(project.tonnage)} tấn</div>
           </div>
+          {/* Q1 mac dinh (a): dem toi ngay HT ke hoach. Thieu ngay -> khong ve panel */}
+          {project.plannedFinishDate && (
+            <CountdownPanel targetDate={project.plannedFinishDate.slice(0, 10)} appToday={today} locale={locale} />
+          )}
         </div>
       </Card>
 

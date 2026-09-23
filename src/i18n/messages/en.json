@@ -199,6 +199,15 @@
       "startDelay": "Start delay",
       "gap": "Plan - actual gap",
       "days": "{n} days"
+    },
+    "cd": {
+      "title": "Time left to planned finish",
+      "days": "days",
+      "hours": "hrs",
+      "minutes": "min",
+      "seconds": "sec",
+      "target": "Planned finish",
+      "today": "today"
     }
   },
   "stage": {

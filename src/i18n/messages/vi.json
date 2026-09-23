@@ -199,6 +199,15 @@
       "startDelay": "Trễ khởi công",
       "gap": "Khoảng cách KH - TT",
       "days": "{n} ngày"
+    },
+    "cd": {
+      "title": "Còn lại đến ngày HT kế hoạch",
+      "days": "ngày",
+      "hours": "giờ",
+      "minutes": "phút",
+      "seconds": "giây",
+      "target": "Ngày HT KH",
+      "today": "hôm nay"
     }
   },
   "stage": {

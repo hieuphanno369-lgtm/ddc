@@ -549,6 +549,26 @@
     border-left:4px solid transparent;border-right:4px solid transparent;border-top:4px solid var(--danger)}
   .tlfoot{display:flex;flex-wrap:wrap;gap:5px 22px;margin-top:15px;padding-top:12px;border-top:.5px solid var(--sep);
     font-size:var(--t-caption1);color:var(--label2)}
+
+  /* --- Dot 2 · Task 3: Dong ho dem nguoc .cdpanel (mockup-apple-glass.html dong 293-309) --- */
+  .cdpanel{flex:0 0 auto;position:relative;overflow:hidden;border-radius:var(--r-md);color:#fff;padding:12px 16px 13px;
+    background:linear-gradient(135deg,var(--accent-2),var(--accent) 42%,var(--accent-deep));
+    box-shadow:var(--e3), inset 0 .5px 0 rgba(255,255,255,.3);will-change:transform}
+  .cdpanel:after{content:"";position:absolute;top:0;bottom:0;width:36%;pointer-events:none;
+    background:linear-gradient(100deg,transparent,rgba(255,255,255,.16),transparent);
+    animation:cdShine 6s var(--ease-std) infinite}
+  @keyframes cdShine{0%{left:-40%}55%{left:108%}100%{left:108%}}
+  .cdpanel .t{display:flex;align-items:center;gap:7px;font-size:var(--t-caption2);font-weight:700;
+    letter-spacing:.075em;text-transform:uppercase;opacity:.84}
+  .pulsedot{width:7px;height:7px;border-radius:50%;background:#7ee2a8;flex:0 0 7px;animation:cdPulse 1s var(--ease-std) infinite}
+  @keyframes cdPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(126,226,168,.6)}
+    50%{transform:scale(1.28);box-shadow:0 0 0 5px rgba(126,226,168,0)}}
+  .cdpanel .cd{display:flex;align-items:baseline;gap:4px;margin-top:7px}
+  .cdpanel .cd b{font-size:var(--t-title2);font-weight:750;line-height:1;letter-spacing:var(--tr-title);display:inline-block;min-width:1.1em;text-align:right}
+  .cdpanel .cd b.sec{font-size:var(--t-title3);opacity:.9}
+  .cdpanel .cd span{font-size:var(--t-caption2);font-weight:600;opacity:.8;margin-right:9px;margin-left:1px}
+  .cdpanel .d{font-size:var(--t-caption1);margin-top:8px;opacity:.86;position:relative;z-index:1}
+  @media(max-width:820px){.phead{flex-wrap:wrap}.phead .cdpanel{flex:1 1 100%}}
 }
 
 /* --- Thanh cuon --- */
