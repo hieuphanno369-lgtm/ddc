@@ -12,9 +12,17 @@ export type IsoDate = string;   // 'YYYY-MM-DD'
 
 const YM_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 const ISO_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+// Năm nằm ngoài khoảng này (vd '9999-12') vẫn khớp YM_RE (đúng format 4 chữ số) nhưng
+// addMonths()/endOfMonth() có thể tràn sang năm 5 chữ số ('10000-01') - new Date() không parse
+// được ISO string năm 5 chữ số (cần dạng mở rộng có dấu +/-), toISOString() ném RangeError.
+// Chặn ở đây (nguồn duy nhất định nghĩa "yearMonth hợp lệ") thay vì vá riêng từng nơi gọi.
+const YM_MIN_YEAR = 1900;
+const YM_MAX_YEAR = 2999;
 
 export function isValidYearMonth(s: string): boolean {
-  return YM_RE.test(s);
+  if (!YM_RE.test(s)) return false;
+  const year = Number(s.slice(0, 4));
+  return year >= YM_MIN_YEAR && year <= YM_MAX_YEAR;
 }
 
 export function isValidIsoDate(s: string): boolean {

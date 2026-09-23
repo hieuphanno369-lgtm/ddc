@@ -62,9 +62,9 @@ describe('getManpowerDaily', () => {
  * đúng công thức guard mà `page.tsx` dùng.
  */
 describe('A-3 (vòng CAN SUA #1) - validate month trước khi đọc dữ liệu ngày', () => {
-  it('phải thất bại: KHÔNG validate, truyền thẳng month rác vào getResourceSnapshot → throw RangeError (chứng minh lỗ hổng có thật)', async () => {
-    await expect(getResourceSnapshot(1, 'abc')).rejects.toThrow(RangeError);
-    await expect(getManpowerDaily(1, 'abc')).rejects.toThrow(RangeError);
+  it('N-3 (vòng 2, danh-gia.md): sau khi thêm guard NGAY TRONG resourceWindow(), gọi thẳng getResourceSnapshot("abc") KHÔNG CẦN qua page.tsx cũng không còn throw - lỗ hổng ở TẦNG NÀY đã đóng, không chỉ chặn ở page', async () => {
+    await expect(getResourceSnapshot(1, 'abc')).resolves.toBeDefined();
+    await expect(getManpowerDaily(1, 'abc')).resolves.toBeInstanceOf(Array);
   });
 
   it('đường chạy thuận lợi: month hợp lệ đi qua guard không đổi, dữ liệu vẫn đúng như gọi trực tiếp', () => {
@@ -95,5 +95,33 @@ describe('A-3 (vòng CAN SUA #1) - validate month trước khi đọc dữ liệ
     const guarded = typeof raw === 'string' && isValidYearMonth(raw) ? raw : currentMonth();
     expect(guarded).toBe(currentMonth());
     await expect(getResourceSnapshot(1, guarded)).resolves.toBeDefined();
+  });
+});
+
+/**
+ * N-3 (danh-gia.md, vòng 2 - sổ nợ kỹ thuật): '9999-12' ĐÚNG format 'YYYY-MM' (khớp regex cũ)
+ * nên guard kiểu A-3 (chỉ check isValidYearMonth) không chặn được nó - addMonths('9999-12', 1)
+ * tràn sang năm 5 chữ số ('10000-01'), new Date(...) không parse được, endOfMonth() ném
+ * RangeError('Invalid time value') → trang vẫn trả 500 dù đã có fix A-3.
+ * Vá: isValidYearMonth() (clock.ts) giờ bound thêm năm 1900-2999, không chỉ check format.
+ */
+describe('N-3 - yearMonth đúng format nhưng năm tràn số (\'9999-12\')', () => {
+  it('phải thất bại (oracle công thức CŨ - chỉ check format): "9999-12" khớp regex /^\\d{4}-(0[1-9]|1[0-2])$/, chứng minh lỗ hổng có thật nếu guard chỉ dừng ở check format', () => {
+    const OLD_FORMAT_ONLY_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+    expect(OLD_FORMAT_ONLY_RE.test('9999-12')).toBe(true);
+  });
+
+  it('isValidYearMonth("9999-12") phải là false (năm ngoài miền 1900-2999), không chỉ check format', () => {
+    expect(isValidYearMonth('9999-12')).toBe(false);
+  });
+
+  it('resourceWindow("9999-12") không còn throw RangeError - fallback về currentMonth()', () => {
+    expect(() => resourceWindow('9999-12')).not.toThrow();
+    expect(resourceWindow('9999-12')).toEqual(resourceWindow(currentMonth()));
+  });
+
+  it('getResourceSnapshot/getManpowerDaily với "9999-12" không throw, trả dữ liệu như tháng hiện tại', async () => {
+    await expect(getResourceSnapshot(1, '9999-12')).resolves.toBeDefined();
+    await expect(getManpowerDaily(1, '9999-12')).resolves.toBeInstanceOf(Array);
   });
 });

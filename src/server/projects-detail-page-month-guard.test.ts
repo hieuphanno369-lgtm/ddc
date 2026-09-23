@@ -72,6 +72,10 @@ describe('/projects/1 - render với searchParams.month rác (A-3, vòng CAN SUA
     await expect(render({ month: '2026-99' })).resolves.toContain(repo.getProject(1)!.projectName);
   });
 
+  it('N-3 (danh-gia.md, vòng 2): ?month=9999-12 (ĐÚNG format YYYY-MM, khớp regex, nhưng năm tràn số) cũng không throw - trước khi vá isValidYearMonth() chỉ check format nên chuỗi này lọt qua guard rồi vỡ ở endOfMonth()', async () => {
+    await expect(render({ month: '9999-12' })).resolves.toContain(repo.getProject(1)!.projectName);
+  });
+
   it('không truyền month (undefined) vẫn render bình thường như trước giờ', async () => {
     await expect(render({})).resolves.toContain(repo.getProject(1)!.projectName);
   });

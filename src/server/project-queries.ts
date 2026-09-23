@@ -1,4 +1,4 @@
-import { addDaysIso, endOfMonth, todayIso, type IsoDate } from '@/lib/clock';
+import { addDaysIso, currentMonth, endOfMonth, isValidYearMonth, todayIso, type IsoDate } from '@/lib/clock';
 import { sumByDate, type DailyPoint } from '@/lib/daily-series';
 import { repo } from './repo';
 
@@ -16,7 +16,10 @@ export interface ResourceSnapshot {
 
 /** Kết thúc ở min(hôm nay, cuối tháng đang xem) - xem tháng quá khứ phải ra số của tháng đó. */
 export function resourceWindow(yearMonth: string): { from: IsoDate; to: IsoDate } {
-  const monthEnd = endOfMonth(yearMonth);
+  // N-3: validate NGAY TẠI ĐÂY, không dựa vào caller (vd trang) đã tự validate hay chưa - `?month`
+  // rác/ngoài miền giá trị (`'abc'`, `'9999-12'`) từng lọt thẳng vào endOfMonth() và ném RangeError.
+  const ym = isValidYearMonth(yearMonth) ? yearMonth : currentMonth();
+  const monthEnd = endOfMonth(ym);
   const today = todayIso();
   const to = monthEnd < today ? monthEnd : today;
   return { from: addDaysIso(to, -(RESOURCE_WINDOW_DAYS - 1)), to };
