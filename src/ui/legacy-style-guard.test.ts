@@ -15,17 +15,6 @@ const HEX_ALLOW = new Set<string>([
 
 /** Con no: file chua doi sang he Apple Glass. Xoa dan theo tung Task. */
 const PENDING: string[] = [
-  // Task 11 - cac trang con lai
-  'app/[locale]/(app)/report/page.tsx',
-  'app/[locale]/(app)/alerts/page.tsx',
-  'app/[locale]/(app)/compliance/page.tsx',
-  'app/[locale]/(app)/audit/page.tsx',
-  'app/[locale]/(app)/admin/page.tsx',
-  'app/[locale]/(app)/nhap-lieu/page.tsx',
-  'app/[locale]/(app)/import/page.tsx',
-  'app/[locale]/(app)/data-dictionary/page.tsx',
-  'app/[locale]/(app)/data-schema/page.tsx',
-  'app/[locale]/not-found.tsx',
   // Task 12 - dang nhap
   'app/[locale]/login/page.tsx',
   'src/components/layout/LoginForm.tsx',

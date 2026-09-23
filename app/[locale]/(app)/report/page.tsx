@@ -7,6 +7,7 @@ import { Link } from '@/i18n/navigation';
 import { formatPct, formatRatio, formatTyd } from '@/lib/format';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { KpiCard } from '@/components/dashboard/KpiCard';
+import { Badge } from '@/components/ui/Badge';
 import { PenaltyBadge, PriorityBadge } from '@/components/ui/Badges';
 import { THRESHOLDS } from '@/lib/thresholds';
 import {
@@ -30,18 +31,20 @@ export default async function ReportPage() {
   const prevLabel = t('common.previousMonth');
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-navy-900">{t('report.title')}</h1>
+    <>
+      {/* Topbar da hien ten trang (nav.report); giu h1 an cho cau truc heading/a11y +
+          khop test operation-pages-render.test.ts dang doi 'report.title' trong HTML. */}
+      <h1 className="sr-only">{t('report.title')}</h1>
+      <div className="flex justify-end">
         <a
           href="/api/report/export"
-          className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90"
+          className="btn"
         >
           <IconExport size={16} /> {t('common.export')}
         </a>
       </div>
 
-      <div className="grid grid-cols-2 gap-5 md:grid-cols-3 xl:grid-cols-6">
+      <div className="kpis">
         <KpiCard label={t('kpi.totalProjects')} value={String(kpis.totalProjects)} delta={kpis.delta.totalProjects} deltaSuffix={prevLabel} icon={IconProject} />
         <KpiCard label={t('kpi.inProgress')} value={String(kpis.inProgress)} delta={kpis.delta.inProgress} deltaSuffix={prevLabel} tone="ok" icon={IconFactory} />
         <KpiCard label={t('kpi.behindSchedule')} value={String(kpis.behindSchedule)} delta={kpis.delta.behindSchedule} deltaSuffix={prevLabel} tone="warn" invertDelta hero heroTagLabel={t('kpi.focusTag')} icon={IconTrend} />
@@ -54,62 +57,62 @@ export default async function ReportPage() {
         <CardHeader title={t('report.p0Red')} />
         <CardBody>
           {p0Red.length === 0 ? (
-            <p className="py-4 text-center text-sm text-slate-400">{t('common.noData')}</p>
+            <p className="empty">{t('common.noData')}</p>
           ) : (
-            <ul className="space-y-2">
+            <div className="flex flex-col gap-2.5">
               {p0Red.map((w) => (
-                <li key={w.id} className="flex items-center gap-3 rounded-lg border border-slate-100 p-3">
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-navy-900">{w.projectName}</span>
+                <div key={w.id} className="alert">
+                  <h4 className="min-w-0 flex-1 truncate">{w.projectName}</h4>
                   <PriorityBadge priority={w.priority} />
                   <PenaltyBadge penalty={w.penalty} />
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </CardBody>
       </Card>
 
       <Card>
         <CardHeader title={t('report.projectTable')} />
-        <CardBody className="pt-2">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-sm table-zebra">
+        <CardBody>
+          <div className="scroll">
+            <table className="tbl" style={{ minWidth: 980 }}>
               <thead>
-                <tr className="border-y border-slate-100 bg-slate-50/60 text-left text-xs uppercase tracking-wide text-slate-500">
-                  <th className="px-4 py-2.5 font-medium">Mã DA</th>
-                  <th className="px-4 py-2.5 font-medium">{t('form.projectName')}</th>
-                  <th className="px-4 py-2.5 text-right font-medium">SPI</th>
-                  <th className="px-4 py-2.5 text-right font-medium">CPI</th>
-                  <th className="px-4 py-2.5 text-right font-medium">% TT</th>
-                  <th className="px-4 py-2.5 text-right font-medium">{t('kpi.backlog')}</th>
+                <tr>
+                  <th>Mã DA</th>
+                  <th>{t('form.projectName')}</th>
+                  <th className="num">SPI</th>
+                  <th className="num">CPI</th>
+                  <th className="num">% TT</th>
+                  <th className="num">{t('kpi.backlog')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {rows.map((r) => (
                   <tr key={r.id}>
-                    <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{r.code}</td>
-                    <td className="px-4 py-2.5">
-                      <Link href={`/projects/${r.id}`} className="font-medium text-navy-900 hover:text-accent">
+                    <td className="mono">{r.code}</td>
+                    <td>
+                      <Link href={`/projects/${r.id}`}>
                         {r.name}
                       </Link>
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">
-                      <span className={r.spi != null && r.spi < THRESHOLDS.spiWarn ? 'font-medium text-amber-600' : 'text-slate-700'}>
+                    <td className="num">
+                      <Badge tone={r.spi != null && r.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'}>
                         {formatRatio(r.spi)}
-                      </span>
+                      </Badge>
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">
-                      <span className={r.cpi != null && r.cpi < THRESHOLDS.cpiWarn ? 'font-medium text-amber-600' : 'text-slate-700'}>
+                    <td className="num">
+                      <Badge tone={r.cpi != null && r.cpi < THRESHOLDS.cpiWarn ? 'warn' : 'ok'}>
                         {formatRatio(r.cpi)}
-                      </span>
+                      </Badge>
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">{formatPct(r.pctActual, locale)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">{formatTyd(r.backlog, locale)}</td>
+                    <td className="num">{formatPct(r.pctActual, locale)}</td>
+                    <td className="num">{formatTyd(r.backlog, locale)}</td>
                   </tr>
                 ))}
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-400">
+                    <td colSpan={6} className="empty">
                       {t('common.noData')}
                     </td>
                   </tr>
@@ -119,6 +122,6 @@ export default async function ReportPage() {
           </div>
         </CardBody>
       </Card>
-    </div>
+    </>
   );
 }

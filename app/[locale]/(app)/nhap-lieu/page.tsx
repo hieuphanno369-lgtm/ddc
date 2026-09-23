@@ -44,18 +44,16 @@ export default async function NhapLieuPage({
   const locked = await repo.isMonthLocked(month);
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <h1 className="mb-4 text-lg font-semibold text-navy-900">{t('form.title')}</h1>
-
-      <section className="mb-8">
-        <h2 className="mb-3 text-sm font-semibold text-navy-800">{t('form.sectionNew')}</h2>
+    <div className="mx-auto w-full max-w-5xl">
+      <section className="mb-5">
+        <div className="sect"><b>{t('form.sectionNew')}</b><i /></div>
         <CreateProjectForm customers={dims.customers} teams={dims.teams} currencies={dims.currencies} />
       </section>
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-navy-800">{t('form.sectionUpdate')}</h2>
+        <div className="sect"><b>{t('form.sectionUpdate')}</b><i /></div>
         {!project || projects.length === 0 ? (
-          <p className="py-10 text-center text-sm text-slate-400">{t('common.noData')}</p>
+          <p className="empty">{t('common.noData')}</p>
         ) : (
           <DataEntryForm
             key={`${project.id}-${month}`}

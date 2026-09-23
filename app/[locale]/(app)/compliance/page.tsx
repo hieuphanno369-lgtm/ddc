@@ -7,6 +7,7 @@ import { deriveStatus } from '@/lib/evm';
 import { Link } from '@/i18n/navigation';
 import { formatDateTime } from '@/lib/format';
 import { Card, CardBody } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
 import { StatusBadge } from '@/components/ui/Badges';
 
 export default async function CompliancePage() {
@@ -46,47 +47,47 @@ export default async function CompliancePage() {
   ).filter((x): x is NonNullable<typeof x> => x != null);
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-lg font-semibold text-navy-900">{t('compliance.title')}</h1>
-
+    <>
       <Card>
-        <CardBody className="pt-4">
+        <div className="hd">
+          <h3>{t('compliance.title')}</h3>
+          <Badge tone="warn">{rows.length}</Badge>
+        </div>
+        <CardBody className="scroll">
           {rows.length === 0 ? (
-            <p className="py-10 text-center text-sm text-slate-400">{t('compliance.empty')}</p>
+            <p className="empty">{t('compliance.empty')}</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[980px] text-sm table-zebra">
-                <thead>
-                  <tr className="border-y border-slate-100 bg-slate-50/60 text-left text-xs uppercase tracking-wide text-slate-500">
-                    <th className="px-4 py-2.5 font-medium">{t('common.project')}</th>
-                    <th className="px-4 py-2.5 font-medium">Mã DA</th>
-                    <th className="px-4 py-2.5 font-medium">{t('compliance.pm')}</th>
-                    <th className="px-4 py-2.5 font-medium">{t('common.status')}</th>
-                    <th className="px-4 py-2.5 font-medium">{t('compliance.lastUpdate')}</th>
+            <table className="tbl" style={{ minWidth: 980 }}>
+              <thead>
+                <tr>
+                  <th>{t('common.project')}</th>
+                  <th>Mã DA</th>
+                  <th>{t('compliance.pm')}</th>
+                  <th>{t('common.status')}</th>
+                  <th>{t('compliance.lastUpdate')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id}>
+                    <td style={{ fontWeight: 600 }}>
+                      <Link href={`/projects/${r.id}`}>
+                        {r.name}
+                      </Link>
+                    </td>
+                    <td className="mono">{r.code}</td>
+                    <td>{r.pm}</td>
+                    <td>
+                      <StatusBadge status={r.status} />
+                    </td>
+                    <td>{formatDateTime(r.lastUpdate, locale)}</td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {rows.map((r) => (
-                    <tr key={r.id}>
-                      <td className="px-4 py-2.5">
-                        <Link href={`/projects/${r.id}`} className="font-medium text-navy-900 hover:text-accent">
-                          {r.name}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{r.code}</td>
-                      <td className="px-4 py-2.5 text-slate-600">{r.pm}</td>
-                      <td className="px-4 py-2.5">
-                        <StatusBadge status={r.status} />
-                      </td>
-                      <td className="px-4 py-2.5 text-slate-600">{formatDateTime(r.lastUpdate, locale)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           )}
         </CardBody>
       </Card>
-    </div>
+    </>
   );
 }

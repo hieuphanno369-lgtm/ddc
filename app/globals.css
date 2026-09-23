@@ -469,6 +469,13 @@
   .phead .val .l{font-size:var(--t-caption2);font-weight:700;text-transform:uppercase;letter-spacing:.055em;color:var(--label3)}
   .phead .val .v{font-size:var(--t-title2);font-weight:750;letter-spacing:var(--tr-title);margin-top:2px}
   .phead .val .s{font-size:var(--t-caption1);color:var(--label3)}
+
+  /* data-schema (khong co trong mock-up): dim la mau vang - khong co san class c-* */
+  .c-gold { background: rgba(245, 179, 1, .18); color: #7a5a00; }
+  :root[data-theme="dark"] .c-gold { color: var(--gold); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .c-gold { color: var(--gold); }
+  }
 }
 
 /* --- Thanh cuon --- */

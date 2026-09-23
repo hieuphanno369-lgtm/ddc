@@ -27,13 +27,12 @@ export default async function AdminPage() {
   const teamValues = await repo.getDimFieldValues('team');
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-navy-900">{t('admin.title')}</h1>
+    <>
+      <div className="flex justify-end">
         <ResetDataButton />
       </div>
 
-      <Card>
+      <Card className="overflow-visible">
         <CardHeader title={t('admin.userRoles')} />
         <CardBody>
           <UserEditor users={users} />
@@ -47,7 +46,7 @@ export default async function AdminPage() {
         </CardBody>
       </Card>
 
-      <Card>
+      <Card className="overflow-visible">
         <CardHeader title={t('admin.activity')} subtitle={t('admin.retention')} />
         <CardBody>
           <ActivityViewer activity={activity} />
@@ -58,27 +57,27 @@ export default async function AdminPage() {
         <CardHeader title="Audit log" subtitle={String(audit.length)} />
         <CardBody>
           {audit.length === 0 ? (
-            <p className="py-4 text-center text-sm text-slate-400">{t('common.noData')}</p>
+            <p className="empty">{t('common.noData')}</p>
           ) : (
-            <div className="max-h-64 overflow-auto">
-              <table className="w-full text-sm">
+            <div className="scroll" style={{ maxHeight: 256 }}>
+              <table className="tbl sticky">
                 <thead>
-                  <tr className="text-left text-xs uppercase text-slate-400">
-                    <th className="py-1.5 font-medium">{t('common.actions')}</th>
-                    <th className="py-1.5 font-medium">Table</th>
-                    <th className="py-1.5 font-medium">Record</th>
-                    <th className="py-1.5 font-medium">Field</th>
-                    <th className="py-1.5 font-medium">By</th>
+                  <tr>
+                    <th>{t('common.actions')}</th>
+                    <th>Table</th>
+                    <th>Record</th>
+                    <th>Field</th>
+                    <th>By</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody>
                   {audit.map((a) => (
                     <tr key={a.id}>
-                      <td className="py-1.5 font-mono text-xs text-slate-500">{formatDate(a.changedAt, locale)}</td>
-                      <td className="py-1.5 text-xs text-navy-800">{a.tableName}</td>
-                      <td className="py-1.5 font-mono text-xs text-slate-500">{a.recordId}</td>
-                      <td className="py-1.5 text-xs text-slate-500">{a.field}</td>
-                      <td className="py-1.5 text-xs text-slate-500">{a.changedBy}</td>
+                      <td className="mono">{formatDate(a.changedAt, locale)}</td>
+                      <td>{a.tableName}</td>
+                      <td className="mono">{a.recordId}</td>
+                      <td>{a.field}</td>
+                      <td>{a.changedBy}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -88,28 +87,28 @@ export default async function AdminPage() {
         </CardBody>
       </Card>
 
-      <Card>
+      <Card className="overflow-visible">
         <CardHeader
           title={t('admin.fieldEditor')}
           subtitle={t('admin.fieldEditorSub')}
         />
         <CardBody>
-          <div className="space-y-6">
+          <div className="flex flex-col gap-5">
             <div>
-              <h3 className="mb-2 text-sm font-medium text-navy-900">{t('admin.customers')}</h3>
+              <div className="sect"><b>{t('admin.customers')}</b><i /></div>
               <FieldEditor field="customer" values={customerValues} />
             </div>
             <div>
-              <h3 className="mb-2 text-sm font-medium text-navy-900">{t('admin.teams')}</h3>
+              <div className="sect"><b>{t('admin.teams')}</b><i /></div>
               <FieldEditor field="team" values={teamValues} />
             </div>
           </div>
         </CardBody>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="g2">
         <Card>
-          <CardHeader title={t('admin.customers')} action={<IconUser size={18} className="text-navy-400" />} />
+          <CardHeader title={t('admin.customers')} action={<IconUser size={18} />} />
           <CardBody>
             <DimTable
               head={[t('admin.name'), t('admin.code')]}
@@ -119,7 +118,7 @@ export default async function AdminPage() {
         </Card>
 
         <Card>
-          <CardHeader title={t('admin.teams')} action={<IconUser size={18} className="text-navy-400" />} />
+          <CardHeader title={t('admin.teams')} action={<IconUser size={18} />} />
           <CardBody>
             <DimTable
               head={[t('admin.name'), t('admin.picName')]}
@@ -129,7 +128,7 @@ export default async function AdminPage() {
         </Card>
 
         <Card>
-          <CardHeader title={t('admin.factories')} action={<IconFactory size={18} className="text-navy-400" />} />
+          <CardHeader title={t('admin.factories')} action={<IconFactory size={18} />} />
           <CardBody>
             <DimTable
               head={[t('admin.name'), t('admin.region'), t('admin.capacity')]}
@@ -139,7 +138,7 @@ export default async function AdminPage() {
         </Card>
 
         <Card>
-          <CardHeader title={t('admin.currencies')} action={<IconMoney size={18} className="text-navy-400" />} />
+          <CardHeader title={t('admin.currencies')} action={<IconMoney size={18} />} />
           <CardBody>
             <DimTable
               head={[t('admin.code'), t('admin.name'), t('admin.rate')]}
@@ -151,28 +150,28 @@ export default async function AdminPage() {
           </CardBody>
         </Card>
       </div>
-    </div>
+    </>
   );
 }
 
 function DimTable({ head, rows }: { head: string[]; rows: string[][] }) {
   return (
-    <div className="max-h-64 overflow-auto">
-      <table className="w-full text-sm">
+    <div className="scroll" style={{ maxHeight: 256 }}>
+      <table className="tbl sticky">
         <thead>
-          <tr className="text-left text-xs uppercase text-slate-400">
+          <tr>
             {head.map((h) => (
-              <th key={h} className="py-1.5 font-medium">
+              <th key={h}>
                 {h}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody>
           {rows.map((r, i) => (
             <tr key={i}>
               {r.map((cell, j) => (
-                <td key={j} className={`py-2 ${j === 0 ? 'font-medium text-navy-900' : 'text-slate-600'}`}>
+                <td key={j} className={j === 0 ? '' : undefined} style={j === 0 ? { fontWeight: 600 } : undefined}>
                   {cell}
                 </td>
               ))}
