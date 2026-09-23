@@ -191,7 +191,15 @@
     "byWeek": "By week",
     "byMonth": "By month",
     "plannedHeadcount": "Planned headcount",
-    "actualHeadcount": "Actual headcount"
+    "actualHeadcount": "Actual headcount",
+    "tl": {
+      "todayPill": "Today · {date}",
+      "running": "in progress",
+      "notStarted": "Not started",
+      "startDelay": "Start delay",
+      "gap": "Plan - actual gap",
+      "days": "{n} days"
+    }
   },
   "stage": {
     "design": "Design",

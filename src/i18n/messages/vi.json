@@ -191,7 +191,15 @@
     "byWeek": "Theo tuần",
     "byMonth": "Theo tháng",
     "plannedHeadcount": "Số nhân lực kế hoạch",
-    "actualHeadcount": "Số nhân lực thực tế"
+    "actualHeadcount": "Số nhân lực thực tế",
+    "tl": {
+      "todayPill": "Hôm nay · {date}",
+      "running": "đang chạy",
+      "notStarted": "Chưa khởi công",
+      "startDelay": "Trễ khởi công",
+      "gap": "Khoảng cách KH - TT",
+      "days": "{n} ngày"
+    }
   },
   "stage": {
     "design": "Thiết kế",

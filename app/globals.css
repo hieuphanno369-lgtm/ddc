@@ -526,6 +526,29 @@
     position: relative; padding: 0 12px; background: var(--glass-3);
     font-size: var(--t-caption2); text-transform: uppercase; letter-spacing: .06em; color: var(--label3);
   }
+
+  /* --- Dot 2 · Task 2: Timeline KH/TT dang thanh (mockup-apple-glass.html dong 311-332) --- */
+  .tl{position:relative;padding-top:26px}
+  .tlrow{display:grid;grid-template-columns:76px 1fr;gap:12px;align-items:center;margin-bottom:11px}
+  .tlrow:last-child{margin-bottom:0}
+  .tlrow .lb{font-size:var(--t-caption1);font-weight:600;color:var(--label2)}
+  .tltrack{position:relative;height:30px;border-radius:var(--r-xs);background:var(--fill);border:.5px solid var(--sep)}
+  .tlbar{position:absolute;top:4px;bottom:4px;border-radius:7px;display:flex;align-items:center;padding:0 10px;
+    font-size:var(--t-caption1);font-weight:650;white-space:nowrap;overflow:hidden}
+  .tlbar.plan{background:var(--s-plan);color:#0a1f3d}
+  .tlbar.act{background:linear-gradient(90deg,var(--accent-2),var(--accent));color:#fff;box-shadow:var(--e1)}
+  .tlfill{position:absolute;top:4px;bottom:4px;left:0;border-radius:7px;background:rgba(10,31,61,.18)}
+  .tlchip{position:absolute;top:50%;transform:translateY(-50%);font-size:var(--t-caption1);font-weight:750;
+    padding:3px 8px;border-radius:7px;white-space:nowrap;z-index:2;
+    background:var(--glass-3);color:var(--accent);border:.5px solid var(--sep-2);box-shadow:var(--e1)}
+  .today{position:absolute;top:26px;bottom:0;width:0;border-left:2px dashed var(--danger);z-index:4;pointer-events:none}
+  .todaypill{position:absolute;top:0;transform:translateX(-50%);background:var(--danger);color:#fff;
+    font-size:var(--t-caption2);font-weight:750;padding:3px 10px;border-radius:var(--r-full);white-space:nowrap;z-index:6;
+    box-shadow:var(--e2)}
+  .todaypill:after{content:"";position:absolute;left:50%;bottom:-4px;transform:translateX(-50%);
+    border-left:4px solid transparent;border-right:4px solid transparent;border-top:4px solid var(--danger)}
+  .tlfoot{display:flex;flex-wrap:wrap;gap:5px 22px;margin-top:15px;padding-top:12px;border-top:.5px solid var(--sep);
+    font-size:var(--t-caption1);color:var(--label2)}
 }
 
 /* --- Thanh cuon --- */

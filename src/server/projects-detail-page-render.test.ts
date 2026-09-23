@@ -66,3 +66,15 @@ describe('Task 1 - 3 the "Trong tam" (%TT, SPI, CPI) dung canh nhau', () => {
     expect([...pos].sort((a, b) => a - b)).toEqual(pos);
   });
 });
+
+describe('Task 2 - Timeline KH/TT dang thanh', () => {
+  it('du an 1: co .tl, vien Hom nay, thanh TT, dong chan 4 muc', async () => {
+    const out = await render();
+    for (const s of ['class="tl"', 'class="todaypill"', 'detail.tl.todayPill', 'class="tlbar act"', 'class="tlfoot"', 'detail.tl.startDelay', 'detail.tl.gap']) expect(out).toContain(s);
+  });
+  it('du an 17 (chua khoi cong): khong co thanh TT, hien "Chua khoi cong"', async () => {
+    const out = await render({}, '17');
+    expect(out).toContain('detail.tl.notStarted');
+    expect(out).not.toContain('class="tlbar act"');
+  });
+});

@@ -4,17 +4,21 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { repo } from '@/server/repo';
 import { getProjectSummary } from '@/server/queries';
-import { currentMonth, isValidYearMonth } from '@/lib/clock';
+import { currentMonth, isValidYearMonth, todayIso } from '@/lib/clock';
 import { getCurrentUser } from '@/lib/session';
 import { requireProjectRead } from '@/server/authz';
 import { stageKey } from '@/lib/labels';
 import { STAGE_ORDER } from '@/lib/stages';
 import { THRESHOLDS } from '@/lib/thresholds';
+import { calcScheduleGap } from '@/lib/evm';
+import { buildPlanActualTimeline } from '@/lib/timeline';
 import { formatDate, formatDateTime, formatPct, formatRatio, formatTyd } from '@/lib/format';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Rise } from '@/components/ui/Rise';
+import { Legend } from '@/components/ui/Legend';
 import { MarketLabel, PriorityBadge, StatusBadge, TypeLabel } from '@/components/ui/Badges';
 import { Badge } from '@/components/ui/Badge';
+import { PlanActualTimeline } from '@/components/project/PlanActualTimeline';
 const SCurve = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SCurve), { ssr: false, loading: () => <div className="sk h-60" /> });
 const SpiCpiLine = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SpiCpiLine), { ssr: false, loading: () => <div className="sk h-60" /> });
 const ManpowerDailyChart = dynamic(
@@ -59,6 +63,13 @@ export default async function ProjectDetailPage({
   if (!project) notFound();
 
   const summary = (await getProjectSummary(id, month))!;
+  const today = todayIso();
+  const timeline = buildPlanActualTimeline({
+    plannedStart: project.plannedStartDate, plannedFinish: project.plannedFinishDate,
+    actualStart: project.actualStartDate, pctActual: summary.pctActual, today,
+  });
+  const startDelay = timeline?.startDelayDays ?? null;
+  const gap = summary.pctPlan != null ? calcScheduleGap(summary.pctPlan, summary.pctActual) : null;
   const lastUpdate = (await repo.getAuditLog())[0]?.changedAt ?? null;
   const facts = await repo.getFacts(id);
   const latest = facts[facts.length - 1];
@@ -159,17 +170,37 @@ export default async function ProjectDetailPage({
         />
       </Rise>
 
-      {/* Timeline */}
+      {/* Timeline KH vs TT dang thanh (mock-up dong 655-676) */}
       <Card>
-        <CardHeader title={t('detail.timeline')} />
+        <CardHeader
+          title={t('detail.timeline')}
+          action={<Legend items={[
+            { label: t('detail.planned'), color: 'var(--s-plan)' },
+            { label: t('detail.actual'), color: 'var(--s-actual)' },
+            { label: t('common.today'), color: 'var(--danger)', line: true },
+          ]} />}
+        />
         <CardBody>
-          <div className="g2">
-            <TimelineItem label={t('detail.planned')} start={project.plannedStartDate} finish={project.plannedFinishDate} locale={locale} />
-            <TimelineItem label={t('detail.actual')} start={project.actualStartDate} finish={project.actualFinishDate} locale={locale} />
-          </div>
-          <div className="chainfoot">
+          {timeline ? (
+            <PlanActualTimeline
+              geometry={timeline}
+              labels={{ planned: t('detail.planned'), actual: t('detail.actual'), todayPill: t('detail.tl.todayPill', { date: formatDate(today, locale) }), notStarted: t('detail.tl.notStarted') }}
+              planRange={`${formatDate(project.plannedStartDate, locale)} → ${formatDate(project.plannedFinishDate, locale)}`}
+              actualRange={`${formatDate(project.actualStartDate, locale)} → ${project.actualFinishDate ? formatDate(project.actualFinishDate, locale) : t('detail.tl.running')}`}
+              planPctText={formatPct(summary.pctPlan, locale)}
+              actualPctText={formatPct(summary.pctActual, locale)}
+            />
+          ) : (
+            <div className="g2">
+              <TimelineItem label={t('detail.planned')} start={project.plannedStartDate} finish={project.plannedFinishDate} locale={locale} />
+              <TimelineItem label={t('detail.actual')} start={project.actualStartDate} finish={project.actualFinishDate} locale={locale} />
+            </div>
+          )}
+          <div className="tlfoot">
             <span>{t('form.contractDate')}: {formatDate(project.contractDate, locale)}</span>
             <span>{t('form.committedHandover')}: <b style={{ color: 'var(--label)' }}>{formatDate(project.committedHandoverDate, locale)}</b></span>
+            <span>{t('detail.tl.startDelay')}: <b style={{ color: startDelay != null && startDelay > 0 ? 'var(--danger)' : 'var(--label)' }}>{startDelay == null ? '-' : t('detail.tl.days', { n: Math.max(startDelay, 0) })}</b></span>
+            <span>{t('detail.tl.gap')}: <b style={{ color: !gap ? 'var(--label)' : gap.direction === 'behind' && gap.pct > 0 ? 'var(--danger)' : 'var(--ok)' }}>{gap ? formatPct(gap.pct, locale) : '-'}</b></span>
           </div>
         </CardBody>
       </Card>
