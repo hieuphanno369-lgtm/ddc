@@ -4,7 +4,7 @@
 **Run 1 — ERP data model v2 (nhánh `feature/erp-model-v2`) — dây chuyền `/ddc-tower:ship` ĐÃ CHỐT (2026-09-23, chạy tự động qua scheduled task).**
 Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. Redesign UI Apple-style + 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
-### Trạng thái dây chuyền ship — Run 1 — **PHAN QUYET CUOI CUNG: CHOT** (kèm 2 ràng buộc cứng + sổ nợ kỹ thuật, xem "Next step")
+### Trạng thái dây chuyền ship — Run 1 — **PHAN QUYET CUOI CUNG: CHOT** (1 ràng buộc cứng còn lại + sổ nợ kỹ thuật, xem "Next step")
 Dây chuyền ship có đúng **6 agent**: planner, coder, tester, debugger, security-reviewer, reviewer.
 
 | Chặng | Trạng thái | Bàn giao |
@@ -39,7 +39,8 @@ Dây chuyền ship có đúng **6 agent**: planner, coder, tester, debugger, sec
 - **4 trang nghiệp vụ (2026-09-20):** `/report` (báo cáo BOD + Xuất Excel 3 sheet auth admin+bod), `/alerts` (đóng alert, BOD đóng được), `/compliance` (dự án Dang_trien_khai thiếu số liệu tháng), `/audit` (nhật ký thay đổi, admin). Sidebar 2 nhóm "Vận hành"/"Quản trị" thay "Hệ thống". +4 icon mới.
 - **Bảo mật P1-P6 (2026-09-20):** `canViewFinance ?? false` (fail-closed), guard role server-side `/admin`+`/data-dictionary`+`/data-schema`, chặn data-entry ghi finance, import giới hạn size/type (10MB, .xlsx/.xls/.csv), lọc preview import theo assignment.
 - **Run 1 — ERP data model v2 (2026-09-22/23), dây chuyền ship CHỐT:** 11 bảng ERP mới (enum, FK, fact append-only theo `version`/`isLatest`), mở khoá đồng hồ ứng dụng (`src/lib/clock.ts`, bỏ neo cứng theo seed), %TT chuyển sang tổng có trọng số (`calcChainPctActual`), %KH chuyển sang tính theo duration (`calcDurationPctComplete`, bỏ hẳn `fact.pctPlan`), nguồn lực theo ngày (2 scorecard KH/TT + biểu đồ Recharts cuối trang `/projects/[id]`, toggle tuần/tháng, đã verify UI bằng mắt qua Playwright đăng nhập thật). 7 commit tổng (6 Task 0-8 + 1 vá CAN SUA `987c2e1`). Test cuối: **335/335 xanh**, `tsc` 0 lỗi.
-- **Test:** 335/335 pass. `tsc` 0 lỗi.
+- **Vá N-4/N-5 (2026-09-23, sau khi dây chuyền CHOT):** `getPortfolioKpis()` trả `delta = 0` khi `yearMonth` sai format/miền giá trị, hoặc khi tháng đang xem HAY tháng liền trước chưa có dòng `fact_progress_monthly` nào — trước đây bịa ra KPI tăng/tụt giả. Vá đúng "quả bom nổ chậm" N-5 (từ 01/10/2026 `/overview` mặc định mở tháng chưa có fact). Commit `1a629c5`, kèm 2 test RED→GREEN mới + 3 file test tester viết ở vòng CAN SUA #1 lần 2 trước đó bị bỏ sót chưa commit (A-3, A-5). **338/338 xanh**, `tsc` 0 lỗi.
+- **Test:** 338/338 pass. `tsc` 0 lỗi.
 
 ## Đang sửa / lỗi tồn đọng
 - ⚠️ **HIGH: `/api/export` (route cũ) không auth** — ai cũng export được toàn bộ dự án gồm `contractValue`. Route mới `/api/report/export` đã auth đúng; route cũ cần vá.
@@ -52,14 +53,13 @@ Dây chuyền ship có đúng **6 agent**: planner, coder, tester, debugger, sec
 - **i18n/a11y/UX:** vài label hardcode (`alert.type` dùng `common.status`, action "Đã xử lý" chưa i18n) · label thiếu htmlFor · silent fail.
 
 ## Next step
-### Ưu tiên 0 — 2 ràng buộc cứng từ phán quyết CHOT (reviewer vòng 2, `.bangiao/danh-gia.md`)
+### Ưu tiên 0 — 1 ràng buộc cứng còn lại từ phán quyết CHOT (reviewer vòng 2, `.bangiao/danh-gia.md`)
 1. **N-1 (CHẶN DEPLOY, không chặn merge):** migration `20260922220000_erp_model_v2` mới chỉ chạy trên DB dev nội bộ và checksum hiện đã LỆCH (file bị sửa sau khi apply ở vòng CAN SUA #1). **Trước khi chạm staging/prod**, phải: (a) trên DB dev máy này chạy `npx prisma migrate resolve --applied 20260922220000_erp_model_v2`; (b) tại QA gate `ddc-tower:golive`, dựng một DB rỗng, nạp trước vài dòng `fact_value_chain_progress` + 1 `bottleneckStage` rác, chạy `prisma migrate deploy` + `prisma db seed` một lượt để chứng minh migration tự chạy sạch từ đầu.
-2. **N-5 (VÁ TRƯỚC 01/10/2026):** từ ngày này `currentMonth()` sẽ ra `2026-10` (chưa có fact), khiến `/overview` mặc định mở tháng trống → toàn bộ KPI về 0, "trễ tiến độ", delta bịa trên dashboard BOD. Vá ở `src/server/queries.ts:209` (khi `kpisForMonth(prevYm)` không có fact thì trả delta 0) — xem chi tiết trong `.bangiao/danh-gia.md` mục N-5.
+2. ~~N-5 (VÁ TRƯỚC 01/10/2026)~~ **ĐÃ VÁ (2026-09-23, commit `1a629c5`)** — xem "Đã xong".
 
 ### Ưu tiên 1 — sổ nợ kỹ thuật Run 1 (không chặn merge, nên làm đầu Run 2), chi tiết đầy đủ ở `.bangiao/danh-gia.md`
 - N-2: `removeProject` chưa xoá `sap_queue` mồ côi (nửa còn lại của A-5).
-- N-3: `?month=9999-12` vẫn ra 500 (validate miền giá trị, không chỉ format).
-- N-4: `/overview?month=abc` vẫn ra delta KPI bịa (validate ở tầng hàm, không phải từng trang).
+- N-3: `?month=9999-12` vẫn ra 500 (validate miền giá trị, không chỉ format) — **khác N-4/N-5 đã vá**: đây là đường `endOfMonth`/`resourceWindow` ở `/projects/[id]`, chưa đụng tới.
 - N-6: nhãn ngày "Số liệu ngày ..." dán chung cho nhân lực + thiết bị dù 2 số có thể khác ngày nhập.
 - N-7: `validation.ts` (đường ghi) lỏng hơn `clock.ts` (đường đọc) — có thể ghi rác vào bảng append-only.
 - N-8: `DDC_FAKE_TODAY` chưa bị chặn ở `NODE_ENV=production`.
@@ -69,7 +69,7 @@ Dây chuyền ship có đúng **6 agent**: planner, coder, tester, debugger, sec
 - B-5: 3 FK `dim_contractor`/`dim_equipment` đang `ON DELETE CASCADE` — chưa khai thác được nhưng là mìn cho Run 2 nếu thêm nút xoá nhà thầu/thiết bị.
 
 ### Ưu tiên 2 — phần Run 1 còn thiếu (plan tuyên bố nhưng chưa Task nào triển khai)
-- `src/server/authz.ts` + 5 REST endpoint `GET /api/projects/[id]/{summary,value-chain,milestones,work-items,resources}`. Đây là mục tiêu Run 1 tự đặt ra trong tiêu đề nhưng plan chỉ ghi "viết ở chunk sau" — **chủ dự án cần quyết định có làm chunk tiếp theo cho Run 2 không**, và nếu làm thì nên gộp cùng N-2→N-4 ở trên (theo đề nghị của reviewer).
+- `src/server/authz.ts` + 5 REST endpoint `GET /api/projects/[id]/{summary,value-chain,milestones,work-items,resources}`. Đây là mục tiêu Run 1 tự đặt ra trong tiêu đề nhưng plan chỉ ghi "viết ở chunk sau" — **chủ dự án cần quyết định có làm chunk tiếp theo cho Run 2 không**, và nếu làm thì nên gộp cùng N-2/N-3 ở trên (theo đề nghị của reviewer).
 
 ### Ưu tiên 3 — nợ cũ (trước Run 1, chưa đụng tới)
 - **Vá HIGH `/api/export`** (thêm auth) + 4 LOW (closeAlert validate, rate-limit, getUserRoles).
@@ -78,4 +78,4 @@ Dây chuyền ship có đúng **6 agent**: planner, coder, tester, debugger, sec
 - Smoke UI bằng Playwright (redesign + 4 trang mới) — cần restart Claude Code để MCP nạp tool.
 - Điều tra MCP không tới subagent.
 
-> Cập nhật: 2026-09-23 (chạy tự động qua scheduled task, dây chuyền ship Run 1 đã CHỐT — không merge/push/PR, giữ nguyên nhánh `feature/erp-model-v2` chờ chủ dự án xem)
+> Cập nhật: 2026-09-23 (dây chuyền ship Run 1 đã CHỐT qua scheduled task; sau đó vá thêm N-4/N-5 trong phiên tương tác — không merge/push/PR, giữ nguyên nhánh `feature/erp-model-v2` chờ chủ dự án xem)
