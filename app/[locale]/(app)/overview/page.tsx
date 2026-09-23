@@ -28,9 +28,9 @@ function p(searchParams: Record<string, string | string[] | undefined>, key: str
 
 function KpiSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+    <div className="kpis">
       {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="card h-24 animate-pulse" />
+        <div key={i} className="kpi sk" style={{ height: 96 }} />
       ))}
     </div>
   );
@@ -68,8 +68,8 @@ export default async function OverviewPage({
   const page = Number(p(searchParams, 'page')) || 1;
 
   return (
-    <div className="space-y-6">
-      <p className="text-xs text-slate-500">
+    <>
+      <p className="hintline">
         {t('admin.lastUpdate')}: {lastUpdate ? formatDateTime(lastUpdate, locale) : '-'}
       </p>
 
@@ -83,42 +83,38 @@ export default async function OverviewPage({
         </Suspense>
       )}
 
+      <div className="sect"><b>{t('overview.title')}</b><i /></div>
+
       <Suspense fallback={<KpiSkeleton />}>
         <KpiGrid month={month} filters={filters} canViewFinance={canViewFinance} />
       </Suspense>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="g21">
+        <Suspense fallback={<CardSkeleton h={260} />}>
+          <GroupBarCard month={month} groupBy={groupBy} filters={filters} />
+        </Suspense>
         <Suspense fallback={<CardSkeleton h={220} />}>
           <StatusDonutCard month={month} filters={filters} />
         </Suspense>
-        <div className="lg:col-span-2">
-          <Suspense fallback={<CardSkeleton h={260} />}>
-            <GroupBarCard month={month} groupBy={groupBy} filters={filters} />
-          </Suspense>
-        </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="g21">
+        <Suspense fallback={<CardSkeleton h={220} />}>
+          <SpiCpiCard filters={filters} />
+        </Suspense>
         <Suspense fallback={<CardSkeleton h={220} />}>
           <CapacityCard month={month} filters={filters} />
         </Suspense>
-        <div className="lg:col-span-2">
-          <Suspense fallback={<CardSkeleton h={220} />}>
-            <SpiCpiCard filters={filters} />
-          </Suspense>
-        </div>
       </div>
 
       {canViewFinance && (
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="g21">
+          <Suspense fallback={<CardSkeleton h={240} />}>
+            <SCurveCard filters={filters} />
+          </Suspense>
           <Suspense fallback={<CardSkeleton h={220} />}>
             <BacklogOverdueCard month={month} filters={filters} />
           </Suspense>
-          <div className="lg:col-span-2">
-            <Suspense fallback={<CardSkeleton h={240} />}>
-              <SCurveCard filters={filters} />
-            </Suspense>
-          </div>
         </div>
       )}
 
@@ -129,6 +125,6 @@ export default async function OverviewPage({
       <Suspense fallback={<CardSkeleton h={300} />}>
         <ProjectListCard month={month} filters={filters} search={search} sort={sort} page={page} />
       </Suspense>
-    </div>
+    </>
   );
 }

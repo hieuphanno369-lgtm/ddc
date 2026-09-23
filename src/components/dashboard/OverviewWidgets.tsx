@@ -37,11 +37,11 @@ export async function AlertBanner({ month, filters }: { month: string; filters: 
   const p0Red = watchlist.filter((w) => w.priority === 'P0' && (w.penalty === 'risk' || w.penalty === 'penalized'));
   if (p0Red.length === 0) return null;
   return (
-    <div className="flex items-start gap-3 rounded-card border border-red-200 bg-red-50 px-4 py-3">
-      <IconAlert size={20} className="mt-0.5 shrink-0 text-red-600" />
-      <div className="text-sm text-red-800">
-        <span className="font-semibold">{t('overview.watchlist')}: </span>
-        {p0Red.map((w) => w.projectName).join(', ')} - {t('penalty.risk')}/{t('penalty.penalized')}
+    <div className="alert">
+      <span className="dot" style={{ background: 'var(--danger)' }} />
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <h4>{t('overview.watchlist')}</h4>
+        <p>{p0Red.map((w) => w.projectName).join(', ')} - {t('penalty.risk')}/{t('penalty.penalized')}</p>
       </div>
     </div>
   );
@@ -53,7 +53,7 @@ export async function KpiGrid({ month, filters, canViewFinance }: { month: strin
   const kpis = await loadPortfolioKpis(month, filters);
   const prevLabel = t('common.previousMonth');
   return (
-    <div className={`grid grid-cols-2 gap-5 md:grid-cols-3 ${canViewFinance ? 'xl:grid-cols-6' : 'xl:grid-cols-5'}`}>
+    <div className={`kpis${canViewFinance ? '' : ' k5'}`}>
       <KpiCard label={t('kpi.totalProjects')} value={String(kpis.totalProjects)} delta={kpis.delta.totalProjects} deltaSuffix={prevLabel} icon={IconProject} />
       <KpiCard label={t('kpi.inProgress')} value={String(kpis.inProgress)} delta={kpis.delta.inProgress} deltaSuffix={prevLabel} tone="ok" icon={IconFactory} />
       <KpiCard label={t('kpi.behindSchedule')} value={String(kpis.behindSchedule)} delta={kpis.delta.behindSchedule} deltaSuffix={prevLabel} tone="warn" invertDelta hero heroTagLabel={t('kpi.focusTag')} icon={IconTrend} />
@@ -83,7 +83,7 @@ export async function GroupBarCard({ month, groupBy, filters }: { month: string;
   const data = await loadTonnageByGroup(month, groupBy, filters);
   return (
     <Card>
-      <CardBody className="pt-4">
+      <CardBody>
         <GroupByCard data={data} groupBy={groupBy} />
       </CardBody>
     </Card>
@@ -139,15 +139,15 @@ export async function BacklogOverdueCard({ month, filters }: { month: string; fi
   return (
     <Card>
       <CardHeader title={t('overview.backlogOverdue')} />
-      <CardBody className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
+      <CardBody className="flex flex-col gap-3">
+        <div className="g2">
           <div>
-            <div className="label">{t('kpi.backlog')}</div>
-            <div className="text-xl font-semibold text-navy-900">{formatTyd(kpis.backlog, locale)}</div>
+            <div className="text-caption2 font-bold uppercase tracking-[.025em] text-label3">{t('kpi.backlog')}</div>
+            <div className="text-title3 font-bold">{formatTyd(kpis.backlog, locale)}</div>
           </div>
           <div>
-            <div className="label">{t('metric.overdue')}</div>
-            <div className="text-xl font-semibold text-red-600">{formatTyd(totalOverdue, locale)}</div>
+            <div className="text-caption2 font-bold uppercase tracking-[.025em] text-label3">{t('metric.overdue')}</div>
+            <div className="text-title3 font-bold" style={{ color: 'var(--danger)' }}>{formatTyd(totalOverdue, locale)}</div>
           </div>
         </div>
         <BacklogOverdueLine data={data} />

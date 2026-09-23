@@ -457,6 +457,18 @@
   .recharts-tooltip-item { color: var(--label2) !important; }
   .recharts-tooltip-label { color: var(--label) !important; font-weight: 700; }
   .recharts-surface { overflow: visible; }
+
+  /* --- Task 10: Header du an .phead (mockup-apple-glass.html dong 283-292,
+     chi lay 8 selector .phead* - .mono da co tu Task 3, khong copy lai) --- */
+  .phead{display:flex;align-items:center;gap:20px;padding:15px 16px}
+  .phead .idz{flex:1 1 auto;min-width:0}
+  .phead h2{font-size:var(--t-title3);font-weight:700;letter-spacing:var(--tr-title);line-height:1.2}
+  .phead .nmrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .phead .meta{display:flex;flex-wrap:wrap;gap:3px 14px;margin-top:5px;font-size:var(--t-caption1);color:var(--label2)}
+  .phead .val{flex:0 0 auto;text-align:right;padding-right:2px}
+  .phead .val .l{font-size:var(--t-caption2);font-weight:700;text-transform:uppercase;letter-spacing:.055em;color:var(--label3)}
+  .phead .val .v{font-size:var(--t-title2);font-weight:750;letter-spacing:var(--tr-title);margin-top:2px}
+  .phead .val .s{font-size:var(--t-caption1);color:var(--label3)}
 }
 
 /* --- Thanh cuon --- */

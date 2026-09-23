@@ -13,12 +13,12 @@ import { THRESHOLDS } from '@/lib/thresholds';
 import { formatDate, formatDateTime, formatPct, formatRatio, formatTyd } from '@/lib/format';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { MarketLabel, PriorityBadge, StatusBadge, TypeLabel } from '@/components/ui/Badges';
-import { Badge, Dot } from '@/components/ui/Badge';
-const SCurve = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SCurve), { ssr: false, loading: () => <div className="h-60 animate-pulse rounded-lg bg-slate-200/70" /> });
-const SpiCpiLine = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SpiCpiLine), { ssr: false, loading: () => <div className="h-60 animate-pulse rounded-lg bg-slate-200/70" /> });
+import { Badge } from '@/components/ui/Badge';
+const SCurve = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SCurve), { ssr: false, loading: () => <div className="sk h-60" /> });
+const SpiCpiLine = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SpiCpiLine), { ssr: false, loading: () => <div className="sk h-60" /> });
 const ManpowerDailyChart = dynamic(
   () => import('@/components/project/ManpowerDailyChart').then((m) => m.ManpowerDailyChart),
-  { ssr: false, loading: () => <div className="h-60 animate-pulse rounded-lg bg-slate-200/70" /> },
+  { ssr: false, loading: () => <div className="sk h-60" /> },
 );
 import { getManpowerDaily, getResourceSnapshot } from '@/server/project-queries';
 import { KpiCard } from '@/components/dashboard/KpiCard';
@@ -83,15 +83,15 @@ export default async function ProjectDetailPage({
   const bottleneck = chain.find((c) => c.stageCode === latest?.bottleneckStage);
 
   return (
-    <div className="space-y-4">
+    <>
       {/* Breadcrumb + switcher */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-500">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-footnote text-label2">
         <div className="flex items-center gap-1">
-          <Link href="/projects" className="hover:text-navy-800">
+          <Link href="/projects" className="transition-colors duration-fast hover:text-brand">
             {t('nav.projectDetail')}
           </Link>
           <IconChevronRight size={15} />
-          <span className="font-medium text-navy-900">{project.projectName}</span>
+          <span className="font-semibold text-label">{project.projectName}</span>
         </div>
         <ProjectSwitcher
           currentId={project.id}
@@ -99,37 +99,37 @@ export default async function ProjectDetailPage({
         />
       </div>
 
-      <p className="text-xs text-slate-500">
+      <p className="hintline">
         {t('admin.lastUpdate')}: {lastUpdate ? formatDateTime(lastUpdate, locale) : '-'}
       </p>
 
       {/* Header */}
-      <Card className="p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-semibold text-navy-900">{project.projectName}</h1>
+      <Card>
+        <div className="phead">
+          <div className="idz">
+            <div className="nmrow">
+              <h2>{project.projectName}</h2>
               <StatusBadge status={summary.status} />
               <PriorityBadge priority={project.priority} />
             </div>
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
-              <span className="font-mono text-xs">{project.currentAliasCode}</span>
+            <div className="meta">
+              <span className="mono">{project.currentAliasCode}</span>
               <span>{customer?.name ?? '-'}</span>
               <span>{team?.name ?? '-'}</span>
-              <TypeLabel type={project.projectType} />
-              <MarketLabel market={project.marketCode} />
+              <span><TypeLabel type={project.projectType} /></span>
+              <span><MarketLabel market={project.marketCode} /></span>
             </div>
           </div>
-          <div className="text-right">
-            <div className="label">{t('metric.contractValue')}</div>
-            <div className="text-2xl font-semibold text-navy-900">{formatTyd(project.contractValue, locale)}</div>
-            <div className="mt-1 text-xs text-slate-400">{formatTon(project.tonnage)} tấn</div>
+          <div className="val">
+            <div className="l">{t('metric.contractValue')}</div>
+            <div className="v">{formatTyd(project.contractValue, locale)}</div>
+            <div className="s">{formatTon(project.tonnage)} tấn</div>
           </div>
         </div>
       </Card>
 
       {/* 6 KPI cards */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="kpis">
         <KpiCard label={t('metric.spi')} value={formatRatio(summary.spi)} delta={null} tone={summary.spi != null && summary.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'} hero heroTagLabel={t('kpi.focusTag')} icon={IconTrend} />
         <KpiCard label={t('metric.cpi')} value={formatRatio(summary.cpi)} delta={null} tone={summary.cpi != null && summary.cpi < THRESHOLDS.cpiWarn ? 'warn' : 'ok'} icon={IconMoney} />
         <KpiCard label={t('metric.eac')} value={formatTyd(summary.eac, locale)} delta={null} tone="neutral" icon={IconGauge} />
@@ -139,7 +139,7 @@ export default async function ProjectDetailPage({
       </div>
 
       {/* Nguồn lực: ảnh chụp NGÀY gần nhất có dữ liệu, không phải số theo tháng (Q3) */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="kpis k2">
         <KpiCard
           label={t('detail.manpower')}
           value={resources.manpowerAsOfDate ? `${resources.manpowerActual}/${resources.manpowerPlanned}` : '-'}
@@ -162,19 +162,19 @@ export default async function ProjectDetailPage({
       <Card>
         <CardHeader title={t('detail.timeline')} />
         <CardBody>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="g2">
             <TimelineItem label={t('detail.planned')} start={project.plannedStartDate} finish={project.plannedFinishDate} locale={locale} />
             <TimelineItem label={t('detail.actual')} start={project.actualStartDate} finish={project.actualFinishDate} locale={locale} />
           </div>
-          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-500">
+          <div className="chainfoot">
             <span>{t('form.contractDate')}: {formatDate(project.contractDate, locale)}</span>
-            <span>{t('form.committedHandover')}: <b className="text-navy-800">{formatDate(project.committedHandoverDate, locale)}</b></span>
+            <span>{t('form.committedHandover')}: <b style={{ color: 'var(--label)' }}>{formatDate(project.committedHandoverDate, locale)}</b></span>
           </div>
         </CardBody>
       </Card>
 
       {/* Value chain + EVM */}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="g2">
         <Card>
           <CardHeader
             title={t('detail.valueChain')}
@@ -186,35 +186,31 @@ export default async function ProjectDetailPage({
               ) : undefined
             }
           />
-          <CardBody className="space-y-2">
-            {STAGE_ORDER.map((stage) => {
-              const v = chain.find((c) => c.stageCode === stage);
-              if (v && !v.applicable) return null;
-              const pct = v?.pctComplete ?? 0;
-              const isBottleneck = stage === latest?.bottleneckStage;
-              return (
-                <div key={stage} className="flex items-center gap-3">
-                  <span className="w-28 shrink-0 text-xs text-slate-600">{t(stageKey[stage])}</span>
-                  <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className={`h-full rounded-full ${isBottleneck ? 'bg-amber-500' : 'bg-accent'}`}
-                      style={{ width: `${Math.round(pct * 100)}%` }}
-                    />
+          <CardBody>
+            <div className="stagegrid">
+              {STAGE_ORDER.map((stage) => {
+                const v = chain.find((c) => c.stageCode === stage);
+                if (v && !v.applicable) return null;
+                const pct = v?.pctComplete ?? 0;
+                const isBottleneck = stage === latest?.bottleneckStage;
+                return (
+                  <div key={stage} className={`stage${isBottleneck ? ' bt' : ''}`}>
+                    <span className="nm">{t(stageKey[stage])}</span>
+                    <span className="w">-</span>
+                    <div className="bar"><i className="fill" style={{ width: `${Math.round(pct * 100)}%` }} /></div>
+                    <span className="pc">{formatPct(pct, locale)}</span>
                   </div>
-                  <span className="w-12 shrink-0 text-right text-xs font-medium text-slate-600">
-                    {formatPct(pct, locale)}
-                  </span>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </CardBody>
         </Card>
 
         <Card>
           <CardHeader title={t('detail.evmMetrics')} />
           <CardBody>
-            <table className="w-full text-sm">
-              <tbody className="divide-y divide-slate-100">
+            <table className="tbl">
+              <tbody>
                 <EvmRow label={t('metric.pv')} value={formatTyd(latest?.pv, locale)} />
                 <EvmRow label={t('metric.ev')} value={formatTyd(latest?.ev, locale)} />
                 <EvmRow label={t('metric.ac')} value={formatTyd(latest?.ac, locale)} />
@@ -230,7 +226,7 @@ export default async function ProjectDetailPage({
       </div>
 
       {/* Charts */}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="g2">
         <Card>
           <CardHeader title={t('detail.sCurve12')} />
           <CardBody>
@@ -256,26 +252,26 @@ export default async function ProjectDetailPage({
       )}
 
       {/* Alias + SAP */}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="g2">
         <Card>
           <CardHeader title={t('detail.aliasHistory')} />
           <CardBody>
-            <table className="w-full text-sm">
+            <table className="tbl">
               <thead>
-                <tr className="text-left text-xs uppercase text-slate-400">
-                  <th className="py-1.5 font-medium">{t('form.projectCode')}</th>
-                  <th className="py-1.5 font-medium">{t('common.month')}</th>
-                  <th className="py-1.5 font-medium">{t('watchlist.reason')}</th>
+                <tr>
+                  <th>{t('form.projectCode')}</th>
+                  <th>{t('common.month')}</th>
+                  <th>{t('watchlist.reason')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {aliases.map((a) => (
                   <tr key={a.id}>
-                    <td className="py-2 font-mono text-xs text-navy-800">{a.aliasCode}</td>
-                    <td className="py-2 text-xs text-slate-500">
+                    <td className="mono">{a.aliasCode}</td>
+                    <td>
                       {formatDate(a.effectiveFrom, locale)} - {a.effectiveTo ? formatDate(a.effectiveTo, locale) : '…'}
                     </td>
-                    <td className="py-2 text-xs text-slate-500">{a.reason}</td>
+                    <td>{a.reason}</td>
                   </tr>
                 ))}
               </tbody>
@@ -287,13 +283,13 @@ export default async function ProjectDetailPage({
           <CardHeader title={t('sap.title')} />
           <CardBody>
             {sapCodes.length === 0 ? (
-              <p className="py-4 text-center text-sm text-slate-400">{t('common.noData')}</p>
+              <p className="empty">{t('common.noData')}</p>
             ) : (
-              <ul className="divide-y divide-slate-100">
+              <ul className="flex flex-col">
                 {sapCodes.map((s) => (
-                  <li key={s.id} className="flex items-center justify-between py-2 text-sm">
-                    <span className="font-mono text-xs text-navy-800">{s.sapCode}</span>
-                    <span className="text-xs text-slate-400">{s.sourceDocType}</span>
+                  <li key={s.id} className="flex items-center justify-between py-2 text-sm border-t-[0.5px] border-sep first:border-t-0">
+                    <span className="mono">{s.sapCode}</span>
+                    <span>{s.sourceDocType}</span>
                   </li>
                 ))}
               </ul>
@@ -303,27 +299,27 @@ export default async function ProjectDetailPage({
       </div>
 
       {/* Alerts + financial */}
-      <div className={`grid gap-4 ${canViewFinance ? 'lg:grid-cols-2' : ''}`}>
+      <div className={canViewFinance ? 'g2' : ''}>
         <Card>
           <CardHeader title={t('detail.alerts')} />
           <CardBody>
             {alerts.length === 0 ? (
-              <p className="py-4 text-center text-sm text-slate-400">{t('overview.noAlerts')}</p>
+              <p className="empty">{t('overview.noAlerts')}</p>
             ) : (
-              <ul className="space-y-2">
+              <div className="flex flex-col gap-2.5">
                 {alerts.map((a) => (
-                  <li key={a.id} className="flex items-start gap-2 rounded-lg border border-slate-100 p-3">
-                    <Dot tone={a.alertType === 'Red' ? 'danger' : 'warn'} />
-                    <div className="min-w-0 flex-1 text-sm">
-                      <div className="flex items-center gap-2">
+                  <div key={a.id} className="alert">
+                    <span className="dot" style={{ background: a.alertType === 'Red' ? 'var(--danger)' : 'var(--warn)' }} />
+                    <div className="min-w-0 flex-1">
+                      <h4>{a.message}</h4>
+                      <div className="mt">
                         <Badge tone={a.alertType === 'Red' ? 'danger' : 'warn'}>{t(`alert.${a.alertType === 'Red' ? 'red' : 'amber'}`)}</Badge>
-                        <span className="text-xs text-slate-400">{t('alert.rule')}: {a.ruleTriggered}</span>
+                        <span>{t('alert.rule')}: {a.ruleTriggered}</span>
                       </div>
-                      <p className="mt-1 text-navy-800">{a.message}</p>
                     </div>
-                  </li>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
           </CardBody>
         </Card>
@@ -332,22 +328,22 @@ export default async function ProjectDetailPage({
         <Card>
           <CardHeader title={t('detail.financial')} />
           <CardBody>
-            <table className="w-full text-sm">
+            <table className="tbl">
               <thead>
-                <tr className="text-left text-xs uppercase text-slate-400">
-                  <th className="py-1.5 font-medium">{t('common.month')}</th>
-                  <th className="py-1.5 text-right font-medium">{t('metric.revenue')}</th>
-                  <th className="py-1.5 text-right font-medium">{t('metric.cost')}</th>
-                  <th className="py-1.5 text-right font-medium">{t('metric.grossProfit')}</th>
+                <tr>
+                  <th>{t('common.month')}</th>
+                  <th className="num">{t('metric.revenue')}</th>
+                  <th className="num">{t('metric.cost')}</th>
+                  <th className="num">{t('metric.grossProfit')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {financial.slice(-6).reverse().map((f) => (
                   <tr key={f.yearMonth}>
-                    <td className="py-2 text-xs text-slate-500">{f.yearMonth}</td>
-                    <td className="py-2 text-right text-slate-700">{formatTyd(f.revenueCumulative, locale)}</td>
-                    <td className="py-2 text-right text-slate-700">{formatTyd(f.costActualCumulative, locale)}</td>
-                    <td className="py-2 text-right text-slate-700">{formatTyd(f.grossProfit, locale)}</td>
+                    <td>{f.yearMonth}</td>
+                    <td className="num">{formatTyd(f.revenueCumulative, locale)}</td>
+                    <td className="num">{formatTyd(f.costActualCumulative, locale)}</td>
+                    <td className="num">{formatTyd(f.grossProfit, locale)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -362,15 +358,15 @@ export default async function ProjectDetailPage({
         <CardHeader title={t('detail.photos')} />
         <CardBody>
           {photos.length === 0 ? (
-            <p className="py-4 text-center text-sm text-slate-400">{t('common.noData')}</p>
+            <p className="empty">{t('common.noData')}</p>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
               {photos.map((ph) => (
-                <div key={ph.id} className="relative aspect-[4/3] overflow-hidden rounded-xl bg-slate-100">
+                <div key={ph.id} className="relative aspect-[4/3] overflow-hidden rounded-md" style={{ background: 'var(--fill)' }}>
                   {ph.url ? (
                     <img src={`/api/photos/${ph.url}`} alt={ph.caption || t('detail.photos')} className="h-full w-full object-cover" />
                   ) : (
-                    <div className="flex h-full flex-col items-center justify-center text-slate-400">
+                    <div className="flex h-full flex-col items-center justify-center text-label3">
                       <IconProject size={24} />
                       <span className="mt-1 px-2 text-center text-xs">{ph.caption}</span>
                     </div>
@@ -389,7 +385,7 @@ export default async function ProjectDetailPage({
           <ManpowerDailyChart data={manpowerDaily} />
         </CardBody>
       </Card>
-    </div>
+    </>
   );
 }
 
@@ -405,12 +401,12 @@ function TimelineItem({
   locale: string;
 }) {
   return (
-    <div className="rounded-xl bg-slate-50 p-3">
-      <div className="label">{label}</div>
+    <div className="sumbar" style={{ display: 'block' }}>
+      <div className="text-caption2 font-bold uppercase tracking-[.025em] text-label3">{label}</div>
       <div className="mt-1.5 flex items-center gap-2 text-sm">
-        <span className="text-navy-900">{formatDate(start, locale)}</span>
-        <span className="text-slate-300">→</span>
-        <span className="text-navy-900">{formatDate(finish, locale)}</span>
+        <span>{formatDate(start, locale)}</span>
+        <span className="text-label3">→</span>
+        <span>{formatDate(finish, locale)}</span>
       </div>
     </div>
   );
@@ -419,8 +415,8 @@ function TimelineItem({
 function EvmRow({ label, value }: { label: string; value: string }) {
   return (
     <tr>
-      <td className="py-2 text-slate-500">{label}</td>
-      <td className="py-2 text-right font-medium text-navy-900">{value}</td>
+      <td>{label}</td>
+      <td className="num" style={{ fontWeight: 600 }}>{value}</td>
     </tr>
   );
 }
