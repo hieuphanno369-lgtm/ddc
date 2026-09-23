@@ -1,917 +1,397 @@
-# Apple Glass Redesign — Implementation Plan
+# Đợt 2 — App khớp `mockup-apple-glass.html` · Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: dùng `superpowers:subagent-driven-development` (khuyến nghị) hoặc `superpowers:executing-plans` để chạy plan này theo từng Task. Các bước dùng checkbox (`- [ ]`).
+> **For agentic workers:** REQUIRED SUB-SKILL: `superpowers:subagent-driven-development` (khuyến nghị) hoặc `superpowers:executing-plans`. Các bước dùng checkbox `- [ ]`.
 
-**Goal:** Thay toàn bộ hệ thiết kế UI của DDC Control Tower từ Apple-đỏ (`#B91C1C`) sang "Apple Glass" navy `#1d5a9e` trên nền `#e9eef6`, lấy nguyên token từ `mockup-apple-glass.html`, áp dụng nhất quán cho **mọi** trang đang chạy.
+**Goal:** Thêm phần trang Chi tiết dự án + form Tạo/Sửa còn thiếu so với mock-up (6 hạng mục chủ dự án chốt ở `PROGRESS.md` dòng 19-55), dùng data model có sẵn từ Run 1, KHÔNG migration.
 
-**Architecture:** Một lớp token CSS-variable (`app/tokens.css`) + một lớp component-class copy nguyên từ mock-up (`app/globals.css`, trong `@layer components`). Component React chỉ **đổi className**, không đổi logic. Dark/light chạy bằng `prefers-color-scheme` + `[data-theme]` override — bỏ hẳn kiểu `.dark .bg-white{}` cũ. Hai test "canh" tự động (token + quét class cũ) bảo đảm không sót file nào.
+**Architecture:** Logic thuần (hình học timeline, đếm ngược, gom tracking, trạng thái mốc, trục thời gian) nằm ở `src/lib/*.ts` và có unit test. Query mới nằm ở `src/server/project-queries.ts`, đi qua barrel `@/server/repo`. UI mới nằm ở `src/components/project/*`: component có hook thì nạp bằng `next/dynamic({ ssr:false })`, component không hook thì nhận chuỗi đã dịch qua props. Có đúng 1 luồng ghi mới: `saveKeyMilestonesAction` → `repo.replaceKeyMilestones`.
 
-**Tech Stack:** Next.js 14.2.15 (App Router), React 18.3.1, TypeScript 5.5.4, Tailwind CSS 3.4.10, Recharts 2.12.7, next-intl 3.26.3, Vitest 2.1.1 (node env).
+**Tech Stack:** Next.js 14.2.15 App Router · React 18.3 · TS 5.5 · next-intl 3.26.3 (`useTranslations`, `t.rich` — đã xác nhận có trong `node_modules/use-intl/dist/types/src/core/createTranslator.d.ts`) · Recharts 2.12.7 · Zod 4 · Vitest 2.1 (env `node`) · Prisma 6.19.
 
-**Spec:** `D:\_project\DDC_Control_Tower\mockup-apple-glass.html` (155KB). **Đây là đặc tả DUY NHẤT.** Mọi số đo/màu/blur/bo góc lấy từ file này. Plan có chỉ **số dòng chính xác** để copy — copy từ file, đừng gõ lại tay.
+**Spec:** `mockup-apple-glass.html` ở gốc repo. Mọi "dòng N" trong plan là số dòng của file này. Nhánh làm việc: `feature/apple-glass-mock-parity`.
 
 ---
 
-## CÂU HỎI CÒN BỎ NGỎ — ĐÃ CHỦ DỰ ÁN CHỐT (2026-09-23)
+## CÂU HỎI CÒN BỎ NGỎ
 
-Chủ dự án đã trả lời trực tiếp cả 6 câu chặn Task. Coder đọc "QUYẾT ĐỊNH" ở mỗi câu, làm đúng
-theo đó — không tự suy diễn lại từ phần mô tả câu hỏi phía trên.
+Không câu nào chặn Task 1-10. Mỗi câu có **MẶC ĐỊNH ĐANG ÁP DỤNG**. Coder làm đúng theo mặc định; nếu chủ dự án đổi ý, sửa ở đúng chỗ ghi trong câu hỏi.
 
-**Q1 — Logo. (CHẶN Task 2, Task 12)**
-Mock-up không dùng `logo.png`. Nó vẽ `.appicon`: ô bo superellipse (`--r-icon: 22.37%`), gradient navy `linear-gradient(160deg,#4e8ed0,#1d5a9e 46%,#0e2741)`, bên trong là glyph biểu đồ cột trắng (mock-up dòng 562–563). Logo Đại Dũng thật (`public/logo.png`) màu đỏ.
-→ **QUYẾT ĐỊNH: (b)** Giữ `logo.png` đỏ, đặt trên nền trắng bo góc `--r-icon`. KHÔNG dùng `.appicon` navy vẽ tay của mock-up. Áp dụng cho cả sidebar lẫn trang login.
+**Q1 — Đồng hồ đếm ngược đếm tới ngày nào? (Task 3)**
+Mock-up tự mâu thuẫn. Panel ghi "Còn lại đến ngày HT kế hoạch", JS đếm tới `TARGET="2027-02-28"` = ngày HT KH (dòng 637-639, 1241, 1343). Nhưng tooltip ô "Bàn giao cam kết" ở form (dòng 997-998) lại nói mốc bàn giao cam kết (15/03/2027) mới là "mốc dùng để tính … đồng hồ đếm ngược".
+→ **MẶC ĐỊNH (a):** đếm tới `plannedFinishDate`, nhãn đúng như mock-up vẽ. (b) = đếm tới `committedHandoverDate`: đổi prop `targetDate` ở page + 2 key `detail.cd.title`/`detail.cd.target`. Ghi chú: ở seed, dự án 1 có 2 ngày này trùng nhau (29/09/2026) nên demo không thấy khác biệt.
 
-**Q2 — Chỗ đặt công tắc giao diện sáng/tối. (CHẶN Task 2)**
-Mock-up: segmented control 2 nút `Sáng | Tối` nằm trên topbar (dòng 585). App hiện tại: 3 lựa chọn `Sáng / Tối / Hệ thống` nằm trong SettingsMenu (bánh răng ở chân sidebar).
-→ **QUYẾT ĐỊNH: (c)** Không thêm gì lên topbar. Giữ nguyên 3 lựa chọn `Sáng/Tối/Hệ thống` trong SettingsMenu như hiện tại — chỉ đổi giao diện kính cho menu đó, không đổi vị trí/số lượng lựa chọn.
+**Q2 — Tag "Trọng tâm" ở /overview và /report (Task 1)**
+Mock-up gắn 3 tag lên `%TT BQ / SPI danh mục / CPI danh mục` (dòng 595-597). Nhưng 6 thẻ KPI của /overview (`OverviewWidgets.tsx:58-65`) và /report (`report/page.tsx:49-54`) là bộ khác hẳn (Tổng dự án / Đang triển khai / Trễ tiến độ / Nguy cơ phạt / Đã phạt / Backlog), không có thẻ %TT/SPI/CPI nào để gắn tag. Muốn thêm thì phải có chỉ số danh mục mới, cần công thức mà chưa ai định nghĩa (bình quân gia quyền theo BAC hay trung bình cộng?).
+→ **MẶC ĐỊNH (a):** chỉ sửa /projects/[id]: 3 tag trên %TT/SPI/CPI, đổi thứ tự 6 thẻ thành `%KH, %TT, SPI, CPI, EAC, VAC` để 3 thẻ trọng tâm đứng liền nhau như mock-up (dòng 646-649). /overview và /report giữ nguyên 1 tag.
 
-**Q3 — Sidebar thu gọn + drawer mobile. (CHẶN Task 2)**
-Mock-up: sidebar cố định 236px, **không** có nút thu gọn, **không** có hamburger, **không** có drawer mobile. App hiện tại có cả ba (thu gọn còn 68px, hamburger ở header, drawer che màn hình dưới 1024px).
-→ **QUYẾT ĐỊNH: (a)** Giữ cả 3 tính năng (thu gọn, hamburger, drawer mobile) — mock-up không vẽ nên coder TỰ thiết kế trạng thái kính hợp lý cho chúng (dùng đúng token blur/elevation/motion đã có ở Task 1, nhất quán phong cách với phần mock-up có vẽ).
+**Q3 — Đặt trình sửa "Các mốc chính" ở đâu? (Task 8)**
+App KHÔNG có trang "Tạo / Sửa dự án" 6 bước như mock-up. Hiện tạo mới dùng `CreateProjectForm` (form gọn 9 ô), còn sửa nằm ở bước "Hồ sơ dự án" của `DataEntryForm`, cùng trang `/nhap-lieu`.
+→ **MẶC ĐỊNH (a):** làm 1 component `KeyMilestoneEditor` và đặt vào CẢ HAI chỗ. Nút "Sửa mốc" trên thẻ biểu đồ dẫn tới `/nhap-lieu?project=ID&step=profile#key-milestones`, chỉ hiện với admin và data-entry. (b) dựng trang 6 bước mới giống mock-up: việc lớn, gắn với mục G ở Q7.
 
-**Q4 — Motion engine. (CHẶN Task 3)**
-Mock-up có engine spring vật lý bằng rAF (dòng 1156–1230): `riseIn` (card trồi lên so le 35ms/card), `pressable` (nhấn co lại 0.972 rồi bật về), `hoverLift` (rê chuột nâng 3px). Đây là JS thuần, port sang React cần 1 hook + 1 wrapper component.
-→ **QUYẾT ĐỊNH: (a)** Port đủ engine spring sang React (`src/components/ui/motion.ts` + hook `useRise`/`usePressable`) — làm y hệt mock-up, không dùng bản CSS xấp xỉ.
+**Q4 — "Tracking 7 ngày gần nhất" tính lùi từ ngày nào? (Task 5)**
+→ **MẶC ĐỊNH (a):** tính 7 ngày liên tiếp, kết thúc ở ngày cuối CÓ số liệu (nhân lực hoặc thiết bị) trong cửa sổ `resourceWindow(month)`. Cách này khớp với 2 thẻ nguồn lực đang có (Q3 Run 1: "ảnh chụp ngày gần nhất có dữ liệu"). Chip "Hôm nay" chỉ hiện khi ngày đó đúng là hôm nay. (b) luôn lấy 7 ngày kết thúc ở hôm nay, ngày chưa nhập hiện "-". Với seed hiện tại và đồng hồ thật (23/09) thì (b) ra bảng trống, vì seed dừng ở 16/09.
 
-**Q5 — Widget HUD đo FPS. (CHẶN Task 9)**
-Mock-up có `.hud` góc phải dưới hiện `Render — fps · Spring 400/30 · Regular 22px` (dòng 1147–1148, CSS 426–434). Đây là dụng cụ trình diễn, không phải chức năng nghiệp vụ.
-→ **QUYẾT ĐỊNH: (a)** KHÔNG ship. Bỏ hẳn `.hud`, không đưa vào app thật dưới bất kỳ hình thức nào (kể cả chỉ hiện lúc dev).
+**Q5 — Cột "CHÊNH LỆCH" của "Timeline của 7 giai đoạn" (Task 9)**
+Mock-up tính `ngày BĐ KH → ngày TT HT (hoặc dự kiến)`, thực chất là THỜI LƯỢNG, và tô đỏ khi > 150 ngày (dòng 1455-1457). Nhưng Q1 Run 1 đã chốt "Ngày chênh lệch = TT kết thúc − KH hoàn thành" (`calcDayVariance`, ghi chú `schema.prisma:499-503`).
+→ **MẶC ĐỊNH (a):** hiện `dayVariance` theo Q1 Run 1. Chưa có ngày TT HT thì hiện "-". Giá trị > 0 hiện "+N ngày", tô đỏ; ≤ 0 giữ màu chữ thường.
 
-**Q6 — Hình nền mesh động `.wall`. (CHẶN Task 1)**
-Mock-up có 4 quả cầu màu `blur(90px)` bay chậm 26–35s vô hạn (CSS 144–156). Vật liệu kính **cần** nó để có cái mà làm mờ. Nhưng trang Tổng quan/Chi tiết dự án của app có 6–10 biểu đồ Recharts chạy cùng lúc, 4 layer blur 90px animate liên tục sẽ ăn GPU.
-→ **QUYẾT ĐỊNH: (b)** Giữ nguyên 3-4 quả cầu gradient màu làm nền (giữ đúng màu/vị trí/kích thước/blur của mock-up) nhưng **TẮT HẲN animation drift** — đứng yên, không `@keyframes`/không JS di chuyển. Áp dụng đồng nhất cho MỌI trang (không cần phân biệt trang nhiều/ít biểu đồ vì đã tắt hẳn, không còn gánh nặng GPU để cân nhắc riêng).
+**Q6 — Ngưỡng tô màu tỷ lệ huy động (Task 4, 5)**
+App chưa có ngưỡng nào cho việc này, mock-up tự đặt: từng dòng TT/KH < 85% đỏ, < 95% vàng, còn lại xanh (dòng 1600, 1828); dòng TỔNG và cả tuần < 90% cảnh báo (dòng 1616, 1922); "Ngày sử dụng" thiết bị ≥ 5/7 xanh, ≥ 3/7 vàng (dòng 1893).
+→ **MẶC ĐỊNH (a):** thêm đúng các số này vào `THRESHOLDS` (nguồn ngưỡng duy nhất).
 
-**Q7 — Tag vàng "Trọng tâm" gắn cho KPI nào. (KHÔNG chặn — chủ dự án CHƯA trả lời, ÁP DỤNG MẶC ĐỊNH (a) dưới đây. Có thể đổi ý bất kỳ lúc nào trước khi Task 4 kết thúc.)**
-Mock-up Tổng quan gắn tag "Trọng tâm" cho **3/6** KPI: `% Thực tế BQ`, `SPI danh mục`, `CPI danh mục` (dòng 595–597). App hiện chỉ gắn `hero` cho **1** thẻ: `Chậm tiến độ` (`kpi.behindSchedule`). Danh sách 6 KPI của app khác mock-up (Tổng dự án / Đang triển khai / Chậm tiến độ / Nguy cơ phạt / Đã bị phạt / Backlog).
-→ **MẶC ĐỊNH ĐANG ÁP DỤNG: (a)** giữ đúng hiện trạng (1 tag trên "Chậm tiến độ"). Lựa chọn (b) gắn tag cho 3 thẻ khác — nếu chủ dự án muốn đổi, cần nói rõ tên 3 thẻ.
+**Q7 — Kết quả rà soát form Tạo/Sửa (hạng mục 6) — CẦN CHỦ DỰ ÁN CHỌN**
+Đối chiếu mock-up dòng 866-1123 với `CreateProjectForm.tsx` + bước "Hồ sơ" và "Mã SAP & Ảnh" của `DataEntryForm.tsx`, ngoài "Các mốc chính" (đã có Task 6-8):
 
-**Q8 — Có thêm phần tử thuần-trình-bày mà mock-up vẽ nhưng app chưa có không? (KHÔNG chặn — chủ dự án CHƯA trả lời, ÁP DỤNG MẶC ĐỊNH (a) dưới đây. Có thể đổi ý bất kỳ lúc nào trước khi Task 10 kết thúc.)**
-Mock-up trang Chi tiết dự án có: `.cdpanel` đồng hồ đếm ngược tới ngày HT kế hoạch (dòng 636–640), `.tl` thanh timeline Kế hoạch vs Thực tế kèm vạch "Hôm nay" (661–674). Cả hai **không cần dữ liệu mới** — `plannedStartDate`/`plannedFinishDate`/`actualStartDate`/`committedHandoverDate` đã có trong DB và đã render dạng text ở `projects/[id]/page.tsx`.
-→ **MẶC ĐỊNH ĐANG ÁP DỤNG: (a)** không thêm, đúng phạm vi "chỉ đổi giao diện". Lựa chọn (b) thêm cả 2, hoặc (c) chỉ thêm timeline — nếu chủ dự án muốn đổi, nói rõ lựa chọn nào.
+| # | Mock-up (dòng) | App hiện tại | Loại việc |
+|---|---|---|---|
+| G-1 | 1 trang 6 bước, nút gạt Tạo mới/Cập nhật, dải "6 bước" (868-877, 2014-2035) | Form gọn + wizard tháng 4 bước | UI lớn |
+| G-2 | Mã gốc hiện ở dạng chỉ đọc, hint "Tự sinh khi lưu" (886-896) | Tạo mới không hiện; sửa chỉ hiện `currentAliasCode` | UI nhỏ |
+| G-3 | "Mã CT hiện hành *" sửa được, đổi mã sẽ tạo alias mới (897-906) | Chỉ đọc, không có luồng ghi alias | Luồng ghi + quy tắc |
+| G-4 | Tên: "tối đa 160 ký tự", viết thường (907-911) | Ép VIẾT HOA toàn bộ, không giới hạn độ dài | Quy tắc (mâu thuẫn) |
+| G-5 | "+ Thêm CĐT" → vào hàng chờ duyệt gộp (915-923) | Tạo thẳng customer | Luồng mới |
+| G-6 | Loại dự án quyết định bộ trọng số mặc định (930-934) | Mọi loại dùng chung `DEFAULT_STAGE_WEIGHTS` | Quy tắc chưa có số |
+| G-7 | Ô "Giá trị nguyên tệ" + quy đổi theo tỷ giá tháng ký (947-960) | `dim_project` KHÔNG có cột này | **Cần migration** |
+| G-8 | Khối lượng thép bắt buộc (961-968) | Không bắt buộc | Đổi hành vi validate |
+| G-9 | Nhãn ưu tiên "P0 — Trọng điểm…P3 — Nhỏ" + tooltip (969-976) | Chỉ "P0..P3" | UI nhỏ |
+| G-10 | Có bước "Mốc thời gian" ngay khi TẠO (980-1035) | Không có ô ngày nào (dù `createProjectAction` đã nhận các ngày) | UI vừa |
+| G-11 | Dấu * bắt buộc ở BĐ KH / HT KH / Bàn giao cam kết (985-1001) | * chỉ để trang trí, không validate (`PROGRESS.md` dòng 280-285) | Đổi hành vi validate |
+| G-12 | Thanh kiểm chuỗi ngày `#dateCheck` (1034, 1981-2000) | Không có | UI + validate |
+| G-13 | "Đã bị phạt?" là công tắc `.switch` (1021-1023) | Checkbox | UI nhỏ |
+| G-14 | Tooltip "?" cho 5 ô ngày/phạt (986-1031) | Không có; vài câu mô tả hành vi app chưa có | Cần duyệt nội dung |
+| G-15 | Bảng trọng số 7 giai đoạn + kiểm tổng 100% (1058-1064, 1940-1980) | Không có UI; repo không có hàm ghi `project_stage_weight` | Luồng ghi mới |
+| G-16 | Mã SAP dạng tagbox, có nút × xoá (1070-1079) | Thêm được, không xoá được | Luồng ghi mới |
+| G-17 | PIC/Backup (1080-1089) | Không có UI/action; ảnh hưởng thẳng tới authz | Luồng ghi + bảo mật |
+| G-18 | Nhà thầu tham gia (1092-1103) | Không có UI, không có hàm ghi `project_contractor` | Luồng ghi mới |
+| G-19 | Thanh dính "Tạo / Lưu nháp / Hủy" + "n/24 trường" (1107-1113) | Lưu/Hủy, không đếm | UI nhỏ |
+| G-20 | Thẻ "dấu vết thay đổi" của chính dự án (1116-1121) | Chỉ có trang /audit (admin) | UI + query |
+
+→ **MẶC ĐỊNH:** KHÔNG làm mục nào trong Đợt 2. Lý do: nhiều mục cần migration, luồng ghi mới, hoặc quy tắc nghiệp vụ chưa ai định nghĩa. Riêng tooltip của mock-up: nhiều câu mô tả hành vi app chưa có, chép sang sẽ khiến UI nói sai. Chủ dự án chọn mục nào thì planner viết thêm Task cho mục đó.
+
+**Q8 — (Thông tin) Chỗ khác ở Chi tiết dự án còn lệch mock-up, KHÔNG nằm trong 6 hạng mục nên không có Task:**
+D-1 dải "Tầng 1-4" (`.sect`, dòng 644/654/722/759) · D-2 chip "Khâu nghẽn" nằm trong dòng tên dự án (630) · D-3 dòng phụ dưới KPI ("205/364 ngày", "▼ Chậm 2,8%"…, 646-649) · D-4 mock-up gộp Nhân lực/Thiết bị vào hàng 6 KPI, bấm vào thì cuộn tới thẻ (650-651, 2316) · D-5 Chuỗi giá trị: cột trọng số `.w` đang in "-" (`page.tsx:200`), dòng chân "Σ trọng số…" (705-706), bấm giai đoạn để chọn liên thông, tooltip giai đoạn (1366-1371) — plan này chỉ cho CHỌN giai đoạn bằng cách bấm hàng trong "Timeline của 7 giai đoạn" · D-6 thẻ Chuỗi giá trị full-width, không ghép với EVM · D-7 What-if ghép cặp với Lịch sử mã (731-757).
 
 ---
 
 ## Global Constraints
 
-Áp cho **mọi** Task. Coder đọc lại mục này trước mỗi Task.
+Áp dụng cho MỌI Task. Coder đọc lại mục này trước mỗi Task.
 
-1. **Không đụng nghiệp vụ.** Không sửa: `src/server/**`, `src/lib/**` (trừ khi Task ghi rõ), `prisma/**`, `src/data/**`, bất kỳ server action / query / repo nào. Không đổi props nghiệp vụ, không đổi luồng dữ liệu, không thêm/bớt field hiển thị. Chỉ đổi `className`, CSS, và giá trị màu truyền vào Recharts.
-2. **Accent là navy `#1d5a9e`.** Đỏ `#B91C1C` bị loại hoàn toàn. Vàng `#f5b301` **được giữ** làm màu nhấn (`--gold`). Đây là chủ ý của chủ dự án — **không** "sửa lại cho đúng thương hiệu đỏ".
-3. **Nguồn màu duy nhất là CSS variable.** Trong `.tsx` cấm hardcode hex. Cấm dùng `dark:` variant của Tailwind (token tự đổi theo theme). Cấm dùng họ màu Tailwind cũ (`slate-*`, `navy-*`, `red-*`, `amber-*`, `emerald-*`, `blue-*`, `accent*`, `gold-soft`, `canvas`, `offwhite`).
-4. **Không dùng opacity modifier lên màu token.** `text-label/60` sẽ hỏng vì token là chuỗi `rgba()` thô, không có `<alpha-value>`. Cần mờ hơn thì dùng token có sẵn (`--label2`, `--label3`, `--label4`).
-5. **Copy CSS từ spec, đừng gõ lại.** Mọi khối CSS trong plan đều có số dòng trong `mockup-apple-glass.html`. Mở file, copy đúng đoạn đó.
-6. **Cổng kiểm tra cuối mỗi Task** (cả 4 phải xanh):
-   - `npx tsc --noEmit`
-   - `npm test`
-   - `npx next lint` (nếu có cấu hình; không có thì bỏ)
-   - Mở `npm run dev` → kiểm mắt các URL mà Task ghi, ở **cả** `data-theme=light` **và** `data-theme=dark`.
-   `npm run build` chạy được thì chạy; nếu thiếu `DATABASE_URL` thì bỏ qua, không phải lỗi của Task.
-7. **Commit từng Task một**, message tiếng Việt không dấu, prefix `style(glass):`.
-8. **i18n:** thêm key mới là phải thêm vào **cả** `src/i18n/messages/vi.json` **và** `src/i18n/messages/en.json`, nếu không `src/i18n/messages.test.ts` sẽ đỏ.
-9. **Test hiện có phải giữ xanh.** `src/server/operation-pages-render.test.ts`, `compliance-page.test.ts`, `projects-detail-page-month-guard.test.ts` render thật các page — đổi markup sai cú pháp sẽ làm chúng đỏ. Đó là tính năng, không phải phiền toái.
+1. **Không migration, không đụng `prisma/schema.prisma`.** Mọi dữ liệu đều đã có: `FactStageMilestone`, `ProjectKeyMilestone`, `ProjectContractor`, `FactDailyManpower`, `FactDailyEquipmentUsage`, `ProjectWorkItem`, `FactStageWorkItem`.
+2. **Truy cập dữ liệu:** code app import `repo` từ `@/server/repo` (barrel), không bao giờ import thẳng `prisma-repo`/`mock-repo`. Thêm hàm repo thì phải thêm ở CẢ `prisma-repo.ts` (async) LẪN `mock-repo.ts` (sync), cùng chữ ký (mẫu: cặp `getKeyMilestones`).
+3. **"Hôm nay"** lấy từ `todayIso()` trong `src/lib/clock.ts`, không `new Date()` trong logic. Ngoại lệ duy nhất là nhịp giây của đồng hồ đếm ngược (Task 3): dùng `Date.now()` + `clockOffsetMs()`.
+4. **Authz:** page chi tiết đã gọi `requireProjectRead(user, id)` (`page.tsx:56`) trước mọi lần đọc nên dữ liệu mới đọc trong page không cần check thêm. Action ghi mới dùng `requireProject()` (`src/server/actions.ts:27`), giống `saveMonthlyData`.
+5. **Style** (test `src/ui/legacy-style-guard.test.ts` sẽ đỏ nếu vi phạm): trong `.tsx` cấm hex (`#fff`, `#abc`…, kể cả id SVG trông giống hex như `#cdD`); màu trắng trong SVG viết `fill="white"`. Cấm `dark:`, cấm palette Tailwind cũ. Màu luôn là `var(--token)`.
+6. **Màu SVG tự vẽ:** đặt qua `style={{ fill: 'var(--x)' }}` / `style={{ stroke: 'var(--x)' }}` / `style={{ stopColor: 'var(--x)' }}`, KHÔNG đặt qua attribute `fill="var(--x)"` (var() không chạy trong presentation attribute). Riêng Recharts: lấy màu qua `useChartTokens()` như `src/components/dashboard/charts.tsx`.
+7. **CSS mới:** copy nguyên văn từ mock-up theo số dòng ghi trong Task, dán vào `app/globals.css` BÊN TRONG `@layer components`, ngay trước dấu `}` đóng khối (hiện ở dòng 529). Mở đầu mỗi khối bằng comment `/* --- Dot 2 · Task N: … (mockup-apple-glass.html dong a-b) --- */`.
+8. **Client component trên trang Chi tiết** (có hook hoặc `useTranslations`) phải nạp bằng `next/dynamic(() => import(...).then((m) => m.X), { ssr: false, loading: () => <div className="sk h-60" /> })`, đúng mẫu `page.tsx:18-23`. Lý do: `src/server/projects-detail-page-month-guard.test.ts` render trang bằng `renderToStaticMarkup`, không có NextIntlClientProvider. Component không hook (không `'use client'`) thì nhận chuỗi đã dịch qua props, như `KpiCard.heroTagLabel`.
+9. **i18n:** key mới phải thêm vào CẢ `src/i18n/messages/vi.json` LẪN `en.json`, cùng vị trí (nếu thiếu, `src/i18n/messages.test.ts` sẽ đỏ). KHÔNG dùng em-dash "—" trong chuỗi UI (repo đã thay hết bằng "-"). Mỗi file mới có lời gọi `t('…')` với key literal phải thêm vào `CHANGED_SOURCES` trong `src/i18n/messages.test.ts` (dòng 37-44). Chỉ thêm file thật sự có key literal, vì test đòi mỗi file trích được ≥ 1 key.
+10. **Test:** Vitest chỉ chạy `src/**/*.test.ts` (không `.tsx`), môi trường `node` (không DOM), `DDC_FAKE_TODAY=2026-09-16` (`vitest.config.ts`). Test component dùng `React.createElement` + shim `(globalThis as …).React = React`; mock `next-intl` theo mẫu `src/components/admin/ActivityViewer.test.ts:26-29`. Test action mock `next/cache` + `@/server/repo` → mock-repo + `@/lib/session`, theo mẫu `src/server/actions-valuechain.test.ts:12-17`. Test prisma-repo mock `@/server/db`, theo mẫu `src/server/repo/prisma-repo-reset.test.ts:16-43`.
+11. **Không bịa số:** thiếu dữ liệu thì hiện "-" hoặc trạng thái trống, không bao giờ hiện 0 như số thật. Chia cho 0 thì trả `null`.
+12. **Khoảng trắng JSX:** chữ nằm cạnh phần tử trong ô không phải flex phải có `{' '}` tường minh (bài học `ActivityViewer.tsx`, `PROGRESS.md` dòng 110-112).
+13. **Không đụng:** `/overview`, `/report` (Q2), màu tag vàng/trắng, lỗi avatar topbar (`PROGRESS.md` mục 4-5).
+14. **Cổng cuối mỗi Task:** `npx tsc --noEmit` = 0 lỗi, `npm test` xanh toàn bộ (mốc trước Đợt 2: 548/548, không được tụt), kiểm mắt `npm run dev` ở `/vi/projects/1` (và `/vi/nhap-lieu` ở Task 8) ở cả giao diện sáng lẫn tối. Task 10 chạy thêm `npm run build`.
+15. **Commit** mỗi Task 1 lần, prefix `feat(parity):`, tiếng Việt KHÔNG dấu. Cuối Task ghi vào `.bangiao/thay-doi.md` như quy ước dây chuyền.
 
 ---
 
 ## File Structure
 
 **Tạo mới**
-| File | Trách nhiệm |
-|---|---|
-| `app/tokens.css` | Chỉ chứa custom property. 3 khối: `:root` (sáng), `@media (prefers-color-scheme: dark) :root:not([data-theme="light"])`, `:root[data-theme="dark"]`. Không có selector nào khác. |
-| `src/ui/design-tokens.test.ts` | Parse `app/tokens.css`, khẳng định đủ và đúng từng token. |
-| `src/ui/legacy-style-guard.test.ts` | Quét `app/**/*.tsx` + `src/components/**/*.tsx` tìm dấu vết hệ cũ. Có danh sách `PENDING` co dần theo từng Task. |
-| `src/components/dashboard/useChartTokens.ts` | Hook client đọc màu series từ CSS variable lúc chạy (Recharts không hiểu `var()` trong attribute SVG). |
+| File | Trách nhiệm | Task |
+|---|---|---|
+| `src/lib/timeline.ts` (+test) | Hình học thanh KH/TT, vạch hôm nay, trễ khởi công | 2 |
+| `src/components/ui/Legend.tsx` (+test) | Chú thích `.legend` + biến thể hình dạng | 2 |
+| `src/components/project/PlanActualTimeline.tsx` | Khối `.tl` (server-safe) | 2 |
+| `src/lib/countdown.ts` (+test) | Tính ngày/giờ/phút/giây, độ lệch đồng hồ app | 3 |
+| `src/components/project/CountdownPanel.tsx` | `.cdpanel` chạy từng giây | 3 |
+| `src/lib/resources.ts` (+test) | Kiểu `ResourceRow`, tỷ lệ + màu huy động | 4, 5 |
+| `src/components/project/ChartTip.tsx` | Tooltip kính `.tip` (portal) | 4 |
+| `src/components/project/ResourceBreakdownChart.tsx` (+test) | "Nhân lực theo nhà thầu" / "Thiết bị theo nhóm" | 4 |
+| `src/components/ui/Card.test.ts` | Test `CardHeader.titleExtra` | 4 |
+| `src/lib/tracking.ts` (+test) | Kiểu `WeeklyTracking` + dựng 3 view + thanh tổng kết | 5 |
+| `src/components/ui/HelpTip.tsx` (+test) | Nút `?` + bong bóng `.help .bub` | 5 |
+| `src/components/project/WeeklyTrackingCard.tsx` (+test) | Thẻ Tracking 3 tab | 5 |
+| `src/lib/time-axis.ts` (+test) | Vạch đầu tháng + nhãn MM/YY | 6 |
+| `src/lib/key-milestones.ts` (+test) | Trạng thái mốc, xếp nhãn, miền trục; validate + helper editor | 6, 7, 8 |
+| `src/components/project/keyMsText.ts` | Chuỗi trạng thái mốc (dùng chung chart + editor) | 6 |
+| `src/components/project/KeyMilestoneChart.tsx` (+test) | Biểu đồ `kmChart` | 6 |
+| `src/server/repo/key-milestones.test.ts` | Test `replaceKeyMilestones` (mock) | 7 |
+| `src/server/repo/prisma-repo-key-milestones.test.ts` | Test `replaceKeyMilestones` (prisma, db mock) | 7 |
+| `src/server/actions-key-milestones.test.ts` | Test action ghi mốc | 7 |
+| `src/components/form/KeyMilestoneEditor.tsx` (+test) | Bảng thêm/xoá/sửa mốc | 8 |
+| `src/lib/stage-timeline.ts` (+test) | Hàng timeline 7 giai đoạn, miền trục, marker; kiểu so sánh hạng mục | 9, 10 |
+| `src/components/project/stageText.ts` | Chuỗi/màu "Chênh lệch" | 9 |
+| `src/components/project/StageTimelineChart.tsx` | SVG `msChart` | 9 |
+| `src/components/project/StageExplorer.tsx` (+test) | 2 thẻ dùng chung giai đoạn đang chọn | 9, 10 |
+| `src/components/project/WorkItemCompareChart.tsx` | Recharts `cmpChart` | 10 |
+| `src/server/projects-detail-page-render.test.ts` | Render thật trang chi tiết | 1, 2, 6 |
 
-**Sửa** — `app/globals.css`, `tailwind.config.ts`, `app/[locale]/layout.tsx`, và 42 file `.tsx` có `className` (liệt kê đủ trong `PENDING` ở Task 1).
-
-**Vì sao toàn bộ component-class nằm trong một `app/globals.css`:** `@layer components` chỉ được Tailwind xử lý trong chính file có `@tailwind` directive. Tách ra file khác rồi `@import` sẽ để lại `@layer` thô (postcss-import **không** có trong `postcss.config.js`). Token thì tách được vì custom property không phụ thuộc thứ tự cascade.
-
----
-
-### Task 1: Lớp token + cơ chế theme + 2 test canh
-
-**Files:**
-- Create: `app/tokens.css`
-- Create: `src/ui/design-tokens.test.ts`
-- Create: `src/ui/legacy-style-guard.test.ts`
-- Modify: `tailwind.config.ts`
-- Modify: `app/globals.css` (thêm `@layer base` + `.wall`; **giữ nguyên** khối `.dark .xxx{}` cũ từ dòng 21–196)
-- Modify: `app/[locale]/layout.tsx`
-- Modify: `src/components/layout/SettingsMenu.tsx` (chỉ hàm `applyTheme`, dòng 27–32)
-
-**Interfaces:**
-- Produces: `app/tokens.css` — toàn bộ token; mọi Task sau dùng qua `var(--x)`.
-- Produces: `PENDING: string[]` trong `src/ui/legacy-style-guard.test.ts` — mỗi Task sau xoá phần của mình khỏi mảng này.
-- Produces: `applyTheme(theme: 'light' | 'dark' | 'system'): void` — đặt/xoá `data-theme` trên `<html>`, đồng thời bắn `window.dispatchEvent(new Event('ddc:theme'))`.
-- **Chặn bởi Q6** (animation `.wall`).
-
-- [ ] **Bước 1: Viết `app/tokens.css`**
-
-Mở `mockup-apple-glass.html`, copy **nguyên văn dòng 16 → 128** (từ `:root{` tới `}` đóng khối `:root[data-theme="dark"]`) vào `app/tokens.css`. Không sửa một ký tự nào. Thêm header:
-
-```css
-/* ============================================================
-   DDC · Apple Glass — Design Token
-   Nguon: mockup-apple-glass.html dong 16-128. Copy nguyen van.
-   Sua token o day, KHONG sua rai rac trong component.
-   ============================================================ */
-```
-
-- [ ] **Bước 2: Viết test token — phải ĐỎ trước khi có gì cả**
-
-Tạo `src/ui/design-tokens.test.ts`:
-
-```ts
-import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
-/**
- * Token la hop dong giua CSS va moi component. Sai 1 gia tri la lech ca he.
- * Test nay doc thang app/tokens.css va doi chieu voi bang chep tu
- * mockup-apple-glass.html (dong 16-128).
- */
-const CSS = readFileSync(join(process.cwd(), 'app/tokens.css'), 'utf-8');
-
-/** Tach 1 khoi selector ra khoi file (khong xu ly nested nhieu tang). */
-function block(startMarker: string): string {
-  const i = CSS.indexOf(startMarker);
-  expect(i, `khong tim thay khoi "${startMarker}"`).toBeGreaterThan(-1);
-  return CSS.slice(i, CSS.indexOf('\n}', i));
-}
-
-function tokensOf(src: string): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const m of src.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/gi)) out[m[1]] = m[2].trim();
-  return out;
-}
-
-const LIGHT: Record<string, string> = {
-  '--mat-ultrathin': '8px', '--mat-thin': '14px', '--mat-regular': '22px',
-  '--mat-thick': '34px', '--mat-chrome': '44px', '--mat-sat': '180%',
-  '--r-xs': '8px', '--r-sm': '12px', '--r-md': '16px', '--r-lg': '20px',
-  '--r-xl': '26px', '--r-2xl': '32px', '--r-full': '999px', '--r-icon': '22.37%',
-  '--t-caption2': '11px', '--t-caption1': '12px', '--t-footnote': '13px',
-  '--t-subhead': '15px', '--t-callout': '16px', '--t-body': '17px',
-  '--t-title3': '20px', '--t-title2': '22px', '--t-title1': '28px', '--t-large': '34px',
-  '--lh-tight': '1.12', '--lh-snug': '1.3', '--lh-body': '1.47',
-  '--tr-large': '-0.026em', '--tr-title': '-0.02em', '--tr-body': '-0.006em',
-  '--e0': 'none',
-  '--e1': '0 .5px 1px rgba(10,31,61,.05), 0 1px 3px rgba(10,31,61,.05)',
-  '--e2': '0 1px 2px rgba(10,31,61,.05), 0 6px 16px rgba(10,31,61,.07)',
-  '--e3': '0 4px 10px rgba(10,31,61,.06), 0 16px 38px rgba(10,31,61,.10)',
-  '--e4': '0 10px 24px rgba(10,31,61,.10), 0 30px 68px rgba(10,31,61,.16)',
-  '--inner-hi': 'inset 0 .5px 0 rgba(255,255,255,.75)',
-  '--ease-ios': 'cubic-bezier(.32,.72,0,1)',
-  '--ease-out': 'cubic-bezier(.22,1,.36,1)',
-  '--ease-std': 'cubic-bezier(.4,0,.2,1)',
-  '--dur-fast': '.18s', '--dur-base': '.32s', '--dur-slow': '.52s',
-  '--label': '#0a1f3d', '--label2': 'rgba(10,31,61,.62)',
-  '--label3': 'rgba(10,31,61,.42)', '--label4': 'rgba(10,31,61,.24)',
-  '--sep': 'rgba(10,31,61,.10)', '--sep-2': 'rgba(10,31,61,.16)',
-  '--bg-base': '#e9eef6',
-  '--glass': 'rgba(255,255,255,.60)', '--glass-2': 'rgba(255,255,255,.42)',
-  '--glass-3': 'rgba(255,255,255,.80)', '--glass-stroke': 'rgba(255,255,255,.72)',
-  '--fill': 'rgba(10,31,61,.05)', '--fill-2': 'rgba(10,31,61,.08)',
-  '--accent': '#1d5a9e', '--accent-2': '#2a6db4', '--accent-deep': '#0e2741',
-  '--accent-tint': 'rgba(29,90,158,.12)',
-  '--gold': '#f5b301',
-  '--s-plan': '#93b8e0', '--s-actual': '#1d5a9e', '--s-cost': '#a86a12',
-  '--s-third': '#0f8a63', '--s-third-lt': '#6fbf9b', '--s-neutral': '#c3cddb',
-  '--grid': 'rgba(10,31,61,.08)', '--axis': 'rgba(10,31,61,.42)',
-  '--ok': '#248a3d', '--ok-fill': 'rgba(52,199,89,.16)',
-  '--warn': '#b25000', '--warn-fill': 'rgba(255,149,0,.16)',
-  '--danger': '#c30d0d', '--danger-fill': 'rgba(255,59,48,.14)',
-  '--info': '#1d5a9e', '--info-fill': 'rgba(29,90,158,.12)',
-};
-
-const DARK: Record<string, string> = {
-  '--label': '#f2f5f9', '--label2': 'rgba(235,242,250,.62)',
-  '--label3': 'rgba(235,242,250,.40)', '--label4': 'rgba(235,242,250,.22)',
-  '--sep': 'rgba(255,255,255,.10)', '--sep-2': 'rgba(255,255,255,.16)',
-  '--bg-base': '#0a1020',
-  '--glass': 'rgba(28,38,58,.58)', '--glass-2': 'rgba(28,38,58,.40)',
-  '--glass-3': 'rgba(30,41,62,.82)', '--glass-stroke': 'rgba(255,255,255,.10)',
-  '--fill': 'rgba(255,255,255,.06)', '--fill-2': 'rgba(255,255,255,.10)',
-  '--inner-hi': 'inset 0 .5px 0 rgba(255,255,255,.14)',
-  '--accent': '#4e8ed0', '--accent-2': '#6ba6e0', '--accent-deep': '#123a66',
-  '--accent-tint': 'rgba(78,142,208,.18)',
-  '--s-plan': '#2f6197', '--s-actual': '#7ab0ea', '--s-cost': '#c07d1a',
-  '--s-third': '#12996b', '--s-third-lt': '#0d6349', '--s-neutral': '#33456b',
-  '--grid': 'rgba(255,255,255,.08)', '--axis': 'rgba(235,242,250,.40)',
-  '--ok': '#30d158', '--ok-fill': 'rgba(48,209,88,.16)',
-  '--warn': '#ff9f0a', '--warn-fill': 'rgba(255,159,10,.16)',
-  '--danger': '#ff6961', '--danger-fill': 'rgba(255,69,58,.16)',
-  '--info': '#7ab0ea', '--info-fill': 'rgba(122,176,234,.16)',
-  '--e1': '0 .5px 1px rgba(0,0,0,.30), 0 1px 3px rgba(0,0,0,.24)',
-  '--e2': '0 1px 2px rgba(0,0,0,.30), 0 6px 16px rgba(0,0,0,.34)',
-  '--e3': '0 4px 10px rgba(0,0,0,.34), 0 16px 38px rgba(0,0,0,.42)',
-  '--e4': '0 10px 24px rgba(0,0,0,.42), 0 30px 68px rgba(0,0,0,.52)',
-};
-
-describe('design token: khoi sang', () => {
-  const got = tokensOf(block(':root{'));
-  for (const [k, v] of Object.entries(LIGHT)) {
-    it(`${k} = ${v}`, () => expect(got[k]).toBe(v));
-  }
-  it('color-scheme: light', () => expect(block(':root{')).toContain('color-scheme: light'));
-});
-
-describe('design token: override [data-theme="dark"]', () => {
-  const got = tokensOf(block(':root[data-theme="dark"]{'));
-  for (const [k, v] of Object.entries(DARK)) {
-    it(`${k} = ${v}`, () => expect(got[k]).toBe(v));
-  }
-  it('khong doi --gold trong dark', () => expect(got['--gold']).toBeUndefined());
-});
-
-describe('design token: override theo prefers-color-scheme', () => {
-  it('co khoi media dark loai tru data-theme=light', () => {
-    expect(CSS).toContain('@media (prefers-color-scheme: dark)');
-    expect(CSS).toContain(':root:not([data-theme="light"])');
-  });
-  it('khoi media dark co cung bo token voi khoi data-theme=dark', () => {
-    const media = tokensOf(block('@media (prefers-color-scheme: dark)'));
-    for (const [k, v] of Object.entries(DARK)) expect(media[k], k).toBe(v);
-  });
-});
-```
-
-- [ ] **Bước 3: Chạy test token, xác nhận ĐỎ rồi XANH**
-
-`npx vitest run src/ui/design-tokens.test.ts`
-Nếu chưa tạo `app/tokens.css` ở bước 1 → FAIL `ENOENT`. Tạo xong chạy lại → PASS toàn bộ. Sai một giá trị nào thì đọc lại đúng dòng trong mock-up, đừng sửa test.
-
-- [ ] **Bước 4: Viết test canh style cũ — bắt đầu với PENDING đầy đủ 42 file**
-
-Tạo `src/ui/legacy-style-guard.test.ts`:
-
-```ts
-import { describe, expect, it } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
-
-/**
- * Chan viec sot file khi doi he thiet ke. Moi Task xoa phan cua minh khoi PENDING
- * TRUOC khi sua code -> test do -> sua xong -> test xanh. Task cuoi cung PENDING = [].
- */
-const ROOT = process.cwd();
-
-/** File duoc phep chua hex tho vi ly do chinh dang (logo hang thu ba...). */
-const HEX_ALLOW = new Set<string>([
-  'src/components/layout/LoginForm.tsx', // mau thuong hieu Google trong icon dang nhap
-]);
-
-/** Con no: file chua doi sang he Apple Glass. Xoa dan theo tung Task. */
-const PENDING: string[] = [
-  // Task 2 - shell
-  'src/components/layout/AppShell.tsx',
-  'src/components/layout/SettingsMenu.tsx',
-  'src/components/layout/TopProgressBar.tsx',
-  'src/components/layout/SyncProgressBar.tsx',
-  'app/[locale]/layout.tsx',
-  // Task 3 - surface
-  'src/components/ui/Card.tsx',
-  'src/components/ui/Badge.tsx',
-  'src/components/ui/Badges.tsx',
-  'src/components/ui/Skeleton.tsx',
-  // Task 4 - kpi
-  'src/components/dashboard/KpiCard.tsx',
-  // Task 5 - bang
-  'src/components/dashboard/ProjectTable.tsx',
-  'src/components/dashboard/Watchlist.tsx',
-  'src/components/alerts/AlertList.tsx',
-  // Task 6 - form nho
-  'src/components/dashboard/FilterBar.tsx',
-  'src/components/form/Combobox.tsx',
-  'src/components/form/CreateProjectForm.tsx',
-  'src/components/project/ProjectSwitcher.tsx',
-  'src/components/project/WhatIf.tsx',
-  'src/components/ui/PasswordInput.tsx',
-  'src/components/layout/ChangePasswordModal.tsx',
-  // Task 7 - wizard nhap lieu
-  'src/components/form/DataEntryForm.tsx',
-  'src/components/form/ImportPanel.tsx',
-  // Task 8 - admin editor
-  'src/components/admin/UserEditor.tsx',
-  'src/components/admin/FieldEditor.tsx',
-  'src/components/admin/ActivityViewer.tsx',
-  'src/components/admin/DeleteProject.tsx',
-  'src/components/admin/ResetDataButton.tsx',
-  // Task 9 - chart
-  'src/components/dashboard/charts.tsx',
-  'src/components/dashboard/DrillCharts.tsx',
-  'src/components/dashboard/ChartLabels.tsx',
-  'src/components/project/ManpowerDailyChart.tsx',
-  // Task 10 - 2 dashboard chinh
-  'app/[locale]/(app)/overview/page.tsx',
-  'app/[locale]/(app)/projects/[id]/page.tsx',
-  'src/components/dashboard/OverviewWidgets.tsx',
-  // Task 11 - cac trang con lai
-  'app/[locale]/(app)/report/page.tsx',
-  'app/[locale]/(app)/alerts/page.tsx',
-  'app/[locale]/(app)/compliance/page.tsx',
-  'app/[locale]/(app)/audit/page.tsx',
-  'app/[locale]/(app)/admin/page.tsx',
-  'app/[locale]/(app)/nhap-lieu/page.tsx',
-  'app/[locale]/(app)/import/page.tsx',
-  'app/[locale]/(app)/data-dictionary/page.tsx',
-  'app/[locale]/(app)/data-schema/page.tsx',
-  'app/[locale]/not-found.tsx',
-  // Task 12 - dang nhap
-  'app/[locale]/login/page.tsx',
-  'src/components/layout/LoginForm.tsx',
-];
-
-const BANNED: { re: RegExp; why: string }[] = [
-  {
-    re: /(?:^|[\s"'`:[])(?:[a-z-]+:)*(?:text|bg|border|ring|divide|from|via|to|fill|stroke|placeholder|outline|decoration|accent|shadow|rounded)-(?:slate|navy|red|amber|emerald|blue|accent|gold-soft|canvas|offwhite|card)(?:-(?:soft|hover|\d{1,3}))?(?:\/\d{1,3})?\b/,
-    why: 'palette Tailwind cu - dung token --label/--fill/--accent...',
-  },
-  { re: /\bbg-white(?:\/\d{1,3})?\b/, why: 'bg-white - dung --glass/--glass-3 qua class .card/.mat' },
-  { re: /\bdark:/, why: 'bien the dark: - token tu doi theo theme, khong can dark:' },
-  { re: /\btable-zebra\b/, why: 'zebra cu - mock-up chi co hover, khong soc mau' },
-  { re: /#B91C1C/i, why: 'do cu #B91C1C' },
-];
-
-const HEX = /#[0-9a-fA-F]{3,8}\b/;
-
-function walk(dir: string, out: string[] = []): string[] {
-  for (const name of readdirSync(dir)) {
-    const p = join(dir, name);
-    if (statSync(p).isDirectory()) walk(p, out);
-    else if (p.endsWith('.tsx')) out.push(relative(ROOT, p).split(sep).join('/'));
-  }
-  return out;
-}
-
-const FILES = [...walk(join(ROOT, 'app')), ...walk(join(ROOT, 'src/components'))]
-  .filter((f) => f !== 'src/components/icons/index.tsx'); // chi dung currentColor
-
-describe('canh style cu', () => {
-  it('PENDING khong liet ke file khong ton tai', () => {
-    expect(PENDING.filter((f) => !FILES.includes(f))).toEqual([]);
-  });
-
-  for (const file of FILES) {
-    const done = !PENDING.includes(file);
-    it(`${file} ${done ? '(da doi)' : '(con no - bo qua)'}`, () => {
-      if (!done) return;
-      const src = readFileSync(join(ROOT, file), 'utf-8');
-      for (const { re, why } of BANNED) {
-        const m = src.match(re);
-        expect(m, `${file}: con "${m?.[0]}" -> ${why}`).toBeNull();
-      }
-      if (!HEX_ALLOW.has(file)) {
-        const m = src.match(HEX);
-        expect(m, `${file}: con hex tho "${m?.[0]}" -> dua vao app/tokens.css`).toBeNull();
-      }
-    });
-  }
-});
-```
-
-- [ ] **Bước 5: Chạy test canh, xác nhận XANH (mọi file đang nằm trong PENDING nên đều bỏ qua)**
-
-`npx vitest run src/ui/legacy-style-guard.test.ts` → PASS. Nếu `PENDING khong liet ke file khong ton tai` đỏ thì sửa đường dẫn trong `PENDING` cho khớp thực tế (chú ý dấu `/` chứ không phải `\`).
-
-- [ ] **Bước 6: Nối token vào Tailwind**
-
-Thay toàn bộ `tailwind.config.ts`:
-
-```ts
-import type { Config } from 'tailwindcss';
-
-const config: Config = {
-  // Toi khi CA HAI dieu kien: co [data-theme="dark"], HOAC he dieu hanh toi ma
-  // khong bi [data-theme="light"] de len. Tailwind 3.4 cho phep mang format,
-  // moi format bat buoc chua '&'.
-  darkMode: [
-    'variant',
-    [
-      '&:is([data-theme="dark"] *)',
-      '@media (prefers-color-scheme: dark){&:not([data-theme="light"] *)}',
-    ],
-  ],
-  content: ['./app/**/*.{ts,tsx}', './src/**/*.{ts,tsx}'],
-  theme: {
-    extend: {
-      colors: {
-        // --- He Apple Glass (nguon: app/tokens.css) ---
-        // KHONG dung opacity modifier (text-label/60) - token la rgba tho.
-        label: 'var(--label)',
-        label2: 'var(--label2)',
-        label3: 'var(--label3)',
-        label4: 'var(--label4)',
-        sep: 'var(--sep)',
-        sep2: 'var(--sep-2)',
-        base: 'var(--bg-base)',
-        glass: 'var(--glass)',
-        glass2: 'var(--glass-2)',
-        glass3: 'var(--glass-3)',
-        'glass-stroke': 'var(--glass-stroke)',
-        fill: 'var(--fill)',
-        fill2: 'var(--fill-2)',
-        brand: 'var(--accent)',
-        'brand-2': 'var(--accent-2)',
-        'brand-deep': 'var(--accent-deep)',
-        'brand-tint': 'var(--accent-tint)',
-        gold: 'var(--gold)',
-        ok: 'var(--ok)',
-        'ok-fill': 'var(--ok-fill)',
-        warn: 'var(--warn)',
-        'warn-fill': 'var(--warn-fill)',
-        danger: 'var(--danger)',
-        'danger-fill': 'var(--danger-fill)',
-        info: 'var(--info)',
-        'info-fill': 'var(--info-fill)',
-
-        // --- Di san: XOA o Task 12, giu tam de trang chua doi khong mat mau ---
-        navy: {
-          50: '#eef2f7', 100: '#d9e2ee', 200: '#b3c4da', 300: '#8aa5c4',
-          400: '#4f729d', 500: '#204060', 600: '#12314f', 700: '#0e2741',
-          800: '#0a1f3d', 900: '#071832', 950: '#04101f',
-        },
-        accent: { DEFAULT: '#B91C1C', soft: '#FEE2E2' },
-        canvas: '#f5f7fa',
-        offwhite: '#e8e4d9',
-      },
-      borderRadius: {
-        xs: 'var(--r-xs)', sm: 'var(--r-sm)', md: 'var(--r-md)',
-        lg: 'var(--r-lg)', xl: 'var(--r-xl)', '2xl': 'var(--r-2xl)',
-        full: 'var(--r-full)', icon: 'var(--r-icon)',
-        card: '16px', // di san - xoa o Task 12
-      },
-      boxShadow: {
-        e0: 'var(--e0)', e1: 'var(--e1)', e2: 'var(--e2)',
-        e3: 'var(--e3)', e4: 'var(--e4)',
-        card: '0 1px 2px rgba(10,31,61,0.04), 0 4px 16px rgba(10,31,61,0.06)', // di san
-        'card-hover': '0 6px 20px rgba(10,31,61,0.12)', // di san
-      },
-      fontSize: {
-        caption2: 'var(--t-caption2)', caption1: 'var(--t-caption1)',
-        footnote: 'var(--t-footnote)', subhead: 'var(--t-subhead)',
-        callout: 'var(--t-callout)', body: 'var(--t-body)',
-        title3: 'var(--t-title3)', title2: 'var(--t-title2)',
-        title1: 'var(--t-title1)', large: 'var(--t-large)',
-      },
-      letterSpacing: {
-        large: 'var(--tr-large)', title: 'var(--tr-title)', body: 'var(--tr-body)',
-      },
-      transitionTimingFunction: {
-        ios: 'var(--ease-ios)', out: 'var(--ease-out)', std: 'var(--ease-std)',
-      },
-      transitionDuration: { fast: '180', base: '320', slow: '520' },
-      backdropBlur: {
-        ultrathin: 'var(--mat-ultrathin)', thin: 'var(--mat-thin)',
-        regular: 'var(--mat-regular)', thick: 'var(--mat-thick)',
-        chrome: 'var(--mat-chrome)',
-      },
-      fontFamily: {
-        sans: [
-          '-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'SF Pro Text',
-          'var(--font-inter)', 'system-ui', 'Segoe UI', 'sans-serif',
-        ],
-        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
-      },
-    },
-  },
-  plugins: [],
-};
-
-export default config;
-```
-
-- [ ] **Bước 7: Base layer + hình nền `.wall` trong `app/globals.css`**
-
-Chèn **ngay sau** 3 dòng `@tailwind` (dòng 1–3), **trước** khối `html, body {` cũ. Xoá luôn khối `html,body{...}` và `body{...}` cũ (dòng 5–19) vì khối mới thay thế. **Giữ nguyên** toàn bộ khối `.dark .xxx{}` (dòng 21–196) — Task 12 mới xoá.
-
-```css
-/* ============================================================
-   DDC · Apple Glass — nen tang
-   Token: app/tokens.css. CSS component: cuoi file nay.
-   ============================================================ */
-@layer base {
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; height: 100%; }
-  body {
-    font-size: var(--t-subhead);
-    line-height: var(--lh-body);
-    letter-spacing: var(--tr-body);
-    color: var(--label);
-    background: var(--bg-base);
-    background-image: none;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    font-feature-settings: 'cv11', 'ss01';
-    font-variant-numeric: tabular-nums;
-    overflow-x: hidden;
-  }
-  h1, h2, h3, h4, p { margin: 0; }
-  button, input, select, textarea { font: inherit; color: inherit; }
-}
-
-@layer components {
-  /* --- Hinh nen mesh: vat lieu kinh can co cai de lam mo --- */
-  /* Copy CSS tu mockup-apple-glass.html dong 145-156 vao day (.wall, .wall b,
-     4 rule nth-child, 3 @keyframes drift, 2 rule giam opacity o dark). */
-}
-
-/* --- Thanh cuon --- */
-* { scrollbar-width: thin; scrollbar-color: var(--sep-2) transparent; }
-*::-webkit-scrollbar { width: 8px; height: 8px; }
-*::-webkit-scrollbar-thumb { background: var(--sep-2); border-radius: 8px; }
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-```
-
-Xoá luôn khối `@layer components { .card ... .card-hover ... .label ... }` cũ (dòng 242–252) và khối `.table-zebra` (198–210), `@keyframes headerSlideIn` + `.header-title` (226–240), `@media prefers-reduced-motion` cũ (254–261) — chúng bị thay hoặc bỏ.
-
-> **Chặn Q6.** Có trả lời rồi mới điền `.wall`: (a) copy y nguyên 145–156; (b) copy 145–151 nhưng bỏ thuộc tính `animation`, bỏ 3 `@keyframes`; (c) copy y nguyên + thêm `body[data-noanim] .wall b{animation:none}` rồi Task 10 gắn `data-noanim` cho 3 trang có biểu đồ.
-
-- [ ] **Bước 8: Đổi cơ chế theme trong `app/[locale]/layout.tsx`**
-
-Thay dòng 7 `import '../globals.css';` thành 2 dòng:
-```tsx
-import '../tokens.css';
-import '../globals.css';
-```
-
-Thay nội dung `dangerouslySetInnerHTML` (dòng 30–34) bằng:
-```tsx
-<script
-  dangerouslySetInnerHTML={{
-    __html: `(function(){try{var t=localStorage.getItem('ddc-theme')||'system';var r=document.documentElement;if(t==='light'||t==='dark'){r.setAttribute('data-theme',t)}else{r.removeAttribute('data-theme')}if(t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches)){r.classList.add('dark')}}catch(e){}})();`,
-  }}
-/>
-```
-(Vẫn gắn `.dark` song song để các trang chưa đổi không mất dark-mode giữa chừng. Task 12 gỡ.)
-
-Thêm `<div className="wall" aria-hidden="true"><b/><b/><b/><b/></div>` làm phần tử **đầu tiên** trong `<body>`, trước `<NextIntlClientProvider>`.
-
-- [ ] **Bước 9: `applyTheme` trong `SettingsMenu.tsx`**
-
-Thay hàm `applyTheme` (dòng 27–32) bằng:
-```tsx
-function applyTheme(theme: Theme) {
-  const root = document.documentElement;
-  if (theme === 'light' || theme === 'dark') root.setAttribute('data-theme', theme);
-  else root.removeAttribute('data-theme');
-  const dark =
-    theme === 'dark' ||
-    (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  root.classList.toggle('dark', dark); // di san, Task 12 xoa
-  window.dispatchEvent(new Event('ddc:theme')); // chart doc lai mau token
-}
-```
-
-- [ ] **Bước 10: Chạy cổng kiểm tra + kiểm mắt**
-
-```
-npx tsc --noEmit
-npm test
-npm run dev
-```
-Mở `http://localhost:3000/vi/overview`. Kỳ vọng: nền chuyển sang `#e9eef6` có 4 vệt màu mờ; chữ vẫn đọc được; bấm bánh răng → Giao diện → Tối thì `<html>` có `data-theme="dark"` và nền thành `#0a1020`. Giao diện còn lộn xộn (sidebar vẫn đỏ) — **đúng như dự kiến**, Task 2 mới sửa.
-
-- [ ] **Bước 11: Commit**
-```bash
-git add app/tokens.css app/globals.css tailwind.config.ts "app/[locale]/layout.tsx" src/components/layout/SettingsMenu.tsx src/ui
-git commit -m "style(glass): Task 1 - lop token + co che data-theme + 2 test canh"
-```
+**Sửa:** `app/[locale]/(app)/projects/[id]/page.tsx` (1-6, 9, 10) · `app/globals.css` (2, 3, 5) · `src/lib/thresholds.ts` (4, 5) · `src/lib/format.ts` (+test, 5) · `src/components/ui/Card.tsx` (4) · `src/components/ui/motion.ts` (4) · `src/server/project-queries.ts` (+test, 4, 5, 10) · `src/server/repo/types.ts`, `prisma-repo.ts`, `mock-repo.ts`, `src/server/validation.ts` (+test), `src/server/actions.ts` (7) · `src/components/form/CreateProjectForm.tsx`, `DataEntryForm.tsx`, `app/[locale]/(app)/nhap-lieu/page.tsx` (8) · `src/i18n/messages/vi.json`, `en.json`, `src/i18n/messages.test.ts` (2-10).
 
 ---
 
-### Task 2: Vỏ ứng dụng — sidebar + topbar + 2 thanh tiến trình
+### Task 1: 3 thẻ "Trọng tâm" ở Chi tiết dự án + đổi thứ tự KPI
 
 **Files:**
-- Modify: `app/globals.css` (thêm khối CSS shell vào `@layer components`)
-- Modify: `src/components/layout/AppShell.tsx`
-- Modify: `src/components/layout/SettingsMenu.tsx`
-- Modify: `src/components/layout/TopProgressBar.tsx:32-37`
-- Modify: `src/components/layout/SyncProgressBar.tsx:25-28`
-- Modify: `src/ui/legacy-style-guard.test.ts` (xoá 5 dòng nhóm "Task 2 - shell" khỏi `PENDING`)
-- Có thể thêm key: `src/i18n/messages/vi.json`, `src/i18n/messages/en.json`
+- Modify: `app/[locale]/(app)/projects/[id]/page.tsx:132-140`
+- Create: `src/server/projects-detail-page-render.test.ts`
 
-**Interfaces:**
-- Consumes: token từ Task 1.
-- Produces: các class `.app .side .brand .appicon .sgrp .nav .foot .main .topbar .ttl .search .seg .avatar .page .sect` — Task 10/11 dùng `.page` và `.sect`.
-- **Chặn bởi Q1 (logo), Q2 (chỗ đặt công tắc theme), Q3 (thu gọn/drawer).**
+**Interfaces:** Consumes `KpiCard` (không đổi). Produces file test `projects-detail-page-render.test.ts` với hàm `render(searchParams, projectId, user)`; Task 2 và Task 6 sẽ thêm `describe` vào file này.
 
-- [ ] **Bước 1: Gỡ 5 file khỏi PENDING → test phải ĐỎ**
+- [ ] **Bước 1: Viết test đỏ.** Tạo `src/server/projects-detail-page-render.test.ts`. Copy NGUYÊN khối mock + import + shim ở dòng 1-46 của `src/server/projects-detail-page-month-guard.test.ts` (next/navigation, next-intl/server, session, repo → mock-repo, `@/i18n/navigation` Link, Badges, WhatIf, ProjectSwitcher), rồi thêm:
 
-Trong `src/ui/legacy-style-guard.test.ts` xoá 5 dòng dưới comment `// Task 2 - shell`.
-`npx vitest run src/ui/legacy-style-guard.test.ts` → FAIL 4–5 case, ví dụ `AppShell.tsx: con "bg-[#B91C1C]"`. Đúng kỳ vọng.
+```ts
+const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.com.vn', role: 'admin', canViewFinance: true };
+const BOD: CurrentUser = { name: 'BOD', email: 'bod@daidung.com.vn', role: 'bod', canViewFinance: true };
+const VIEWER: CurrentUser = { name: 'Viewer', email: 'viewer@daidung.com.vn', role: 'viewer', canViewFinance: false };
 
-- [ ] **Bước 2: Copy CSS shell vào `app/globals.css`**
-
-Trong `@layer components`, ngay dưới khối `.wall`, dán **nguyên văn dòng 172–227** của `mockup-apple-glass.html` (từ `.app{` tới hết `.sect i{...}`). Đó là: `.app .side .brand .appicon .brand .nm b .brand .nm span .sgrp .nav .nav svg .nav:hover .nav.on .nav.on svg .side .foot .main .topbar .topbar .ttl .topbar .ttl h1 .topbar .ttl p .search .search:focus-within .search input .seg .seg button .seg button.on .avatar .page .sect .sect b .sect i`.
-
-Rồi thêm phần bù cho những trạng thái mock-up không có (chỉ thêm nếu Q3 = (a) hoặc (b)):
-
-```css
-  /* --- Bu cho trang thai mock-up khong ve (xem Q3) --- */
-  .side.is-collapsed { width: 68px; flex: 0 0 68px; }
-  .side.is-collapsed .brand .nm,
-  .side.is-collapsed .sgrp,
-  .side.is-collapsed .nav span,
-  .side.is-collapsed .foot p { display: none; }
-  .side.is-collapsed .brand { justify-content: center; padding: 8px 0 16px; }
-  .side.is-collapsed .nav { justify-content: center; }
-
-  @media (max-width: 1023px) {
-    .side {
-      position: fixed; inset: 0 auto 0 0; z-index: 60;
-      transform: translate3d(-100%, 0, 0);
-      transition: transform var(--dur-base) var(--ease-ios);
-    }
-    .side.is-open { transform: none; box-shadow: var(--e4); }
-  }
-  .side-scrim {
-    position: fixed; inset: 0; z-index: 50;
-    background: rgba(10, 31, 61, 0.36);
-    -webkit-backdrop-filter: blur(var(--mat-ultrathin));
-    backdrop-filter: blur(var(--mat-ultrathin));
-  }
-  @media (min-width: 1024px) { .side-scrim { display: none; } }
-
-  /* --- Thanh tien trinh (mock-up khong ve; dung accent, vang danh cho tag Trong tam) --- */
-  .progbar { position: fixed; inset-inline: 0; top: 0; z-index: 100; height: 2px; }
-  .progbar i {
-    display: block; height: 100%; background: var(--accent);
-    box-shadow: 0 0 8px var(--accent-tint);
-    transition: width var(--dur-base) var(--ease-out);
-  }
-```
-
-- [ ] **Bước 3: Viết lại `AppShell.tsx`**
-
-Giữ **nguyên** phần trên dòng 78 (import, `NavItem`, `NAV`, `OPERATIONS_NAV`, `ADMIN_NAV`, `ROLE_LABEL`, chữ ký `AppShell`, các `useState`, các biến `navItems`/`operationsItems`/`adminItems`/`allNav`/`activeNav`/`pageTitle`). Chỉ thay từ `navItemCls` (dòng 78) tới hết file.
-
-Bảng đổi class:
-
-| Cũ | Mới |
-|---|---|
-| `<div className="flex min-h-screen">` | `<div className="app">` |
-| `<aside className="fixed ... bg-[#B91C1C] text-white ...">` | `<aside className={\`side ${collapsed ? 'is-collapsed' : ''} ${open ? 'is-open' : ''}\`}>` |
-| khối logo `flex h-16 items-center gap-3 border-b border-white/10 px-5` | `<div className="brand">` + `<div className="appicon">…</div>` + `<div className="nm"><b>{t('app.headerTitle')}</b><span>{t('app.name')}</span></div>` |
-| `navItemCls` | `'nav'`; item đang mở thêm `' on'` |
-| `<Icon size={20} className="shrink-0"/>` | `<Icon size={19} />` (`.nav svg` đã set 19px) |
-| `<p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-white/50">` | `<div className="sgrp">` |
-| các `<div className="mt-2 border-t border-white/10 pt-3">` bọc nhóm | bỏ hẳn div bọc; `.sgrp` đã tự tạo khoảng cách |
-| `<div className="flex items-center justify-between border-t border-white/10 px-5 py-4">` | `<div className="foot">` với `display:flex;align-items:center;justify-content:space-between` thêm bằng utility `flex items-center justify-between` |
-| `<p className="text-[11px] text-yellow-200/70">` | `<p>{t('app.builtBy')}</p>` (kế thừa `.foot`) |
-| scrim `fixed inset-0 z-30 bg-navy-950/40 lg:hidden` | `<div className="side-scrim" onClick={...} />` |
-| `<div className="flex min-h-screen w-full flex-col ... lg:pl-60">` | `<div className="main">` (bỏ `pl-*`: `.app` là flex, `.side` chiếm chỗ thật) |
-| `<header className="sticky ... bg-[#B91C1C] ...">` | `<header className="topbar">` |
-| `<h1 className="truncate text-base font-bold ...">` | `<div className="ttl"><h1>{pageTitle}</h1></div>` |
-| nút hamburger `rounded-lg p-2 text-white hover:bg-white/15` | `className="nav" style={{width:'auto',padding:'6px'}}` — hoặc bỏ hẳn nếu Q3=(c) |
-| avatar `grid h-8 w-8 ... rounded-full bg-white/20 text-xs font-bold text-white` | `<div className="avatar">{user.name.charAt(0).toUpperCase()}</div>` |
-| khối tên+vai trò `hidden text-right leading-tight sm:block` với `text-white` / `text-gold` | `<div className="hidden text-right leading-tight sm:block"><div className="text-caption1 text-label">{user.name}</div><div className="text-caption2 font-semibold text-brand">{t(ROLE_LABEL[user.role])}</div></div>` |
-| `<main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">` | `<main className="page">` |
-
-`SearchBox` (dòng 180–207): giữ toàn bộ logic, chỉ đổi JSX trả về:
-```tsx
-return (
-  <div className="search">
-    <IconSearch size={15} />
-    <input value={v} onChange={(e) => setV(e.target.value)} placeholder={t('common.searchProject')} />
-  </div>
-);
-```
-Bỏ `mx-auto hidden w-full max-w-md ... md:flex` — `.search` đã có `margin-left:auto;width:230px`. Muốn ẩn ở mobile thì thêm utility `hidden md:flex`.
-
-> **Chặn Q1.** `.appicon` chứa gì: (a) copy glyph SVG ở mock-up dòng 562–563; (b) `<Image src="/logo.png" .../>` bọc trong `.appicon` có `background:#fff`; (c) như (a) ở đây.
-> **Chặn Q2.** Nếu (a)/(b): thêm `<div className="seg">` với các nút `data-theme` vào topbar giữa `.search` và `.avatar`, gọi thẳng `applyTheme` + `localStorage.setItem('ddc-theme', …)`; đồng thời xoá `<Section label={t('settings.theme')}>` khỏi `SettingsMenu.tsx` (dòng 180–193). Nếu (c): không đụng topbar, không đụng SettingsMenu phần theme.
-> **Chặn Q3.** Nếu (c): xoá `useState collapsed`, `useState open`, nút hamburger, scrim, và khối CSS `.side.is-collapsed` + `@media (max-width:1023px)` ở Bước 2.
-
-Nếu dùng `t('app.name')` mà key chưa có — đã có sẵn (`app.name = "DDC Control Tower"` ở `vi.json` dòng 3). Không cần thêm key.
-
-- [ ] **Bước 4: `SettingsMenu.tsx` — menu thả xuống dùng kính**
-
-Chỉ đổi class, giữ nguyên toàn bộ logic/state.
-
-| Cũ (dòng) | Mới |
-|---|---|
-| nút bánh răng `rounded-lg p-2 text-navy-300 hover:bg-white/10 hover:text-white` (142) | `className="rounded-sm p-2 text-label3 transition-colors duration-fast ease-std hover:bg-fill hover:text-label"` |
-| panel `absolute bottom-full right-0 z-50 mb-1 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:...` (149) | `className="mat mat-chrome absolute bottom-full right-0 z-50 mb-1 w-56 overflow-hidden rounded-md"` |
-| `Section` wrapper `border-b border-slate-100 dark:border-slate-700` (77) | `border-b border-sep` |
-| `Section` nút `... text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700` (80) | `... text-caption2 font-bold uppercase tracking-[.06em] text-label3 hover:bg-fill` |
-| avatar `bg-navy-800 text-sm font-semibold text-white` (152) | `<div className="avatar" style={{ width: 36, height: 36, flex: '0 0 36px' }}>` |
-| tên `text-navy-900 dark:text-slate-100` (156) | `text-footnote font-medium text-label` |
-| vai trò `text-[11px] text-slate-500` (157) | `text-caption2 text-label3` |
-| `itemCls` (132) | `'flex w-full items-center gap-2 px-3 py-2 text-footnote transition-colors duration-fast ease-std hover:bg-fill'` |
-| `activeCls` (133) | `'text-brand font-semibold'` |
-| `idleCls` (134) | `'text-label2'` |
-| nút đăng xuất `text-red-600 dark:text-red-400` (225) | `text-danger` |
-| viền `border-slate-100 ... dark:border-slate-700` (151) | `border-sep` |
-
-- [ ] **Bước 5: 2 thanh tiến trình**
-
-`TopProgressBar.tsx` — thay JSX trả về (dòng 31–38):
-```tsx
-return (
-  <div className="progbar">
-    <i style={{ width: `${progress}%` }} />
-  </div>
-);
-```
-`SyncProgressBar.tsx` — thay JSX trả về (dòng 24–29) y hệt.
-Không đụng bất kỳ `useEffect`/`useState` nào ở hai file.
-
-- [ ] **Bước 6: Chạy cổng kiểm tra**
-```
-npx vitest run src/ui/legacy-style-guard.test.ts
-npx tsc --noEmit
-npm test
-```
-Cả 3 xanh.
-
-- [ ] **Bước 7: Kiểm mắt**
-
-`npm run dev` → `http://localhost:3000/vi/overview`:
-- Sidebar kính trong mờ, không còn đỏ; mục đang mở có nền `--accent-tint` chữ navy.
-- Topbar kính, tiêu đề trang bên trái, ô tìm kiếm bên phải, avatar gradient navy.
-- Đổi sang Tối: sidebar/topbar chuyển nền tối, chữ sáng, không còn mảng trắng lạc lõng.
-- Thu nhỏ cửa sổ < 1024px: drawer hoạt động (nếu Q3 ≠ c).
-- Chuyển trang: thanh tiến trình 2px navy chạy ở mép trên.
-
-- [ ] **Bước 8: Commit**
-```bash
-git add app/globals.css src/components/layout src/ui/legacy-style-guard.test.ts
-git commit -m "style(glass): Task 2 - sidebar + topbar + thanh tien trinh theo vat lieu kinh"
-```
-
----
-
-### Task 3: Bề mặt nền tảng — Card, chip, alert, skeleton, section
-
-**Files:**
-- Modify: `app/globals.css` (thêm khối CSS surface)
-- Modify: `src/components/ui/Card.tsx`
-- Modify: `src/components/ui/Badge.tsx`
-- Modify: `src/components/ui/Badges.tsx`
-- Modify: `src/components/ui/Skeleton.tsx`
-- Modify: `src/ui/legacy-style-guard.test.ts` (xoá nhóm "Task 3 - surface")
-
-**Interfaces:**
-- Produces: `.mat .mat-thin .mat-chrome .card .card>.hd .card>.bd .en .g2 .g3 .g21 .chip .c-ok .c-warn .c-dan .c-info .c-plain .mono .bar-mini .legend .alert .rise .card-hover`
-- Produces: `Card` nhận thêm prop `padded?: boolean` — mặc định `false`; `true` thì thêm `p-4` (thay cho các chỗ đang viết `<Card className="p-5">`).
-- Produces: `Badge` giữ nguyên chữ ký `{ tone?: BadgeTone }` với `BadgeTone = 'ok' | 'warn' | 'danger' | 'info' | 'neutral'`.
-- **Chặn bởi Q4 (motion engine).**
-
-- [ ] **Bước 1: Gỡ 4 file khỏi PENDING → test ĐỎ**
-
-Xoá nhóm `// Task 3 - surface`. `npx vitest run src/ui/legacy-style-guard.test.ts` → FAIL ở `Badge.tsx` (`bg-emerald-50`…), `Skeleton.tsx` (`bg-slate-200/70`), `Card.tsx` (`text-navy-900`).
-
-- [ ] **Bước 2: Copy CSS bề mặt vào `app/globals.css`**
-
-Trong `@layer components`, dán nguyên văn các đoạn sau của `mockup-apple-glass.html`:
-- **159–169** → `.mat`, `.mat-thin`, `.mat-chrome`
-- **230–252** → `.card`, `.card>.hd`, `.card>.hd h3`, `.en`, `.card>.bd`, `.g2`, `.g3`, `.g21`, `@media(max-width:1180px)`, `.chip`, `.c-ok`, `.c-warn`, `.c-dan`, `.c-info`, `.c-plain`
-- **288** → `.mono`
-- **371–372** → `.bar-mini`, `.bar-mini i`
-- **375–378** → `.legend`, `.legend span`, `.legend i`, `.legend .ln`
-- **414–419** → `.alert`, `.alert .dot`, `.alert h4`, `.alert p`, `.alert .mt`
-- **353–359** → `.msdetail` và con (Task 7 dùng cho thanh bước của wizard)
-
-Thêm 3 quy tắc bù (mock-up để cho JS lo, ta làm bằng CSS):
-
-```css
-  /* Ho tro: card bi overflow:hidden se cat dropdown ben trong.
-     Cho nao co Combobox/menu thi them utility "overflow-visible". */
-  .card-hover {
-    transition: transform var(--dur-base) var(--ease-ios),
-                box-shadow var(--dur-base) var(--ease-ios);
-  }
-  .card-hover:hover { transform: translate3d(0, -3px, 0); box-shadow: var(--e3), var(--inner-hi); }
-
-  /* Khung xuong tai trang */
-  .sk {
-    border-radius: var(--r-sm);
-    background: linear-gradient(90deg, var(--fill) 25%, var(--fill-2) 37%, var(--fill) 63%);
-    background-size: 400% 100%;
-    animation: skShimmer 1.4s var(--ease-std) infinite;
-  }
-  @keyframes skShimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
-```
-
-Và phần `.rise` — **chặn Q4**:
-- Nếu Q4 = (b): thêm
-```css
-  @keyframes riseIn {
-    from { opacity: 0; transform: translate3d(0, 14px, 0); }
-    to   { opacity: 1; transform: none; }
-  }
-  .rise { animation: riseIn var(--dur-base) var(--ease-ios) both; }
-  .rise:nth-child(2) { animation-delay: .035s; }
-  .rise:nth-child(3) { animation-delay: .07s; }
-  .rise:nth-child(4) { animation-delay: .105s; }
-  .rise:nth-child(5) { animation-delay: .14s; }
-  .rise:nth-child(6) { animation-delay: .175s; }
-  .btn:active, .nav:active, .kpi.tap:active { transform: scale(.972); }
-```
-- Nếu Q4 = (a): tạo thêm `src/components/ui/motion.ts` port hàm `spring` (mock-up dòng 1164–1187) sang TS, cộng hook `useRise(ref)` gọi `riseIn` trong `useEffect`, hook `usePressable(ref)` và `useHoverLift(ref, dy)` port từ dòng 1190–1230. Chỉ dùng trong Client Component. Card server-side vẫn phải render đầy đủ (không được `opacity:0` mặc định bằng CSS, nếu không JS tắt là trang trắng) — đúng theo failsafe 900ms ở mock-up dòng 1194–1195.
-
-- [ ] **Bước 3: Viết lại `src/components/ui/Card.tsx`**
-
-```tsx
-import type { HTMLAttributes } from 'react';
-
-/**
- * Be mat kinh chuan. Mac dinh KHONG co padding - dung <CardBody> cho phan than.
- * Luu y: .card co overflow:hidden (theo mock-up). Card nao chua dropdown/popover
- * (Combobox, ProjectSwitcher, menu sap xep) phai them className="overflow-visible".
- */
-export function Card({ className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={`card card-hover ${className}`} {...props} />;
-}
-
-export function CardHeader({
-  title,
-  subtitle,
-  action,
-}: {
-  title: string;
-  subtitle?: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="hd">
-      <h3>
-        {title}
-        {subtitle && <span className="en">{subtitle}</span>}
-      </h3>
-      {action}
-    </div>
+async function render(searchParams: Record<string, string> = {}, projectId = '1', user: CurrentUser = ADMIN) {
+  (getCurrentUser as Mock).mockResolvedValue(user);
+  return renderToStaticMarkup(
+    (await ProjectDetailPage({ params: { id: projectId, locale: 'vi' }, searchParams })) as React.ReactElement,
   );
 }
 
-export function CardBody({ className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={`bd ${className}`} {...props} />;
-}
-```
-Lưu ý: `.card>.hd` và `.card>.bd` là selector con trực tiếp — `CardHeader`/`CardBody` **phải** là con trực tiếp của `Card`. Chỗ nào đang bọc thêm div thì bỏ div đó.
+afterEach(() => vi.clearAllMocks());
 
-- [ ] **Bước 4: Viết lại `src/components/ui/Badge.tsx`**
+describe('Task 1 - 3 the "Trong tam" (%TT, SPI, CPI) dung canh nhau', () => {
+  it('dung 3 the .kpi.key, gan dung %TT/SPI/CPI', async () => {
+    const out = await render();
+    const keys = [...out.matchAll(/class="kpi rise key"><span class="tag">kpi\.focusTag<\/span><div class="lb">([^<]+)<\/div>/g)].map((m) => m[1]);
+    expect(keys).toEqual(['metric.pctActual', 'metric.spi', 'metric.cpi']);
+  });
+  it('thu tu 6 the: %KH, %TT, SPI, CPI, EAC, VAC', async () => {
+    const out = await render();
+    const pos = ['metric.pctPlan', 'metric.pctActual', 'metric.spi', 'metric.cpi', 'metric.eac', 'metric.vac']
+      .map((k) => out.indexOf(`<div class="lb">${k}</div>`));
+    expect(pos.every((p) => p >= 0)).toBe(true);
+    expect([...pos].sort((a, b) => a - b)).toEqual(pos);
+  });
+});
+```
+
+- [ ] **Bước 2:** `npx vitest run src/server/projects-detail-page-render.test.ts` → phải ĐỎ (hiện chỉ có 1 thẻ key là SPI).
+- [ ] **Bước 3:** Thay dòng 132-140 của `page.tsx` bằng:
 
 ```tsx
-import type { HTMLAttributes } from 'react';
+      {/* 6 KPI - 3 the "Trong tam" (%TT, SPI, CPI) dung canh nhau nhu mock-up dong 646-649 */}
+      <Rise className="kpis">
+        <KpiCard label={t('metric.pctPlan')} value={formatPct(summary.pctPlan, locale)} delta={null} tone="neutral" icon={IconProject} />
+        <KpiCard label={t('metric.pctActual')} value={formatPct(summary.pctActual, locale)} delta={null} tone="neutral" hero heroTagLabel={t('kpi.focusTag')} icon={IconAlert} />
+        <KpiCard label={t('metric.spi')} value={formatRatio(summary.spi)} delta={null} tone={summary.spi != null && summary.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'} hero heroTagLabel={t('kpi.focusTag')} icon={IconTrend} />
+        <KpiCard label={t('metric.cpi')} value={formatRatio(summary.cpi)} delta={null} tone={summary.cpi != null && summary.cpi < THRESHOLDS.cpiWarn ? 'warn' : 'ok'} hero heroTagLabel={t('kpi.focusTag')} icon={IconMoney} />
+        <KpiCard label={t('metric.eac')} value={formatTyd(summary.eac, locale)} delta={null} tone="neutral" icon={IconGauge} />
+        <KpiCard label={t('metric.vac')} value={formatTyd(summary.vac, locale)} delta={null} tone={summary.vac != null && summary.vac < 0 ? 'danger' : 'ok'} icon={IconFlag} />
+      </Rise>
+```
 
-export type BadgeTone = 'ok' | 'warn' | 'danger' | 'info' | 'neutral';
+Giữ nguyên tone của từng thẻ. Không đổi `KpiCard.tsx`.
 
-const TONES: Record<BadgeTone, string> = {
-  ok: 'c-ok',
-  warn: 'c-warn',
-  danger: 'c-dan',
-  info: 'c-info',
-  neutral: 'c-plain',
-};
+- [ ] **Bước 4:** chạy lại test → XANH. `npx tsc --noEmit`, `npm test`.
+- [ ] **Bước 5:** kiểm mắt `/vi/projects/1` ở 1366px và 1920px: 3 thẻ gradient nằm ở vị trí 2-4, tag không đè chữ.
+- [ ] **Bước 6:** `git commit -m "feat(parity): 3 the trong tam %TT/SPI/CPI o chi tiet du an + doi thu tu KPI"`
 
-export function Badge({
-  tone = 'neutral',
-  className = '',
-  ...props
-}: HTMLAttributes<HTMLSpanElement> & { tone?: BadgeTone }) {
-  return <span className={`chip ${TONES[tone]} ${className}`} {...props} />;
+---
+
+### Task 2: Timeline KH/TT dạng thanh + vạch "Hôm nay"
+
+**Files:**
+- Create: `src/lib/timeline.ts`, `src/lib/timeline.test.ts`, `src/components/ui/Legend.tsx`, `src/components/ui/Legend.test.ts`, `src/components/project/PlanActualTimeline.tsx`
+- Modify: `page.tsx:162-175` (khối `{/* Timeline */}`), `app/globals.css`, `vi.json`/`en.json`, `src/i18n/messages.test.ts`
+- Test: bổ sung `src/server/projects-detail-page-render.test.ts`
+
+**Interfaces:**
+- Produces `buildPlanActualTimeline(i: PlanActualTimelineInput): PlanActualTimeline | null`.
+- Produces `Legend({ items: LegendItem[] })`, với `LegendItem = { label: string; color: string; line?: boolean; shape?: LegendShape }` và `LegendShape = 'ring' | 'dot' | 'diamondO' | 'diamond' | 'tri'`. Task 4, 6, 9, 10 dùng lại.
+- Produces trong `page.tsx`: `const today = todayIso();`, đặt ngay sau dòng `const summary = …`. Task 3, 6, 9 dùng lại biến này.
+
+- [ ] **Bước 1: Test đỏ `src/lib/timeline.test.ts`**
+
+```ts
+import { describe, expect, it } from 'vitest';
+import { MIN_ACTUAL_BAR, buildPlanActualTimeline } from './timeline';
+
+// 2026-01-01 → 2026-12-31 = 364 ngày; 2026-01-01 → 2026-07-02 = 182 ngày
+const BASE = { plannedStart: '2026-01-01', plannedFinish: '2026-12-31', actualStart: '2026-01-11', pctActual: 0.4, today: '2026-07-02' };
+
+describe('buildPlanActualTimeline', () => {
+  it('duong chay thuan: vi tri hom nay, thanh TT tu ngay BD TT toi vi tri %TT, tre khoi cong', () => {
+    const r = buildPlanActualTimeline(BASE)!;
+    expect(r.todayPos).toBeCloseTo(182 / 364, 10);
+    expect(r.actual!.left).toBeCloseTo(10 / 364, 10);
+    expect(r.actual!.width).toBeCloseTo(0.4 - 10 / 364, 10);
+    expect(r.startDelayDays).toBe(10);
+  });
+  it('nhan ISO day du nhu prisma-repo tra ("...T00:00:00.000Z")', () => {
+    const r = buildPlanActualTimeline({ ...BASE, plannedStart: '2026-01-01T00:00:00.000Z', plannedFinish: '2026-12-31T00:00:00.000Z', actualStart: '2026-01-11T00:00:00.000Z' })!;
+    expect(r.startDelayDays).toBe(10);
+  });
+  it('thieu ngay KH hoac HT KH <= BD KH -> null', () => {
+    expect(buildPlanActualTimeline({ ...BASE, plannedStart: null })).toBeNull();
+    expect(buildPlanActualTimeline({ ...BASE, plannedFinish: null })).toBeNull();
+    expect(buildPlanActualTimeline({ ...BASE, plannedFinish: '2026-01-01' })).toBeNull();
+  });
+  it('chua khoi cong -> actual null, startDelayDays null', () => {
+    const r = buildPlanActualTimeline({ ...BASE, actualStart: null })!;
+    expect(r.actual).toBeNull();
+    expect(r.startDelayDays).toBeNull();
+  });
+  it('hom nay truoc BD KH -> 0; sau HT KH -> 1', () => {
+    expect(buildPlanActualTimeline({ ...BASE, today: '2025-12-01' })!.todayPos).toBe(0);
+    expect(buildPlanActualTimeline({ ...BASE, today: '2027-03-01' })!.todayPos).toBe(1);
+  });
+  it('BD TT som hon BD KH -> left kep 0, startDelayDays am', () => {
+    const r = buildPlanActualTimeline({ ...BASE, actualStart: '2025-12-22' })!;
+    expect(r.actual!.left).toBe(0);
+    expect(r.actual!.width).toBeCloseTo(0.4, 10);
+    expect(r.startDelayDays).toBe(-10);
+  });
+  it('%TT nho hon vi tri BD TT -> thanh van rong toi thieu', () => {
+    const r = buildPlanActualTimeline({ ...BASE, actualStart: '2026-07-01', pctActual: 0.1 })!;
+    expect(r.actual!.width).toBe(MIN_ACTUAL_BAR);
+  });
+  it('BD TT sau HT KH -> thanh don sat mep phai, khong tran', () => {
+    const r = buildPlanActualTimeline({ ...BASE, actualStart: '2027-02-01', pctActual: 0 })!;
+    expect(r.actual!.left + r.actual!.width).toBeCloseTo(1, 10);
+  });
+});
+```
+
+- [ ] **Bước 2:** chạy → ĐỎ (chưa có module).
+- [ ] **Bước 3: `src/lib/timeline.ts`**
+
+```ts
+import { daysBetween, type IsoDate } from '@/lib/clock';
+
+/** Bề rộng tối thiểu (phân số trục) của thanh "Thực tế" để luôn nhìn thấy. */
+export const MIN_ACTUAL_BAR = 0.02;
+
+export interface PlanActualTimelineInput {
+  plannedStart: string | null;
+  plannedFinish: string | null;
+  actualStart: string | null;
+  pctActual: number;
+  today: IsoDate;
 }
 
-/** Cham trang thai nho - mau lay tu token, an theo theme. */
-export function Dot({ tone }: { tone: 'ok' | 'warn' | 'danger' | 'neutral' }) {
-  const v = { ok: 'var(--ok)', warn: 'var(--warn)', danger: 'var(--danger)', neutral: 'var(--label3)' }[tone];
+export interface PlanActualTimeline {
+  /** Vị trí "Hôm nay" trên trục KH, kẹp [0,1]; cũng là bề rộng phần tô đậm `.tlfill`. */
+  todayPos: number;
+  /** null = chưa có ngày BĐ thực tế. */
+  actual: { left: number; width: number } | null;
+  /** BĐ TT − BĐ KH (ngày, dương = trễ); null nếu thiếu 1 trong 2 ngày. */
+  startDelayDays: number | null;
+}
+
+const d10 = (s: string) => s.slice(0, 10);
+const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
+
+/**
+ * Hình học khối "Timeline kế hoạch vs thực tế" (mock-up dòng 661-670). Trục = [BĐ KH, HT KH].
+ * Thanh TT bắt đầu ở ngày BĐ TT và DÀI TỚI vị trí %TT trên trục (mock-up: left 3% + width 50,5%
+ * = 53,5% = %TT), không tới một ngày cụ thể. Thiếu ngày hoặc HT <= BĐ → null (trang giữ hiển thị chữ cũ).
+ */
+export function buildPlanActualTimeline(i: PlanActualTimelineInput): PlanActualTimeline | null {
+  if (!i.plannedStart || !i.plannedFinish) return null;
+  const ps = d10(i.plannedStart);
+  const span = daysBetween(ps, d10(i.plannedFinish));
+  if (span <= 0) return null;
+  const todayPos = clamp01(daysBetween(ps, i.today) / span);
+  let actual: PlanActualTimeline['actual'] = null;
+  if (i.actualStart) {
+    let left = clamp01(daysBetween(ps, d10(i.actualStart)) / span);
+    const width = Math.max(clamp01(i.pctActual) - left, MIN_ACTUAL_BAR);
+    if (left + width > 1) left = 1 - width;
+    actual = { left, width };
+  }
+  return { todayPos, actual, startDelayDays: i.actualStart ? daysBetween(ps, d10(i.actualStart)) : null };
+}
+```
+
+- [ ] **Bước 4:** chạy → XANH.
+- [ ] **Bước 5: `src/components/ui/Legend.tsx`** (server-safe: KHÔNG `'use client'`, không hook) + test
+
+```tsx
+import type { CSSProperties } from 'react';
+
+export type LegendShape = 'ring' | 'dot' | 'diamondO' | 'diamond' | 'tri';
+export interface LegendItem { label: string; color: string; line?: boolean; shape?: LegendShape }
+
+/** `.legend` mock-up dòng 375-378; biến thể hình dạng theo renderMsLegend dòng 1396-1401. */
+export function Legend({ items }: { items: LegendItem[] }) {
   return (
-    <span
-      className="inline-block h-1.5 w-1.5 rounded-full"
-      style={{ backgroundColor: v }}
-    />
+    <span className="legend">
+      {items.map((it) => (
+        <span key={it.label}>
+          <i className={it.line ? 'ln' : undefined} style={swatch(it)} />
+          {it.label}
+        </span>
+      ))}
+    </span>
   );
 }
+
+function swatch({ color, shape }: LegendItem): CSSProperties {
+  const s: CSSProperties = { background: color };
+  if (shape === 'ring' || shape === 'diamondO') { s.background = 'transparent'; s.border = `2px solid ${color}`; }
+  if (shape === 'diamond' || shape === 'diamondO') s.transform = 'rotate(45deg)';
+  if (shape === 'tri') { s.clipPath = 'polygon(50% 0,100% 100%,0 100%)'; s.borderRadius = 0; }
+  return s;
+}
 ```
 
-- [ ] **Bước 5: `src/components/ui/Badges.tsx`**
+`src/components/ui/Legend.test.ts`: render 5 mục `{KH, var(--s-plan)}`, `{Hôm nay, var(--danger), line}`, `{HT, var(--s-third), diamond}`, `{DK, var(--s-cost), tri}`, `{BĐ, var(--s-plan), ring}`, rồi assert output chứa lần lượt: `<i style="background:var(--s-plan)"></i>KH`, `class="ln"`, `transform:rotate(45deg)`, `clip-path:polygon(50% 0,100% 100%,0 100%)`, `background:transparent;border:2px solid var(--s-plan)`.
 
-Chỉ một chỗ phải sửa — dòng 41: `<span className="text-xs text-slate-400">-</span>` → `<span className="text-caption1 text-label3">-</span>`. Mọi thứ còn lại đi qua `Badge` nên tự đổi theo.
-
-- [ ] **Bước 6: `src/components/ui/Skeleton.tsx`**
+- [ ] **Bước 6: `src/components/project/PlanActualTimeline.tsx`** (server-safe)
 
 ```tsx
-export function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`sk ${className}`} />;
+import type { CSSProperties } from 'react';
+import type { PlanActualTimeline as Geometry } from '@/lib/timeline';
+
+export interface PlanActualTimelineProps {
+  geometry: Geometry;
+  labels: { planned: string; actual: string; todayPill: string; notStarted: string };
+  planRange: string;      // "15/12/2025 → 29/09/2026"
+  actualRange: string;    // "15/12/2025 → đang chạy" (chỉ dùng khi geometry.actual != null)
+  planPctText: string;
+  actualPctText: string;
 }
 
-export function CardSkeleton({ h = 180 }: { h?: number }) {
+const pct = (x: number) => `${(x * 100).toFixed(3)}%`;
+/** Cột nhãn 76px + gap 12px = 88px (mock-up dòng 313, 662). */
+const onAxis = (x: number) => `calc(88px + (100% - 88px) * ${x.toFixed(5)})`;
+
+export function PlanActualTimeline({ geometry: g, labels, planRange, actualRange, planPctText, actualPctText }: PlanActualTimelineProps) {
+  // Viên "Hôm nay" sát mép thì neo trái/phải để không bị .card (overflow:hidden) cắt.
+  const pill: CSSProperties = { left: onAxis(g.todayPos) };
+  if (g.todayPos < 0.1) pill.transform = 'translateX(0)';
+  else if (g.todayPos > 0.9) pill.transform = 'translateX(-100%)';
+  const planChip = g.todayPos > 0.85 ? `calc(${pct(g.todayPos)} - 64px)` : `calc(${pct(g.todayPos)} + 10px)`;
+  const actRight = g.actual ? g.actual.left + g.actual.width : 0;
+  const actChip = actRight < 0.12 ? `calc(${pct(actRight)} + 10px)` : `calc(${pct(actRight)} - 54px)`;
   return (
-    <div className="card">
-      <div className="bd">
-        <Skeleton className="mb-3 h-4 w-1/3" />
-        <Skeleton className="h-8 w-1/2" />
-        <div className="mt-4" style={{ height: h }}>
-          <Skeleton className="h-full w-full" />
+    <div className="tl">
+      <div className="todaypill" style={pill}>{labels.todayPill}</div>
+      <div className="today" style={{ left: onAxis(g.todayPos) }} />
+      <div className="tlrow">
+        <div className="lb">{labels.planned}</div>
+        <div className="tltrack">
+          <div className="tlbar plan" style={{ left: 0, width: '100%' }}>{planRange}</div>
+          <div className="tlfill" style={{ width: pct(g.todayPos) }} />
+          <div className="tlchip" style={{ left: planChip }}>{planPctText}</div>
+        </div>
+      </div>
+      <div className="tlrow">
+        <div className="lb">{labels.actual}</div>
+        <div className="tltrack">
+          {g.actual ? (
+            <>
+              <div className="tlbar act" style={{ left: pct(g.actual.left), width: pct(g.actual.width) }}>{actualRange}</div>
+              <div className="tlchip" style={{ left: actChip }}>{actualPctText}</div>
+            </>
+          ) : (
+            <div className="tlbar" style={{ left: 0, width: '100%', color: 'var(--label3)' }}>{labels.notStarted}</div>
+          )}
         </div>
       </div>
     </div>
@@ -919,1551 +399,1762 @@ export function CardSkeleton({ h = 180 }: { h?: number }) {
 }
 ```
 
-- [ ] **Bước 7: Cổng kiểm tra + kiểm mắt**
-```
-npx vitest run src/ui/legacy-style-guard.test.ts
-npx tsc --noEmit
-npm test
-```
-Kiểm mắt `/vi/overview` và `/vi/alerts`: card nay là kính bo 20px, có viền sáng 0.5px, đổ bóng 2 tầng; tiêu đề card nằm trong dải có gạch chân mảnh; badge thành chip bo tròn không còn viền `ring`. Card hover nhấc lên 3px.
+- [ ] **Bước 7: CSS.** Copy mock-up **dòng 311-332** (`/* ---------- Timeline ---------- */` tới hết `.tlfoot{…}`) vào `globals.css` theo Global Constraint 7.
+- [ ] **Bước 8: i18n.** Thêm vào object `"detail"` (sau `"actualHeadcount"`):
+  - vi: `"tl": { "todayPill": "Hôm nay · {date}", "running": "đang chạy", "notStarted": "Chưa khởi công", "startDelay": "Trễ khởi công", "gap": "Khoảng cách KH - TT", "days": "{n} ngày" }`
+  - en: `"tl": { "todayPill": "Today · {date}", "running": "in progress", "notStarted": "Not started", "startDelay": "Start delay", "gap": "Plan - actual gap", "days": "{n} days" }`
 
-- [ ] **Bước 8: Commit**
-```bash
-git add app/globals.css src/components/ui src/ui/legacy-style-guard.test.ts
-git commit -m "style(glass): Task 3 - card/chip/alert/skeleton theo vat lieu kinh"
+  Thêm `'trang /projects/[id]': 'app/[locale]/(app)/projects/[id]/page.tsx'` vào `CHANGED_SOURCES`.
+- [ ] **Bước 9: Nối vào page.** Import `todayIso` (thêm vào dòng import `@/lib/clock`), `calcScheduleGap` từ `@/lib/evm`, `buildPlanActualTimeline` từ `@/lib/timeline`, `Legend` từ `@/components/ui/Legend`, `PlanActualTimeline` từ `@/components/project/PlanActualTimeline`. Ngay sau `const summary = …` (dòng 61), thêm:
+
+```ts
+  const today = todayIso();
+  const timeline = buildPlanActualTimeline({
+    plannedStart: project.plannedStartDate, plannedFinish: project.plannedFinishDate,
+    actualStart: project.actualStartDate, pctActual: summary.pctActual, today,
+  });
+  const startDelay = timeline?.startDelayDays ?? null;
+  const gap = summary.pctPlan != null ? calcScheduleGap(summary.pctPlan, summary.pctActual) : null;
 ```
+
+Thay toàn bộ khối `{/* Timeline */}` (dòng 162-175) bằng:
+
+```tsx
+      {/* Timeline KH vs TT dang thanh (mock-up dong 655-676) */}
+      <Card>
+        <CardHeader
+          title={t('detail.timeline')}
+          action={<Legend items={[
+            { label: t('detail.planned'), color: 'var(--s-plan)' },
+            { label: t('detail.actual'), color: 'var(--s-actual)' },
+            { label: t('common.today'), color: 'var(--danger)', line: true },
+          ]} />}
+        />
+        <CardBody>
+          {timeline ? (
+            <PlanActualTimeline
+              geometry={timeline}
+              labels={{ planned: t('detail.planned'), actual: t('detail.actual'), todayPill: t('detail.tl.todayPill', { date: formatDate(today, locale) }), notStarted: t('detail.tl.notStarted') }}
+              planRange={`${formatDate(project.plannedStartDate, locale)} → ${formatDate(project.plannedFinishDate, locale)}`}
+              actualRange={`${formatDate(project.actualStartDate, locale)} → ${project.actualFinishDate ? formatDate(project.actualFinishDate, locale) : t('detail.tl.running')}`}
+              planPctText={formatPct(summary.pctPlan, locale)}
+              actualPctText={formatPct(summary.pctActual, locale)}
+            />
+          ) : (
+            <div className="g2">
+              <TimelineItem label={t('detail.planned')} start={project.plannedStartDate} finish={project.plannedFinishDate} locale={locale} />
+              <TimelineItem label={t('detail.actual')} start={project.actualStartDate} finish={project.actualFinishDate} locale={locale} />
+            </div>
+          )}
+          <div className="tlfoot">
+            <span>{t('form.contractDate')}: {formatDate(project.contractDate, locale)}</span>
+            <span>{t('form.committedHandover')}: <b style={{ color: 'var(--label)' }}>{formatDate(project.committedHandoverDate, locale)}</b></span>
+            <span>{t('detail.tl.startDelay')}: <b style={{ color: startDelay != null && startDelay > 0 ? 'var(--danger)' : 'var(--label)' }}>{startDelay == null ? '-' : t('detail.tl.days', { n: Math.max(startDelay, 0) })}</b></span>
+            <span>{t('detail.tl.gap')}: <b style={{ color: !gap ? 'var(--label)' : gap.direction === 'behind' && gap.pct > 0 ? 'var(--danger)' : 'var(--ok)' }}>{gap ? formatPct(gap.pct, locale) : '-'}</b></span>
+          </div>
+        </CardBody>
+      </Card>
+```
+
+Giữ hàm `TimelineItem` (dòng 393-414) làm nhánh dự phòng.
+
+- [ ] **Bước 10: Test page** (thêm vào `projects-detail-page-render.test.ts`):
+
+```ts
+describe('Task 2 - Timeline KH/TT dang thanh', () => {
+  it('du an 1: co .tl, vien Hom nay, thanh TT, dong chan 4 muc', async () => {
+    const out = await render();
+    for (const s of ['class="tl"', 'class="todaypill"', 'detail.tl.todayPill', 'class="tlbar act"', 'class="tlfoot"', 'detail.tl.startDelay', 'detail.tl.gap']) expect(out).toContain(s);
+  });
+  it('du an 17 (chua khoi cong): khong co thanh TT, hien "Chua khoi cong"', async () => {
+    const out = await render({}, '17');
+    expect(out).toContain('detail.tl.notStarted');
+    expect(out).not.toContain('class="tlbar act"');
+  });
+});
+```
+
+- [ ] **Bước 11:** `npx tsc --noEmit`, `npm test`. Kiểm mắt `/vi/projects/1` (vạch hôm nay ~95%, viên "Hôm nay" không bị cắt mép phải) và `/vi/projects/17` (chữ "Chưa khởi công"), cả sáng lẫn tối.
+- [ ] **Bước 12:** `git commit -m "feat(parity): timeline KH/TT dang thanh + vach hom nay o chi tiet du an"`
 
 ---
 
-### Task 4: Thẻ KPI (scorecard)
+### Task 3: Đồng hồ đếm ngược `.cdpanel`
 
 **Files:**
-- Modify: `app/globals.css` (thêm khối `.kpis`/`.kpi`)
-- Modify: `src/components/dashboard/KpiCard.tsx` (viết lại toàn bộ)
-- Modify: `src/i18n/messages/vi.json`, `src/i18n/messages/en.json` (thêm `kpi.focusTag`)
-- Modify: `src/ui/legacy-style-guard.test.ts` (xoá nhóm "Task 4 - kpi")
+- Create: `src/lib/countdown.ts`, `src/lib/countdown.test.ts`, `src/components/project/CountdownPanel.tsx`
+- Modify: `page.tsx` (khối `.phead`, dòng 108-130), `globals.css`, `vi.json`/`en.json`, `messages.test.ts`
 
 **Interfaces:**
-- Consumes: token Task 1, `.chip` Task 3.
-- Produces: `KpiCard` **giữ nguyên chữ ký cũ** để 3 nơi gọi (`OverviewWidgets.tsx`, `report/page.tsx`, `projects/[id]/page.tsx`) không phải sửa:
-  ```ts
-  export type KpiTone = 'neutral' | 'ok' | 'warn' | 'danger';
-  export interface KpiCardProps {
-    label: string; value: string; sub?: string;
-    delta: number | null; deltaSuffix?: string;
-    tone?: KpiTone; invertDelta?: boolean; hero?: boolean;
-    icon: (p: IconProps) => React.ReactNode;
-  }
-  ```
-  `hero: true` → render `.kpi key` (nền gradient navy + tag vàng "Trọng tâm", **không** hiện icon). `hero: false` → `.kpi` thường (có icon ở `.ic`).
-- Produces: class `.kpis` cho lưới 6 cột — Task 10/11 dùng thay cho `grid grid-cols-2 … xl:grid-cols-6`.
-- Liên quan Q7 (không chặn).
+- Consumes `today` (Task 2).
+- Produces `countdownTargetMs(target: IsoDate): number`, `clockOffsetMs(appToday: IsoDate, realNowMs: number): number`, `countdownParts(targetMs: number, nowMs: number): CountdownParts`.
+- Produces `CountdownPanel({ targetDate: IsoDate; appToday: IsoDate; locale: string })`.
 
-- [ ] **Bước 1: Gỡ `KpiCard.tsx` khỏi PENDING → test ĐỎ**
+- [ ] **Bước 1: Test đỏ `src/lib/countdown.test.ts`**
 
-`npx vitest run src/ui/legacy-style-guard.test.ts` → FAIL `KpiCard.tsx: con "bg-navy-50"`.
+```ts
+import { describe, expect, it } from 'vitest';
+import { clockOffsetMs, countdownParts, countdownTargetMs } from './countdown';
 
-- [ ] **Bước 2: Copy CSS KPI vào `app/globals.css`**
+const at = (s: string) => Date.parse(s);
 
-Trong `@layer components`, dán nguyên văn **dòng 254–280** của `mockup-apple-glass.html`: `.kpis`, 2 `@media`, `.kpi`, `.kpi .lb`, `.kpi .vl`, `.kpi .sb`, `.kpi .ic`, `.kpi .ic svg`, `.kpi.tap`, `.kpi.tap:hover .ic`, `.kpi.key`, `.kpi.key .lb`, `.kpi.key .sb`, `.kpi.key .tag`, `.kpi.key .chip`.
+describe('countdownParts', () => {
+  it('con 2 ngay 3 gio 4 phut 6 giay toi 17:00 gio VN ngay dich', () => {
+    expect(countdownParts(countdownTargetMs('2026-09-29'), at('2026-09-27T13:55:54+07:00')))
+      .toEqual({ days: 2, hours: 3, minutes: 4, seconds: 6, done: false });
+  });
+  it('qua han -> tat ca 0, done=true (mock-up Math.max(0, ...))', () => {
+    expect(countdownParts(countdownTargetMs('2026-09-01'), at('2026-09-16T08:00:00+07:00')))
+      .toEqual({ days: 0, hours: 0, minutes: 0, seconds: 0, done: true });
+  });
+  it('nhan ca ISO day du (lay 10 ky tu dau)', () => {
+    expect(countdownTargetMs('2026-09-29T00:00:00.000Z')).toBe(at('2026-09-29T17:00:00+07:00'));
+  });
+});
 
-Thêm 2 quy tắc bù (mock-up không cần vì chỉ có 6 thẻ; app có lúc 5, lúc 4, lúc 2):
-```css
-  /* Bien the so cot - app co luoi 5 / 4 / 2 thay vi luon 6 */
-  .kpis.k5 { grid-template-columns: repeat(5, 1fr); }
-  .kpis.k4 { grid-template-columns: repeat(4, 1fr); }
-  .kpis.k2 { grid-template-columns: repeat(2, 1fr); }
-  @media (max-width: 1180px) { .kpis.k5, .kpis.k4 { grid-template-columns: repeat(3, 1fr); } }
-  @media (max-width: 680px)  { .kpis.k5, .kpis.k4 { grid-template-columns: repeat(2, 1fr); } }
-
-  /* Mui ten delta trong .sb - mock-up viet ky tu tho "▼", ta dung icon nen can can chinh */
-  .kpi .sb .delta { display: inline-flex; align-items: center; gap: 2px; font-weight: 650; }
-  .kpi .sb .delta.up { color: var(--ok); }
-  .kpi .sb .delta.down { color: var(--danger); }
-  .kpi.key .sb .delta.up,
-  .kpi.key .sb .delta.down { color: #fff; }
+describe('clockOffsetMs - dong ho app (DDC_FAKE_TODAY) vs gio that', () => {
+  it('app ghim 16/09, gio that 23/09 -> lech -7 ngay', () => {
+    expect(clockOffsetMs('2026-09-16', at('2026-09-23T10:00:00+07:00'))).toBe(-7 * 86_400_000);
+  });
+  it('cung ngay -> 0 (production)', () => {
+    expect(clockOffsetMs('2026-09-22', at('2026-09-22T23:30:00+07:00'))).toBe(0);
+  });
+  it('tinh ngay theo gio VN, khong theo UTC: 00:30 ngay 23 gio VN (= 17:30 ngay 22 UTC) van la ngay 23', () => {
+    expect(clockOffsetMs('2026-09-23', at('2026-09-23T00:30:00+07:00'))).toBe(0);
+  });
+});
 ```
 
-- [ ] **Bước 3: Thêm key i18n**
+- [ ] **Bước 2:** chạy → ĐỎ.
+- [ ] **Bước 3: `src/lib/countdown.ts`**
 
-`src/i18n/messages/vi.json` — trong object `"kpi"`, thêm `"focusTag": "Trọng tâm"`.
-`src/i18n/messages/en.json` — trong object `"kpi"`, thêm `"focusTag": "Focus"`.
+```ts
+import { APP_TIMEZONE, type IsoDate } from '@/lib/clock';
 
-- [ ] **Bước 4: Viết lại `src/components/dashboard/KpiCard.tsx`**
+/** Mock-up dòng 1343: đếm tới TARGET + "T17:00:00". */
+export const COUNTDOWN_HOUR = '17:00:00';
+/** Asia/Ho_Chi_Minh cố định UTC+7, không có giờ mùa hè. */
+const APP_UTC_OFFSET = '+07:00';
+const DAY_MS = 86_400_000;
+const appDate = new Intl.DateTimeFormat('en-CA', { timeZone: APP_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' });
+const startOfAppDay = (iso: string) => Date.parse(`${iso}T00:00:00${APP_UTC_OFFSET}`);
 
-`KpiCard` hiện là Server Component (không có `'use client'`), nhưng cần `useTranslations` cho tag. Server Component **không** dùng `useTranslations` của next-intl client. Cách rẻ nhất, không đổi API: thêm `'use client'` vào đầu file — thẻ KPI thuần hiển thị, không có payload nặng.
+export function countdownTargetMs(target: IsoDate): number {
+  return Date.parse(`${target.slice(0, 10)}T${COUNTDOWN_HOUR}${APP_UTC_OFFSET}`);
+}
+
+/**
+ * Độ lệch giữa "hôm nay" của app (clock.ts, có thể bị DDC_FAKE_TODAY ghim ngoài production) và hôm
+ * nay thật theo giờ VN. Production luôn 0. Cộng vào Date.now() để đồng hồ chạy từng giây nhưng vẫn
+ * khớp ngày với %KH / "Hôm nay" trên cùng trang.
+ */
+export function clockOffsetMs(appToday: IsoDate, realNowMs: number): number {
+  return startOfAppDay(appToday) - startOfAppDay(appDate.format(new Date(realNowMs)));
+}
+
+export interface CountdownParts { days: number; hours: number; minutes: number; seconds: number; done: boolean }
+
+export function countdownParts(targetMs: number, nowMs: number): CountdownParts {
+  const ms = Math.max(0, targetMs - nowMs);
+  return {
+    days: Math.floor(ms / DAY_MS),
+    hours: Math.floor((ms % DAY_MS) / 3_600_000),
+    minutes: Math.floor((ms % 3_600_000) / 60_000),
+    seconds: Math.floor((ms % 60_000) / 1000),
+    done: ms === 0,
+  };
+}
+```
+
+- [ ] **Bước 4:** chạy → XANH.
+- [ ] **Bước 5: `src/components/project/CountdownPanel.tsx`**
 
 ```tsx
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { IconArrowDown, IconArrowUp, type IconProps } from '@/components/icons';
+import type { IsoDate } from '@/lib/clock';
+import { formatDate } from '@/lib/format';
+import { clockOffsetMs, countdownParts, countdownTargetMs } from '@/lib/countdown';
+import { spring } from '@/components/ui/motion';
 
-export type KpiTone = 'neutral' | 'ok' | 'warn' | 'danger';
-
-export interface KpiCardProps {
-  label: string;
-  value: string;
-  sub?: string;
-  delta: number | null;
-  deltaSuffix?: string;
-  tone?: KpiTone;
-  invertDelta?: boolean;
-  /** true -> the "Trong tam": nen gradient navy + tag vang, khong hien icon. */
-  hero?: boolean;
-  icon: (p: IconProps) => React.ReactNode;
+/** Mỗi lần chữ số đổi: nảy bằng spring 'bouncy' như setDigit mock-up dòng 1338-1341. */
+function Digit({ value, sec = false }: { value: string; sec?: boolean }) {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    return spring({
+      preset: 'bouncy', from: 0, to: 1,
+      onUpdate: (p) => {
+        el.style.transform = `translateY(${(6 * (1 - p)).toFixed(2)}px)`;
+        el.style.opacity = String(Math.min(1, 0.35 + p * 0.65));
+      },
+    });
+  }, [value]);
+  return <b ref={ref} className={sec ? 'sec' : undefined}>{value}</b>;
 }
 
-/** Mau chu so chinh theo sac thai. The hero luon chu trang (nen gradient). */
-const TONE_VALUE: Record<KpiTone, string> = {
-  neutral: 'var(--label)',
-  ok: 'var(--ok)',
-  warn: 'var(--warn)',
-  danger: 'var(--danger)',
-};
-
-export function KpiCard({
-  label,
-  value,
-  sub,
-  delta,
-  deltaSuffix,
-  tone = 'neutral',
-  invertDelta = false,
-  hero = false,
-  icon: Icon,
-}: KpiCardProps) {
+export function CountdownPanel({ targetDate, appToday, locale }: { targetDate: IsoDate; appToday: IsoDate; locale: string }) {
   const t = useTranslations();
-  const deltaUp = (delta ?? 0) > 0;
-  const hasDelta = delta != null && delta !== 0;
-  const good = invertDelta ? !deltaUp : deltaUp;
-
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    const offset = clockOffsetMs(appToday, Date.now());
+    const tick = () => setNow(Date.now() + offset);
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [appToday]);
+  const p = now == null ? null : countdownParts(countdownTargetMs(targetDate), now);
+  const two = (n: number) => String(n).padStart(2, '0');
   return (
-    <div className={`kpi rise${hero ? ' key' : ''}`}>
-      {hero ? (
-        <span className="tag">{t('kpi.focusTag')}</span>
-      ) : (
-        <div className="ic">
-          <Icon size={15} />
-        </div>
-      )}
-
-      <div className="lb">{label}</div>
-      <div className="vl" style={hero ? undefined : { color: TONE_VALUE[tone] }}>
-        {value}
+    <div className="cdpanel">
+      <div className="t"><span className="pulsedot" />{t('detail.cd.title')}</div>
+      <div className="cd">
+        <Digit value={p ? String(p.days) : '-'} /><span>{t('detail.cd.days')}</span>
+        <Digit value={p ? two(p.hours) : '-'} /><span>{t('detail.cd.hours')}</span>
+        <Digit value={p ? two(p.minutes) : '-'} /><span>{t('detail.cd.minutes')}</span>
+        <Digit value={p ? two(p.seconds) : '-'} sec /><span>{t('detail.cd.seconds')}</span>
       </div>
-
-      <div className="sb">
-        {hasDelta ? (
-          <>
-            <span className={`delta ${good ? 'up' : 'down'}`}>
-              {deltaUp ? <IconArrowUp size={13} /> : <IconArrowDown size={13} />}
-              {Math.abs(delta!)}
-            </span>
-            {deltaSuffix && <span>{deltaSuffix}</span>}
-          </>
-        ) : (
-          !sub && <span>-</span>
-        )}
-        {sub && <span>{sub}</span>}
+      <div className="d">
+        {t('detail.cd.target')}: <b>{formatDate(targetDate, locale)}</b> · {t('detail.cd.today')} {formatDate(appToday, locale)}
       </div>
     </div>
   );
 }
 ```
 
-Ghi chú chuyển đổi (để reviewer đối chiếu):
-- Bỏ `Card` bọc ngoài — `.kpi` tự là bề mặt kính, không lồng 2 lớp blur.
-- Bỏ vệt gradient trên đỉnh và quả cầu blur `radial-gradient` cũ — mock-up không có.
-- Cỡ chữ số liệu do `.kpi .vl` quyết định (`--t-title1` = 28px); bỏ `text-[34px]`/`text-[28px]`.
-- Không đổi một prop nào → 3 nơi gọi giữ nguyên.
+- [ ] **Bước 6: CSS.** Copy mock-up **dòng 293-309** (`.cdpanel{…` tới `.cdpanel .d{…}`). Đổi đúng 2 tên keyframes cho khỏi đụng `@keyframes pulse` của Tailwind (utility `animate-pulse`): `shine` → `cdShine` (ở dòng 298 và 299), `pulse` → `cdPulse` (ở dòng 302 và 303). Thêm ngay sau khối vừa dán (mock-up không vẽ màn hẹp; `.phead` 1 hàng sẽ tràn khi có thêm panel):
 
-> **Q7.** Chưa có trả lời thì để nguyên: `hero` vẫn chỉ gắn ở `kpi.behindSchedule` (`OverviewWidgets.tsx:59`, `report/page.tsx:47`) và `metric.spi` (`projects/[id]/page.tsx:133`). Có trả lời (b) thì Task 10 chỉnh cờ `hero` theo danh sách chủ dự án đưa.
-
-- [ ] **Bước 5: Cổng kiểm tra + kiểm mắt**
-```
-npx vitest run src/ui/legacy-style-guard.test.ts
-npx vitest run src/i18n/messages.test.ts
-npx tsc --noEmit
-npm test
-```
-Kiểm mắt `/vi/overview` và `/vi/report`: 6 thẻ KPI trên một hàng ở màn rộng; 5 thẻ thường là kính có icon góc phải; thẻ "Chậm tiến độ" nền gradient navy, chữ trắng, tag vàng "Trọng tâm" góc phải. Dark mode: gradient dùng `--accent-2/--accent/--accent-deep` bản tối, tag vẫn vàng.
-
-- [ ] **Bước 6: Commit**
-```bash
-git add app/globals.css src/components/dashboard/KpiCard.tsx src/i18n/messages src/ui/legacy-style-guard.test.ts
-git commit -m "style(glass): Task 4 - the KPI scorecard + tag Trong tam mau vang"
-```
-
----
-
-### Task 5: Bảng dữ liệu
-
-**Files:**
-- Modify: `app/globals.css` (thêm khối `.tbl`)
-- Modify: `src/components/dashboard/ProjectTable.tsx`
-- Modify: `src/components/alerts/AlertList.tsx`
-- Modify: `src/components/dashboard/Watchlist.tsx`
-- Modify: `src/ui/legacy-style-guard.test.ts` (xoá nhóm "Task 5 - bang")
-
-**Interfaces:**
-- Produces: `.tbl` (+ `.tbl th`, `.tbl td`, `.tbl .num`), `.scroll`, và bảng mẫu mà Task 8/10/11 copy theo.
-- Quy ước bảng chuẩn — mọi bảng trong app từ nay theo đúng khuôn này:
-  ```tsx
-  <div className="bd scroll">
-    <table className="tbl">
-      <thead><tr><th>…</th><th className="num">…</th></tr></thead>
-      <tbody><tr><td>…</td><td className="num">…</td></tr></tbody>
-    </table>
-  </div>
-  ```
-  Cột số → `className="num"` (căn phải). Mã/ID → `className="mono"`. **Không** còn `px-4 py-2.5`, không còn `divide-y`, không còn zebra — `.tbl td` đã lo hết.
-
-- [ ] **Bước 1: Gỡ 3 file khỏi PENDING → test ĐỎ**
-
-- [ ] **Bước 2: Copy CSS bảng vào `app/globals.css`**
-
-Dán nguyên văn **dòng 362–370** của `mockup-apple-glass.html`: `.tbl`, `.tbl th`, `.tbl td`, `.tbl tbody tr:last-child td`, `.tbl tbody tr`, `.tbl tbody tr:hover`, `.tbl .num`, `.scroll`.
-
-Thêm 3 quy tắc bù:
 ```css
-  /* Bang co header dinh khi cuon doc (Audit log, danh muc dim) */
-  .tbl.sticky thead th {
-    position: sticky; top: 0; z-index: 2;
-    background: var(--glass-3);
-    -webkit-backdrop-filter: blur(var(--mat-thick));
-    backdrop-filter: blur(var(--mat-thick));
-  }
-  /* O trong - mock-up khong ve nhung app can */
-  .tbl .empty {
-    padding: 40px 12px; text-align: center;
-    color: var(--label3); font-size: var(--t-footnote);
-  }
-  /* Hang co the bam sang trang khac */
-  .tbl a { color: inherit; text-decoration: none; }
-  .tbl a:hover { color: var(--accent); }
+  @media(max-width:820px){.phead{flex-wrap:wrap}.phead .cdpanel{flex:1 1 100%}}
 ```
 
-- [ ] **Bước 3: `ProjectTable.tsx`**
-
-Giữ nguyên `Props`, hàm `update`, và toàn bộ dữ liệu render. Chỉ đổi class theo bảng:
-
-| Vị trí (dòng cũ) | Cũ | Mới |
-|---|---|---|
-| 35 | `<div className="card">` | `<div className="card overflow-visible">` (có `<select>` sắp xếp) |
-| 36 | `flex flex-wrap items-center justify-between gap-3 px-5 pt-4` | `hd` |
-| 37 | `<h3 className="text-sm font-semibold text-navy-900">` | `<h3>` |
-| 39 | `<span className="ml-2 text-xs font-normal text-slate-400">` | `<span className="en">` |
-| 43-47 `<select>` | `h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-navy-800 focus:outline-none` | `inp` + `style={{ width: 'auto', padding: '5px 10px' }}` |
-| 57 | `mt-2 overflow-x-auto` | `bd scroll` |
-| 58 | `w-full min-w-[980px] text-sm table-zebra` | `tbl` + `style={{ minWidth: 980 }}` |
-| 60 | `<tr className="border-y border-slate-100 bg-slate-50/60 text-left text-xs uppercase …">` | `<tr>` (bỏ hết class) |
-| 61-72 `<th className="px-4 py-2.5 font-medium">` | | `<th>`; các `th` số (`% TT`, `SPI`, `CPI`, giá trị HĐ) → `<th className="num">` |
-| 76 | `<tbody className="divide-y divide-slate-100">` | `<tbody>` |
-| 78 | `<tr key={s.id} className="group">` | `<tr key={s.id}>` |
-| 79 | `px-4 py-2.5 font-mono text-xs text-slate-500` | `mono` |
-| 81 | `<Link … className="font-medium text-navy-900 hover:text-accent">` | `<Link … >` (đã có `.tbl a`); `<td>` bọc thêm `style={{ whiteSpace: 'normal', maxWidth: 260, fontWeight: 600 }}` |
-| 85-87 | `px-4 py-2.5 text-slate-600` | bỏ class hết |
-| 97,103,108 | `px-4 py-2.5 text-right tabular-nums text-slate-700` | `num` |
-| 99,104 | `font-medium text-amber-600` / `text-slate-700` | dùng chip: `<Badge tone={s.spi != null && s.spi < 0.9 ? 'danger' : s.spi != null && s.spi < 1 ? 'warn' : 'ok'}>{formatRatio(s.spi)}</Badge>` (theo mock-up dòng 1678, 1685) |
-| 110 | `text-slate-300 hover:text-navy-500` | `text-label3` |
-| 118 | `px-4 py-10 text-center text-sm text-slate-400` | `empty` |
-| 128 | `flex items-center justify-end gap-2 border-t border-slate-100 px-5 py-3 text-sm text-slate-600` | `flex items-center justify-end gap-2 border-t border-sep px-4 py-3 text-caption1 text-label2` |
-| 132,142 nút phân trang | `rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium disabled:opacity-40` | `btn ghost` + `style={{ padding: '5px 12px', fontSize: 'var(--t-caption1)' }}` + giữ `disabled:opacity-40` |
-
-Cần import `Badge` từ `@/components/ui/Badge` nếu dùng chip cho SPI/CPI.
-
-- [ ] **Bước 4: `AlertList.tsx`**
-
-Cùng khuôn: `overflow-x-auto` → `scroll`; `w-full min-w-[980px] text-sm table-zebra` → `tbl` + `style={{minWidth:980}}`; `<tr className="border-y …">` → `<tr>`; mọi `<th className="px-4 py-2.5 font-medium">` → `<th>`; `<tbody className="divide-y divide-slate-100">` → `<tbody>`; `px-4 py-2.5 font-medium text-navy-900` → `style={{fontWeight:600}}`; `px-4 py-2.5 text-xs text-slate-500` → `mono`; `px-4 py-2.5 text-navy-800` → bỏ; `px-4 py-2.5 text-slate-600` → bỏ; dòng 30 `py-10 text-center text-sm text-slate-400` → `<p className="empty">`; nút Đóng (66) `shrink-0 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-navy-800 hover:bg-slate-50 disabled:opacity-50` → `btn ghost` + `style={{padding:'6px 12px',fontSize:'var(--t-caption1)'}}` + giữ `disabled:opacity-50`.
-
-- [ ] **Bước 5: `Watchlist.tsx`**
-
-Đây là danh sách, không phải bảng — chuyển sang mẫu `.alert` của mock-up (CSS 414–419):
-
-| Cũ | Mới |
-|---|---|
-| 27 `py-4 text-center text-sm text-slate-400` | `empty` |
-| 29 `<ul className="divide-y divide-slate-100">` | `<div className="flex flex-col gap-2.5">` (bỏ `<ul>/<li>`, mỗi mục là `<Link className="alert">`) |
-| 34 `group flex items-center gap-3 px-1 py-3 … hover:bg-slate-50` | `alert` |
-| 36 `flex h-8 w-8 … rounded-lg bg-red-50 text-red-600` | `<span className="dot" style={{ background: 'var(--danger)' }} />` (bỏ icon trong ô vuông, theo mock-up dòng 1758) |
-| 40 `truncate text-sm font-medium text-navy-900` | `<h4>` |
-| 41 `flex flex-wrap gap-1.5 pt-1` | `mt` |
-| 49 `text-slate-300 group-hover:text-navy-500` | `text-label3` |
-
-Giữ nguyên `reasonsOf`, `Badge tone="warn"`, và `Card`/`CardHeader`/`CardBody` bọc ngoài.
-
-- [ ] **Bước 6: Cổng kiểm tra + kiểm mắt**
-```
-npx vitest run src/ui/legacy-style-guard.test.ts
-npx tsc --noEmit
-npm test
-```
-Kiểm mắt `/vi/overview` (bảng Danh mục dự án + Watchlist) và `/vi/alerts`: header bảng chữ hoa 10px xám nhạt, kẻ ngang 0.5px, hover đổi nền nhẹ, **không** còn sọc zebra. Cột số căn phải. Mã dự án font mono.
-
-- [ ] **Bước 7: Commit**
-```bash
-git add app/globals.css src/components/dashboard/ProjectTable.tsx src/components/dashboard/Watchlist.tsx src/components/alerts/AlertList.tsx src/ui/legacy-style-guard.test.ts
-git commit -m "style(glass): Task 5 - bang du lieu theo mau .tbl cua mock-up"
-```
-
----
-
-### Task 6: Form nền tảng — input, nút, switch, combobox, modal
-
-**Files:**
-- Modify: `app/globals.css` (thêm khối form)
-- Modify: `src/components/dashboard/FilterBar.tsx`
-- Modify: `src/components/form/Combobox.tsx`
-- Modify: `src/components/form/CreateProjectForm.tsx`
-- Modify: `src/components/project/ProjectSwitcher.tsx`
-- Modify: `src/components/project/WhatIf.tsx`
-- Modify: `src/components/ui/PasswordInput.tsx`
-- Modify: `src/components/layout/ChangePasswordModal.tsx`
-- Modify: `src/ui/legacy-style-guard.test.ts` (xoá nhóm "Task 6 - form nho")
-
-**Interfaces:**
-- Produces: `.field .field .lb .inp .inp.ro .inp.bad .fgrid .f2 .f4 .btn .btn.ghost .switch .switch.on .fsec .req .hintline .inline .tagbox .sumbar .stickybar .help .help .bub .modal-scrim`
-- Quy ước form chuẩn (mọi Task sau bám theo):
-  ```tsx
-  <div className="field">
-    <span className="lb">Nhãn <span className="req">*</span></span>
-    <input className="inp" />
-    <span className="hintline">Ghi chú</span>
-  </div>
-  ```
-  Nút chính: `<button className="btn">`. Nút phụ: `<button className="btn ghost">`.
-  Lưới field: `f2` (2 cột), `fgrid` (3 cột), `f4` (4 cột).
-
-- [ ] **Bước 1: Gỡ 7 file khỏi PENDING → test ĐỎ**
-
-- [ ] **Bước 2: Copy CSS form vào `app/globals.css`**
-
-Dán nguyên văn các đoạn của `mockup-apple-glass.html`:
-- **393–411** → `.field`, `.field label`, `.inp`, `.inp:focus`, `.fgrid`, `@media(max-width:900px)`, `.btn`, `.btn.ghost`, `.btn svg`, `.switch`, `.switch i`, `.switch.on`, `.switch.on i`
-- **461–494** → `.fsec`, `.fsec:first-child`, `.fsec>.h`, `.fsec>.h .n`, `.fsec>.h h4`, `.fsec>.h p`, `.field .lb`, `.req`, `.hintline`, `.inp.ro`, `.inp.bad`, `.f2`, `.f4`, 2 `@media`, `.inline`, `.tagbox` + con, `.sumbar`, `.sumbar.good`, `.sumbar.bad`, `.stickybar`
-- **438–458** → `.help`, `.help:hover`, `.help .bub` + con, `.help.rt` + con
-
-Thêm 3 quy tắc bù:
-```css
-  /* Nut chinh khi bi khoa */
-  .btn:disabled, .btn[aria-disabled='true'] { opacity: .5; cursor: not-allowed; }
-  .btn.danger { background: linear-gradient(160deg, #e0524c, var(--danger)); }
-
-  /* Nen mo phia sau modal - mock-up khong co modal nen tu suy tu .tip/.hud */
-  .modal-scrim {
-    position: fixed; inset: 0; z-index: 90;
-    display: flex; align-items: center; justify-content: center; padding: 16px;
-    background: rgba(10, 31, 61, 0.36);
-    -webkit-backdrop-filter: blur(var(--mat-thin)) saturate(var(--mat-sat));
-    backdrop-filter: blur(var(--mat-thin)) saturate(var(--mat-sat));
-  }
-  .modal {
-    width: 100%; max-width: 420px; border-radius: var(--r-xl);
-    background: var(--glass-3);
-    -webkit-backdrop-filter: blur(var(--mat-chrome)) saturate(var(--mat-sat));
-    backdrop-filter: blur(var(--mat-chrome)) saturate(var(--mat-sat));
-    border: .5px solid var(--glass-stroke);
-    box-shadow: var(--e4), var(--inner-hi);
-    padding: 22px;
-  }
-
-  /* Danh sach goi y cua combobox - tu suy tu .tip (glass-3 + mat-thick + e4) */
-  .pop {
-    position: absolute; z-index: 60; margin-top: 4px; width: 100%;
-    max-height: 288px; overflow: auto;
-    border-radius: var(--r-sm);
-    background: var(--glass-3);
-    -webkit-backdrop-filter: blur(var(--mat-thick)) saturate(var(--mat-sat));
-    backdrop-filter: blur(var(--mat-thick)) saturate(var(--mat-sat));
-    border: .5px solid var(--glass-stroke);
-    box-shadow: var(--e4);
-  }
-  .pop button {
-    display: block; width: 100%; text-align: left;
-    padding: 8px 12px; font-size: var(--t-footnote); color: var(--label);
-    background: none; border: none; cursor: pointer;
-    transition: background var(--dur-fast) var(--ease-std);
-  }
-  .pop button:hover { background: var(--fill); }
-```
-
-- [ ] **Bước 3: `FilterBar.tsx`**
-
-- dòng 62–63: thay `selectCls` bằng `const selectCls = 'inp';` và thêm `style={{ width: 'auto', padding: '6px 10px', fontSize: 'var(--t-caption1)' }}` cho từng `<select>` — hoặc gọn hơn: khai báo `const selStyle = { width: 'auto', padding: '6px 10px', fontSize: 'var(--t-caption1)' } as const;` rồi `style={selStyle}` cho cả 7 select.
-- dòng 66: `card flex flex-wrap items-center gap-2 px-3 py-3` → `card overflow-visible flex flex-wrap items-center gap-2 px-3 py-3`
-- dòng 67–68: `text-xs font-medium text-slate-500` → `text-caption1 font-semibold text-label2`; `<IconFilter size={15} className="text-slate-500" />` → `<IconFilter size={15} />`
-- dòng 124: nút xoá lọc `rounded-lg bg-accent-soft px-2 py-1.5 text-xs text-accent hover:bg-accent-soft/70` → `btn ghost` + `style={{ padding: '5px 10px', fontSize: 'var(--t-caption1)' }}`
-
-- [ ] **Bước 4: `Combobox.tsx`**
-
-Giữ 100% logic. Chỉ 3 chỗ:
-- dòng 80: `absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg` → `pop`
-- dòng 91: `block w-full px-3 py-2 text-left text-sm text-navy-900 hover:bg-slate-50` → bỏ hết (`.pop button` lo)
-- dòng 102: `block w-full border-t border-slate-100 px-3 py-2 text-left text-sm font-medium text-accent hover:bg-slate-50 disabled:opacity-50` → `className="disabled:opacity-50"` + `style={{ borderTop: '.5px solid var(--sep)', color: 'var(--accent)', fontWeight: 600 }}`
-- dòng 108: `px-3 py-2 text-sm text-slate-400` → `px-3 py-2 text-footnote text-label3`
-
-**Bẫy:** `.card{overflow:hidden}` sẽ cắt `.pop`. Mọi `Card`/`div.card` chứa Combobox **phải** có thêm `overflow-visible`.
-
-- [ ] **Bước 5: `ProjectSwitcher.tsx`**
-
-- dòng 50: `<IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />` → giữ vị trí, đổi class màu thành `text-label3`
-- dòng 59: `h-9 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-sm text-navy-800 focus:border-accent focus:outline-none` → `inp pl-8`
-- dòng 64: `absolute left-0 right-0 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:…` → `pop`
-- dòng 66: `px-3 py-2.5 text-xs text-slate-400` → `px-3 py-2.5 text-caption1 text-label3`
-- dòng 72: `flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-700` → `flex items-center gap-2` (phần còn lại do `.pop button`)
-- dòng 74: `shrink-0 font-mono text-xs text-slate-400` → `mono shrink-0`
-- dòng 75: `flex-1 truncate text-navy-800 dark:text-slate-200` → `flex-1 truncate`
-
-- [ ] **Bước 6: `WhatIf.tsx`**
-
-- dòng 24: `text-slate-600` → `text-label2`
-- dòng 25: `font-semibold text-accent` → `font-semibold text-brand`
-- dòng 34: `w-full accent-accent` → `w-full` + `style={{ accentColor: 'var(--accent)' }}`
-- dòng 36: `grid grid-cols-3 gap-2` → `fgrid` + `style={{ gap: 10 }}`
-- dòng 37,41,45: 3 ô thống kê — theo mock-up dòng 738–746:
-  ```tsx
-  <div style={{ background: 'var(--fill)', borderRadius: 'var(--r-sm)', padding: '10px 12px' }}>
-    <div className="text-[10px] font-bold uppercase text-label3">{t('whatif.currentEac')}</div>
-    <div className="mt-[3px] text-callout font-bold">{formatTyd(baseEac, locale)}</div>
-  </div>
-  ```
-  Ô 2 (EAC mới): giá trị `style={{ color: 'var(--accent)' }}`. Ô 3 (Tiết kiệm): giá trị `style={{ color: 'var(--ok)' }}`.
-- Bỏ `label` class cũ (đã xoá khỏi globals.css ở Task 1).
-
-- [ ] **Bước 7: `PasswordInput.tsx`**
-
-- dòng 27: `const colors = ['bg-slate-200','bg-red-500','bg-amber-500','bg-emerald-500'];`
-  → `const colors = ['var(--fill-2)', 'var(--danger)', 'var(--warn)', 'var(--ok)'];`
-- dòng 44: `absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300` → `absolute right-2.5 top-1/2 -translate-y-1/2 text-label3 transition-colors duration-fast hover:text-label`
-- dòng 54–57: đổi sang inline style:
-  ```tsx
-  <span
-    key={i}
-    className="h-1 w-6 rounded-full"
-    style={{ background: i <= strength ? colors[strength] : 'var(--fill-2)' }}
-  />
-  ```
-- dòng 60: `text-[11px] text-slate-500` → `text-caption2 text-label2`
-
-- [ ] **Bước 8: `ChangePasswordModal.tsx`**
-
-- dòng 18–19: `inputCls` → `const inputCls = 'inp';`
-- dòng 46: `fixed inset-0 z-[90] flex items-center justify-center bg-navy-950/60 p-4` → `modal-scrim`
-- dòng 48: `w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-800` → `modal`
-- dòng 53: `text-base font-semibold text-navy-900 dark:text-slate-100` → `text-callout font-semibold`
-- dòng 54: `mt-0.5 text-xs text-slate-400` → `hintline`
-- dòng 58: nút đóng `rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700` → `rounded-sm p-2 text-label3 transition-colors duration-fast hover:bg-fill hover:text-label`
-- dòng 67,71,76: `<label className="mb-1.5 block text-xs font-medium text-slate-600">` → `<span className="lb">` (bọc mỗi cặp label+input trong `<div className="field">`)
-- dòng 73: `mt-1 text-[11px] text-slate-400` → `hintline`
-- dòng 79: `rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600` → `sumbar bad`
-- dòng 83: nút Lưu `w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white … disabled:opacity-50` → `btn w-full justify-center`
-
-- [ ] **Bước 9: `CreateProjectForm.tsx`**
-
-- dòng 17–18: `inputCls` → `const inputCls = 'inp';`
-- dòng 114: nút mở form `flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90` → `btn`
-- dòng 121: `card mt-3 grid gap-4 p-5 sm:grid-cols-2` → `card overflow-visible mt-3 p-4` bọc ngoài, bên trong dùng `<div className="f2">` (Combobox nằm đây → **bắt buộc** `overflow-visible`)
-- dòng 123 + 219: label `mb-1 flex items-center gap-1 text-xs font-medium text-slate-600` → `lb`; bọc mỗi cặp trong `<div className="field">`
-- dòng 125 + 222: nút gợi ý `!` `cursor-help rounded-full bg-slate-200 px-1.5 text-[10px] font-bold leading-4 text-slate-500` → chuyển sang mẫu `.help` của mock-up:
-  ```tsx
-  <button type="button" className="help" aria-label={hint}>?<span className="bub">{hint}</span></button>
-  ```
-  (bỏ `title=`, dùng bong bóng kính; giữ nguyên nội dung `hint`)
-- dòng 196: `text-xs text-red-600 sm:col-span-2` → `sumbar bad` + `style={{ gridColumn: '1 / -1' }}`
-- dòng 197: `text-xs text-emerald-600 sm:col-span-2` → `sumbar good` + `style={{ gridColumn: '1 / -1' }}`
-- dòng 202: nút Lưu → `btn`
-- dòng 206: nút Huỷ `rounded-xl px-4 py-2 text-sm text-slate-500 hover:bg-slate-50` → `btn ghost`
-- dòng 122 `sm:col-span-2` (ô Tên dự án) → `style={{ gridColumn: '1 / -1' }}`
-
-- [ ] **Bước 10: Cổng kiểm tra + kiểm mắt**
-```
-npx vitest run src/ui/legacy-style-guard.test.ts
-npx tsc --noEmit
-npm test
-```
-Kiểm mắt: `/vi/overview` (FilterBar), `/vi/projects/1` (ProjectSwitcher + WhatIf), `/vi/nhap-lieu` (CreateProjectForm), bánh răng → Người dùng → Đổi mật khẩu (modal).
-Kiểm riêng: mở Combobox "Chủ đầu tư" trong CreateProjectForm — danh sách gợi ý **không bị cắt** bởi mép card. Nếu bị cắt → thiếu `overflow-visible`.
-
-- [ ] **Bước 11: Commit**
-```bash
-git add app/globals.css src/components/dashboard/FilterBar.tsx src/components/form/Combobox.tsx src/components/form/CreateProjectForm.tsx src/components/project/ProjectSwitcher.tsx src/components/project/WhatIf.tsx src/components/ui/PasswordInput.tsx src/components/layout/ChangePasswordModal.tsx src/ui/legacy-style-guard.test.ts
-git commit -m "style(glass): Task 6 - input/nut/switch/combobox/modal theo mock-up"
-```
-
----
-
-### Task 7: Wizard nhập liệu + panel import
-
-**Files:**
-- Modify: `app/globals.css` (thêm khối `.stage`/`.stagegrid` cho chuỗi giá trị)
-- Modify: `src/components/form/DataEntryForm.tsx`
-- Modify: `src/components/form/ImportPanel.tsx`
-- Modify: `src/ui/legacy-style-guard.test.ts` (xoá nhóm "Task 7 - wizard nhap lieu")
-
-**Interfaces:**
-- Consumes: mọi class form của Task 6, `.tbl` của Task 5, `.msdetail` của Task 3.
-- Produces: `.stagegrid .stage .stage.on .stage.bt .chainfoot` — Task 10 dùng lại cho chuỗi giá trị ở trang Chi tiết dự án.
-
-- [ ] **Bước 1: Gỡ 2 file khỏi PENDING → test ĐỎ**
-
-- [ ] **Bước 2: Copy CSS chuỗi giá trị vào `app/globals.css`**
-
-Dán nguyên văn **dòng 335–352** của `mockup-apple-glass.html`: `.stagegrid`, `@media`, `.stage`, `.stage:hover`, `.stage.on`, `.stage .nm`, `.stage.on .nm`, `.stage .w`, `.stage .bar`, `.stage .fill`, `.stage.bt .fill`, `.stage .pc`, `.chainfoot`.
-
-- [ ] **Bước 3: `DataEntryForm.tsx` — thanh chọn dự án + thanh bước**
-
-- dòng 296: `card flex flex-wrap items-center gap-3 p-4` → `card overflow-visible flex flex-wrap items-center gap-3 p-4` (có 2 `<select>`)
-- dòng 297: `text-sm font-medium text-navy-900` → `text-footnote font-semibold`
-- dòng 301, 312: `h-9 … rounded-xl border border-slate-200 px-3 text-sm text-navy-800 focus:border-accent focus:outline-none` → `inp` + `style={{ width: 'auto' }}` (select dự án giữ `min-w-0 flex-1 sm:max-w-xs`)
-- dòng 326: `flex flex-wrap items-center gap-1.5 border-b border-slate-200 pb-1` → `msdetail` + `style={{ borderBottom: 'none', background: 'transparent', padding: 0 }}`
-- dòng 333–335: nút bước
-  - đang mở: `className="k"` + `style={{ background: 'var(--accent-tint)', color: 'var(--accent)', borderColor: 'transparent' }}`
-  - chưa mở: `className="k"` (mặc định `.msdetail .k` đã là nền `--glass-3`, viền `--sep`)
-  - số thứ tự (dòng 337) `flex h-4 w-4 items-center justify-center rounded-full bg-white/25 text-[10px]` → `<b>{i + 1}</b>` (`.msdetail .k b` đã tô đậm)
-- dòng 344: `card p-5 ${locked ? 'pointer-events-none opacity-60' : ''}` → `card overflow-visible ${locked ? 'pointer-events-none opacity-60' : ''}` và bọc nội dung trong `<div className="bd">`
-
-- [ ] **Bước 4: `DataEntryForm.tsx` — thân các bước**
-
-Áp bảng đổi chung (dùng Find & Replace trong file, kiểm từng chỗ):
-
-| Cũ | Mới |
-|---|---|
-| `grid gap-4 sm:grid-cols-2` | `f2` |
-| `space-y-4` (bọc nhóm field) | giữ nguyên |
-| `mt-1 text-[11px] text-slate-400` | `hintline` |
-| `mt-1 text-xs text-red-600` | `hintline` + `style={{ color: 'var(--danger)' }}` |
-| `mb-2 text-xs font-medium uppercase text-slate-400` | `<div className="sect"><b>…</b><i /></div>` |
-| `w-28 shrink-0 text-xs text-slate-600` (tên giai đoạn, dòng 482) | `nm` — cả hàng chuyển sang `<div className="stage">` |
-| `flex shrink-0 items-center gap-1.5 text-xs text-slate-500` (dòng 493) | `inline` + `style={{ fontSize: 'var(--t-caption1)', color: 'var(--label2)' }}` |
-| `mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-navy-800` (511, 520) | `chainfoot` |
-| `rounded-lg bg-slate-50 p-3` (518) | `sumbar` |
-| `text-xs font-medium uppercase text-slate-400` (519) | `text-caption2 font-bold uppercase text-label3` |
-| `text-sm font-medium text-navy-900` (556, 567) | `text-footnote font-semibold` |
-| `mt-2 divide-y divide-slate-100` (557, 568) | `mt-2 flex flex-col` + mỗi `<li>` thêm `style={{ borderTop: '.5px solid var(--sep)' }}` (bỏ dòng đầu bằng `first:border-t-0`) |
-| `font-mono text-xs text-navy-800` (560, 572) | `mono` |
-| `text-xs text-slate-400` (561, 569, 573) | `text-caption1 text-label3` |
-| `py-4 text-center text-sm text-slate-400` (621) / `py-2 text-sm text-slate-400` (569) | `empty` |
-| `mb-1 block text-xs font-medium text-slate-600` (579) | `lb` |
-| `text-xs text-red-600` (599, 619) | `hintline` + `style={{ color: 'var(--danger)' }}` |
-| `text-sm text-emerald-600` (665) | `chip c-ok` |
-| `${inputCls('code')} bg-slate-50 text-slate-400` (348) | `inp ro` |
-| `rounded-xl bg-accent …` (mọi nút lưu/nộp) | `btn` |
-| `rounded-xl border border-slate-200 …` (mọi nút phụ) | `btn ghost` |
-| `aspect-[4/3] … bg-slate-100` (ô ảnh, 623–631) | `style={{ background: 'var(--fill)', borderRadius: 'var(--r-md)' }}` |
-
-Thanh hành động cuối (dòng 649–~690): bọc trong `<div className="stickybar">` thay cho `flex items-center justify-between gap-3`.
-
-Hàm `Field` (dòng 697–711) — viết lại theo khuôn Task 6:
-```tsx
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <div className="field">
-      <span className="lb">
-        {label}
-        {hint && (
-          <button type="button" className="help" aria-label={hint}>
-            ?<span className="bub">{hint}</span>
-          </button>
-        )}
-      </span>
-      {children}
-    </div>
-  );
-}
-```
-
-Hàm `AlertTab` (dòng 712–~750): mỗi cảnh báo → `<div className="alert">` + `<span className="dot" style={{background: a.alertType === 'Red' ? 'var(--danger)' : 'var(--warn)'}} />` + `<h4>` + `<p>` + `<div className="mt">`. Giống hệt cách làm Watchlist ở Task 5.
-
-Hàng 7 giai đoạn (khối dòng 478–509): chuyển sang `.stage`:
-```tsx
-<div className="stagegrid">
-  {STAGE_ORDER.map((s) => (
-    <div key={s} className="stage">
-      <span className="nm">{t(stageKey[s])}</span>
-      <span className="w">{/* trọng số nếu có, nếu không để '-' */}</span>
-      <div className="bar"><i className="fill" style={{ width: `${pct * 100}%` }} /></div>
-      <span className="pc">{/* % */}</span>
-    </div>
-  ))}
-</div>
-```
-**Lưu ý:** `.stage .fill` trong mock-up là con của `.stage .bar`; ở đây dùng `<i className="fill">`. Giữ nguyên các `<input>`/`<label>` điều khiển của app bằng cách đặt chúng ngay sau `.stage` trong cùng một `<div>` bọc — **không** xoá control nào, vì đó là chức năng nhập liệu.
-
-- [ ] **Bước 5: `ImportPanel.tsx`**
-
-| Dòng | Cũ | Mới |
-|---|---|---|
-| 78, 97, 161 | `card p-4` | `card` + bọc nội dung trong `<div className="bd">` |
-| 79 | `flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-slate-300 px-4 py-5 text-sm text-navy-800 hover:bg-slate-50` | `flex cursor-pointer items-center gap-3 px-4 py-5 text-footnote transition-colors duration-fast hover:bg-fill` + `style={{ border: '1px dashed var(--sep-2)', borderRadius: 'var(--r-md)' }}` |
-| 80 | `text-accent` | `text-brand` |
-| 83 | `ml-2 text-xs text-slate-400` | `en` |
-| 92 | `mt-2 text-sm text-slate-500` | `hintline` |
-| 107, 174 | `h-8 rounded-lg border border-slate-200 px-2 text-xs text-navy-800 focus:outline-none` | `inp` + `style={{ width: 'auto', padding: '5px 10px', fontSize: 'var(--t-caption1)' }}` |
-| 118, 186 | `rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-40` | `btn` + `style={{ padding: '6px 12px', fontSize: 'var(--t-caption1)' }}` |
-| 123 | `text-xs text-emerald-600` | `chip c-ok` |
-| 130 | `overflow-x-auto` | `scroll` |
-| 131 | `w-full text-sm` | `tbl` |
-| 133 | `text-left text-xs uppercase text-slate-400` | bỏ hết |
-| 134–137 | `py-1.5 font-medium` | bỏ hết |
-| 140 | `divide-y divide-slate-100` | bỏ |
-| 143 | `py-1.5 font-mono text-xs text-navy-800` | `mono` |
-| 144–146 | `py-1.5 text-slate-600` / `py-1.5` | bỏ |
-| 162 | `text-sm font-semibold text-navy-900` | dùng `<CardHeader title={…} />` thay cho `<h3>` rời |
-| 164 | `py-4 text-center text-sm text-slate-400` | `empty` |
-| 166 | `mt-2 divide-y divide-slate-100` | `mt-2 flex flex-col` + `<li style={{ borderTop: '.5px solid var(--sep)' }}>` |
-| 169 | `font-mono text-xs text-navy-800` | `mono` |
-| 170 | `min-w-0 flex-1 truncate text-xs text-slate-400` | `min-w-0 flex-1 truncate text-caption1 text-label3` |
-
-Card ở dòng 97 và 161 có `<select>` → thêm `overflow-visible`.
-
-- [ ] **Bước 6: Cổng kiểm tra + kiểm mắt**
-```
-npx vitest run src/ui/legacy-style-guard.test.ts
-npx tsc --noEmit
-npm test
-```
-Kiểm mắt `/vi/nhap-lieu` (chạy đủ 4 bước wizard, bấm từng bước) và `/vi/import`.
-Kiểm riêng: khi `locked = true`, khối form phải mờ 60% và không bấm được (giữ nguyên hành vi cũ).
-
-- [ ] **Bước 7: Commit**
-```bash
-git add app/globals.css src/components/form src/ui/legacy-style-guard.test.ts
-git commit -m "style(glass): Task 7 - wizard nhap lieu + panel import"
-```
-
----
-
-### Task 8: Công cụ quản trị (5 editor)
-
-**Files:**
-- Modify: `src/components/admin/UserEditor.tsx`
-- Modify: `src/components/admin/FieldEditor.tsx`
-- Modify: `src/components/admin/ActivityViewer.tsx`
-- Modify: `src/components/admin/DeleteProject.tsx`
-- Modify: `src/components/admin/ResetDataButton.tsx`
-- Modify: `src/ui/legacy-style-guard.test.ts` (xoá nhóm "Task 8 - admin editor")
-
-**Interfaces:** chỉ tiêu thụ class của Task 3/5/6. Không tạo class mới, **trừ** `.btn.danger` (đã thêm ở Task 6).
-
-Không sửa một dòng logic nào ở 5 file này — chúng gọi server action thật (`resetPasswordAction`, `mergeDimValueAction`, `deleteProjectAction`…). Chỉ đổi `className` / `style`.
-
-- [ ] **Bước 1: Gỡ 5 file khỏi PENDING → test ĐỎ**
-
-- [ ] **Bước 2: `UserEditor.tsx`**
-
-| Dòng | Cũ | Mới |
-|---|---|---|
-| 34–35 | `inputCls = 'h-9 rounded-lg border border-slate-200 px-2.5 text-sm text-navy-800 focus:border-accent focus:outline-none'` | `inputCls = 'inp'` |
-| 69, 78, 82 | `mb-1 block text-xs font-medium text-slate-600` | `lb`; bọc từng cặp trong `<div className="field">` |
-| 90 | `h-9 rounded-lg bg-accent px-4 text-sm font-medium text-white hover:bg-accent/90` | `btn` |
-| 95 | `overflow-x-auto` | `scroll` |
-| 96 | `w-full text-sm` | `tbl` |
-| 98 | `text-left text-xs uppercase text-slate-400` | bỏ hết |
-| 99–104 | `py-1.5 font-medium` | bỏ hết |
-| 107 | `divide-y divide-slate-100` | bỏ |
-| 110 | `py-2 text-navy-800` | `mono` |
-| 111 | `py-2 text-slate-600` | bỏ |
-| 134–139 | badge trạng thái `rounded-full px-2.5 py-1 text-xs font-medium ${u.isActive ? … : …}` | `<Badge tone={u.isActive ? 'ok' : 'neutral'}>` (import `Badge` từ `@/components/ui/Badge`) |
-| 141 | `py-2 text-xs text-slate-500` | bỏ |
-| 142 | `whitespace-nowrap py-2 text-right` | `num` |
-| 143 | `rounded-lg px-2 py-1 text-xs text-navy-800 hover:bg-slate-50` | `btn ghost` + `style={{ padding: '4px 10px', fontSize: 'var(--t-caption1)' }}` |
-| 152 | `rounded-lg px-2 py-1 text-xs text-red-600 hover:bg-red-50` | `btn ghost` + `style={{ padding: '4px 10px', fontSize: 'var(--t-caption1)', color: 'var(--danger)' }}` |
-| 164 | `fixed inset-0 z-[90] flex items-center justify-center bg-navy-950/60 p-4` | `modal-scrim` |
-| 166 | `w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-800` | `modal` |
-| 170 | `text-base font-semibold text-navy-900 dark:text-slate-100` | `text-callout font-semibold` |
-| 173 | `rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700` | `rounded-sm p-2 text-label3 transition-colors duration-fast hover:bg-fill hover:text-label` |
-| 179, 183 | `mb-1.5 block text-xs font-medium text-slate-600` | `lb` + bọc `<div className="field">` |
-| 186 | `rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600` | `sumbar bad` |
-| 187 | `w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent/90` | `btn w-full justify-center` |
-
-Dòng 74/79/83/120/180/184 dùng `${inputCls} w-full` / `w-44` → giữ nguyên hậu tố chiều rộng, `inputCls` đã là `'inp'`.
-
-- [ ] **Bước 3: `FieldEditor.tsx`**
-
-| Dòng | Cũ | Mới |
-|---|---|---|
-| 46 | `text-xs text-red-600` | `sumbar bad` |
-| 51 | `h-8 w-full rounded-lg border border-slate-200 px-2.5 text-sm focus:border-accent focus:outline-none` | `inp` |
-| 53 | `max-h-64 overflow-auto` | `scroll` + `style={{ maxHeight: 256 }}` |
-| 54 | `w-full text-sm` | `tbl sticky` |
-| 56 | `text-left text-xs uppercase text-slate-400` | bỏ |
-| 57–60 | `py-1.5 font-medium` | bỏ |
-| 63 | `divide-y divide-slate-100` | bỏ |
-| 98 | `py-2 pr-2` | bỏ |
-| 104 | `h-8 w-40 rounded-lg border border-slate-200 px-2 text-sm` | `inp w-40` |
-| 114 | `rounded-lg bg-accent px-2 py-1 text-xs text-white disabled:opacity-50` | `btn disabled:opacity-50` + `style={{ padding: '4px 10px', fontSize: 'var(--t-caption1)' }}` |
-| 118 | `px-2 py-1 text-xs text-slate-400` | `btn ghost` + `style={{ padding: '4px 10px', fontSize: 'var(--t-caption1)' }}` |
-| 125 | `font-medium text-navy-900 hover:text-accent` | bỏ (`.tbl a` lo) — nếu là `<button>` thì `style={{ fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}` |
-| 132, 133, 163 | `py-2 text-xs text-slate-500` / `text-slate-400` | `text-caption1 text-label3` |
-| 140 | `h-8 w-32 rounded-lg border border-slate-200 px-2 text-xs` | `inp w-32` |
-| 157 | `rounded-lg border border-slate-200 px-2 py-1 text-xs text-navy-800 hover:bg-slate-50 disabled:opacity-40` | `btn ghost disabled:opacity-40` + `style={{ padding: '4px 10px', fontSize: 'var(--t-caption1)' }}` |
-
-- [ ] **Bước 4: `ActivityViewer.tsx`**
-
-| Dòng | Cũ | Mới |
-|---|---|---|
-| 21 | `h-9 rounded-lg border border-slate-200 px-2.5 text-sm text-navy-800 focus:border-accent focus:outline-none` | `inp` + `style={{ width: 'auto' }}` |
-| 29 | `max-h-64 overflow-auto` | `scroll` + `style={{ maxHeight: 256 }}` |
-| 30 | `w-full text-sm` | `tbl sticky` |
-| 32 | `text-left text-xs uppercase text-slate-400` | bỏ |
-| 33–36 | `py-1.5 font-medium` | bỏ |
-| 39 | `divide-y divide-slate-100` | bỏ |
-| 42 | `py-2 font-mono text-xs text-slate-500` | `mono` |
-| 43 | `py-2 text-navy-800` | bỏ |
-| 45 | `ml-1 text-xs text-slate-400` | `en` |
-| 47 | `py-2 text-slate-600` | `<Badge tone="neutral">{t(\`activity.${a.action}\`)}</Badge>` (theo mock-up dòng 1780: cột Hành động là chip) |
-| 48 | `py-2 text-xs text-slate-500` | `text-caption1 text-label2` |
-| 53 | `py-4 text-center text-sm text-slate-400` | `empty` |
-
-- [ ] **Bước 5: `DeleteProject.tsx`**
-
-| Dòng | Cũ | Mới |
-|---|---|---|
-| 36 | `h-9 min-w-0 flex-1 rounded-lg border border-slate-200 px-2.5 text-sm text-navy-800 focus:border-accent focus:outline-none` | `inp min-w-0 flex-1` |
-| 48 | `rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-40` | `btn danger disabled:opacity-40` |
-| 52 | `text-xs text-emerald-600` | `chip c-ok` |
-
-- [ ] **Bước 6: `ResetDataButton.tsx`**
-
-| Dòng | Cũ | Mới |
-|---|---|---|
-| 29 | `rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50` | `btn ghost` + `style={{ color: 'var(--danger)', borderColor: 'var(--danger-fill)', padding: '6px 12px', fontSize: 'var(--t-caption1)' }}` |
-| 38 | `text-xs text-red-600` | `chip c-dan` |
-| 42 | `rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50` | `btn danger disabled:opacity-50` + `style={{ padding: '6px 12px', fontSize: 'var(--t-caption1)' }}` |
-| 46 | `rounded-lg px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-50` | `btn ghost` + `style={{ padding: '6px 12px', fontSize: 'var(--t-caption1)' }}` |
-
-- [ ] **Bước 7: Cổng kiểm tra + kiểm mắt**
-```
-npx vitest run src/ui/legacy-style-guard.test.ts
-npx tsc --noEmit
-npm test
-```
-Kiểm mắt `/vi/admin` (đăng nhập bằng tài khoản admin): 5 khu vực đều theo hệ kính; modal đặt lại mật khẩu có nền mờ phía sau; nút xoá/reset màu `--danger`.
-Kiểm hành vi (phải **không đổi**): bấm sửa tên một khách hàng rồi Lưu vẫn chạy; nút Reset vẫn có bước xác nhận 2 nhịp.
-
-- [ ] **Bước 8: Commit**
-```bash
-git add src/components/admin src/ui/legacy-style-guard.test.ts
-git commit -m "style(glass): Task 8 - cong cu quan tri theo he kinh"
-```
-
----
-
-### Task 9: Biểu đồ Recharts — bộ màu series + tooltip kính
-
-**Files:**
-- Create: `src/components/dashboard/useChartTokens.ts`
-- Modify: `app/globals.css` (thêm khối `.tip` + override Recharts)
-- Modify: `src/components/dashboard/charts.tsx`
-- Modify: `src/components/dashboard/DrillCharts.tsx`
-- Modify: `src/components/dashboard/ChartLabels.tsx`
-- Modify: `src/components/project/ManpowerDailyChart.tsx`
-- Modify: `src/ui/legacy-style-guard.test.ts` (xoá nhóm "Task 9 - chart")
-
-**Vì sao cần hook:** `var(--x)` **không** dùng được trong *presentation attribute* của SVG (`fill="var(--s-plan)"` không hiển thị gì). Recharts đặt màu bằng attribute. Nên phải đọc giá trị thật lúc chạy bằng `getComputedStyle`, đúng như mock-up làm (hàm `cssv()` dòng 1317, gọi lại `drawAll()` khi đổi theme dòng 2296). `contentStyle` của `<Tooltip>` là *inline style* nên `var()` ở đó **chạy được** — giữ nguyên `var()`.
-
-**Interfaces:**
-- Produces:
-  ```ts
-  export interface ChartTokens {
-    plan: string; actual: string; cost: string; third: string; thirdLt: string;
-    neutral: string; grid: string; axis: string; label2: string;
-    ok: string; warn: string; danger: string; accent: string; accent2: string; gold: string;
-  }
-  export function useChartTokens(): ChartTokens;
-  ```
-- Produces: `TOOLTIP_STYLE` giữ nguyên tên export (charts.tsx + ManpowerDailyChart.tsx đang import).
-- **`CHART_COLORS` bị xoá.** 2 nơi đang import nó (`DrillCharts.tsx:8`, `ManpowerDailyChart.tsx:8`) chuyển sang `useChartTokens()`.
-- **Chặn bởi Q5 (HUD).**
-
-**Bảng ánh xạ màu series — lấy từ mock-up, không tự chế:**
-
-| Series | Token | Nguồn trong mock-up |
-|---|---|---|
-| PV | `--s-plan` | dòng 725, 1526 |
-| EV | `--s-actual` | dòng 725, 1526 |
-| AC | `--s-cost` (nét đứt `5 4`) | dòng 725, 1526 |
-| SPI | `--s-actual` | dòng 728, 1555 |
-| CPI | `--s-third` | dòng 728, 1555 |
-| Kế hoạch (mọi biểu đồ cột) | `--s-plan` | dòng 605, 718 |
-| Thực tế (mọi biểu đồ cột) | `--s-actual` | dòng 605, 718 |
-| Doanh thu | `--s-plan` | dòng 857 |
-| Chi phí | `--s-cost` | dòng 857 |
-| Biên LN gộp (đường) | `--s-third` | dòng 857 |
-| Trạng thái: Đang triển khai | `--s-actual` | dòng 1272 |
-| Trạng thái: Chuẩn bị | `--s-plan` | dòng 1272 |
-| Trạng thái: Hoàn thành | `--s-third` | dòng 1273 |
-| Trạng thái: Tạm dừng | `--s-cost` | dòng 1273 |
-| Nhân lực KH / TT | `--s-plan` / `--s-third` | dòng 762 |
-| Thiết bị KH / TT | `--s-plan` / `--s-cost` | dòng 765 |
-| Lưới / trục | `--grid` / `--axis` | dòng 1697–1698 |
-
-Series app có mà mock-up không có → suy ra theo đúng logic trên, ghi rõ để reviewer đối chiếu:
-- `GroupBar`: cột "Trị (tỷ VNĐ)" = `--s-actual` (đại lượng chính), đường "Lượng (tấn)" = `--s-cost` (đại lượng phụ khác đơn vị).
-- `CapacityBar`: "Công suất" = `--s-neutral` (nền tham chiếu), "Sản lượng" = `--s-actual`, ô cảnh báo = `--warn`.
-- `BacklogOverdueLine`: "Backlog" = `--s-plan`, "Công nợ quá hạn" = `--danger`.
-- `Sparkline`: mặc định `--s-actual`.
-- Vạch ngưỡng `ReferenceLine` SPI: `--warn`.
-
-- [ ] **Bước 1: Gỡ 4 file khỏi PENDING → test ĐỎ**
-
-- [ ] **Bước 2: Copy CSS tooltip + override Recharts vào `app/globals.css`**
-
-Dán nguyên văn **dòng 379–390** của `mockup-apple-glass.html` (`svg.chart`, `.tip`, `.tip.show`, `.tip b`, `.tip .r`, `.tip .r span:last-child`, `.tip i`).
-
-Thêm khối override cho Recharts (mock-up tự vẽ SVG nên không có phần này):
-```css
-  /* --- Recharts: keo ve he token --- */
-  .recharts-cartesian-axis-tick-value { fill: var(--axis); font-size: var(--t-caption1); }
-  .recharts-legend-item-text { color: var(--label2) !important; font-size: var(--t-caption1); }
-  .recharts-default-tooltip { background: none !important; border: none !important; }
-  .recharts-tooltip-item { color: var(--label2) !important; }
-  .recharts-tooltip-label { color: var(--label) !important; font-weight: 700; }
-  .recharts-surface { overflow: visible; }
-```
-
-> **Chặn Q5.** Nếu (b)/(c): thêm tiếp dòng 427–434 (`.hud`, `.hud b`, `.hud .sp`) và tạo `src/components/ui/Hud.tsx` port vòng đo fps ở mock-up dòng 1233–1238. Nếu (a): bỏ qua hoàn toàn.
-
-- [ ] **Bước 3: Tạo `src/components/dashboard/useChartTokens.ts`**
+- [ ] **Bước 7: i18n** vào `"detail"`:
+  - vi: `"cd": { "title": "Còn lại đến ngày HT kế hoạch", "days": "ngày", "hours": "giờ", "minutes": "phút", "seconds": "giây", "target": "Ngày HT KH", "today": "hôm nay" }`
+  - en: `"cd": { "title": "Time left to planned finish", "days": "days", "hours": "hrs", "minutes": "min", "seconds": "sec", "target": "Planned finish", "today": "today" }`
+
+  Thêm `'CountdownPanel': 'src/components/project/CountdownPanel.tsx'` vào `CHANGED_SOURCES`.
+- [ ] **Bước 8: Nối vào page.** Khai báo dynamic ở đầu file, cạnh `SCurve`:
 
 ```ts
-'use client';
+const CountdownPanel = dynamic(() => import('@/components/project/CountdownPanel').then((m) => m.CountdownPanel), { ssr: false, loading: () => <div className="sk" style={{ width: 240, height: 88 }} /> });
+```
 
-import { useCallback, useEffect, useState } from 'react';
+Trong `.phead`, ngay sau `</div>` đóng `<div className="val">` (dòng 128):
 
-/**
- * Recharts dat mau bang presentation attribute cua SVG; var() KHONG chay o do.
- * Nen phai doc gia tri that tu CSS variable luc chay - giong ham cssv() cua
- * mock-up (dong 1317) va ve lai khi doi theme (dong 2296).
- */
-export interface ChartTokens {
-  plan: string;
-  actual: string;
-  cost: string;
-  third: string;
-  thirdLt: string;
-  neutral: string;
-  grid: string;
-  axis: string;
-  label2: string;
-  ok: string;
-  warn: string;
-  danger: string;
-  accent: string;
-  accent2: string;
-  gold: string;
+```tsx
+          {/* Q1 mac dinh (a): dem toi ngay HT ke hoach. Thieu ngay -> khong ve panel */}
+          {project.plannedFinishDate && (
+            <CountdownPanel targetDate={project.plannedFinishDate.slice(0, 10)} appToday={today} locale={locale} />
+          )}
+```
+
+- [ ] **Bước 9:** `npx tsc --noEmit`, `npm test`. Kiểm mắt: số giây chạy, chữ số nảy, vệt sáng chạy, chấm xanh nhấp nháy. Bật `prefers-reduced-motion` (DevTools → Rendering) thì hết animation. Ở 390px panel xuống hàng riêng.
+- [ ] **Bước 10:** `git commit -m "feat(parity): dong ho dem nguoc toi ngay HT ke hoach o header du an"`
+
+---
+
+### Task 4: "Nhân lực theo nhà thầu" + "Thiết bị theo nhóm"
+
+**Files:**
+- Create: `src/lib/resources.ts`, `src/lib/resources.test.ts`, `src/components/project/ChartTip.tsx`, `src/components/project/ResourceBreakdownChart.tsx`, `src/components/project/ResourceBreakdownChart.test.ts`, `src/components/ui/Card.test.ts`
+- Modify: `src/lib/thresholds.ts`, `src/components/ui/motion.ts`, `src/components/ui/Card.tsx:27-45`, `src/server/project-queries.ts`, `src/server/project-queries.test.ts`, `page.tsx`, `vi.json`/`en.json`, `messages.test.ts`
+
+**Interfaces:**
+- Produces trong `src/lib/resources.ts`: `ResourceRow = { id: number; name: string; note: string; planned: number; actual: number }`, `MobilizationTone = 'ok' | 'warn' | 'danger' | 'neutral'`, `mobilizationRatio(actual, planned): number | null`, `mobilizationTone(r)`, `mobilizationTotalTone(r)`, `TONE_VAR`, `TONE_CHIP`.
+- Produces `getResourceBreakdown(projectId, yearMonth): Promise<ResourceBreakdown>`.
+- Produces `CardHeader` prop mới `titleExtra?: React.ReactNode`, render trong `<h3>` sau subtitle.
+- Produces trong `motion.ts`: `export type SpringPreset`, `useSpringProgress(preset?, key?): number`, `staggered(p, i, n, step?): number`.
+- Produces `useChartTip(): { tip, show(ev, title, rows), hide() }` + `ChartTip({ tip })`, với `TipRow = { k: string; v: string; color?: string; valueColor?: string }`. Task 5, 6, 9 dùng lại.
+
+- [ ] **Bước 1: `thresholds.ts`**, thêm trước `} as const;`:
+
+```ts
+  /** Tỷ lệ huy động TT/KH của 1 dòng (mock-up dòng 1600, 1828): < 85% đỏ */
+  mobilizationDangerPct: 0.85,
+  /** ... < 95% vàng, còn lại xanh */
+  mobilizationWarnPct: 0.95,
+  /** Dòng TỔNG của bảng nguồn lực và cả tuần tracking (mock-up dòng 1616, 1922): < 90% cảnh báo */
+  mobilizationTotalWarnPct: 0.9,
+```
+
+- [ ] **Bước 2: Test đỏ `src/lib/resources.test.ts`:** `mobilizationRatio(96,100)=0.96`; `(5,0)` và `(0,0)` → `null`. `mobilizationTone`: `0.8499`→danger, `0.85`→warn, `0.9499`→warn, `0.95`→ok, `null`→neutral. `mobilizationTotalTone`: `0.8999`→warn, `0.9`→ok, `null`→neutral.
+- [ ] **Bước 3: `src/lib/resources.ts`**
+
+```ts
+import { THRESHOLDS } from '@/lib/thresholds';
+
+/** 1 dòng bảng nguồn lực: nhà thầu (nhân lực) hoặc nhóm thiết bị. */
+export interface ResourceRow { id: number; name: string; note: string; planned: number; actual: number }
+export type MobilizationTone = 'ok' | 'warn' | 'danger' | 'neutral';
+
+/** TT/KH; KH <= 0 → null (không chia 0, UI hiện "-"). */
+export function mobilizationRatio(actual: number, planned: number): number | null {
+  return planned > 0 ? actual / planned : null;
+}
+export function mobilizationTone(ratio: number | null): MobilizationTone {
+  if (ratio == null) return 'neutral';
+  if (ratio < THRESHOLDS.mobilizationDangerPct) return 'danger';
+  if (ratio < THRESHOLDS.mobilizationWarnPct) return 'warn';
+  return 'ok';
+}
+export function mobilizationTotalTone(ratio: number | null): MobilizationTone {
+  if (ratio == null) return 'neutral';
+  return ratio < THRESHOLDS.mobilizationTotalWarnPct ? 'warn' : 'ok';
+}
+export const TONE_VAR: Record<MobilizationTone, string> = { ok: 'var(--ok)', warn: 'var(--warn)', danger: 'var(--danger)', neutral: 'var(--label3)' };
+export const TONE_CHIP: Record<MobilizationTone, string> = { ok: 'c-ok', warn: 'c-warn', danger: 'c-dan', neutral: 'c-plain' };
+```
+
+- [ ] **Bước 4: Test đỏ trong `src/server/project-queries.test.ts`** (thêm `getResourceBreakdown` vào import từ `./project-queries`):
+
+```ts
+describe('getResourceBreakdown - "Nhan luc theo nha thau" / "Thiet bi theo nhom"', () => {
+  it('du an 1 ngay 16/09: 6 nha thau, tong 520/486, dong dau la KH lon nhat', async () => {
+    const r = await getResourceBreakdown(1, MONTH);
+    expect(r.manpowerAsOfDate).toBe('2026-09-16');
+    expect(r.manpower).toHaveLength(6);
+    expect(r.manpower[0]).toEqual({ id: 1, name: 'Nhà thầu Lắp dựng A', note: 'Lắp dựng kết cấu chính', planned: 120, actual: 112 });
+    expect(r.manpower.reduce((s, x) => s + x.planned, 0)).toBe(520);
+    expect(r.manpower.reduce((s, x) => s + x.actual, 0)).toBe(486);
+  });
+  it('thiet bi gop theo nhom, cong NGANG nha thau dung chung: TB1 = 14/12 cua NT1+NT2+NT3', async () => {
+    const r = await getResourceBreakdown(1, MONTH);
+    expect(r.equipmentAsOfDate).toBe('2026-09-16');
+    expect(r.equipment).toHaveLength(7);
+    expect(r.equipment[0]).toEqual({ id: 1, name: 'Cẩu bánh xích', note: 'Nhà thầu Lắp dựng A, Nhà thầu Lắp dựng B, Nhà thầu Cơ khí C', planned: 14, actual: 12 });
+    expect(r.equipment.reduce((s, x) => s + x.planned, 0)).toBe(72);
+    expect(r.equipment.reduce((s, x) => s + x.actual, 0)).toBe(63);
+  });
+  it('hoa KH thi xep theo ten (vi): "Giàn giáo di động" (8) truoc "Xe tải chuyên dụng" (8)', async () => {
+    const r = await getResourceBreakdown(1, MONTH);
+    expect(r.equipment.slice(5).map((x) => x.id)).toEqual([7, 6]);
+  });
+  it('du an chua co du lieu ngay -> mang rong, ngay null', async () => {
+    expect(await getResourceBreakdown(17, MONTH)).toEqual({ manpowerAsOfDate: null, equipmentAsOfDate: null, manpower: [], equipment: [] });
+  });
+  it('nha thau/thiet bi khong con trong dim -> ten "#id", khong crash', async () => {
+    vi.spyOn(repo, 'getDailyManpower').mockResolvedValueOnce([{ projectId: 1, contractorId: 99, workDate: '2026-09-16', plannedHeadcount: 3, actualHeadcount: 2 }]);
+    vi.spyOn(repo, 'getDailyEquipment').mockResolvedValueOnce([{ projectId: 1, contractorId: 99, equipmentId: 98, workDate: '2026-09-16', qtyPlanned: 1, qtyActual: 1 }]);
+    const r = await getResourceBreakdown(1, MONTH);
+    expect(r.manpower[0].name).toBe('#99');
+    expect(r.equipment[0]).toMatchObject({ name: '#98', note: '#99' });
+  });
+});
+```
+
+- [ ] **Bước 5: Viết `getResourceBreakdown`** trong `project-queries.ts`: import `type ResourceRow` từ `@/lib/resources`, đặt sau `getManpowerDaily`.
+
+```ts
+export interface ResourceBreakdown {
+  manpowerAsOfDate: IsoDate | null;
+  equipmentAsOfDate: IsoDate | null;
+  /** Theo nhà thầu, đúng ngày manpowerAsOfDate; sort KH giảm dần rồi tên. */
+  manpower: ResourceRow[];
+  /** Theo nhóm thiết bị (dim_equipment), đúng ngày equipmentAsOfDate, cộng ngang nhà thầu; note = tên nhà thầu dùng. */
+  equipment: ResourceRow[];
 }
 
-const VARS: Record<keyof ChartTokens, string> = {
-  plan: '--s-plan',
-  actual: '--s-actual',
-  cost: '--s-cost',
-  third: '--s-third',
-  thirdLt: '--s-third-lt',
-  neutral: '--s-neutral',
-  grid: '--grid',
-  axis: '--axis',
-  label2: '--label2',
-  ok: '--ok',
-  warn: '--warn',
-  danger: '--danger',
-  accent: '--accent',
-  accent2: '--accent-2',
-  gold: '--gold',
-};
+const byPlannedDesc = (a: ResourceRow, b: ResourceRow) => b.planned - a.planned || a.name.localeCompare(b.name, 'vi');
 
-/** Gia tri dung cho lan render dau (truoc khi doc duoc DOM) - bang bo sang. */
-const FALLBACK: ChartTokens = {
-  plan: '#93b8e0', actual: '#1d5a9e', cost: '#a86a12', third: '#0f8a63',
-  thirdLt: '#6fbf9b', neutral: '#c3cddb',
-  grid: 'rgba(10,31,61,.08)', axis: 'rgba(10,31,61,.42)', label2: 'rgba(10,31,61,.62)',
-  ok: '#248a3d', warn: '#b25000', danger: '#c30d0d',
-  accent: '#1d5a9e', accent2: '#2a6db4', gold: '#f5b301',
-};
+/** Bảng "Nhân lực theo nhà thầu" / "Thiết bị theo nhóm" (mock-up dòng 759-767) - cùng ngày chụp với getResourceSnapshot. */
+export async function getResourceBreakdown(projectId: number, yearMonth: string): Promise<ResourceBreakdown> {
+  const { from, to } = resourceWindow(yearMonth);
+  const manpower = await repo.getDailyManpower(projectId, from, to);
+  const equipment = await repo.getDailyEquipment(projectId, from, to);
+  const contractors = new Map((await repo.getContractors()).map((c) => [c.id, c]));
+  const equipments = new Map((await repo.getEquipments()).map((e) => [e.id, e]));
+  const manpowerAsOfDate = manpower.at(-1)?.workDate ?? null;
+  const equipmentAsOfDate = equipment.at(-1)?.workDate ?? null;
 
-function read(): ChartTokens {
-  if (typeof window === 'undefined') return FALLBACK;
-  const cs = getComputedStyle(document.documentElement);
-  const out = {} as ChartTokens;
-  for (const k of Object.keys(VARS) as (keyof ChartTokens)[]) {
-    out[k] = cs.getPropertyValue(VARS[k]).trim() || FALLBACK[k];
+  const man = new Map<number, ResourceRow>();
+  for (const m of manpower) {
+    if (m.workDate !== manpowerAsOfDate) continue;
+    const c = contractors.get(m.contractorId);
+    const row = man.get(m.contractorId) ?? { id: m.contractorId, name: c?.name ?? `#${m.contractorId}`, note: c?.scopeOfWork ?? '', planned: 0, actual: 0 };
+    row.planned += m.plannedHeadcount;
+    row.actual += m.actualHeadcount;
+    man.set(m.contractorId, row);
+  }
+  const eqp = new Map<number, ResourceRow & { users: number[] }>();
+  for (const e of equipment) {
+    if (e.workDate !== equipmentAsOfDate) continue;
+    const row = eqp.get(e.equipmentId) ?? { id: e.equipmentId, name: equipments.get(e.equipmentId)?.name ?? `#${e.equipmentId}`, note: '', planned: 0, actual: 0, users: [] };
+    row.planned += e.qtyPlanned;
+    row.actual += e.qtyActual;
+    if (!row.users.includes(e.contractorId)) row.users.push(e.contractorId);
+    eqp.set(e.equipmentId, row);
+  }
+  const equipmentRows = [...eqp.values()].map(({ users, ...r }) => ({
+    ...r, note: [...users].sort((a, b) => a - b).map((id) => contractors.get(id)?.name ?? `#${id}`).join(', '),
+  }));
+  return { manpowerAsOfDate, equipmentAsOfDate, manpower: [...man.values()].sort(byPlannedDesc), equipment: equipmentRows.sort(byPlannedDesc) };
+}
+```
+
+Chạy `npx vitest run src/server/project-queries.test.ts src/lib/resources.test.ts` → XANH.
+
+- [ ] **Bước 6: `CardHeader.titleExtra`.** Test đỏ trước, trong `src/components/ui/Card.test.ts` (shim React, import `{ CardHeader } from './Card'`):
+  - `CardHeader({ title: 'T', subtitle: 'S', titleExtra: <span class="chip c-plain">X</span> })` → đúng chuỗi `<div class="hd"><h3>T<span class="en">S</span><span class="chip c-plain">X</span></h3></div>`.
+  - `CardHeader({ title: 'T' })` → `<div class="hd"><h3>T</h3></div>`.
+
+  Sau đó sửa `Card.tsx:27-45`: thêm `titleExtra?: React.ReactNode` vào props, render `{titleExtra}` ngay sau dòng `{subtitle && …}` trong `<h3>`. Không đổi gì khác.
+- [ ] **Bước 7: `motion.ts`.** Đổi dòng 17 thành `export type SpringPreset = …`; import thêm `useState` từ `react`; thêm cuối file:
+
+```ts
+/** 0 → 1 bằng spring mỗi khi mount / `key` đổi. Reduced-motion hoặc không có rAF: nhảy thẳng 1. */
+export function useSpringProgress(preset: SpringPreset = 'smooth', key: unknown = 0): number {
+  const [p, setP] = useState(0);
+  useEffect(() => spring({ preset, from: 0, to: 1, onUpdate: setP }), [preset, key]);
+  return p;
+}
+
+/** Tiến độ so le của phần tử i/n (mock-up dùng delay i*step), kẹp [0, 1]. */
+export function staggered(p: number, i: number, n: number, step = 0.04): number {
+  return Math.max(0, Math.min(1, p * (1 + step * n) - step * i));
+}
+```
+
+- [ ] **Bước 8: `src/components/project/ChartTip.tsx`**
+
+```tsx
+'use client';
+
+import { useCallback, useState, type MouseEvent } from 'react';
+import { createPortal } from 'react-dom';
+
+export interface TipRow { k: string; v: string; color?: string; valueColor?: string }
+export interface TipState { x: number; y: number; title: string; rows: TipRow[] }
+
+/**
+ * Tooltip kính `.tip` của mock-up (dòng 1325-1335). PHẢI portal ra body: Card có transform (hover
+ * lift, motion.ts), khiến position:fixed bên trong tính theo Card chứ không theo viewport.
+ */
+export function useChartTip() {
+  const [tip, setTip] = useState<TipState | null>(null);
+  const show = useCallback((ev: MouseEvent, title: string, rows: TipRow[]) => {
+    const w = 200;
+    const h = 34 + rows.length * 20;
+    let x = ev.clientX + 16;
+    let y = ev.clientY + 16;
+    if (x + w > window.innerWidth - 10) x = ev.clientX - w - 14;
+    if (y + h > window.innerHeight - 10) y = ev.clientY - h - 14;
+    setTip({ x, y, title, rows });
+  }, []);
+  const hide = useCallback(() => setTip(null), []);
+  return { tip, show, hide };
+}
+
+export function ChartTip({ tip }: { tip: TipState | null }) {
+  if (!tip || typeof document === 'undefined') return null;
+  return createPortal(
+    <div className="tip show" role="tooltip" style={{ left: tip.x, top: tip.y }}>
+      <b>{tip.title}</b>
+      {tip.rows.map((r) => (
+        <div key={r.k} className="r">
+          <span>{r.color && <i style={{ background: r.color }} />}{r.k}</span>
+          <span style={r.valueColor ? { color: r.valueColor } : undefined}>{r.v}</span>
+        </div>
+      ))}
+    </div>,
+    document.body,
+  );
+}
+```
+
+- [ ] **Bước 9: `src/components/project/ResourceBreakdownChart.tsx`** (`'use client'`). Port hàm `renderResource` ở mock-up dòng 1576-1617 sang JSX:
+  - Props: `{ rows: ResourceRow[]; kind: 'manpower' | 'equipment' }`.
+  - Hooks gọi TRƯỚC mọi nhánh return: `useTranslations()`, `useLocale()`, `const p = useSpringProgress('smooth')`, `const { tip, show, hide } = useChartTip()`.
+  - Trống → `<p className="empty">{t('detail.noDailyData')}</p>`.
+  - Hằng số: `W=560, ROW_H=32, HEAD=24, FOOT=32, ML=152, MR=126, IW=W-ML-MR, C_KH=W-92, C_TT=W-46, C_PC=W-4`. `H = HEAD + rows.length*ROW_H + FOOT`. `max = Math.max(1, ...rows.map(r => Math.max(r.planned, r.actual)))`.
+  - Màu: KH = `var(--s-plan)`; TT = `var(--s-third)` nếu manpower, `var(--s-cost)` nếu equipment. Đơn vị tooltip: `t('detail.res.people')` hoặc `t('detail.res.units')`.
+  - `nf(n, d=0)` = `Intl.NumberFormat(locale === 'vi' ? 'vi-VN' : 'en-US', { minimumFractionDigits: d, maximumFractionDigits: d })`. `cut(s, n)` = `s.length > n ? s.slice(0, n-1) + '…' : s`.
+  - `<svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={tiêu đề}>`, bên trong theo thứ tự:
+    1. 4 `<text>` tiêu đề cột ở y=14, fontSize 9.5, fontWeight 800, letterSpacing 0.4, `style={{ fill:'var(--label3)' }}`: x=ML anchor start `t('detail.res.header')` · x=C_KH anchor end `t('detail.res.planShort')` · x=C_TT end `t('detail.res.actualShort')` · x=C_PC end `t('detail.res.rate')`.
+    2. `<line x1=0 x2=W y1=HEAD-5 y2=HEAD-5 style={{ stroke:'var(--sep)' }}/>`.
+    3. Mỗi dòng i (`top=HEAD+i*ROW_H`, `cy=top+ROW_H/2`, `k=staggered(p,i,rows.length)`, `ratio=mobilizationRatio(r.actual,r.planned)`):
+       - i>0: đường kẻ `var(--grid)` tại y=top.
+       - Tên `cut(r.name,24)`: x=4, y=cy-2, fontSize 10.5, fontWeight 650, fill `var(--label)`. Ghi chú `cut(r.note,28)`: x=4, y=cy+10, fontSize 9, fill `var(--label3)`.
+       - Thanh KH `<rect x=ML y=cy-9 height=7 rx=3.5 width={Math.max(IW*r.planned/max*k,2)}>`. Thanh TT tương tự ở y=cy+2 với `r.actual`.
+       - Số KH (x=C_KH, y=cy+4, anchor end, fontSize 11, fontWeight 700, fill `var(--label2)`). Số TT (x=C_TT, fontSize 11, fontWeight 800, fill màu TT). % đạt (x=C_PC, fontSize 10.5, fontWeight 800, fill `TONE_VAR[mobilizationTone(ratio)]`, text `ratio==null?'-':nf(ratio*100)+'%'`).
+       - Rect bắt chuột `x=0 y=top width=W height=ROW_H fill="transparent"` với `onMouseMove={(ev) => show(ev, r.name, rows5)}` và `onMouseLeave={hide}`. `rows5` gồm: `{k:t('detail.res.owner'), v:r.note||'-'}`, `{k:t('detail.planned'), v:nf(planned)+' '+unit, color:'var(--s-plan)'}`, `{k:t('detail.actual'), v:…, color: màu TT}`, `{k:t('detail.res.shortfall'), v:nf(planned-actual)+' '+unit, valueColor: planned>actual?'var(--danger)':'var(--label)'}`, `{k:t('detail.res.rate'), v: ratio==null?'-':nf(ratio*100,1)+'%'}`.
+    4. Dòng tổng (`ty=HEAD+rows.length*ROW_H`): đường kẻ `strokeWidth 1.4`, `var(--sep-2)`. Chữ `t(kind==='manpower'?'detail.res.totalMan':'detail.res.totalEqp', { n: rows.length })` ở x=4, y=ty+20, fontSize 10.5, fontWeight 800. Tổng KH ở C_KH, tổng TT ở C_TT (fontSize 11.5, fontWeight 800, màu TT). % tổng ở C_PC với `TONE_VAR[mobilizationTotalTone(tổngTT/tổngKH)]`, 1 chữ số thập phân.
+  - Sau `</svg>` render `<ChartTip tip={tip} />` (bọc cả 2 trong fragment).
+- [ ] **Bước 10: Test `ResourceBreakdownChart.test.ts`.** Mock `next-intl`: `useTranslations: () => (k, v) => v ? `${k}|${Object.values(v).join(',')}` : k`, `useLocale: () => 'vi'`. Rows `[{id:1,name:'NT A',note:'Lắp dựng',planned:100,actual:96},{id:2,name:'NT B',note:'',planned:0,actual:3}]`, kind `'manpower'`. Assert output chứa `NT A`, `96%`, `detail.res.totalMan|2`. Dòng NT B (KH=0) có `>-<`. `rows=[]` → chứa `detail.noDailyData`.
+- [ ] **Bước 11: i18n** vào `"detail"`:
+  - vi: `"res": { "manTitle": "Nhân lực theo nhà thầu", "eqpTitle": "Thiết bị theo nhóm", "manual": "Nhập tay", "header": "Huy động (thanh: KH / TT)", "planShort": "KH", "actualShort": "TT", "rate": "Đạt", "totalMan": "TỔNG ({n} nhà thầu)", "totalEqp": "TỔNG ({n} nhóm thiết bị)", "owner": "Phụ trách", "shortfall": "Thiếu", "people": "người", "units": "thiết bị" }`
+  - en: `"res": { "manTitle": "Manpower by contractor", "eqpTitle": "Equipment by group", "manual": "Manual input", "header": "Mobilisation (bars: plan / actual)", "planShort": "Plan", "actualShort": "Act.", "rate": "Rate", "totalMan": "TOTAL ({n} contractors)", "totalEqp": "TOTAL ({n} equipment groups)", "owner": "Scope", "shortfall": "Shortfall", "people": "people", "units": "units" }`
+
+  Thêm `'ResourceBreakdownChart': 'src/components/project/ResourceBreakdownChart.tsx'` vào `CHANGED_SOURCES`.
+- [ ] **Bước 12: Nối vào page.** Thêm dynamic `ResourceBreakdownChart` (mẫu Global Constraint 8). Thêm `getResourceBreakdown` vào import từ `@/server/project-queries`. Thêm dữ liệu `const breakdown = await getResourceBreakdown(id, month);` sau dòng `manpowerDaily`. Chèn NGAY TRƯỚC `{/* Biểu đồ nhân lực KH vs TT - đặt cuối trang theo yêu cầu */}` (thẻ "nhân lực theo thời gian" phải giữ ở cuối trang, theo Q3 Run 1):
+
+```tsx
+      {/* Tang 4 - Huy dong nguon luc (mock-up dong 759-767) */}
+      <div className="g2">
+        <Card>
+          <CardHeader
+            title={t('detail.res.manTitle')}
+            titleExtra={<span className="chip c-plain">{t('detail.res.manual')}</span>}
+            action={<Legend items={[{ label: t('detail.planned'), color: 'var(--s-plan)' }, { label: t('detail.actual'), color: 'var(--s-third)' }]} />}
+          />
+          <CardBody><ResourceBreakdownChart rows={breakdown.manpower} kind="manpower" /></CardBody>
+        </Card>
+        <Card>
+          <CardHeader
+            title={t('detail.res.eqpTitle')}
+            titleExtra={<span className="chip c-plain">{t('detail.res.manual')}</span>}
+            action={<Legend items={[{ label: t('detail.planned'), color: 'var(--s-plan)' }, { label: t('detail.actual'), color: 'var(--s-cost)' }]} />}
+          />
+          <CardBody><ResourceBreakdownChart rows={breakdown.equipment} kind="equipment" /></CardBody>
+        </Card>
+      </div>
+```
+
+- [ ] **Bước 13:** `npx tsc --noEmit`, `npm test`. Kiểm mắt: thanh mọc ra lần lượt, rê chuột ra tooltip đúng vị trí khi card đang nâng (hover lift), dòng TỔNG 520/486 và 72/63, cả sáng lẫn tối.
+- [ ] **Bước 14:** `git commit -m "feat(parity): bang nhan luc theo nha thau + thiet bi theo nhom"`
+
+---
+
+### Task 5: Tracking huy động theo tuần — 3 tab
+
+**Files:**
+- Create: `src/lib/tracking.ts`, `src/lib/tracking.test.ts`, `src/components/ui/HelpTip.tsx`, `src/components/ui/HelpTip.test.ts`, `src/components/project/WeeklyTrackingCard.tsx`, `src/components/project/WeeklyTrackingCard.test.ts`
+- Modify: `src/lib/thresholds.ts`, `src/lib/resources.ts` (+test), `src/lib/format.ts` (+`src/lib/format.test.ts`), `project-queries.ts` (+test), `page.tsx`, `globals.css`, `vi.json`/`en.json`, `messages.test.ts`
+
+**Interfaces:**
+- Consumes từ Task 4: `mobilizationRatio`, `mobilizationTone`, `mobilizationTotalTone`, `TONE_VAR`, `TONE_CHIP`, `useChartTip`, `ChartTip`, `CardHeader.titleExtra`.
+- Produces `WeeklyTracking` (định nghĩa ở `src/lib/tracking.ts`), `getWeeklyTracking(projectId, yearMonth): Promise<WeeklyTracking | null>`, `buildLogView`, `buildMatrixView`, `buildEquipmentView`, `buildTrackingSummary`, `equipmentColor(index)`, `daysUsedTone(n)`.
+- Produces `formatDateShort(iso): string` ('DD/MM/YY') và `formatDayMonth(iso): string` ('DD/MM'). Task 6, 9 dùng.
+- Produces `HelpTip({ text, label, alignRight? })`. Task 6 dùng.
+
+- [ ] **Bước 1: `thresholds.ts`** thêm:
+
+```ts
+  /** "Ngày sử dụng" 1 thiết bị trong 7 ngày tracking (mock-up dòng 1893): >= 5 xanh */
+  equipmentDaysUsedOk: 5,
+  /** ... >= 3 vàng, còn lại trung tính */
+  equipmentDaysUsedWarn: 3,
+```
+
+Trong `resources.ts` thêm:
+
+```ts
+export function daysUsedTone(n: number): MobilizationTone {
+  if (n >= THRESHOLDS.equipmentDaysUsedOk) return 'ok';
+  return n >= THRESHOLDS.equipmentDaysUsedWarn ? 'warn' : 'neutral';
+}
+```
+
+Thêm test: `daysUsedTone(5)`=ok, `(4)`=warn, `(3)`=warn, `(2)`=neutral.
+- [ ] **Bước 2: `format.ts`** thêm, kèm test trong `src/lib/format.test.ts`:
+  - `formatDateShort('2026-09-16')` = `'16/09/26'`; nhận ISO đầy đủ; `null` hoặc `'abc'` → `'-'`.
+  - `formatDayMonth('2026-09-16')` = `'16/09'`.
+
+```ts
+const ISO_PREFIX = /^\d{4}-\d{2}-\d{2}/;
+/** 'YYYY-MM-DD' (hoặc ISO đầy đủ) → 'DD/MM/YY' - nhãn ngắn biểu đồ/bảng (mock-up fmtD dòng 1319). */
+export function formatDateShort(iso: string | null | undefined): string {
+  if (!iso || !ISO_PREFIX.test(iso)) return '-';
+  return `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(2, 4)}`;
+}
+/** 'YYYY-MM-DD' → 'DD/MM' (mock-up dLabel dòng 1825). */
+export function formatDayMonth(iso: string | null | undefined): string {
+  if (!iso || !ISO_PREFIX.test(iso)) return '-';
+  return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+}
+```
+
+- [ ] **Bước 3: Test đỏ `src/lib/tracking.test.ts`.** Fixture:
+
+```ts
+const W: WeeklyTracking = {
+  days: ['2026-09-14', '2026-09-15', '2026-09-16'],
+  today: '2026-09-16',
+  contractors: [{ id: 1, name: 'A', scopeOfWork: 'Lắp dựng' }, { id: 2, name: 'B', scopeOfWork: 'Sơn' }, { id: 3, name: 'C', scopeOfWork: '' }],
+  equipments: [{ id: 10, name: 'Cẩu' }, { id: 11, name: 'Hàn' }],
+  manpower: [
+    { projectId: 1, contractorId: 1, workDate: '2026-09-15', plannedHeadcount: 100, actualHeadcount: 80 },
+    { projectId: 1, contractorId: 1, workDate: '2026-09-16', plannedHeadcount: 100, actualHeadcount: 96 },
+    { projectId: 1, contractorId: 2, workDate: '2026-09-16', plannedHeadcount: 0, actualHeadcount: 5 },
+  ],
+  equipmentUsage: [
+    { projectId: 1, contractorId: 1, equipmentId: 10, workDate: '2026-09-16', qtyPlanned: 2, qtyActual: 2 },
+    { projectId: 1, contractorId: 2, equipmentId: 10, workDate: '2026-09-16', qtyPlanned: 1, qtyActual: 1 },
+    { projectId: 1, contractorId: 1, equipmentId: 11, workDate: '2026-09-16', qtyPlanned: 1, qtyActual: 0 }, // co KH nhung KHONG dung
+    { projectId: 1, contractorId: 1, equipmentId: 11, workDate: '2026-09-15', qtyPlanned: 1, qtyActual: 1 },
+  ],
+};
+```
+
+Assert:
+  - **buildLogView:** thứ tự ngày giảm dần `['2026-09-16','2026-09-15','2026-09-14']`.
+    - Ngày 16: `isToday` true, planned 100, actual 101, ratio ≈ 1.01, `equipmentTypeCount` 1, rows =
+      `[{contractorId:1,name:'A',scope:'Lắp dựng',planned:100,actual:96,diff:-4,ratio:0.96,equipmentIds:[10]}, {contractorId:2,name:'B',scope:'Sơn',planned:0,actual:5,diff:5,ratio:null,equipmentIds:[10]}]`.
+    - Ngày 15: rows A với `equipmentIds:[11]`.
+    - Ngày 14: rows `[]`, planned 0, ratio null, `equipmentTypeCount` 0.
+  - **buildMatrixView:** 3 hàng. A.cells = `[null,{planned:100,actual:80,ratio:0.8},{planned:100,actual:96,ratio:0.96}]`, A.weekRatio ≈ 0.88. B.weekRatio null. C: mọi ô null. `totals[0]={planned:0,actual:0,ratio:null}`, `totals[2].actual=101`, weekRatio ≈ 0.905.
+  - **buildEquipmentView:**
+    - Hàng 10: `color:'var(--s-actual)'`, cells[2] = `[{contractorId:1,name:'A',actualHeadcount:96},{contractorId:2,name:'B',actualHeadcount:5}]`, daysUsed 1.
+    - Hàng 11: `color:'var(--s-plan)'`, cells[1] = `[{contractorId:1,name:'A',actualHeadcount:80}]`, cells[2] = `[]`, daysUsed 1.
+  - **buildTrackingSummary:** `{from:'2026-09-14', to:'2026-09-16', contractorCount:2, equipmentCount:2, lastDayIsToday:true, lastPlanned:100, lastActual:101}`, weekRatio ≈ 0.905.
+- [ ] **Bước 4: `src/lib/tracking.ts`**
+
+```ts
+import type { IsoDate } from '@/lib/clock';
+import { mobilizationRatio } from '@/lib/resources';
+import type { FactDailyEquipmentUsage, FactDailyManpower } from '@/server/repo/types';
+
+export const TRACKING_DAYS = 7;
+
+/** Dữ liệu thô của thẻ Tracking (mock-up dòng 768-787, 1794-1927). */
+export interface WeeklyTracking {
+  days: IsoDate[];                                   // liên tiếp, tăng dần
+  today: IsoDate;                                    // todayIso()
+  contractors: { id: number; name: string; scopeOfWork: string }[];
+  equipments: { id: number; name: string }[];        // thiết bị xuất hiện trong tuần, id tăng dần
+  manpower: FactDailyManpower[];                     // chỉ dòng nằm trong `days`
+  equipmentUsage: FactDailyEquipmentUsage[];         // chỉ dòng nằm trong `days`
+}
+
+/** Màu chip thiết bị theo thứ tự (mock-up EQ_COLOR dòng 1802). */
+export const EQUIPMENT_COLORS = ['var(--s-actual)', 'var(--s-plan)', 'var(--s-third)', 'var(--s-cost)', 'var(--s-third-lt)', 'var(--s-neutral)', 'var(--accent-2)'];
+export const equipmentColor = (index: number) => EQUIPMENT_COLORS[((index % EQUIPMENT_COLORS.length) + EQUIPMENT_COLORS.length) % EQUIPMENT_COLORS.length];
+
+const findMan = (w: WeeklyTracking, date: IsoDate, contractorId: number) =>
+  w.manpower.find((m) => m.workDate === date && m.contractorId === contractorId);
+/** "Đã dùng" = qtyActual > 0 (có KH mà TT = 0 thì KHÔNG tính). */
+const used = (w: WeeklyTracking, date: IsoDate, contractorId: number, equipmentId: number) =>
+  w.equipmentUsage.some((u) => u.workDate === date && u.contractorId === contractorId && u.equipmentId === equipmentId && u.qtyActual > 0);
+const sum = <T,>(xs: T[], f: (x: T) => number) => xs.reduce((s, x) => s + f(x), 0);
+
+export interface LogRow { contractorId: number; name: string; scope: string; planned: number; actual: number; diff: number; ratio: number | null; equipmentIds: number[] }
+export interface LogDay { date: IsoDate; isToday: boolean; planned: number; actual: number; ratio: number | null; equipmentTypeCount: number; rows: LogRow[] }
+
+/** Tab "Nhật ký theo ngày": ngày mới nhất trên cùng (mock-up dòng 1837); chỉ nhà thầu có dòng nhân lực ngày đó. */
+export function buildLogView(w: WeeklyTracking): LogDay[] {
+  return [...w.days].reverse().map((date) => {
+    const rows: LogRow[] = w.contractors.flatMap((c) => {
+      const m = findMan(w, date, c.id);
+      if (!m) return [];
+      return [{
+        contractorId: c.id, name: c.name, scope: c.scopeOfWork,
+        planned: m.plannedHeadcount, actual: m.actualHeadcount, diff: m.actualHeadcount - m.plannedHeadcount,
+        ratio: mobilizationRatio(m.actualHeadcount, m.plannedHeadcount),
+        equipmentIds: w.equipments.filter((e) => used(w, date, c.id, e.id)).map((e) => e.id),
+      }];
+    });
+    const planned = sum(rows, (r) => r.planned);
+    const actual = sum(rows, (r) => r.actual);
+    const types = new Set(w.equipmentUsage.filter((u) => u.workDate === date && u.qtyActual > 0).map((u) => u.equipmentId));
+    return { date, isToday: date === w.today, planned, actual, ratio: mobilizationRatio(actual, planned), equipmentTypeCount: types.size, rows };
+  });
+}
+
+export interface MatrixCell { planned: number; actual: number; ratio: number | null }
+export interface MatrixRow { contractorId: number; name: string; scope: string; cells: (MatrixCell | null)[]; weekRatio: number | null }
+export interface MatrixView { rows: MatrixRow[]; totals: MatrixCell[]; weekRatio: number | null }
+
+/** Tab "Ma trận nhân lực" (mock-up dòng 1857-1879). Ô null = nhà thầu không có dòng ngày đó. */
+export function buildMatrixView(w: WeeklyTracking): MatrixView {
+  const rows = w.contractors.map((c) => {
+    const cells = w.days.map((date): MatrixCell | null => {
+      const m = findMan(w, date, c.id);
+      return m ? { planned: m.plannedHeadcount, actual: m.actualHeadcount, ratio: mobilizationRatio(m.actualHeadcount, m.plannedHeadcount) } : null;
+    });
+    const filled = cells.filter((x): x is MatrixCell => x != null);
+    return { contractorId: c.id, name: c.name, scope: c.scopeOfWork, cells, weekRatio: mobilizationRatio(sum(filled, (x) => x.actual), sum(filled, (x) => x.planned)) };
+  });
+  const totals = w.days.map((date) => {
+    const ms = w.manpower.filter((m) => m.workDate === date);
+    const planned = sum(ms, (m) => m.plannedHeadcount);
+    const actual = sum(ms, (m) => m.actualHeadcount);
+    return { planned, actual, ratio: mobilizationRatio(actual, planned) };
+  });
+  return { rows, totals, weekRatio: mobilizationRatio(sum(totals, (x) => x.actual), sum(totals, (x) => x.planned)) };
+}
+
+export interface EquipmentUser { contractorId: number; name: string; actualHeadcount: number | null }
+export interface EquipmentRow { equipmentId: number; name: string; color: string; cells: EquipmentUser[][]; daysUsed: number }
+
+/** Tab "Theo thiết bị" (mock-up dòng 1880-1896): mỗi ô = các nhà thầu đã dùng thiết bị hôm đó. */
+export function buildEquipmentView(w: WeeklyTracking): EquipmentRow[] {
+  return w.equipments.map((e, idx) => {
+    const cells = w.days.map((date) => w.contractors
+      .filter((c) => used(w, date, c.id, e.id))
+      .map((c) => ({ contractorId: c.id, name: c.name, actualHeadcount: findMan(w, date, c.id)?.actualHeadcount ?? null })));
+    return { equipmentId: e.id, name: e.name, color: equipmentColor(idx), cells, daysUsed: cells.filter((u) => u.length > 0).length };
+  });
+}
+
+export interface TrackingSummary { from: IsoDate; to: IsoDate; contractorCount: number; equipmentCount: number; lastDayIsToday: boolean; lastPlanned: number; lastActual: number; weekRatio: number | null }
+
+/** Thanh tổng kết `#trackSum` (mock-up dòng 1916-1926). */
+export function buildTrackingSummary(w: WeeklyTracking): TrackingSummary {
+  const to = w.days[w.days.length - 1];
+  const last = w.manpower.filter((m) => m.workDate === to);
+  return {
+    from: w.days[0], to,
+    contractorCount: new Set(w.manpower.map((m) => m.contractorId)).size,
+    equipmentCount: new Set(w.equipmentUsage.filter((u) => u.qtyActual > 0).map((u) => u.equipmentId)).size,
+    lastDayIsToday: to === w.today,
+    lastPlanned: sum(last, (m) => m.plannedHeadcount),
+    lastActual: sum(last, (m) => m.actualHeadcount),
+    weekRatio: mobilizationRatio(sum(w.manpower, (m) => m.actualHeadcount), sum(w.manpower, (m) => m.plannedHeadcount)),
+  };
+}
+```
+
+Chạy test → XANH.
+- [ ] **Bước 5: Test đỏ `getWeeklyTracking`** trong `project-queries.test.ts`:
+  - `(1, MONTH)`: `days` = 7 ngày `'2026-09-10'…'2026-09-16'`, `today` = `'2026-09-16'`, `contractors.map(c=>c.id)` = `[1,2,3,4,5,6]`, `equipments.map(e=>e.id)` = `[1..7]`, `manpower.length` = 42, `equipmentUsage.length` = 70.
+  - `(17, MONTH)` → `null`.
+  - Spy `getDailyManpower` trả 1 dòng ngày `'2026-09-12'`, spy `getDailyEquipment` trả 1 dòng ngày `'2026-09-14'` → `days.at(-1)` = `'2026-09-14'`.
+  - Spy trả 1 dòng manpower của `contractorId: 99` → `contractors` chứa `{ id: 99, name: '#99', scopeOfWork: '' }` và nằm SAU 6 nhà thầu của dự án.
+- [ ] **Bước 6: Viết `getWeeklyTracking`** trong `project-queries.ts`: import `TRACKING_DAYS, type WeeklyTracking` từ `@/lib/tracking`; `addDaysIso` và `todayIso` đã có trong import `@/lib/clock` ở dòng 1.
+
+```ts
+/**
+ * 7 ngày tracking liên tiếp, kết thúc ở ngày cuối CÓ số liệu (nhân lực hoặc thiết bị) trong
+ * resourceWindow(month) - Q4 mặc định (a). Không có số liệu → null.
+ * Nhà thầu = danh sách project_contractor + nhà thầu có số liệu nhưng không còn trong danh sách.
+ */
+export async function getWeeklyTracking(projectId: number, yearMonth: string): Promise<WeeklyTracking | null> {
+  const { from, to } = resourceWindow(yearMonth);
+  const manpowerAll = await repo.getDailyManpower(projectId, from, to);
+  const equipmentAll = await repo.getDailyEquipment(projectId, from, to);
+  const lastDay = [manpowerAll.at(-1)?.workDate, equipmentAll.at(-1)?.workDate].filter((d): d is IsoDate => d != null).sort().at(-1);
+  if (!lastDay) return null;
+  const days = Array.from({ length: TRACKING_DAYS }, (_, i) => addDaysIso(lastDay, i - (TRACKING_DAYS - 1)));
+  const inWeek = (d: IsoDate) => d >= days[0] && d <= lastDay;
+  const manpower = manpowerAll.filter((m) => inWeek(m.workDate));
+  const equipmentUsage = equipmentAll.filter((e) => inWeek(e.workDate));
+
+  const all = new Map((await repo.getContractors()).map((c) => [c.id, c]));
+  const contractors = (await repo.getContractors(projectId)).map((c) => ({ id: c.id, name: c.name, scopeOfWork: c.scopeOfWork }));
+  const extra = [...new Set([...manpower.map((m) => m.contractorId), ...equipmentUsage.map((e) => e.contractorId)])]
+    .filter((id) => !contractors.some((c) => c.id === id)).sort((a, b) => a - b);
+  for (const id of extra) contractors.push({ id, name: all.get(id)?.name ?? `#${id}`, scopeOfWork: all.get(id)?.scopeOfWork ?? '' });
+
+  const eqNames = new Map((await repo.getEquipments()).map((e) => [e.id, e.name]));
+  const equipments = [...new Set(equipmentUsage.map((e) => e.equipmentId))].sort((a, b) => a - b)
+    .map((id) => ({ id, name: eqNames.get(id) ?? `#${id}` }));
+  return { days, today: todayIso(), contractors, equipments, manpower, equipmentUsage };
+}
+```
+
+- [ ] **Bước 7: `src/components/ui/HelpTip.tsx`** (server-safe). Kèm test: `HelpTip({ text: 'Nội dung', label: 'Giải thích', alignRight: true })` phải ra đúng chuỗi `<button type="button" class="help rt" aria-label="Giải thích">?<span class="bub">Nội dung</span></button>`.
+
+```tsx
+/** Nút "?" + bong bóng `.help .bub` (mock-up dòng 437-458). Card chứa nó phải có className="overflow-visible". */
+export function HelpTip({ text, label, alignRight = false }: { text: string; label: string; alignRight?: boolean }) {
+  return (
+    <button type="button" className={alignRight ? 'help rt' : 'help'} aria-label={label}>
+      ?<span className="bub">{text}</span>
+    </button>
+  );
+}
+```
+
+- [ ] **Bước 8: `src/components/project/WeeklyTrackingCard.tsx`** (`'use client'`). Component tự render cả `<Card className="overflow-visible">`, vì nút chọn tab nằm trên header:
+  - Props `{ data: WeeklyTracking; locale: string }`. State `view: 'log' | 'mx' | 'eq'`, mặc định `'log'`. Có `useChartTip()`.
+  - Helpers: `dName(d) = t(`detail.track.weekday.d${new Date(`${d}T00:00:00Z`).getUTCDay()}`)`; `pct0(r)` = `r == null ? '-' : `${Math.round(r*100)}%``; `pct1(r)` = 1 chữ số thập phân theo `vi-VN`/`en-US`; `eqInfo = new Map(data.equipments.map((e, i) => [e.id, { name: e.name, color: equipmentColor(i) }]))`.
+  - `<CardHeader>`:
+    - `title={t('detail.track.title')}`
+    - `titleExtra={<HelpTip text={t('detail.track.help')} label={t('common.explain')} alignRight />}`
+    - `action`: `<div className="seg">` chứa 3 `<button type="button">`, nút đang chọn có `className="on"`. Nhãn: `detail.track.tabLog` / `tabMatrix` / `tabEquipment`.
+  - `<CardBody>`, bên trong theo thứ tự:
+    1. `sumbar`, class thêm ` good` khi `mobilizationTotalTone(sum.weekRatio)==='ok'`, ` bad` khi `'warn'`, không thêm gì khi `'neutral'`. Hai `<span>` dùng `t.rich('detail.track.sumLeft', { from: formatDayMonth(sum.from), to: formatDayMonth(sum.to), contractors, equipments, b: (c) => <b>{c}</b> })` và `t.rich('detail.track.sumRight', { day: sum.lastDayIsToday ? t('common.today') : t('detail.track.dayOn', { date: formatDayMonth(sum.to) }), actual, planned, pct: pct1(weekRatio), b })`.
+    2. `<div className="trackwrap scroll" style={{ marginTop: 12 }}><table className="tbl">…</table></div>`.
+  - **Tab `log`** (port dòng 1833-1856):
+    - `thead` 7 cột: `colDate`, `colContractor`, `colScope`, `colPlanned` (num), `colActual` (num), `colDiff` (num), `colEquipment` với `style={{ minWidth: 240, whiteSpace: 'normal' }}`.
+    - Mỗi `LogDay` là 1 `<Fragment key={date}>` gồm:
+      - `<tr className="dayhead">`: ô `colSpan={3}` = `{dName} · {formatDateShort(date)}`, thêm `{' '}<span className="chip c-info">{t('common.today')}</span>` nếu `isToday`; ô num planned; ô num actual; ô num `<span className={`chip ${TONE_CHIP[mobilizationTone(ratio)]}`}>{pct0(ratio)}</span>`; ô `t('detail.track.eqTypes', { n })`.
+      - `rows.length === 0` → 1 hàng `colSpan={7}`, `color: var(--label3)`, nội dung `t('detail.track.noDataDay')`.
+      - Ngược lại mỗi `LogRow` 1 hàng: `formatDayMonth(date)` · tên (fontWeight 600) · `scope || '-'` (màu `--label2`) · planned · actual (fontWeight 750) · chip màu `mobilizationTone(ratio)` với chữ `${diff >= 0 ? '+' : ''}${diff}` · `<div className="eqchips">`. Nếu có thiết bị: mỗi thiết bị 1 `<span className="eqchip"><i style={{ background: color }} />{name}</span>`. Nếu không có: `<span style={{ color: 'var(--label3)', fontSize: 'var(--t-caption2)' }}>{t('detail.track.noEquipment')}</span>`.
+  - **Tab `mx`** (port dòng 1857-1879):
+    - `thead`: `colContractor`, sau đó mỗi ngày 1 `<th>{dName}<br />{formatDayMonth}{ngày cuối && === today ? ' ●' : ''}</th>`, cuối là `colWeekAvg` (num).
+    - `<tbody className="mx">`. Mỗi hàng: ô đầu `textAlign:left` gồm tên + `<div>` scope (caption2, `--label3`). Ô ngày: có dữ liệu → `<div className="cell"><b style={{ color: TONE_VAR[mobilizationTone(c.ratio)] }}>{c.actual}</b><span>{t('detail.track.planShort', { n: c.planned })}</span></div>`; null → `<span style={{ color: 'var(--label4)' }}>-</span>`. Ô cuối: chip `pct0(weekRatio)`.
+    - Hàng cuối `t('detail.track.siteTotal')` (fontWeight 800) với `totals` (b không tô màu), ô cuối chip màu `mobilizationTone(m.weekRatio)`, chữ `pct1`.
+  - **Tab `eq`** (port dòng 1880-1913):
+    - `thead`: `colEquipmentName`, 7 cột ngày, `colDaysUsed` (num). `<tbody className="mx">`.
+    - Ô đầu: `<span className="eqchip"><i style={{ background: color }} />{name}</span>`.
+    - Ô ngày có user: `style={{ cursor: 'pointer' }}`, `onMouseMove={(ev) => show(ev, `${name} · ${formatDateShort(day)}`, users.map((u) => ({ k: u.name, v: u.actualHeadcount == null ? '-' : t('detail.track.peopleN', { n: u.actualHeadcount }) })))}`, `onMouseLeave={hide}`, nội dung `<div className="cell"><b style={{ color: 'var(--accent)' }}>{users.length}</b><span>{t('detail.track.contractorsUnit')}</span></div>`. Ô trống → `-` màu `--label4`.
+    - Ô cuối: chip `TONE_CHIP[daysUsedTone(daysUsed)]`, chữ `${daysUsed}/${data.days.length}`.
+    - Không có thiết bị nào → 1 hàng `colSpan={data.days.length + 2}` với `t('detail.track.noDataDay')`.
+  - Cuối component render `<ChartTip tip={tip} />`.
+- [ ] **Bước 9: Test `WeeklyTrackingCard.test.ts`.** Mock `next-intl`: `useTranslations` trả hàm `t = Object.assign((k, v) => v ? `${k}|${Object.values(v).join(',')}` : k, { rich: (k: string) => k })`, `useLocale: () => 'vi'`. Dùng lại fixture `W` của Bước 3 (khai báo lại trong file). Assert:
+  - Có đúng 3 lần `class="dayhead"`.
+  - Có `class="chip c-info">common.today`.
+  - Có `detail.track.noDataDay`.
+  - Có `<button type="button" class="on">detail.track.tabLog</button>`.
+- [ ] **Bước 10: CSS.** Copy mock-up **dòng 496-510** (từ `/* ---------- Tracking tuần ---------- */` tới `.cell span{…}`).
+- [ ] **Bước 11: i18n.** `"common"` thêm `"explain": "Giải thích"` / `"Explain"`. Vào `"detail"`:
+  - vi: `"track": { "title": "Tracking huy động theo tuần - 7 ngày gần nhất", "help": "Ghi nhận theo ngày: mỗi ngày từng nhà thầu chốt số nhân lực kế hoạch và báo lại số thực tế có mặt, kèm danh sách thiết bị đã dùng hôm đó. Quan hệ nhiều-nhiều: một nhà thầu có thể dùng nhiều thiết bị, và một thiết bị có thể được nhiều nhà thầu dùng chung trong cùng ngày.", "tabLog": "Nhật ký theo ngày", "tabMatrix": "Ma trận nhân lực", "tabEquipment": "Theo thiết bị", "colDate": "Ngày", "colContractor": "Nhà thầu", "colScope": "Hạng mục phụ trách", "colPlanned": "NL kế hoạch", "colActual": "NL thực tế", "colDiff": "Chênh", "colEquipment": "Thiết bị đã dùng", "colWeekAvg": "TB tuần", "colEquipmentName": "Thiết bị", "colDaysUsed": "Ngày sử dụng", "noEquipment": "- không dùng thiết bị -", "eqTypes": "{n} loại thiết bị", "noDataDay": "Chưa có số liệu ngày này", "siteTotal": "TỔNG CÔNG TRƯỜNG", "planShort": "KH {n}", "contractorsUnit": "nhà thầu", "peopleN": "{n} người", "dayOn": "Ngày {date}", "weekday": { "d0": "CN", "d1": "T2", "d2": "T3", "d3": "T4", "d4": "T5", "d5": "T6", "d6": "T7" }, "sumLeft": "Tuần {from} - {to} · <b>{contractors}</b> nhà thầu · <b>{equipments}</b> nhóm thiết bị được huy động", "sumRight": "{day} <b>{actual}/{planned}</b> người · cả tuần đạt <b>{pct}</b> so với kế hoạch" }`
+  - en: `"track": { "title": "Weekly mobilisation tracking - last 7 days", "help": "Recorded daily: each contractor sets planned headcount and reports actual attendance, plus the equipment used that day. Many-to-many: one contractor can use several pieces of equipment, and one piece of equipment can be shared by several contractors on the same day.", "tabLog": "Daily log", "tabMatrix": "Manpower matrix", "tabEquipment": "By equipment", "colDate": "Date", "colContractor": "Contractor", "colScope": "Scope", "colPlanned": "Planned", "colActual": "Actual", "colDiff": "Diff.", "colEquipment": "Equipment used", "colWeekAvg": "Week", "colEquipmentName": "Equipment", "colDaysUsed": "Days used", "noEquipment": "- no equipment -", "eqTypes": "{n} equipment types", "noDataDay": "No data for this day", "siteTotal": "SITE TOTAL", "planShort": "Plan {n}", "contractorsUnit": "contractors", "peopleN": "{n} people", "dayOn": "On {date}", "weekday": { "d0": "Sun", "d1": "Mon", "d2": "Tue", "d3": "Wed", "d4": "Thu", "d5": "Fri", "d6": "Sat" }, "sumLeft": "Week {from} - {to} · <b>{contractors}</b> contractors · <b>{equipments}</b> equipment groups mobilised", "sumRight": "{day} <b>{actual}/{planned}</b> people · week at <b>{pct}</b> of plan" }`
+
+  Thêm `'WeeklyTrackingCard': 'src/components/project/WeeklyTrackingCard.tsx'` vào `CHANGED_SOURCES`.
+- [ ] **Bước 12: Nối vào page.** Thêm dynamic `WeeklyTrackingCard`, import `getWeeklyTracking`, dữ liệu `const tracking = await getWeeklyTracking(id, month);`. Chèn ngay SAU `g2` nguồn lực của Task 4, TRƯỚC thẻ "nhân lực theo thời gian":
+
+```tsx
+      {tracking ? (
+        <WeeklyTrackingCard data={tracking} locale={locale} />
+      ) : (
+        <Card>
+          <CardHeader title={t('detail.track.title')} />
+          <CardBody><p className="empty">{t('detail.noDailyData')}</p></CardBody>
+        </Card>
+      )}
+```
+
+- [ ] **Bước 13:** `npx tsc --noEmit`, `npm test`. Kiểm mắt 3 tab ở `/vi/projects/1`: tiêu đề cột dính khi cuộn trong khung 460px, tooltip ô thiết bị, bong bóng "?" không bị cắt. `/vi/projects/17` hiện thẻ rỗng.
+- [ ] **Bước 14:** `git commit -m "feat(parity): tracking huy dong 7 ngay gan nhat 3 tab"`
+
+---
+
+### Task 6: Biểu đồ "Các mốc chính của dự án" (`kmChart`)
+
+**Files:**
+- Create: `src/lib/time-axis.ts`, `src/lib/time-axis.test.ts`, `src/lib/key-milestones.ts`, `src/lib/key-milestones.test.ts`, `src/components/project/keyMsText.ts`, `src/components/project/KeyMilestoneChart.tsx`, `src/components/project/KeyMilestoneChart.test.ts`
+- Modify: `page.tsx`, `vi.json`/`en.json`, `messages.test.ts`, `projects-detail-page-render.test.ts`
+
+**Interfaces:**
+- Consumes `today` (Task 2), `Legend` (Task 2), `useChartTip`/`ChartTip`/`useSpringProgress` (Task 4), `HelpTip` + `formatDateShort` (Task 5).
+- Produces `monthTicks(from: IsoDate, to: IsoDate): MonthTick[]`, với `MonthTick = { date: IsoDate; label: string | null }`. Task 9 dùng.
+- Produces `keyMilestoneState(planned, actual | null, today): KeyMsState`, `KEY_MS_TONE_VAR`, `layoutMilestoneLabels`, `estimateLabelWidth`, `keyMsDomain`.
+- Produces `keyMsStateText(t, state): string`. Task 8 dùng.
+
+- [ ] **Bước 1: Test đỏ `time-axis.test.ts`:**
+  - `monthTicks('2026-02-15','2026-06-30')` → `[{date:'2026-03-01',label:'03/26'},{date:'2026-04-01',label:null},{date:'2026-05-01',label:'05/26'},{date:'2026-06-01',label:null}]`.
+  - `monthTicks('2026-03-01','2026-03-31')` → `[{date:'2026-03-01',label:'03/26'}]`.
+  - `monthTicks('2025-12-01','2026-01-31')` → nhãn `[null,'01/26']`.
+- [ ] **Bước 2: `src/lib/time-axis.ts`**
+
+```ts
+import { addMonths, type IsoDate } from '@/lib/clock';
+
+export interface MonthTick { date: IsoDate; label: string | null }
+
+/** Ngày 1 của mọi tháng trong [from, to]; nhãn 'MM/YY' chỉ ở tháng lẻ (mock-up dòng 1427, 2129). */
+export function monthTicks(from: IsoDate, to: IsoDate): MonthTick[] {
+  const out: MonthTick[] = [];
+  let ym = from.slice(0, 7);
+  if (`${ym}-01` < from) ym = addMonths(ym, 1);
+  while (`${ym}-01` <= to) {
+    out.push({ date: `${ym}-01`, label: Number(ym.slice(5, 7)) % 2 === 1 ? `${ym.slice(5, 7)}/${ym.slice(2, 4)}` : null });
+    ym = addMonths(ym, 1);
   }
   return out;
 }
+```
 
-export function useChartTokens(): ChartTokens {
-  const [tokens, setTokens] = useState<ChartTokens>(FALLBACK);
-  const refresh = useCallback(() => setTokens(read()), []);
+- [ ] **Bước 3: Test đỏ `key-milestones.test.ts`:**
+  - `keyMilestoneState('2026-01-15','2026-01-18','2026-09-16')` = `{kind:'done',days:3,tone:'warn'}`
+  - `('2026-03-01','2026-02-27',…)` = `{done,-2,ok}`; `('2026-03-01','2026-03-01',…)` = `{done,0,ok}`
+  - `('2026-09-15',null,'2026-09-16')` = `{late,1,danger}`
+  - `('2026-09-29',null,'2026-09-16')` = `{next,13,accent}`; `('2026-09-16',null,'2026-09-16')` = `{next,0,accent}`
+  - `layoutMilestoneLabels([{x:100,width:100},{x:150,width:100},{x:200,width:100},{x:250,width:100}])` = `[{side:-1,tier:0},{side:1,tier:0},{side:-1,tier:1},{side:1,tier:1}]`
+  - `layoutMilestoneLabels` với 5 hộp cùng `{x:100,width:100}` = `[{-1,0},{1,0},{-1,1},{1,1},{1,1}]` (hộp thứ 5 đổi phía)
+  - `estimateLabelWidth('abcd','ab')` ≈ 47.6
+  - `keyMsDomain(['2026-09-16'],'2026-09-16')` = `{lo: T-14 ngày, hi: T+14 ngày}` với `T=Date.parse('2026-09-16T00:00:00Z')`
+  - `keyMsDomain(['2026-01-01','2026-12-31'],'2026-06-01')`: `hi-lo` = `364 ngày × 1.12` (sai số `toBeCloseTo`)
+- [ ] **Bước 4: `src/lib/key-milestones.ts`** (Task 7 và Task 8 sẽ thêm vào file này)
 
-  useEffect(() => {
-    refresh();
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    window.addEventListener('ddc:theme', refresh);
-    mq.addEventListener('change', refresh);
-    return () => {
-      window.removeEventListener('ddc:theme', refresh);
-      mq.removeEventListener('change', refresh);
-    };
-  }, [refresh]);
+```ts
+import { daysBetween, type IsoDate } from '@/lib/clock';
 
-  return tokens;
+export type KeyMsTone = 'ok' | 'warn' | 'danger' | 'accent';
+export interface KeyMsState { kind: 'done' | 'late' | 'next'; days: number; tone: KeyMsTone }
+export const KEY_MS_TONE_VAR: Record<KeyMsTone, string> = { ok: 'var(--ok)', warn: 'var(--warn)', danger: 'var(--danger)', accent: 'var(--accent)' };
+
+/** Port msState() mock-up dòng 2072-2080. done.days: dương = trễ, âm = sớm. */
+export function keyMilestoneState(plannedDate: IsoDate, actualDate: IsoDate | null, today: IsoDate): KeyMsState {
+  if (actualDate) {
+    const slip = daysBetween(plannedDate, actualDate);
+    return { kind: 'done', days: slip, tone: slip > 0 ? 'warn' : 'ok' };
+  }
+  const left = daysBetween(today, plannedDate);
+  return left < 0 ? { kind: 'late', days: -left, tone: 'danger' } : { kind: 'next', days: left, tone: 'accent' };
+}
+
+export interface LabelBox { x: number; width: number }
+export interface LabelSlot { side: -1 | 1; tier: 0 | 1 }
+
+/** Xếp nhãn xen kẽ trên/dưới trục; chạm nhau thì đẩy ra tầng ngoài, vẫn chạm thì đổi phía (mock-up dòng 2107-2114). */
+export function layoutMilestoneLabels(boxes: LabelBox[]): LabelSlot[] {
+  const lastRight = { up: [-1e9, -1e9], down: [-1e9, -1e9] };
+  const lane = (s: -1 | 1) => (s === -1 ? lastRight.up : lastRight.down);
+  return boxes.map((b, i) => {
+    let side: -1 | 1 = i % 2 === 0 ? -1 : 1;
+    const left = b.x - b.width / 2;
+    let tier: 0 | 1 = left < lane(side)[0] + 10 ? 1 : 0;
+    if (tier === 1 && left < lane(side)[1] + 10) {
+      side = side === -1 ? 1 : -1;
+      tier = left < lane(side)[0] + 10 ? 1 : 0;
+    }
+    lane(side)[tier] = b.x + b.width / 2;
+    return { side, tier };
+  });
+}
+
+/** Ước lượng bề rộng khối nhãn (đơn vị viewBox 1000), thay getComputedTextLength của mock-up (dòng 2098-2103). */
+export function estimateLabelWidth(name: string, sub: string): number {
+  return Math.max(name.length * 7.4, sub.length * 6.2) + 18;
+}
+
+/** Miền trục: [min, max] của các ngày + hôm nay, nới 6% mỗi đầu; cùng 1 ngày → ±14 ngày (mock-up dòng 2090-2093). */
+export function keyMsDomain(dates: IsoDate[], today: IsoDate): { lo: number; hi: number } {
+  const ms = [...dates, today].map((d) => Date.parse(`${d}T00:00:00Z`));
+  const lo = Math.min(...ms);
+  const hi = Math.max(...ms);
+  const pad = (hi - lo) * 0.06 || 14 * 86_400_000;
+  return { lo: lo - pad, hi: hi + pad };
 }
 ```
 
-- [ ] **Bước 4: `charts.tsx`**
+- [ ] **Bước 5: `src/components/project/keyMsText.ts`**
 
-- Xoá export `CHART_COLORS` (dòng 28–43).
-- Thay `TOOLTIP_STYLE` (dòng 45–52) bằng:
-  ```tsx
-  /** Tooltip kinh - inline style nen var() chay duoc. */
-  export const TOOLTIP_STYLE = {
-    contentStyle: {
-      borderRadius: 'var(--r-sm)',
-      border: '.5px solid var(--glass-stroke)',
-      background: 'var(--glass-3)',
-      backdropFilter: 'blur(var(--mat-thick)) saturate(var(--mat-sat))',
-      WebkitBackdropFilter: 'blur(var(--mat-thick)) saturate(var(--mat-sat))',
-      boxShadow: 'var(--e4)',
-      fontSize: 'var(--t-caption1)',
-      color: 'var(--label)',
-      padding: '10px 12px',
-    },
-    itemStyle: { color: 'var(--label2)' },
-    labelStyle: { color: 'var(--label)', fontWeight: 700, marginBottom: 6 },
-  } as const;
-  ```
-- Trong **mỗi** hàm biểu đồ (`StatusDonut`, `GroupBar`, `CapacityBar`, `SpiCpiLine`, `SCurve`, `BacklogOverdueLine`, `Sparkline`) thêm dòng đầu `const c = useChartTokens();` rồi thay màu theo bảng ánh xạ ở trên.
-- Mọi `stroke="#eef2f7"` của `<CartesianGrid>` → `stroke={c.grid}`.
-- Mọi `tick={{ fontSize: 11, fill: '#64748b' }}` và `'#94a3b8'` → `tick={{ fontSize: 11, fill: c.axis }}`.
-- `<Legend wrapperStyle={{ fontSize: 12 }} />` → `<Legend wrapperStyle={{ fontSize: 'var(--t-caption1)' }} />`.
-- `ReferenceLine` SPI (dòng 180–185): `stroke={c.warn}`, `label={{ …, fill: c.warn }}`.
-- `SCurve` gradient (dòng 207–216): `stopColor={c.plan}` / `stopColor={c.actual}`; `<Area dataKey="ac" stroke={c.cost} strokeDasharray="5 4" fill="transparent" />` (thêm nét đứt theo mock-up dòng 1526).
-- `Sparkline` (dòng 257): `color = CHART_COLORS.accent` → đổi chữ ký thành `{ data, color }: { data: number[]; color?: string }` và bên trong `const c = useChartTokens(); const stroke = color ?? c.actual;`.
-- Bo góc cột: mock-up dùng `rx:4` → đổi mọi `radius={[6,6,0,0]}` thành `radius={[4,4,0,0]}` và `[0,6,6,0]` thành `[0,4,4,0]`.
-
-- [ ] **Bước 5: `DrillCharts.tsx`**
-
-- Bỏ import `CHART_COLORS`; import `useChartTokens`.
-- Xoá hằng `STATUS_COLOR` ở module scope (dòng 10–15), chuyển vào trong `DrillDonut`:
-  ```tsx
-  const c = useChartTokens();
-  const STATUS_COLOR: Record<Status, string> = {
-    Chuan_bi: c.plan,
-    Dang_trien_khai: c.actual,
-    Hoan_thanh: c.third,
-    Tam_dung: c.cost,
-  };
-  ```
-- dòng 50: `flex w-full items-center gap-2 rounded-lg px-2 py-1 text-xs hover:bg-slate-50` → `legend` là dạng span, nhưng đây là nút bấm được → dùng `flex w-full items-center gap-2 rounded-xs px-2 py-1 text-caption1 transition-colors duration-fast hover:bg-fill`
-- dòng 52: `h-2.5 w-2.5 rounded-full` → giữ, chỉ đổi thành `h-2.5 w-2.5 rounded-[3px]` (mock-up `.legend i` bo 3px)
-- dòng 53: `flex-1 text-left text-slate-600` → `flex-1 text-left text-label2`
-- dòng 54: `font-semibold text-navy-900` → `font-bold`
-- dòng 55: `text-slate-400` → `text-label3`
-- dòng 86: `text-sm font-semibold text-navy-900` → `text-footnote font-semibold`
-- dòng 92: `h-7 rounded-lg border border-slate-200 bg-white px-2 text-xs text-navy-800 focus:outline-none` → `inp` + `style={{ width: 'auto', padding: '4px 9px', fontSize: 'var(--t-caption1)' }}`
-
-- [ ] **Bước 6: `ChartLabels.tsx`**
-
-- dòng 15–17:
-  ```tsx
-  const base = 'rounded-[6px] px-2.5 py-1 text-caption1 font-semibold transition-all duration-fast ease-std';
-  const on = 'text-label';
-  const off = 'text-label2';
-  ```
-- dòng 19: `flex items-center gap-1 rounded-lg bg-slate-100 p-0.5 dark:bg-slate-800` → `seg`
-- nút đang chọn thêm class `on` (`.seg button.on` đã lo nền + bóng): `className={\`${base} ${mode === 'smart' ? 'on ' + on : off}\`}`
-- `valueLabel` (dòng 60): `fill="currentColor"` → `fill="var(--label2)"` — **được phép** vì đây là JSX `<text>` do ta tự render, không phải attribute do Recharts sinh; nhưng để chắc chắn, đổi thành `fill={'var(--label2)'}` sẽ vẫn hỏng. **Dùng `fill="currentColor"` và giữ nguyên** — phần tử nằm trong SVG kế thừa `color` từ container, mà container `.card .bd` có `color: var(--label)`. Không sửa dòng này.
-
-- [ ] **Bước 7: `ManpowerDailyChart.tsx`**
-
-- Bỏ import `CHART_COLORS`; import `useChartTokens` và giữ `TOOLTIP_STYLE`.
-- Thêm `const c = useChartTokens();` trong component.
-- dòng 22: `py-8 text-center text-sm text-slate-400` → `empty`
-- dòng 28: `rounded-md bg-navy-50 px-2 py-0.5 text-xs font-semibold text-navy-700` → `chip c-plain`
-- dòng 31: `flex gap-1` → `seg`
-- dòng 37–39: `rounded-md px-2 py-1 text-xs ${bucket === b ? 'bg-accent text-white' : 'bg-slate-100 text-slate-600'}` → `${bucket === b ? 'on' : ''}` (để `.seg button` lo)
-- dòng 48: `stroke="#eef2f7"` → `stroke={c.grid}`
-- dòng 51, 57: `fill: '#64748b'` → `fill: c.axis`
-- dòng 63: `wrapperStyle={{ fontSize: 12 }}` → `wrapperStyle={{ fontSize: 'var(--t-caption1)' }}`
-- dòng 68: `stroke={CHART_COLORS.ac}` (kế hoạch) → `stroke={c.plan}`
-- dòng 76: `stroke={CHART_COLORS.accent}` (thực tế) → `stroke={c.third}`
-- Sửa comment dòng 14: `Màu bám bộ đỏ-vàng của dashboard: kế hoạch = vàng, thực tế = đỏ.` → `Mau bam bo series cua mock-up: ke hoach = --s-plan, thuc te = --s-third (mock-up dong 762).`
-
-- [ ] **Bước 8: Cổng kiểm tra + kiểm mắt**
-```
-npx vitest run src/ui/legacy-style-guard.test.ts
-npx tsc --noEmit
-npm test
-```
-Kiểm mắt `/vi/overview`, `/vi/projects/1`, `/vi/report`:
-- Donut trạng thái: Đang triển khai navy đậm, Chuẩn bị navy nhạt, Hoàn thành xanh lục, Tạm dừng nâu vàng. **Không còn màu đỏ nào.**
-- Rê chuột vào biểu đồ → tooltip nền kính mờ, viền sáng 0.5px, bóng `--e4`.
-- **Bấm chuyển sang giao diện Tối, biểu đồ phải đổi màu ngay** (không cần tải lại trang). Nếu không đổi → `ddc:theme` chưa được bắn từ `applyTheme` (kiểm lại Task 1 Bước 9) hoặc chart không gọi `useChartTokens`.
-
-- [ ] **Bước 9: Commit**
-```bash
-git add app/globals.css src/components/dashboard src/components/project/ManpowerDailyChart.tsx src/ui/legacy-style-guard.test.ts
-git commit -m "style(glass): Task 9 - bo mau series + tooltip kinh cho Recharts"
-```
-
----
-
-### Task 10: Hai dashboard chính — Tổng quan + Chi tiết dự án
-
-**Files:**
-- Modify: `app/[locale]/(app)/overview/page.tsx`
-- Modify: `src/components/dashboard/OverviewWidgets.tsx`
-- Modify: `app/[locale]/(app)/projects/[id]/page.tsx`
-- Modify: `src/ui/legacy-style-guard.test.ts` (xoá nhóm "Task 10 - 2 dashboard chinh")
-
-**Interfaces:** chỉ tiêu thụ. Không tạo class mới.
-
-**Quy ước bố cục lấy từ mock-up** (thay cho `grid gap-6 lg:grid-cols-3` các kiểu):
-- `.page` (đã có ở `<main>` từ Task 2) tự tạo `gap: 14px` giữa các khối con → **bỏ** `space-y-4`/`space-y-6` ở lớp ngoài cùng của mỗi page.
-- Hàng 2 cột đều nhau → `g2`. 3 cột đều → `g3`. 2 cột lệch 1.55/1 → `g21`. Lưới KPI → `kpis` (+ `k5`/`k4`/`k2` nếu không đủ 6).
-- Tiêu đề phân tầng → `<div className="sect"><b>Tầng 1 — Metrics</b><i /></div>` (mock-up dòng 644, 654, 722, 759).
-
-- [ ] **Bước 1: Gỡ 3 file khỏi PENDING → test ĐỎ**
-
-- [ ] **Bước 2: `overview/page.tsx`**
-
-| Dòng | Cũ | Mới |
-|---|---|---|
-| 31 | `grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6` (KpiSkeleton) | `kpis` |
-| 33 | `card h-24 animate-pulse` | `kpi sk` + `style={{ height: 96 }}` |
-| 71 | `<div className="space-y-6">` | `<>` … `</>` (bỏ hẳn div bọc, `.page` lo khoảng cách) |
-| 72 | `text-xs text-slate-500` | `hintline` |
-| 90, 101, 113 | `grid gap-6 lg:grid-cols-3` | `g21` |
-| 94, 105, 117 | `<div className="lg:col-span-2">` | bỏ div bọc (`.g21` đã chia 1.55fr/1fr) — **nhưng** phải đảo thứ tự: `.g21` cho phần tử **đầu** là phần rộng. Hiện `StatusDonutCard` (hẹp) đứng trước `GroupBarCard` (rộng) → đổi chỗ để `GroupBarCard` đứng trước, đúng mock-up dòng 602–613. Tương tự cặp `CapacityCard`/`SpiCpiCard` và `BacklogOverdueCard`/`SCurveCard`. |
-
-Thêm 3 dải phân tầng (bám mock-up): trước `KpiGrid` chèn `<div className="sect"><b>{t('overview.title')}</b><i /></div>` — **chỉ khi** key `overview.title` đã có; nếu chưa có thì bỏ qua, không thêm key mới ở Task này.
-
-- [ ] **Bước 3: `OverviewWidgets.tsx`**
-
-| Dòng | Cũ | Mới |
-|---|---|---|
-| 40 | `flex items-start gap-3 rounded-card border border-red-200 bg-red-50 px-4 py-3` | `alert` |
-| 41 | `<IconAlert size={20} className="mt-0.5 shrink-0 text-red-600" />` | `<span className="dot" style={{ background: 'var(--danger)' }} />` |
-| 42 | `text-sm text-red-800` | `<div style={{ minWidth: 0, flex: 1 }}><h4>…</h4><p>…</p></div>` |
-| 56 | `grid grid-cols-2 gap-5 md:grid-cols-3 ${canViewFinance ? 'xl:grid-cols-6' : 'xl:grid-cols-5'}` | `kpis${canViewFinance ? '' : ' k5'}` |
-| 86 | `<CardBody className="pt-4">` | `<CardBody>` |
-| 142 | `<CardBody className="space-y-3">` | `<CardBody className="flex flex-col gap-3">` |
-| 143 | `grid grid-cols-2 gap-3` | `g2` |
-| 145, 149 | `<div className="label">` | `<div className="text-caption2 font-bold uppercase tracking-[.025em] text-label3">` (class `.label` cũ đã bị xoá ở Task 1) |
-| 146 | `text-xl font-semibold text-navy-900` | `text-title3 font-bold` |
-| 150 | `text-xl font-semibold text-red-600` | `text-title3 font-bold` + `style={{ color: 'var(--danger)' }}` |
-| 74, 98, 111, 141, 164 | `<CardHeader title={…} subtitle={…} />` | giữ nguyên — `CardHeader` mới render `subtitle` thành `<span className="en">` trong `.hd h3` |
-
-- [ ] **Bước 4: `projects/[id]/page.tsx`**
-
-| Dòng | Cũ | Mới |
-|---|---|---|
-| 17–22 | 3 chỗ `className="h-60 animate-pulse rounded-lg bg-slate-200/70"` | `className="sk h-60"` |
-| 86 | `<div className="space-y-4">` | `<>` … `</>` |
-| 88 | `flex flex-wrap items-center justify-between gap-2 text-sm text-slate-500` | `flex flex-wrap items-center justify-between gap-2 text-footnote text-label2` |
-| 90 | `hover:text-navy-800` | `transition-colors duration-fast hover:text-brand` |
-| 94 | `font-medium text-navy-900` | `font-semibold text-label` |
-| 102 | `text-xs text-slate-500` | `hintline` |
-| 107 | `<Card className="p-5">` | `<Card><div className="phead">…</div></Card>` — dùng khối `.phead` của mock-up (xem Bước 5) |
-| 132 | `grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6` | `kpis` |
-| 142 | `grid grid-cols-1 gap-3 sm:grid-cols-2` | `kpis k2` |
-| 165 | `grid gap-4 sm:grid-cols-2` | `g2` |
-| 169 | `mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-500` | `chainfoot` |
-| 171 | `<b className="text-navy-800">` | `<b style={{ color: 'var(--label)' }}>` |
-| 177, 233, 259, 306 | `grid gap-4 lg:grid-cols-2` | `g2` |
-| 189 | `<CardBody className="space-y-2">` | `<CardBody><div className="stagegrid">…</div></CardBody>` |
-| 196–207 | hàng giai đoạn thủ công | `<div className="stage${isBottleneck ? ' bt' : ''}"><span className="nm">…</span><span className="w">-</span><div className="bar"><i className="fill" style={{width:…}}/></div><span className="pc">…</span></div>` |
-| 216, 263, 335 | `<table className="w-full text-sm">` | `<table className="tbl">` |
-| 217, 271, 344 | `<tbody className="divide-y divide-slate-100">` | `<tbody>` |
-| 265, 337 | `<tr className="text-left text-xs uppercase text-slate-400">` | `<tr>` |
-| 266–268, 338–341 | `className="py-1.5 font-medium"` | bỏ; cột số → `className="num"` |
-| 274, 295 | `py-2 font-mono text-xs text-navy-800` | `mono` |
-| 275–278, 296, 347 | `py-2 text-xs text-slate-500` | bỏ |
-| 290, 311, 365 | `py-4 text-center text-sm text-slate-400` | `<p className="empty">` |
-| 292 | `<ul className="divide-y divide-slate-100">` | `<ul className="flex flex-col">` + `<li style={{ borderTop: '.5px solid var(--sep)' }}>` (mục đầu `first:border-t-0`) |
-| 313–326 | danh sách cảnh báo | mỗi mục → `<div className="alert">` + `<span className="dot" style={{background: a.alertType==='Red' ? 'var(--danger)' : 'var(--warn)'}} />` + `<h4>` + `<p>` + `<div className="mt">` |
-| 315 | `flex items-start gap-2 rounded-lg border border-slate-100 p-3` | `alert` |
-| 320 | `text-xs text-slate-400` | (nằm trong `.mt`, bỏ class) |
-| 322 | `mt-1 text-navy-800` | bỏ (`.alert p` lo) |
-| 348–350 | `py-2 text-right text-slate-700` | `num` |
-| 367 | `grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4` | giữ nguyên (lưới ảnh, mock-up không có) |
-| 369 | `relative aspect-[4/3] overflow-hidden rounded-xl bg-slate-100` | `relative aspect-[4/3] overflow-hidden rounded-md` + `style={{ background: 'var(--fill)' }}` |
-| 373 | `flex h-full flex-col items-center justify-center text-slate-400` | `flex h-full flex-col items-center justify-center text-label3` |
-| 408 | `TimelineItem` wrapper `rounded-xl bg-slate-50 p-3` | `sumbar` |
-| 409 | `<div className="label">` | `<div className="text-caption2 font-bold uppercase tracking-[.025em] text-label3">` |
-| 411, 413 | `text-navy-900` | bỏ |
-| 412 | `text-slate-300` | `text-label3` |
-| 422 | `py-2 text-slate-500` | bỏ |
-| 423 | `py-2 text-right font-medium text-navy-900` | `num` + `style={{ fontWeight: 600 }}` |
-| 124 | `<div className="label">` (Giá trị HĐ) | thuộc khối `.phead` ở Bước 5 |
-
-- [ ] **Bước 5: Khối header dự án `.phead`**
-
-Copy CSS **dòng 283–292** của `mockup-apple-glass.html` vào `@layer components` của `app/globals.css`: `.phead`, `.phead .idz`, `.phead h2`, `.phead .nmrow`, `.phead .meta`, `.phead .val`, `.phead .val .l`, `.phead .val .v`, `.phead .val .s`.
-(**Không** copy `.cdpanel` 293–309 — xem Q8.)
-
-Dựng lại khối header (thay dòng 107–129), giữ **y nguyên** dữ liệu đang hiển thị:
-```tsx
-<Card>
-  <div className="phead">
-    <div className="idz">
-      <div className="nmrow">
-        <h2>{project.projectName}</h2>
-        <StatusBadge status={summary.status} />
-        <PriorityBadge priority={project.priority} />
-      </div>
-      <div className="meta">
-        <span className="mono">{project.currentAliasCode}</span>
-        <span>{customer?.name ?? '-'}</span>
-        <span>{team?.name ?? '-'}</span>
-        <span><TypeLabel type={project.projectType} /></span>
-        <span><MarketLabel market={project.marketCode} /></span>
-      </div>
-    </div>
-    <div className="val">
-      <div className="l">{t('metric.contractValue')}</div>
-      <div className="v">{formatTyd(project.contractValue, locale)}</div>
-      <div className="s">{formatTon(project.tonnage)} tấn</div>
-    </div>
-  </div>
-</Card>
-```
-
-> **Q8.** Chưa trả lời → dừng ở đây, không thêm `.cdpanel`/`.tl`. Trả lời (b)/(c) → copy thêm CSS 293–332 và dựng khối tương ứng; dữ liệu lấy từ `project.plannedStartDate`, `project.plannedFinishDate`, `project.actualStartDate`, `project.committedHandoverDate`, `summary.pctPlan`, `summary.pctActual` (đã có sẵn trong scope, **không** gọi thêm query nào).
-
-> **Q7.** Trả lời (b) → chỉnh cờ `hero` ở `OverviewWidgets.tsx` dòng 57–63 và `projects/[id]/page.tsx` dòng 133–138 theo đúng 3 thẻ chủ dự án chỉ định.
-
-- [ ] **Bước 6: Cổng kiểm tra + kiểm mắt**
-```
-npx vitest run src/ui/legacy-style-guard.test.ts
-npx tsc --noEmit
-npm test
-```
-`npm test` phải giữ xanh `src/server/projects-detail-page-month-guard.test.ts` (render thật trang chi tiết).
-Kiểm mắt `/vi/overview` và `/vi/projects/1` ở cả 2 theme. Đối chiếu mock-up: KPI 6 cột, biểu đồ rộng bên trái / donut bên phải, bảng danh mục cuối trang.
-
-- [ ] **Bước 7: Commit**
-```bash
-git add "app/[locale]/(app)/overview/page.tsx" "app/[locale]/(app)/projects/[id]/page.tsx" src/components/dashboard/OverviewWidgets.tsx app/globals.css src/ui/legacy-style-guard.test.ts
-git commit -m "style(glass): Task 10 - trang Tong quan + Chi tiet du an"
-```
-
----
-
-### Task 11: Các trang còn lại (gồm trang không có trong mock-up)
-
-**Files (10 file):**
-- Modify: `app/[locale]/(app)/report/page.tsx`
-- Modify: `app/[locale]/(app)/alerts/page.tsx`
-- Modify: `app/[locale]/(app)/compliance/page.tsx`
-- Modify: `app/[locale]/(app)/audit/page.tsx`
-- Modify: `app/[locale]/(app)/admin/page.tsx`
-- Modify: `app/[locale]/(app)/nhap-lieu/page.tsx`
-- Modify: `app/[locale]/(app)/import/page.tsx`
-- Modify: `app/[locale]/(app)/data-dictionary/page.tsx`
-- Modify: `app/[locale]/(app)/data-schema/page.tsx`
-- Modify: `app/[locale]/not-found.tsx`
-- Modify: `src/ui/legacy-style-guard.test.ts` (xoá nhóm "Task 11 - cac trang con lai")
-
-**Nguyên tắc suy ra cho trang mock-up KHÔNG vẽ** (Từ điển dữ liệu, Sơ đồ dữ liệu, Import, 404) — rút từ 7 trang mock-up có vẽ, áp cứng:
-1. Mọi khối nội dung là `.card`; tiêu đề khối nằm trong `.card > .hd > h3`; chú thích phụ là `<span className="en">`; thân là `.card > .bd`.
-2. Tiêu đề trang (`<h1>`) **bỏ hẳn** — topbar đã hiện tên trang (mock-up dòng 582). Mô tả trang giữ lại dưới dạng `<p className="hintline">` **trong** card đầu tiên, không để trần trên nền.
-3. Bảng: `.tbl` trong `.bd.scroll`. Danh sách: `.alert` hoặc `<li>` có `border-top: .5px solid var(--sep)`.
-4. Nhãn phân loại: `.chip` + `c-ok|c-warn|c-dan|c-info|c-plain`. **Không** tự chế màu mới.
-5. Nút: `.btn` / `.btn.ghost`. Input: `.inp`.
-6. Trạng thái rỗng: `<p className="empty">`.
-7. Dải phân nhóm trong trang dài: `<div className="sect"><b>TÊN NHÓM</b><i /></div>`.
-8. Lưới: `g2` / `g3` / `g21` / `kpis`. Không dùng `grid-cols-*` của Tailwind nữa trừ lưới ảnh.
-
-- [ ] **Bước 1: Gỡ 10 file khỏi PENDING → test ĐỎ**
-
-- [ ] **Bước 2: `report/page.tsx`**
-
-| Dòng | Cũ | Mới |
-|---|---|---|
-| 33 | `<div className="space-y-4">` | `<>` … `</>` |
-| 34–42 | hàng tiêu đề + nút xuất | bỏ `<h1>`; đưa nút xuất vào `.hd` của card đầu, hoặc để riêng `<div className="flex justify-end">` |
-| 38 | `inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90` | `btn` |
-| 44 | `grid grid-cols-2 gap-5 md:grid-cols-3 xl:grid-cols-6` | `kpis` |
-| 57, 112 | `py-4 text-center text-sm text-slate-400` / `px-4 py-10 text-center …` | `empty` |
-| 59 | `<ul className="space-y-2">` | `<div className="flex flex-col gap-2.5">` |
-| 61 | `flex items-center gap-3 rounded-lg border border-slate-100 p-3` | `alert` |
-| 62 | `min-w-0 flex-1 truncate text-sm font-medium text-navy-900` | `<h4 className="min-w-0 flex-1 truncate">` |
-| 74 | `<CardBody className="pt-2">` | `<CardBody>` |
-| 75 | `overflow-x-auto` | `scroll` |
-| 76 | `w-full min-w-[980px] text-sm table-zebra` | `tbl` + `style={{ minWidth: 980 }}` |
-| 78 | `<tr className="border-y …">` | `<tr>` |
-| 79–84 | `px-4 py-2.5 font-medium` | bỏ; 4 cột số → `num` |
-| 87 | `divide-y divide-slate-100` | bỏ |
-| 90 | `px-4 py-2.5 font-mono text-xs text-slate-500` | `mono` |
-| 92 | `font-medium text-navy-900 hover:text-accent` | bỏ |
-| 96–107 | `px-4 py-2.5 text-right tabular-nums …` | `num` |
-| 97, 102 | `font-medium text-amber-600` / `text-slate-700` | `<Badge tone={… < THRESHOLDS.spiWarn ? 'warn' : 'ok'}>` |
-
-- [ ] **Bước 3: `alerts/page.tsx`**
-
-- dòng 22: `<div className="space-y-4">` → `<>` … `</>`
-- dòng 23: bỏ `<h1 className="text-lg font-semibold text-navy-900">` (topbar đã có tên trang)
-- Bọc `<AlertList …/>` trong `<Card><div className="hd"><h3>{t('alert.title')}</h3><Badge tone="neutral">{open.length} {t('alert.open')}</Badge></div><div className="bd scroll">…</div></Card>` — **chỉ** nếu key `alert.open` đã tồn tại; nếu chưa có thì bỏ badge, **không** thêm key mới ở Task này.
-
-Cẩn thận: `src/server/operation-pages-render.test.ts` render trang này. Chạy `npm test` ngay sau khi sửa.
-
-- [ ] **Bước 4: `compliance/page.tsx`**
-
-- dòng 49 `<div className="space-y-4">` → `<>` … `</>`; dòng 50 bỏ `<h1>`
-- dòng 53 `<CardBody className="pt-4">` → thêm `<div className="hd"><h3>{t('compliance.title')}</h3><Badge tone="warn">{rows.length}</Badge></div>` phía trên, rồi `<CardBody className="scroll">`
-- dòng 55 `py-10 text-center text-sm text-slate-400` → `empty`
-- dòng 57 `overflow-x-auto` → bỏ (đã có `scroll`)
-- dòng 58 `w-full min-w-[980px] text-sm table-zebra` → `tbl` + `style={{minWidth:980}}`
-- dòng 60 `<tr className="border-y …">` → `<tr>`; 61–65 `px-4 py-2.5 font-medium` → bỏ
-- dòng 68 `divide-y divide-slate-100` → bỏ
-- dòng 72 `font-medium text-navy-900 hover:text-accent` → bỏ; `<td>` thêm `style={{fontWeight:600}}`
-- dòng 76 `px-4 py-2.5 font-mono text-xs text-slate-500` → `mono`
-- dòng 77, 81 `px-4 py-2.5 text-slate-600` → bỏ
-
-`src/server/compliance-page.test.ts` render trang này — chạy `npm test`.
-
-- [ ] **Bước 5: `audit/page.tsx`**
-
-Cùng khuôn Bước 4. Riêng:
-- dòng 28 `w-full min-w-[980px] text-sm table-zebra` → `tbl sticky` + `style={{minWidth:980}}`
-- dòng 44, 47, 50, 52 `font-mono text-xs …` → `mono`
-- dòng 46 `px-4 py-2.5 text-xs text-navy-800` → `<Badge tone="neutral">{a.tableName}</Badge>` (mock-up dòng 1780: cột hành động là chip)
-- dòng 49 `max-w-[300px] break-all px-4 py-2.5` → `style={{ maxWidth: 300, whiteSpace: 'normal', wordBreak: 'break-all' }}`
-- dòng 51 `mx-1 text-slate-300` → `mx-1 text-label3`
-
-- [ ] **Bước 6: `admin/page.tsx`**
-
-- dòng 30 `<div className="space-y-4">` → `<>` … `</>`
-- dòng 31–34: bỏ `<h1>`, để `<div className="flex justify-end"><ResetDataButton /></div>`
-- dòng 61 `py-4 text-center text-sm text-slate-400` → `empty`
-- dòng 63, 160 `max-h-64 overflow-auto` → `scroll` + `style={{ maxHeight: 256 }}`
-- dòng 64, 161 `w-full text-sm` → `tbl sticky`
-- dòng 66, 163 `text-left text-xs uppercase text-slate-400` → bỏ
-- dòng 67–71, 165 `py-1.5 font-medium` → bỏ
-- dòng 74, 171 `divide-y divide-slate-100` → bỏ
-- dòng 77, 79 `py-1.5 font-mono text-xs text-slate-500` → `mono`
-- dòng 78, 80, 81 `py-1.5 text-xs …` → bỏ
-- dòng 97 `space-y-6` → `flex flex-col gap-5`
-- dòng 99, 103 `mb-2 text-sm font-medium text-navy-900` → `<div className="sect"><b>…</b><i /></div>`
-- dòng 110 `grid gap-4 lg:grid-cols-2` → `g2`
-- dòng 112, 122, 132, 142 `className="text-navy-400"` trên icon → bỏ class
-- dòng 175 `py-2 ${j === 0 ? 'font-medium text-navy-900' : 'text-slate-600'}` → `className={j === 0 ? '' : undefined} style={j === 0 ? { fontWeight: 600 } : undefined}`
-- `UserEditor`/`FieldEditor`/`ActivityViewer` nằm trong `Card` và có `<select>`/dropdown → các `Card` bọc chúng thêm `className="overflow-visible"`
-
-- [ ] **Bước 7: `nhap-lieu/page.tsx` + `import/page.tsx`**
-
-`nhap-lieu/page.tsx`:
-- dòng 47 `mx-auto max-w-4xl` → `mx-auto w-full max-w-5xl`
-- dòng 48 bỏ `<h1 className="mb-4 text-lg font-semibold text-navy-900">`
-- dòng 50 `<section className="mb-8">` → `<section className="mb-5">`
-- dòng 51, 56 `mb-3 text-sm font-semibold text-navy-800` → `<div className="sect"><b>{t('form.sectionNew')}</b><i /></div>`
-- dòng 58 `py-10 text-center text-sm text-slate-400` → `empty`
-
-`import/page.tsx`:
-- dòng 12 `mx-auto max-w-4xl` → `mx-auto w-full max-w-5xl`
-- dòng 13 bỏ `<h1 className="mb-4 text-lg font-semibold text-navy-900">`
-
-- [ ] **Bước 8: `data-dictionary/page.tsx`** (không có trong mock-up — suy theo nguyên tắc 1/2/6)
-
-| Dòng | Cũ | Mới |
-|---|---|---|
-| 17 | `mx-auto max-w-4xl space-y-4` | `mx-auto flex w-full max-w-5xl flex-col gap-3.5` |
-| 18 | bỏ `<h1>` | — |
-| 19 | `text-sm text-slate-500` | đưa vào card đầu: `<div className="card"><div className="bd"><p className="hintline">…</p></div></div>` |
-| 26 | `card group overflow-hidden` | `card group` |
-| 27 | `flex cursor-pointer items-center justify-between gap-3 px-5 py-4 text-sm font-semibold text-accent [&::-webkit-details-marker]:hidden` | `hd cursor-pointer [&::-webkit-details-marker]:hidden` — lưu ý `<summary>` phải là con trực tiếp của `<details className="card">` để `.card>.hd` ăn |
-| 29 | `shrink-0 text-slate-400 transition-transform group-open:rotate-180` | `shrink-0 text-label3 transition-transform duration-fast group-open:rotate-180` |
-| 31 | `space-y-2.5 px-5 pb-5` | `bd flex flex-col gap-2.5` |
-| 33 | `rounded-xl border border-slate-100 p-3 dark:border-slate-700` | `sumbar` + `style={{ display: 'block' }}` |
-| 34 | `text-sm font-medium text-navy-900 dark:text-slate-100` | `text-footnote font-semibold text-label` |
-| 37 | `mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400` | `mt-1 text-caption1 leading-relaxed text-label2` |
-| 41 | `mt-1.5 font-mono text-xs text-emerald-700 dark:text-emerald-400` | `mono mt-1.5` + `style={{ color: 'var(--ok)' }}` |
-
-- [ ] **Bước 9: `data-schema/page.tsx`** (không có trong mock-up — suy theo nguyên tắc 1/4/8)
-
-- dòng 7–12 `KIND`: đổi `cls` sang chip của hệ mới
-  ```ts
-  const KIND: Record<SchemaKind, { label: string; cls: string }> = {
-    dim: { label: 'Dimension', cls: 'chip' },       // + style nen vang, xem duoi
-    project: { label: 'Hub', cls: 'chip c-info' },
-    fact: { label: 'Fact', cls: 'chip c-ok' },
-    support: { label: 'Support', cls: 'chip c-plain' },
-  };
-  ```
-  Riêng `dim` là màu vàng — không có sẵn class `c-*`. Thêm vào `@layer components` của `app/globals.css` (3 rule tách rời, **không** lồng `@media` trong danh sách selector):
-  ```css
-  .c-gold { background: rgba(245, 179, 1, .18); color: #7a5a00; }
-  :root[data-theme="dark"] .c-gold { color: var(--gold); }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) .c-gold { color: var(--gold); }
-  }
-  ```
-  Hex `#7a5a00` ở đây là vàng-đậm cho chữ trên nền vàng-nhạt chế độ sáng — đưa vào **CSS**, không phải `.tsx`, nên guard test không chặn.
-  Rồi `dim: { label: 'Dimension', cls: 'chip c-gold' }`.
-- dòng 31 `mx-auto max-w-5xl space-y-6` → `mx-auto flex w-full max-w-5xl flex-col gap-3.5`
-- dòng 32–37: bỏ `<h1>`, đưa `<p>` mô tả vào card đầu dưới dạng `hintline`
-- dòng 42 `inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 ring-1 ${KIND[k].cls}` → `${KIND[k].cls}` (`.chip` đã lo)
-- dòng 43 `h-2 w-2 rounded-full bg-current opacity-60` → giữ
-- dòng 50 `card p-5` → `card` + bọc nội dung `<div className="bd">`
-- dòng 51 `text-sm font-semibold text-navy-900` → chuyển thành `<div className="hd"><h3>Mô hình quan hệ - Star schema</h3></div>`
-- dòng 52 `mt-1 text-xs text-slate-500` → `hintline`
-- dòng 53 `font-mono text-accent` / `font-mono` → `mono` + `style={{ color: 'var(--accent)' }}` / `mono`
-- dòng 59 `<div className="label">` → `<div className="text-caption2 font-bold uppercase tracking-[.025em] text-label3">`
-- dòng 61 `rounded-lg border border-slate-200 bg-gold-soft/40 px-3 py-2` → `sumbar` + `style={{ display: 'block', background: 'rgba(245,179,1,.12)' }}`
-- dòng 62 `font-mono text-xs font-semibold text-navy-800` → `mono` + `style={{ fontWeight: 700 }}`
-- dòng 63 `text-[11px] text-slate-500` → `hintline`
-- dòng 70 `hidden text-slate-300 lg:block` → `hidden text-label3 lg:block`
-- **Các dòng còn lại (70→cuối file):** áp đúng 8 nguyên tắc ở đầu Task. Quy tắc chuyển nhanh: `border-slate-*` → `border-sep`; `bg-slate-50|100` → `bg-fill`; `bg-navy-50` → `bg-fill-2`; `text-navy-800|900` → bỏ (kế thừa `--label`); `text-slate-400|500` → `text-label3`; `text-slate-600|700` → `text-label2`; `text-accent` → `text-brand`; `rounded-lg|xl` → `rounded-sm|md`; `text-xs` → `text-caption1`; `text-[11px]` → `text-caption2`; `text-sm` → `text-footnote`. Xong phải chạy lại guard test để chắc không sót.
-
-- [ ] **Bước 10: `not-found.tsx`** (không có trong mock-up)
-
-```tsx
-<div className="flex min-h-screen flex-col items-center justify-center p-6 text-center">
-  <div className="card" style={{ padding: '32px 40px' }}>
-    <div
-      className="mx-auto grid h-16 w-16 place-items-center"
-      style={{ borderRadius: 'var(--r-icon)', background: 'var(--accent-tint)', color: 'var(--accent)' }}
-    >
-      <IconProject size={30} />
-    </div>
-    <h1 className="mt-4 text-title1 font-bold tracking-large">404</h1>
-    <p className="mt-1 text-footnote text-label2">{t('common.noData')}</p>
-    <Link href="/overview" className="btn mt-4 inline-flex">
-      {t('nav.overview')}
-    </Link>
-  </div>
-</div>
-```
-(Bỏ `bg-canvas` — `.wall` + `--bg-base` đã lo nền.)
-
-- [ ] **Bước 11: Cổng kiểm tra + kiểm mắt**
-```
-npx vitest run src/ui/legacy-style-guard.test.ts
-npx tsc --noEmit
-npm test
-```
-Kiểm mắt đủ 10 URL ở cả 2 theme:
-`/vi/report` · `/vi/alerts` · `/vi/compliance` · `/vi/audit` · `/vi/admin` · `/vi/nhap-lieu` · `/vi/import` · `/vi/data-dictionary` · `/vi/data-schema` · `/vi/khong-ton-tai` (404).
-Đối chiếu: không trang nào còn mảng trắng đục / xám `slate` lạc lõng; mọi card đều là kính; mọi bảng cùng một khuôn.
-
-- [ ] **Bước 12: Commit**
-```bash
-git add app "app/globals.css" src/ui/legacy-style-guard.test.ts
-git commit -m "style(glass): Task 11 - cac trang van hanh + he thong + 404"
-```
-
----
-
-### Task 12: Trang đăng nhập + dọn sạch di sản
-
-**Files:**
-- Modify: `app/[locale]/login/page.tsx`
-- Modify: `src/components/layout/LoginForm.tsx`
-- Modify: `app/globals.css` (xoá toàn bộ khối `.dark .xxx{}` di sản)
-- Modify: `tailwind.config.ts` (xoá key màu/bo góc/bóng di sản)
-- Modify: `app/[locale]/layout.tsx` (bỏ gắn class `.dark`)
-- Modify: `src/components/layout/SettingsMenu.tsx` (bỏ `root.classList.toggle('dark', …)`)
-- Modify: `src/ui/legacy-style-guard.test.ts` (xoá nhóm "Task 12 - dang nhap" → `PENDING` rỗng; bổ sung 2 case canh cuối)
-
-**Interfaces:** kết thúc. Sau Task này `PENDING = []` và không còn dấu vết hệ cũ trong repo.
-**Chặn bởi Q1** (logo ở trang login).
-
-- [ ] **Bước 1: Gỡ 2 file cuối khỏi PENDING → test ĐỎ**
-
-`PENDING` giờ là `const PENDING: string[] = [];`. Chạy `npx vitest run src/ui/legacy-style-guard.test.ts` → FAIL ở `login/page.tsx` (`bg-[#B91C1C]`) và `LoginForm.tsx` (`bg-accent`).
-
-- [ ] **Bước 2: Thêm CSS trang đăng nhập vào `app/globals.css`**
-
-Mock-up không vẽ trang đăng nhập. Suy theo nguyên tắc: nền là `.wall` + `--bg-base` (giống mọi trang khác), thẻ đăng nhập là vật liệu kính dày nhất (`--mat-chrome`, `--glass-3`, `--e4`) — cùng công thức với `.modal` ở Task 6.
-
-```css
-  /* --- Trang dang nhap (mock-up khong ve; suy tu .modal + .card) --- */
-  .authwrap {
-    position: relative; z-index: 1;
-    min-height: 100vh; display: grid; place-items: center; padding: 16px;
-  }
-  .authcard {
-    width: 100%; max-width: 380px; padding: 30px 28px;
-    border-radius: var(--r-xl);
-    background: var(--glass-3);
-    -webkit-backdrop-filter: blur(var(--mat-chrome)) saturate(var(--mat-sat));
-    backdrop-filter: blur(var(--mat-chrome)) saturate(var(--mat-sat));
-    border: .5px solid var(--glass-stroke);
-    box-shadow: var(--e4), var(--inner-hi);
-  }
-  .authcard .brandbox { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 22px; }
-  .authcard .brandbox h1 { margin-top: 12px; font-size: var(--t-title3); font-weight: 700; letter-spacing: var(--tr-title); }
-  .authcard .brandbox p { font-size: var(--t-caption1); color: var(--label3); margin-top: 2px; }
-  .authsep { position: relative; text-align: center; margin: 4px 0; }
-  .authsep:before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: .5px; background: var(--sep); }
-  .authsep span {
-    position: relative; padding: 0 12px; background: var(--glass-3);
-    font-size: var(--t-caption2); text-transform: uppercase; letter-spacing: .06em; color: var(--label3);
-  }
-```
-
-- [ ] **Bước 3: `login/page.tsx`**
-
-```tsx
-return (
-  <div className="authwrap">
-    <div className="authcard">
-      <div className="brandbox">
-        {/* Q1: (a)/(c) -> .appicon navy; (b) -> logo.png tren nen trang */}
-        <div className="appicon" style={{ width: 56, height: 56, flex: '0 0 56px' }}>
-          {/* noi dung theo Q1 */}
-        </div>
-        <h1>DDC Control Tower</h1>
-        <p>{t('app.subtitle')}</p>
-      </div>
-      <LoginForm googleEnabled={googleEnabled} />
-      <p className="hintline" style={{ textAlign: 'center', marginTop: 22 }}>
-        Built by Buffalo Tech
-      </p>
-    </div>
-  </div>
-);
-```
-Trang này hiện là Server Component không dùng `useTranslations`. Muốn dùng `t('app.subtitle')` thì thêm `const t = await getTranslations();` (import từ `next-intl/server`) — key `app.subtitle` đã có sẵn ở cả vi/en. Nếu không muốn đụng, để nguyên chuỗi cũ và bỏ dòng `<p>`.
-Bỏ import `Image` nếu Q1 = (a).
-
-> **Chặn Q1.** (a)/(c) → dán glyph SVG mock-up dòng 562–563 vào trong `.appicon`. (b) → `<div className="appicon" style={{background:'#fff'}}><Image src="/logo.png" alt="DDC" width={56} height={56} className="h-full w-full object-cover" /></div>`.
-
-- [ ] **Bước 4: `LoginForm.tsx`**
-
-| Dòng | Cũ | Mới |
-|---|---|---|
-| 18–19 | `inputCls` dài | `const inputCls = 'inp';` |
-| 35 | `space-y-4` | `flex flex-col gap-3.5` |
-| 36 | `space-y-3.5` | `flex flex-col gap-3` |
-| 37–47 | `<div><label className="mb-1.5 block text-xs font-medium text-slate-600">…</label><input …/></div>` | `<div className="field"><span className="lb">…</span><input … className={inputCls} /></div>` |
-| 48–51 | như trên cho mật khẩu | như trên |
-| 53 | `rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600` | `sumbar bad` |
-| 58 | `w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:opacity-50` | `btn w-full justify-center` |
-| 66–73 | khối "hoặc" | `<div className="authsep"><span>{t('auth.or')}</span></div>` |
-| 81 | `flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-navy-900 transition-colors hover:bg-slate-50 disabled:opacity-50` | `btn ghost w-full justify-center` |
-| 92–113 | `GoogleIcon` | **giữ nguyên hex thương hiệu Google** — file này đã nằm trong `HEX_ALLOW` của guard test |
-
-- [ ] **Bước 5: Xoá di sản trong `app/globals.css`**
-
-Xoá **toàn bộ** khối bắt đầu từ comment `/* Dark mode — override các utility màu sáng tập trung tại 1 chỗ */` tới hết rule `.dark .hover\:bg-slate-100:hover{…}` (gốc là dòng 21–196). Kiểm tra bằng `rg "\.dark " app/globals.css` → phải không còn kết quả nào.
-
-- [ ] **Bước 6: Xoá di sản trong `tailwind.config.ts`**
-
-Trong `theme.extend.colors` xoá: cả object `navy`, cả object `accent`, `canvas`, `offwhite`.
-Trong `borderRadius` xoá `card: '16px'`.
-Trong `boxShadow` xoá `card` và `'card-hover'`.
-Giữ nguyên toàn bộ token mới.
-
-- [ ] **Bước 7: Bỏ gắn class `.dark`**
-
-`app/[locale]/layout.tsx` — script nội tuyến rút gọn còn:
-```tsx
-__html: `(function(){try{var t=localStorage.getItem('ddc-theme')||'system';var r=document.documentElement;if(t==='light'||t==='dark'){r.setAttribute('data-theme',t)}else{r.removeAttribute('data-theme')}}catch(e){}})();`,
-```
-`src/components/layout/SettingsMenu.tsx` — trong `applyTheme` xoá 4 dòng: biến `dark` và `root.classList.toggle('dark', dark);`. Giữ `window.dispatchEvent(new Event('ddc:theme'));`.
-
-- [ ] **Bước 8: Bổ sung 2 case canh cuối vào `src/ui/legacy-style-guard.test.ts`**
-
-Thêm vào cuối `describe('canh style cu', …)`:
 ```ts
-  it('globals.css khong con override .dark', () => {
-    const css = readFileSync(join(ROOT, 'app/globals.css'), 'utf-8');
-    expect(css.includes('.dark ')).toBe(false);
-  });
+import type { KeyMsState } from '@/lib/key-milestones';
 
-  it('tailwind.config.ts khong con palette di san', () => {
-    const cfg = readFileSync(join(ROOT, 'tailwind.config.ts'), 'utf-8');
-    for (const k of ['#B91C1C', '#FEE2E2', "canvas:", "offwhite:", "navy: {", "navy:{"]) {
-      expect(cfg.includes(k), `con "${k}"`).toBe(false);
+type T = (key: string, values?: Record<string, number>) => string;
+
+/** Nhãn trạng thái mốc - dùng chung KeyMilestoneChart (Task 6) + KeyMilestoneEditor (Task 8). */
+export function keyMsStateText(t: T, s: KeyMsState): string {
+  if (s.kind === 'done') {
+    if (s.days > 0) return t('detail.keyMs.doneLate', { n: s.days });
+    if (s.days < 0) return t('detail.keyMs.doneEarly', { n: -s.days });
+    return t('detail.keyMs.doneOnTime');
+  }
+  return s.kind === 'late' ? t('detail.keyMs.late', { n: s.days }) : t('detail.keyMs.left', { n: s.days });
+}
+```
+
+- [ ] **Bước 6: `src/components/project/KeyMilestoneChart.tsx`** (`'use client'`). Port `renderKeyMs` ở mock-up dòng 2082-2192:
+  - Props: `{ milestones: ProjectKeyMilestone[]; today: IsoDate }`.
+  - Hooks đứng đầu: `useTranslations()`, `const grow = useSpringProgress('gentle')`, `const pop = useSpringProgress('bouncy')`, `useChartTip()`, `const gradId = `km-${useId().replace(/:/g, '')}``.
+  - `list` = các mốc có `plannedDate`, sort tăng theo `plannedDate`. `at(m) = m.actualDate ?? m.plannedDate`.
+  - Trống → `<svg className="chart" viewBox="0 0 1000 80" role="img" aria-label={t('detail.keyMs.title')}><text x={500} y={46} textAnchor="middle" fontSize={13} style={{ fill: 'var(--label3)' }}>{t('detail.keyMs.empty')}</text></svg>`.
+  - Hằng số: `W=1000, ML=40, MR=40, IW=920, LBH=54`. `{lo,hi} = keyMsDomain([...list.map(at), ...list.map(m=>m.plannedDate)], today)`. `X(d) = ML + IW*((Date.parse(`${d}T00:00:00Z`)-lo)/(hi-lo))`.
+  - `items` = list.map → `{ m, st: keyMilestoneState(...), label: keyMsStateText(t, st), x: X(at(m)), width: estimateLabelWidth(m.name, `${formatDateShort(at(m))} · ${label}`) }`; `slots = layoutMilestoneLabels(items)`.
+  - `tiersUp = Math.max(0, ...slots.map(s => s.side===-1 ? s.tier+1 : 0))`, `tiersDn` tương tự với `side===1`. `axisY = 26 + tiersUp*LBH`. `H = axisY + 30 + tiersDn*LBH`. viewBox `0 0 1000 H`.
+  - Nội dung SVG theo thứ tự:
+    1. `<defs><linearGradient id={gradId} x1="0" x2="1" y1="0" y2="0">` với 2 stop `style={{ stopColor: 'var(--accent-2)' }}` / `'var(--accent)'`.
+    2. `monthTicks(iso(lo), iso(hi))` (`iso = ms => new Date(ms).toISOString().slice(0,10)`): mỗi vạch `line axisY-9 → axisY+9` màu `--grid`; nhãn ở `axisY+24`, fontSize 10, fontWeight 600, màu `--axis`.
+    3. Nền thanh: `x1 = X(at(list[0]))`, `x2 = X(list[list.length-1].plannedDate)`, `rect x1, axisY-5, width max(x2-x1,4), height 10, rx 5`, màu `--fill-2`. Phần đã qua: `tx = X(today)`, `dn = max(0, min(tx,x2)-x1)`, `rect` cùng vị trí, `width = max(dn*grow, 2)`, `fill={`url(#${gradId})`}`.
+    4. Vạch hôm nay: `line tx, axisY - tiersUp*LBH - 18 → axisY + 22 + tiersDn*LBH`, strokeWidth 2, dash `6 5`, màu `--danger`. Viên: `rect tx-38, axisY - tiersUp*LBH - 36, 76×20, rx 10`, màu `--danger`; chữ `t('common.today')` ở `y = axisY - tiersUp*LBH - 22.5`, fontSize 10.5, fontWeight 800, `fill="white"`.
+    5. Mỗi mốc i (`sd = slots[i].side`, `ly = axisY + sd*(26 + tier*LBH)`, `x = items[i].x`, `done = st.kind==='done'`, `c = KEY_MS_TONE_VAR[st.tone]`):
+       - Đường nối `x, axisY+sd*7 → ly - sd*4`, màu `--sep-2`, width 1.4, dash `3 3`.
+       - Nếu `done && actualDate !== plannedDate`: `circle cx=X(plannedDate) cy=axisY r=4.6 strokeWidth 2.2`, `style={{ fill:'var(--glass-3)', stroke:'var(--s-plan)' }}`.
+       - Hình thoi `path d={`M ${x} ${axisY-9} L ${x+8} ${axisY} L ${x} ${axisY+9} L ${x-8} ${axisY} Z`}`, fill `done ? var(--s-third) : var(--s-plan)`, stroke `--glass-3`, width 2, `strokeLinejoin="round"`, `transform={`translate(${x} ${axisY}) scale(${pop.toFixed(3)}) translate(${-x} ${-axisY})`}`.
+       - Khối nhãn: `ty = sd===-1 ? ly-30 : ly+4`. Tên ở `ty+12` (13, 700, `--label`, middle). Ngày `formatDateShort(at(m))` ở `ty+27` (11, 600, `--label2`). Nền chip: `rect x-cw/2, ty+31, cw×15, rx 7.5`, fill `c`, `fillOpacity 0.13`, với `cw = label.length*6 + 14`. Chữ chip ở `ty+41` (10.5, 750, fill `c`).
+       - Rect bắt chuột: `x - max(width,40)/2`, `y = min(ly,axisY)-12`, `width max(width,40)`, `height |ly-axisY|+58`, `fill="transparent"`. Tooltip rows: `{k:t('detail.keyMs.plannedDate'), v:formatDateShort(plannedDate), color:'var(--s-plan)'}`; nếu có actual thêm `{k:t('detail.keyMs.actualDate'), v:…, color:'var(--s-third)'}`; luôn có `{k:t('detail.keyMs.status'), v:label, valueColor:c}`; nếu chưa xong thêm `{k:t('detail.keyMs.prev'), v: i>0 ? list[i-1].name : t('detail.keyMs.first')}`.
+  - Sau `</svg>` render `<ChartTip tip={tip} />`.
+- [ ] **Bước 7: Test `KeyMilestoneChart.test.ts`.** Mock `next-intl` như Task 4 Bước 10; `vi.mock('@/server/repo', …mock-repo)`. `milestones = repo.getKeyMilestones(1)`, `today = '2026-09-16'`. Assert có đủ 5 tên seed (`src/data/seed/erp.ts:51-57`), có `detail.keyMs.doneLate|3` (01-15 → 01-18), `detail.keyMs.doneLate|5` (03-01 → 03-06), `detail.keyMs.late|1` (09-15), `detail.keyMs.left|13` (09-29). `milestones=[]` → có `detail.keyMs.empty`.
+- [ ] **Bước 8: i18n** vào `"detail"`:
+  - vi: `"keyMs": { "title": "Các mốc chính của dự án", "titleEn": "Key Milestones of the Project", "help": "Danh sách mốc là động: mỗi dự án có bộ mốc riêng (sân bay có \"Lifting Zone\", cầu có \"Hợp long\"...). Thêm / xoá / đổi tên mốc ở Nhập liệu → Hồ sơ dự án → Các mốc chính, biểu đồ cập nhật ngay. Mỗi mốc có ngày kế hoạch (bắt buộc) và ngày thực tế (điền khi đã đạt); có ngày thực tế thì mốc chuyển sang \"Đã xong\" kèm số ngày sớm/trễ so với kế hoạch.", "legendPlanned": "Mốc kế hoạch", "legendDone": "Đã đạt", "edit": "Sửa mốc", "empty": "Chưa có mốc nào - thêm ở Nhập liệu → Hồ sơ dự án", "doneLate": "Đã xong · trễ {n}đ", "doneEarly": "Đã xong · sớm {n}đ", "doneOnTime": "Đã xong · đúng hạn", "late": "Trễ {n} ngày", "left": "Còn {n} ngày", "plannedDate": "Ngày kế hoạch", "actualDate": "Ngày thực tế", "status": "Trạng thái", "prev": "Mốc trước đó", "first": "- đây là mốc đầu -" }`
+  - en: `"keyMs": { "title": "Key milestones", "titleEn": "Key Milestones of the Project", "help": "The milestone list is dynamic: each project has its own set (airports have \"Lifting Zone\", bridges have \"Closure\"...). Add / remove / rename milestones in Data entry → Project profile → Key milestones and this chart updates immediately. Each milestone has a planned date (required) and an actual date (filled once achieved); with an actual date it becomes \"Done\" with days early/late versus plan.", "legendPlanned": "Planned", "legendDone": "Achieved", "edit": "Edit milestones", "empty": "No milestones yet - add them in Data entry → Project profile", "doneLate": "Done · {n}d late", "doneEarly": "Done · {n}d early", "doneOnTime": "Done · on time", "late": "{n} days overdue", "left": "{n} days left", "plannedDate": "Planned date", "actualDate": "Actual date", "status": "Status", "prev": "Previous milestone", "first": "- first milestone -" }`
+
+  Thêm `'KeyMilestoneChart': 'src/components/project/KeyMilestoneChart.tsx'` và `'keyMsText': 'src/components/project/keyMsText.ts'` vào `CHANGED_SOURCES`.
+- [ ] **Bước 9: Nối vào page.** Thêm dynamic `KeyMilestoneChart`; import `HelpTip` và `IconDataEntry`. Dữ liệu: `const keyMilestones = await repo.getKeyMilestones(id);`, `const canEditMs = user?.role === 'admin' || user?.role === 'data-entry';`. Chèn ngay SAU thẻ Timeline (Task 2):
+
+```tsx
+      {/* Cac moc chinh cua du an (mock-up dong 678-700) */}
+      <Card className="overflow-visible">
+        <CardHeader
+          title={t('detail.keyMs.title')}
+          subtitle={locale === 'vi' ? t('detail.keyMs.titleEn') : undefined}
+          titleExtra={<HelpTip text={t('detail.keyMs.help')} label={t('common.explain')} />}
+          action={
+            <div className="flex flex-wrap items-center gap-2.5">
+              <Legend items={[
+                { label: t('detail.keyMs.legendPlanned'), color: 'var(--s-plan)' },
+                { label: t('detail.keyMs.legendDone'), color: 'var(--s-third)' },
+                { label: t('common.today'), color: 'var(--danger)', line: true },
+              ]} />
+              {canEditMs && (
+                <Link href={`/nhap-lieu?project=${project.id}&step=profile#key-milestones`} className="btn ghost" style={{ padding: '6px 12px', fontSize: 'var(--t-caption1)' }}>
+                  <IconDataEntry size={16} />{t('detail.keyMs.edit')}
+                </Link>
+              )}
+            </div>
+          }
+        />
+        <CardBody><KeyMilestoneChart milestones={keyMilestones} today={today} /></CardBody>
+      </Card>
+```
+
+(data-entry đọc được trang nghĩa là đã được gán dự án, theo `requireProjectRead`; action ghi ở Task 7 vẫn tự kiểm lại quyền.)
+
+- [ ] **Bước 10: Test page** (thêm vào `projects-detail-page-render.test.ts`):
+
+```ts
+describe('Task 6 - the "Cac moc chinh" + nut "Sua moc" theo vai tro', () => {
+  it('admin thay the + link toi dung buoc Ho so', async () => {
+    const out = await render();
+    expect(out).toContain('detail.keyMs.title');
+    expect(out).toContain('href="/nhap-lieu?project=1&amp;step=profile#key-milestones"');
+  });
+  it('bod va viewer KHONG thay nut sua', async () => {
+    expect(await render({}, '1', BOD)).not.toContain('step=profile');
+    expect(await render({}, '1', VIEWER)).not.toContain('step=profile');
+  });
+});
+```
+
+- [ ] **Bước 11:** `npx tsc --noEmit`, `npm test`. Kiểm mắt: 5 mốc, nhãn không đè nhau, thoi nảy khi vào trang, vạch hôm nay, tooltip, nút "Sửa mốc" (tới Task 8 mới mở đúng bước).
+- [ ] **Bước 12:** `git commit -m "feat(parity): bieu do cac moc chinh cua du an"`
+
+---
+
+### Task 7: Luồng ghi "Các mốc chính" (repo + validation + action)
+
+**Files:**
+- Modify: `src/server/repo/types.ts` (sau `ProjectKeyMilestone`, dòng 210-217), `src/server/repo/prisma-repo.ts` (sau `addAssignment`, dòng 938-944), `src/server/repo/mock-repo.ts` (sau `addAssignment`, dòng 776-784), `src/lib/key-milestones.ts`, `src/server/validation.ts`, `src/server/validation.test.ts`, `src/server/actions.ts`
+- Create: `src/server/repo/key-milestones.test.ts`, `src/server/repo/prisma-repo-key-milestones.test.ts`, `src/server/actions-key-milestones.test.ts`
+
+**Interfaces:**
+- Produces `KeyMilestoneInput = { name: string; plannedDate: string; actualDate: string | null }` (ở `types.ts`).
+- Produces `repo.replaceKeyMilestones(projectId: number, rows: KeyMilestoneInput[], changedBy?: string)` (prisma: `Promise<void>`; mock: `void`).
+- Produces `KEY_MS_NAME_MAX = 160`, `KEY_MS_MAX_ROWS = 50`, `keyMsAuditText(rows)` (ở `key-milestones.ts`).
+- Produces `keyMilestoneRowSchema`, `saveKeyMilestonesSchema`, `createProjectSchema.keyMilestones?`.
+- Produces `saveKeyMilestonesAction(projectId: number, rows: KeyMilestoneInput[]): Promise<{ ok: boolean; error?: string }>`; `createProjectAction(input)` nhận thêm `keyMilestones?: KeyMilestoneInput[]`.
+
+- [ ] **Bước 1: `types.ts`** thêm sau `ProjectKeyMilestone`:
+
+```ts
+/** Dòng mốc chính khi GHI (form → action → repo). sortOrder = thứ tự trong mảng, không nhận từ client. */
+export interface KeyMilestoneInput {
+  name: string;
+  plannedDate: string;        // 'YYYY-MM-DD', bắt buộc
+  actualDate: string | null;  // 'YYYY-MM-DD'
+}
+```
+
+`key-milestones.ts` thêm:
+
+```ts
+export const KEY_MS_NAME_MAX = 160;
+/** Chặn payload phình (DoS) - mock-up không giới hạn, 50 mốc/dự án là quá đủ. */
+export const KEY_MS_MAX_ROWS = 50;
+
+/** Chuỗi audit_log cho bộ mốc: "tên|ngàyKH|ngàyTT; ...". */
+export function keyMsAuditText(rows: { name: string; plannedDate: string | null; actualDate: string | null }[]): string {
+  return rows.map((r) => `${r.name}|${r.plannedDate ?? ''}|${r.actualDate ?? ''}`).join('; ');
+}
+```
+
+- [ ] **Bước 2: Test đỏ validation** (thêm vào `validation.test.ts`):
+
+```ts
+describe('saveKeyMilestonesSchema', () => {
+  const ok = { name: 'Mốc A', plannedDate: '2026-09-20', actualDate: null };
+  it('hop le + trim ten', () => {
+    const r = saveKeyMilestonesSchema.safeParse({ projectId: 1, rows: [{ ...ok, name: '  Mốc A ' }] });
+    expect(r.success && r.data.rows[0].name).toBe('Mốc A');
+  });
+  it('mang rong hop le (xoa het moc)', () => expect(saveKeyMilestonesSchema.safeParse({ projectId: 1, rows: [] }).success).toBe(true));
+  it.each([
+    ['ten rong', { ...ok, name: '   ' }],
+    ['ten 161 ky tu', { ...ok, name: 'x'.repeat(161) }],
+    ['thieu ngay KH', { ...ok, plannedDate: '' }],
+    ['ngay KH khong ton tai', { ...ok, plannedDate: '2026-02-30' }],
+    ['ngay TT sai dinh dang', { ...ok, actualDate: '20/09/2026' }],
+  ])('tu choi: %s', (_, row) => expect(saveKeyMilestonesSchema.safeParse({ projectId: 1, rows: [row] }).success).toBe(false));
+  it('tu choi > 50 dong', () => expect(saveKeyMilestonesSchema.safeParse({ projectId: 1, rows: Array(51).fill(ok) }).success).toBe(false));
+  it('createProjectSchema nhan keyMilestones tuy chon', () => {
+    const base = { projectName: 'X', customerId: 1, teamKdId: 1, marketCode: 'TN', projectType: 'EPC', priority: 'P1', contractValue: 1 };
+    expect(createProjectSchema.safeParse(base).success).toBe(true);
+    expect(createProjectSchema.safeParse({ ...base, keyMilestones: [ok] }).success).toBe(true);
+    expect(createProjectSchema.safeParse({ ...base, keyMilestones: [{ ...ok, name: '' }] }).success).toBe(false);
+  });
+});
+```
+
+- [ ] **Bước 3: `validation.ts`.** Import `isValidIsoDate` (thêm vào dòng import `@/lib/clock`) và `KEY_MS_MAX_ROWS, KEY_MS_NAME_MAX` từ `@/lib/key-milestones`. Thêm sau hằng `nullableDate`:
+
+```ts
+const isoDate = z.string().refine(isValidIsoDate, 'Ngày phải dạng YYYY-MM-DD hợp lệ');
+export const keyMilestoneRowSchema = z.object({
+  name: z.string().trim().min(1).max(KEY_MS_NAME_MAX),
+  plannedDate: isoDate,
+  actualDate: isoDate.nullable(),
+});
+export const saveKeyMilestonesSchema = z.object({
+  projectId: z.number().int().positive(),
+  rows: z.array(keyMilestoneRowSchema).max(KEY_MS_MAX_ROWS),
+});
+```
+
+Trong `createProjectSchema` thêm dòng `keyMilestones: z.array(keyMilestoneRowSchema).max(KEY_MS_MAX_ROWS).optional(),`. Chạy test → XANH.
+- [ ] **Bước 4: Test đỏ mock-repo** `src/server/repo/key-milestones.test.ts` (`import { repo } from './mock-repo'`, `beforeEach(() => repo.reset())`):
+  - Gọi `replaceKeyMilestones(1, [{name:'B',plannedDate:'2026-10-01',actualDate:null},{name:'A',plannedDate:'2026-09-01',actualDate:'2026-09-02'}], 'admin@x')` → `getKeyMilestones(1).map(m=>[m.name,m.sortOrder])` = `[['B',1],['A',2]]`, id không trùng nhau.
+  - `replaceKeyMilestones(2, [...])` → `getKeyMilestones(1)` vẫn đủ 5 mốc seed.
+  - `replaceKeyMilestones(1, [])` → rỗng.
+  - `getAuditLog()[0]`: `tableName` = `'project_key_milestone'`, `recordId` = `'1'`, `field` = `'replace'`, `oldValue` chứa `'Duyệt thiết kế kỹ thuật|2026-01-15|2026-01-18'`, `changedBy` = `'admin@x'`.
+- [ ] **Bước 5: `mock-repo.ts`** (import `keyMsAuditText` từ `@/lib/key-milestones`, import type `KeyMilestoneInput`):
+
+```ts
+  /** Thay TOÀN BỘ bộ mốc của 1 dự án (bảng cấu hình, không phải fact append-only); sortOrder = thứ tự mảng. */
+  replaceKeyMilestones(projectId: number, rows: KeyMilestoneInput[], changedBy = 'system') {
+    const d = getData();
+    const before = this.getKeyMilestones(projectId);
+    let nextId = d.keyMilestones.reduce((m, x) => Math.max(m, x.id), 0) + 1;
+    d.keyMilestones = d.keyMilestones
+      .filter((m) => m.projectId !== projectId)
+      .concat(rows.map((r, i) => ({ id: nextId++, projectId, name: r.name, sortOrder: i + 1, plannedDate: r.plannedDate, actualDate: r.actualDate })));
+    this.logAudit('project_key_milestone', String(projectId), 'replace', keyMsAuditText(before), keyMsAuditText(rows), changedBy);
+  },
+```
+
+- [ ] **Bước 6: Test đỏ prisma-repo** `src/server/repo/prisma-repo-key-milestones.test.ts`, mock theo mẫu `prisma-repo-reset.test.ts:16-43`:
+
+```ts
+const { deleteMany, createMany, findMany, auditCreate, txCalls } = vi.hoisted(() => ({
+  deleteMany: vi.fn(async () => ({ count: 0 })),
+  createMany: vi.fn(async () => ({ count: 0 })),
+  findMany: vi.fn(async () => []),
+  auditCreate: vi.fn(async () => ({})),
+  txCalls: [] as unknown[][],
+}));
+vi.mock('@/server/db', () => ({
+  prisma: {
+    projectKeyMilestone: { deleteMany, createMany, findMany },
+    auditLog: { create: auditCreate },
+    $transaction: vi.fn(async (ops: unknown[]) => { txCalls.push(ops); return Promise.all(ops); }),
+  },
+}));
+import { repo } from './prisma-repo';
+```
+
+  - Gọi `replaceKeyMilestones(7, [{name:'A',plannedDate:'2026-09-20',actualDate:null},{name:'B',plannedDate:'2026-10-01',actualDate:'2026-10-03'}], 'admin@x')`:
+    - `txCalls` có 1 phần tử gồm 2 op.
+    - `deleteMany` gọi với `{ where: { projectId: 7 } }`.
+    - `createMany` gọi với `{ data: [{ projectId: 7, name: 'A', sortOrder: 1, plannedDate: new Date('2026-09-20T00:00:00Z'), actualDate: null }, { projectId: 7, name: 'B', sortOrder: 2, plannedDate: new Date('2026-10-01T00:00:00Z'), actualDate: new Date('2026-10-03T00:00:00Z') }] }`.
+    - `auditCreate` gọi với `{ data: expect.objectContaining({ tableName: 'project_key_milestone', recordId: '7', field: 'replace', changedBy: 'admin@x' }) }`.
+  - Gọi với mảng rỗng: transaction chỉ có 1 op, `createMany` KHÔNG được gọi.
+- [ ] **Bước 7: `prisma-repo.ts`** (import `keyMsAuditText`, type `KeyMilestoneInput`; dùng helper `dayStart` có sẵn ở dòng 61):
+
+```ts
+  /** Thay TOÀN BỘ bộ mốc trong 1 transaction; ngày lưu 00:00Z khớp cách đọc day() của getKeyMilestones. */
+  async replaceKeyMilestones(projectId: number, rows: KeyMilestoneInput[], changedBy = 'system'): Promise<void> {
+    const before = await this.getKeyMilestones(projectId);
+    const del = prisma.projectKeyMilestone.deleteMany({ where: { projectId } });
+    if (rows.length) {
+      await prisma.$transaction([
+        del,
+        prisma.projectKeyMilestone.createMany({
+          data: rows.map((r, i) => ({
+            projectId, name: r.name, sortOrder: i + 1,
+            plannedDate: dayStart(r.plannedDate),
+            actualDate: r.actualDate ? dayStart(r.actualDate) : null,
+          })),
+        }),
+      ]);
+    } else {
+      await prisma.$transaction([del]);
     }
-  });
-
-  it('PENDING da rong - khong con file nao chua doi', () => {
-    expect(PENDING).toEqual([]);
-  });
+    await this.logAudit('project_key_milestone', String(projectId), 'replace', keyMsAuditText(before), keyMsAuditText(rows), changedBy);
+  },
 ```
 
-- [ ] **Bước 9: Cổng kiểm tra toàn bộ**
+- [ ] **Bước 8: Test đỏ action** `src/server/actions-key-milestones.test.ts`. Mock theo mẫu `actions-valuechain.test.ts:12-17`; `beforeEach` gồm `repo.reset()` + `vi.clearAllMocks()`. `ROW = { name: 'Mốc A', plannedDate: '2026-09-20', actualDate: null }`.
+  - admin, dự án 1 → `{ ok: true }`, `repo.getKeyMilestones(1)` chỉ còn 1 mốc `'Mốc A'`.
+  - data-entry `pm@daidung.com.vn` (PIC dự án 1) → ok.
+  - data-entry `pm@` với dự án 4 (không phải PIC) → `{ ok: false, error: 'Forbidden' }`, dự án 4 không đổi.
+  - viewer và bod → Forbidden.
+  - admin gửi `[{ ...ROW, name: '' }]` → `ok: false`, dự án 1 vẫn đủ 5 mốc seed.
+  - admin, dự án 999 → `{ ok: false, error: 'Not found' }`.
+  - admin `createProjectAction({ projectName: 'DU AN TEST', customerId: 1, teamKdId: 1, marketCode: 'TN', projectType: 'EPC', priority: 'P1', contractValue: 10, keyMilestones: [ROW] })` → dự án `res.id` có 1 mốc. Không kèm `keyMilestones` → 0 mốc.
+- [ ] **Bước 9: `actions.ts`.** Import thêm `saveKeyMilestonesSchema` (vào danh sách import ở dòng 11) và `type KeyMilestoneInput`. Thêm `keyMilestones?: KeyMilestoneInput[];` vào kiểu `input` của `createProjectAction`. Trong thân hàm, thay dòng `const p = await repo.createProject(parsed.data, user.email);` bằng:
+
+```ts
+  const { keyMilestones, ...projectInput } = parsed.data;
+  const p = await repo.createProject(projectInput, user.email);
+  if (user.role === 'data-entry') await repo.addAssignment(p.id, user.email, 'PIC');
+  if (keyMilestones?.length) await repo.replaceKeyMilestones(p.id, keyMilestones, user.email);
 ```
-npx vitest run src/ui
-npx tsc --noEmit
-npm test
-npm run build
+
+(xoá dòng `addAssignment` cũ để không gọi 2 lần). Thêm action mới sau `createProjectAction`:
+
+```ts
+/** Thay toàn bộ "Các mốc chính" của dự án. Quyền như saveMonthlyData: admin, hoặc data-entry là PIC dự án. */
+export async function saveKeyMilestonesAction(projectId: number, rows: KeyMilestoneInput[]) {
+  const user = await requireProject(projectId);
+  if (!user) return { ok: false, error: 'Forbidden' };
+  const parsed = saveKeyMilestonesSchema.safeParse({ projectId, rows });
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
+  if (!(await repo.getProject(projectId))) return { ok: false, error: 'Not found' };
+  await repo.replaceKeyMilestones(projectId, parsed.data.rows, user.email);
+  await logActivity(user, 'save_key_milestones', `project ${projectId} · ${parsed.data.rows.length}`);
+  return { ok: true };
+}
 ```
-Cả 4 phải xanh. `npm run build` mà lỗi do thiếu `DATABASE_URL` thì bỏ qua; lỗi do CSS/Tailwind thì **phải** sửa.
 
-- [ ] **Bước 10: Kiểm mắt lần cuối — quét toàn bộ 14 URL, cả 2 theme**
+Không kiểm khoá tháng ở server: mốc chính không thuộc số liệu tháng. Trên UI, card vẫn bị khoá theo cơ chế hiện có của `DataEntryForm`.
 
-`/vi/login` · `/vi/overview` · `/vi/projects/1` · `/vi/nhap-lieu` · `/vi/report` · `/vi/alerts` · `/vi/compliance` · `/vi/audit` · `/vi/admin` · `/vi/import` · `/vi/data-dictionary` · `/vi/data-schema` · `/vi/khong-ton-tai` · `/en/overview`
-
-Danh sách kiểm (mỗi URL × 2 theme):
-1. Không còn bất kỳ mảng đỏ `#B91C1C` nào (trừ logo nếu Q1 = b).
-2. Không còn nền trắng đặc `#fff` trên card — phải là kính có thấy nền mesh phía sau.
-3. Chữ trên nền kính đạt độ tương phản đọc được ở cả 2 theme.
-4. Không có phần tử nào "mất màu" (đen/không style) — dấu hiệu sót utility đã bị xoá khỏi tailwind.config.
-5. Biểu đồ đổi màu ngay khi bấm chuyển theme.
-6. Dropdown/popover không bị cắt bởi mép card.
-7. Bảng: header dính khi cuộn (ở các bảng có `.tbl.sticky`).
-
-- [ ] **Bước 11: Commit**
-```bash
-git add -A
-git commit -m "style(glass): Task 12 - trang dang nhap + don sach di sản he do"
-```
+- [ ] **Bước 10:** `npx tsc --noEmit`, `npm test` → xanh.
+- [ ] **Bước 11:** `git commit -m "feat(parity): luong ghi cac moc chinh - repo replaceKeyMilestones + action + zod"`
 
 ---
 
-## Tự soát lại (đã chạy khi viết plan)
+### Task 8: Trình sửa "Các mốc chính" trong form Tạo mới + Hồ sơ dự án
 
-**Phủ đặc tả** — đối chiếu từng mục yêu cầu với Task:
+**Files:**
+- Create: `src/components/form/KeyMilestoneEditor.tsx`, `src/components/form/KeyMilestoneEditor.test.ts`
+- Modify: `src/lib/key-milestones.ts` (+test), `src/components/form/CreateProjectForm.tsx`, `src/components/form/DataEntryForm.tsx`, `app/[locale]/(app)/nhap-lieu/page.tsx`, `vi.json`/`en.json`, `messages.test.ts`
 
-| Yêu cầu | Task |
+**Interfaces:**
+- Consumes `KeyMilestoneInput`, `saveKeyMilestonesAction`, `createProjectAction({ keyMilestones })`, `KEY_MS_*` (Task 7); `keyMilestoneState`, `KEY_MS_TONE_VAR`, `keyMsStateText` (Task 6).
+- Produces trong `key-milestones.ts`: `KeyMilestoneDraft = KeyMilestoneInput`, `KeyMsField`, `KeyMsErrors`, `validateKeyMilestones`, `normalizeKeyMilestones`, `toKeyMilestoneDraft`, `addKeyMilestone`, `removeKeyMilestone`, `updateKeyMilestone`, `keyMsSuggestions`.
+- Produces `KeyMilestoneEditor({ id?, value, onChange, today, errors? })`, `export type DataEntryStep`, prop mới `DataEntryForm.{ keyMilestones, today, initialStep? }`, prop mới `CreateProjectForm.today`.
+
+- [ ] **Bước 1: Test đỏ** (thêm vào `key-milestones.test.ts`):
+  - `validateKeyMilestones([{name:' ',plannedDate:'2026-09-01',actualDate:null},{name:'A',plannedDate:'',actualDate:'x'}])` → `{ ok:false, errors:{0:['name'],1:['plannedDate','actualDate']} }`; mảng hợp lệ → `{ ok:true, errors:{} }`; 51 dòng hợp lệ → `ok:false`.
+  - `normalizeKeyMilestones([{name:' A ',plannedDate:'2026-09-01',actualDate:''}])` → `[{name:'A',plannedDate:'2026-09-01',actualDate:null}]`.
+  - `toKeyMilestoneDraft({ id:1, projectId:1, name:'A', sortOrder:1, plannedDate:null, actualDate:null })` → `{ name:'A', plannedDate:'', actualDate:null }`.
+  - `addKeyMilestone([], 'Mốc mới 1', '2026-09-16')` → `[{name:'Mốc mới 1',plannedDate:'2026-09-16',actualDate:null}]`; khi đã có 50 dòng thì trả nguyên mảng.
+  - `removeKeyMilestone` và `updateKeyMilestone` không mutate mảng gốc.
+  - `keyMsSuggestions([{name:'S1',…}], ['S1','S2','S3','S4','S5','S6'])` → `['S2','S3','S4','S5']`.
+- [ ] **Bước 2: Thêm vào `key-milestones.ts`**
+
+```ts
+import type { KeyMilestoneInput, ProjectKeyMilestone } from '@/server/repo/types';
+// (bổ sung isValidIsoDate vào import '@/lib/clock' có sẵn)
+
+export type KeyMilestoneDraft = KeyMilestoneInput;
+export type KeyMsField = 'name' | 'plannedDate' | 'actualDate';
+export type KeyMsErrors = Record<number, KeyMsField[]>;
+
+/** Validate phía client - cùng luật với keyMilestoneRowSchema (validation.ts). */
+export function validateKeyMilestones(rows: KeyMilestoneDraft[]): { ok: boolean; errors: KeyMsErrors } {
+  const errors: KeyMsErrors = {};
+  rows.forEach((r, i) => {
+    const bad: KeyMsField[] = [];
+    const name = r.name.trim();
+    if (!name || name.length > KEY_MS_NAME_MAX) bad.push('name');
+    if (!isValidIsoDate(r.plannedDate)) bad.push('plannedDate');
+    if (r.actualDate && !isValidIsoDate(r.actualDate)) bad.push('actualDate');
+    if (bad.length) errors[i] = bad;
+  });
+  return { ok: Object.keys(errors).length === 0 && rows.length <= KEY_MS_MAX_ROWS, errors };
+}
+export function normalizeKeyMilestones(rows: KeyMilestoneDraft[]): KeyMilestoneDraft[] {
+  return rows.map((r) => ({ name: r.name.trim(), plannedDate: r.plannedDate, actualDate: r.actualDate ? r.actualDate : null }));
+}
+export function toKeyMilestoneDraft(m: ProjectKeyMilestone): KeyMilestoneDraft {
+  return { name: m.name, plannedDate: m.plannedDate ?? '', actualDate: m.actualDate };
+}
+export function addKeyMilestone(rows: KeyMilestoneDraft[], name: string, today: string): KeyMilestoneDraft[] {
+  return rows.length >= KEY_MS_MAX_ROWS ? rows : [...rows, { name, plannedDate: today, actualDate: null }];
+}
+export function removeKeyMilestone(rows: KeyMilestoneDraft[], index: number): KeyMilestoneDraft[] {
+  return rows.filter((_, i) => i !== index);
+}
+export function updateKeyMilestone(rows: KeyMilestoneDraft[], index: number, patch: Partial<KeyMilestoneDraft>): KeyMilestoneDraft[] {
+  return rows.map((r, i) => (i === index ? { ...r, ...patch } : r));
+}
+/** Gợi ý nhanh chưa có trong danh sách (khớp tên y hệt), tối đa `limit` (mock-up dòng 2226-2228). */
+export function keyMsSuggestions(rows: KeyMilestoneDraft[], all: string[], limit = 4): string[] {
+  return all.filter((s) => !rows.some((r) => r.name === s)).slice(0, limit);
+}
+```
+
+- [ ] **Bước 3: `src/components/form/KeyMilestoneEditor.tsx`** (`'use client'`). Port mock-up dòng 1037-1056 (markup) + 2195-2232 (hành vi):
+
+```tsx
+'use client';
+
+import { useEffect, useRef } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
+import type { IsoDate } from '@/lib/clock';
+import { isValidIsoDate } from '@/lib/clock';
+import {
+  KEY_MS_MAX_ROWS, KEY_MS_NAME_MAX, KEY_MS_TONE_VAR, addKeyMilestone, keyMilestoneState, keyMsSuggestions,
+  removeKeyMilestone, updateKeyMilestone, type KeyMilestoneDraft, type KeyMsErrors, type KeyMsField,
+} from '@/lib/key-milestones';
+import { keyMsStateText } from '@/components/project/keyMsText';
+
+const SUGGEST_KEYS = ['s1', 's2', 's3', 's4', 's5', 's6', 's7'];
+
+export function KeyMilestoneEditor({ id, value, onChange, today, errors = {} }: {
+  id?: string; value: KeyMilestoneDraft[]; onChange: (rows: KeyMilestoneDraft[]) => void; today: IsoDate; errors?: KeyMsErrors;
+}) {
+  const t = useTranslations();
+  const locale = useLocale();
+  const tableRef = useRef<HTMLTableElement>(null);
+  const focusLast = useRef(false);
+  useEffect(() => {
+    if (!focusLast.current) return;
+    focusLast.current = false;
+    const inputs = tableRef.current?.querySelectorAll<HTMLInputElement>('input[data-ms="name"]');
+    const last = inputs?.[inputs.length - 1];
+    last?.focus();
+    last?.select();
+  }, [value.length]);
+
+  const done = value.filter((r) => r.actualDate).length;
+  const full = value.length >= KEY_MS_MAX_ROWS;
+  const suggestions = keyMsSuggestions(value, SUGGEST_KEYS.map((k) => t(`form.keyMs.suggest.${k}`)));
+  const cls = (i: number, f: KeyMsField) => `inp${errors[i]?.includes(f) ? ' bad' : ''}`;
+  const b = (c: React.ReactNode) => <b>{c}</b>;
+
+  return (
+    <div className="fsec" id={id}>
+      <div className="h">
+        <h4>{t('form.keyMs.title')}{locale === 'vi' && <>{' '}<span className="en">{t('form.keyMs.titleEn')}</span></>}</h4>
+        <p>{t('form.keyMs.subtitle')}</p>
+      </div>
+      <div className="sumbar" style={{ marginBottom: 12 }}>
+        <span>{t.rich('form.keyMs.intro', { b })}</span>
+        <span>{t.rich('form.keyMs.count', { count: value.length, done, b })}</span>
+      </div>
+      <div className="scroll">
+        <table className="tbl" ref={tableRef}>
+          <thead>
+            <tr>
+              <th style={{ width: 34 }}>#</th>
+              <th>{t('form.keyMs.colName')}</th>
+              <th style={{ width: 160 }}>{t('form.keyMs.colPlanned')} <span className="req">*</span></th>
+              <th style={{ width: 160 }}>{t('form.keyMs.colActual')}</th>
+              <th style={{ width: 150 }}>{t('form.keyMs.colStatus')}</th>
+              <th style={{ width: 44 }} />
+            </tr>
+          </thead>
+          <tbody>
+            {value.map((r, i) => {
+              const st = isValidIsoDate(r.plannedDate)
+                ? keyMilestoneState(r.plannedDate, r.actualDate && isValidIsoDate(r.actualDate) ? r.actualDate : null, today)
+                : null;
+              const color = st ? KEY_MS_TONE_VAR[st.tone] : 'var(--label3)';
+              return (
+                <tr key={i}>
+                  <td>{i + 1}</td>
+                  <td><input data-ms="name" className={cls(i, 'name')} value={r.name} maxLength={KEY_MS_NAME_MAX} onChange={(e) => onChange(updateKeyMilestone(value, i, { name: e.target.value }))} /></td>
+                  <td><input type="date" className={cls(i, 'plannedDate')} value={r.plannedDate} onChange={(e) => onChange(updateKeyMilestone(value, i, { plannedDate: e.target.value }))} /></td>
+                  <td><input type="date" className={cls(i, 'actualDate')} value={r.actualDate ?? ''} onChange={(e) => onChange(updateKeyMilestone(value, i, { actualDate: e.target.value || null }))} /></td>
+                  <td><span className="chip" style={{ background: `color-mix(in srgb, ${color} 14%, transparent)`, color }}>{st ? keyMsStateText(t, st) : '-'}</span></td>
+                  <td>
+                    <button type="button" className="btn ghost" title={t('form.keyMs.remove')} aria-label={t('form.keyMs.remove')} style={{ padding: '5px 9px', minWidth: 0 }} onClick={() => onChange(removeKeyMilestone(value, i))}>✕</button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginTop: 13 }}>
+        <button type="button" className="btn ghost" style={{ padding: '7px 13px' }} disabled={full}
+          onClick={() => { focusLast.current = true; onChange(addKeyMilestone(value, t('form.keyMs.newName', { n: value.length + 1 }), today)); }}>
+          {t('form.keyMs.add')}
+        </button>
+        <span className="hintline" style={{ margin: '0 4px 0 6px' }}>{t('form.keyMs.suggestLabel')}</span>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {suggestions.map((s) => (
+            <button key={s} type="button" className="chip c-plain" style={{ border: 'none', cursor: 'pointer' }} disabled={full} onClick={() => onChange(addKeyMilestone(value, s, today))}>{`+ ${s}`}</button>
+          ))}
+        </div>
+        {full && <span className="hintline">{t('form.keyMs.limit', { n: KEY_MS_MAX_ROWS })}</span>}
+      </div>
+      <p className="hintline" style={{ marginTop: 10 }}>{t.rich('form.keyMs.naming', { b })}</p>
+    </div>
+  );
+}
+```
+
+- [ ] **Bước 4: Test `KeyMilestoneEditor.test.ts`.** Mock `next-intl` như Task 5 Bước 9, riêng key `form.keyMs.suggest.sN` trả `'Mốc ' + N` (ví dụ `'Mốc 1'`). `value = [{name:'Mốc 1',plannedDate:'2026-09-20',actualDate:null},{name:'Xong',plannedDate:'2026-09-01',actualDate:'2026-09-03'}]`, `today = '2026-09-16'`, `id = 'key-milestones'`, `errors = {0:['name']}`. Assert:
+  - Có `id="key-milestones"`.
+  - Có `value="Mốc 1"`.
+  - Có `detail.keyMs.left|4` và `detail.keyMs.doneLate|2`.
+  - Có `+ Mốc 2` … `+ Mốc 5`; KHÔNG có `+ Mốc 1`, KHÔNG có `+ Mốc 6` (tối đa 4).
+  - Ô tên dòng 0 có `class="inp bad"`.
+- [ ] **Bước 5: `CreateProjectForm.tsx`.**
+  - Props thêm `today: IsoDate`.
+  - State: `const [msRows, setMsRows] = useState<KeyMilestoneDraft[]>([]); const [msErrors, setMsErrors] = useState<KeyMsErrors>({});`.
+  - Trong `validate()`, sau khối `if (missing.length) {…}` và trước `setErr(null)`:
+
+```ts
+    const ms = validateKeyMilestones(msRows);
+    setMsErrors(ms.errors);
+    if (!ms.ok) { setErr(t('form.keyMs.invalid')); return false; }
+```
+
+  - Payload `createProjectAction` thêm `keyMilestones: msRows.length ? normalizeKeyMilestones(msRows) : undefined,`. Nhánh `res.ok` thêm `setMsRows([]); setMsErrors({});`.
+  - Render: ngay TRƯỚC dòng `{err && …}` (dòng 198) chèn `<div style={{ gridColumn: '1 / -1' }}><KeyMilestoneEditor id="key-milestones-new" value={msRows} onChange={setMsRows} today={today} errors={msErrors} /></div>`.
+- [ ] **Bước 6: `DataEntryForm.tsx`.**
+  - Dòng 35 đổi thành `export type DataEntryStep = 'progress' | 'finance' | 'profile' | 'extras';` + `type Step = DataEntryStep;`.
+  - `Props` thêm `keyMilestones: ProjectKeyMilestone[]; today: IsoDate; initialStep?: DataEntryStep;` (thêm vào destructuring).
+  - Dòng 114 đổi thành `useState<Step>(initialStep ?? 'progress')`.
+  - State mới: `msRows` (khởi tạo `() => keyMilestones.map(toKeyMilestoneDraft)`), `msDirty` (false), `msErrors` (`{}`), `msSaveErr` (`string | null`).
+  - `validate()`: trước `return`, thêm
+
+```ts
+    let msOk = true;
+    if (msDirty) {
+      const r = validateKeyMilestones(msRows);
+      setMsErrors(r.errors);
+      msOk = r.ok;
+      if (!r.ok) setStep('profile');
+    }
+```
+
+  rồi đổi `return` thành `return msOk && !e.pctPlan && !STAGE_ORDER.some((s) => e['stagePct.' + s]);`.
+  - `submit()`: trong nhánh `if (res.ok) {`, TRƯỚC `router.refresh()`:
+
+```ts
+        if (msDirty) {
+          const ms = await saveKeyMilestonesAction(projectId, normalizeKeyMilestones(msRows));
+          if (ms.ok) { setMsDirty(false); setMsSaveErr(null); } else setMsSaveErr(t('form.keyMs.saveError'));
+        }
+```
+
+  - Render bước `profile`: bọc `<div className="f2">…</div>` hiện có (dòng 344-457) trong fragment `<>…</>`, và ngay sau `</div>` của `f2` chèn (KHÔNG bọc thêm div, để `.fsec` có viền trên):
+
+```tsx
+            <KeyMilestoneEditor id="key-milestones" value={msRows} today={today} errors={msErrors}
+              onChange={(rows) => { setMsRows(rows); setMsDirty(true); setSaved(false); }} />
+            {Object.keys(msErrors).length > 0 && <p className="sumbar bad" style={{ marginTop: 10 }}>{t('form.keyMs.invalid')}</p>}
+            {msSaveErr && <p className="sumbar bad" style={{ marginTop: 10 }}>{msSaveErr}</p>}
+```
+
+  - Import: `KeyMilestoneEditor`, `saveKeyMilestonesAction` (vào import `@/server/actions` ở dòng 29), `ProjectKeyMilestone` (vào import type ở dòng 6-23), `type IsoDate` từ `@/lib/clock`, và `normalizeKeyMilestones, toKeyMilestoneDraft, validateKeyMilestones, type KeyMilestoneDraft, type KeyMsErrors` từ `@/lib/key-milestones`.
+- [ ] **Bước 7: `nhap-lieu/page.tsx`.**
+
+```ts
+import { currentMonth, historyMonths, todayIso } from '@/lib/clock';
+import type { DataEntryStep } from '@/components/form/DataEntryForm';
+const STEPS: DataEntryStep[] = ['progress', 'finance', 'profile', 'extras'];
+// trong thân hàm, sau `const photos = …`:
+  const keyMilestones = project ? await repo.getKeyMilestones(project.id) : [];
+  const today = todayIso();
+  const initialStep = typeof searchParams.step === 'string' && (STEPS as string[]).includes(searchParams.step)
+    ? (searchParams.step as DataEntryStep) : undefined;
+```
+
+Truyền `today={today}` cho `<CreateProjectForm>`, và `keyMilestones={keyMilestones} today={today} initialStep={initialStep}` cho `<DataEntryForm>`.
+- [ ] **Bước 8: i18n** vào `"form"` (sau `"validation"`):
+  - vi: `"keyMs": { "title": "Các mốc chính của dự án", "titleEn": "Key Milestones of the Project", "subtitle": "Danh sách động - mỗi dự án một bộ mốc riêng", "intro": "Bộ mốc này <b>không cố định</b>. Thêm mốc đặc thù của dự án (Lifting Zone, Hợp long, Thanh thải...), xoá mốc không dùng - biểu đồ <b>Các mốc chính</b> ở Chi tiết dự án đổi theo ngay.", "count": "<b>{count}</b> mốc · <b>{done}</b> đã đạt", "colName": "Tên mốc", "colPlanned": "Ngày kế hoạch", "colActual": "Ngày thực tế", "colStatus": "Trạng thái", "add": "+ Thêm mốc mới", "suggestLabel": "Gợi ý nhanh:", "newName": "Mốc mới {n}", "remove": "Xoá mốc", "naming": "Tên mốc nên là <b>danh từ + trạng thái</b> (ví dụ \"Ngày HT Hợp Long\"), tránh viết tắt riêng của một phòng ban vì mốc này hiển thị trên báo cáo ban điều hành.", "invalid": "Các mốc chính: tên mốc và ngày kế hoạch là bắt buộc, ngày phải hợp lệ", "saveError": "Đã lưu hồ sơ nhưng chưa lưu được các mốc chính", "limit": "Tối đa {n} mốc", "suggest": { "s1": "Ngày Lifting Zone 2", "s2": "Ngày HT móng", "s3": "Ngày HT lắp dựng mái", "s4": "Ngày chạy thử", "s5": "Ngày nghiệm thu PCCC", "s6": "Ngày bàn giao tạm", "s7": "Ngày HT kết cấu chính" } }`
+  - en: `"keyMs": { "title": "Key milestones", "titleEn": "Key Milestones of the Project", "subtitle": "Dynamic list - each project has its own milestones", "intro": "This set is <b>not fixed</b>. Add project-specific milestones (Lifting Zone, Closure, Site clearance...) and remove unused ones - the <b>Key milestones</b> chart in Project detail updates immediately.", "count": "<b>{count}</b> milestones · <b>{done}</b> achieved", "colName": "Milestone", "colPlanned": "Planned date", "colActual": "Actual date", "colStatus": "Status", "add": "+ Add milestone", "suggestLabel": "Quick picks:", "newName": "New milestone {n}", "remove": "Remove milestone", "naming": "Name milestones as <b>noun + state</b> (e.g. \"Closure completed\") and avoid department-specific abbreviations - these appear in executive reports.", "invalid": "Key milestones: name and planned date are required and dates must be valid", "saveError": "Profile saved but key milestones could not be saved", "limit": "Up to {n} milestones", "suggest": { "s1": "Lifting Zone 2 date", "s2": "Foundation completed", "s3": "Roof erection completed", "s4": "Commissioning", "s5": "Fire safety acceptance", "s6": "Temporary handover", "s7": "Main structure completed" } }`
+
+  Thêm `'KeyMilestoneEditor': 'src/components/form/KeyMilestoneEditor.tsx'` vào `CHANGED_SOURCES`.
+- [ ] **Bước 9:** `npx tsc --noEmit`, `npm test`.
+- [ ] **Bước 10: Kiểm mắt** (đăng nhập admin):
+  - Từ `/vi/projects/1` bấm "Sửa mốc" → `/vi/nhap-lieu` mở sẵn bước "Hồ sơ dự án", cuộn tới bảng mốc.
+  - Thêm mốc thì ô tên được focus và bôi chọn sẵn. Chip gợi ý biến mất sau khi dùng. Xoá, sửa ngày thì chip trạng thái đổi theo.
+  - Lưu rồi quay lại chi tiết → biểu đồ đổi theo.
+  - Để trống tên thì ô viền đỏ, thanh lỗi hiện, và KHÔNG lưu gì cả (kể cả hồ sơ).
+  - Tạo dự án mới kèm 1 mốc → chọn dự án đó, mốc hiện ở bước Hồ sơ.
+  - Tháng đã khoá → bảng mốc bị mờ cùng card.
+- [ ] **Bước 11:** `git commit -m "feat(parity): trinh sua cac moc chinh o form tao moi + ho so du an"`
+
+---
+
+### Task 9: "Timeline của 7 giai đoạn" (`msChart`) + chọn giai đoạn
+
+**Files:**
+- Create: `src/lib/stage-timeline.ts`, `src/lib/stage-timeline.test.ts`, `src/components/project/stageText.ts`, `src/components/project/StageTimelineChart.tsx`, `src/components/project/StageExplorer.tsx`, `src/components/project/StageExplorer.test.ts`
+- Modify: `page.tsx`, `vi.json`/`en.json`, `messages.test.ts`
+
+**Interfaces:**
+- Consumes `monthTicks` (Task 6), `Legend`/`LegendShape` (Task 2), `formatDateShort` (Task 5), `useChartTip`/`ChartTip` (Task 4), `today` (Task 2).
+- Produces `StageTimelineRow`, `buildStageTimelineRows(ms, weights)`, `TimeDomain`, `buildTimeDomain(rows, today)`, `xOf(date, domain, x0, width)`, `STAGE_MARKERS`, `stageMarkers(row)`.
+- Produces `StageExplorer({ rows, today, locale })`, giữ state `selected: StageCode | null`. Task 10 thêm prop `compare` và thẻ thứ 2.
+
+- [ ] **Bước 1: Test đỏ `stage-timeline.test.ts`:**
+  - `buildStageTimelineRows`: đúng thứ tự `STAGE_ORDER`, bỏ giai đoạn không có dòng milestone, `weightPct` = null khi dòng trọng số `applicable=false` hoặc không có dòng.
+  - `buildTimeDomain`: hàng có ngày từ `'2025-12-15'` tới `'2026-09-29'`, today `'2026-09-16'` → `from` = `'2025-12-01'`, `to` = `'2026-09-30'`, `ticks[0]` = `{date:'2025-12-01',label:null}`, `ticks[1].label` = `'01/26'`. Mọi ngày null → `null`. Today sau mọi ngày (`'2026-11-05'`) → `to` = `'2026-11-30'`.
+  - `xOf`: `from` → `x0`, `to` → `x0+width`.
+  - `stageMarkers`: có `actualFinish` thì không có `forecastDate`; ngày null bị bỏ.
+- [ ] **Bước 2: `src/lib/stage-timeline.ts`**
+
+```ts
+import { daysBetween, endOfMonth, type IsoDate } from '@/lib/clock';
+import { STAGE_ORDER } from '@/lib/stages';
+import { monthTicks, type MonthTick } from '@/lib/time-axis';
+import type { ProjectStageWeight, StageCode, StageMilestoneView } from '@/server/repo/types';
+
+export interface StageTimelineRow {
+  stageCode: StageCode;
+  weightPct: number | null;          // null = không áp dụng / chưa có trọng số
+  plannedStart: IsoDate | null;
+  plannedFinish: IsoDate | null;
+  actualStart: IsoDate | null;
+  actualFinish: IsoDate | null;
+  forecastDate: IsoDate | null;
+  dayVariance: number | null;        // Q1 Run 1 + Q5 mặc định (a)
+}
+
+export function buildStageTimelineRows(ms: StageMilestoneView[], weights: ProjectStageWeight[]): StageTimelineRow[] {
+  return STAGE_ORDER.flatMap((code) => {
+    const m = ms.find((x) => x.stageCode === code);
+    if (!m) return [];
+    const w = weights.find((x) => x.stageCode === code);
+    return [{
+      stageCode: code, weightPct: w && w.applicable ? w.weightPct : null,
+      plannedStart: m.plannedStart, plannedFinish: m.plannedFinish,
+      actualStart: m.actualStart, actualFinish: m.actualFinish, forecastDate: m.forecastDate,
+      dayVariance: m.dayVariance,
+    }];
+  });
+}
+
+export interface TimeDomain { from: IsoDate; to: IsoDate; ticks: MonthTick[] }
+
+/** Trục = ngày 1 của tháng sớm nhất → ngày cuối của tháng muộn nhất (gồm cả hôm nay). */
+export function buildTimeDomain(rows: StageTimelineRow[], today: IsoDate): TimeDomain | null {
+  const dates = rows.flatMap((r) => [r.plannedStart, r.plannedFinish, r.actualStart, r.actualFinish, r.forecastDate])
+    .filter((d): d is IsoDate => !!d);
+  if (!dates.length) return null;
+  const all = [...dates, today].sort();
+  const from = `${all[0].slice(0, 7)}-01`;
+  const to = endOfMonth(all[all.length - 1].slice(0, 7));
+  return { from, to, ticks: monthTicks(from, to) };
+}
+
+export function xOf(date: IsoDate, d: TimeDomain, x0: number, width: number): number {
+  return x0 + width * (daysBetween(d.from, date) / Math.max(1, daysBetween(d.from, d.to)));
+}
+
+export type StageMarkerKey = 'plannedStart' | 'plannedFinish' | 'actualStart' | 'actualFinish' | 'forecastDate';
+export type StageMarkerShape = 'ring' | 'dot' | 'diamondO' | 'diamond' | 'tri';
+
+/** 5 mốc + hình + màu theo MS_KEYS mock-up dòng 1380-1384. */
+export const STAGE_MARKERS: { key: StageMarkerKey; lane: 'plan' | 'actual'; color: string; shape: StageMarkerShape; labelKey: string }[] = [
+  { key: 'plannedStart', lane: 'plan', color: 'var(--s-plan)', shape: 'ring', labelKey: 'detail.stageMs.plannedStart' },
+  { key: 'plannedFinish', lane: 'plan', color: 'var(--s-actual)', shape: 'dot', labelKey: 'detail.stageMs.plannedFinish' },
+  { key: 'actualStart', lane: 'actual', color: 'var(--s-third-lt)', shape: 'diamondO', labelKey: 'detail.stageMs.actualStart' },
+  { key: 'actualFinish', lane: 'actual', color: 'var(--s-third)', shape: 'diamond', labelKey: 'detail.stageMs.actualFinish' },
+  { key: 'forecastDate', lane: 'actual', color: 'var(--s-cost)', shape: 'tri', labelKey: 'detail.stageMs.forecast' },
+];
+
+/** Mốc cần vẽ: bỏ ngày null; bỏ "dự kiến" khi đã có ngày TT HT (mock-up dòng 1451). */
+export function stageMarkers(r: StageTimelineRow) {
+  return STAGE_MARKERS.filter((m) => r[m.key] != null && !(m.key === 'forecastDate' && r.actualFinish));
+}
+```
+
+- [ ] **Bước 3: `src/components/project/stageText.ts`**
+
+```ts
+type T = (key: string, values?: Record<string, string | number>) => string;
+/** Q5 (a): dayVariance > 0 = trễ → "+N ngày"; null → "-". */
+export function varianceText(t: T, v: number | null): string {
+  return v == null ? '-' : t('detail.stageMs.days', { n: v > 0 ? `+${v}` : String(v) });
+}
+export function varianceColor(v: number | null, fallback: string): string {
+  return v != null && v > 0 ? 'var(--danger)' : fallback;
+}
+```
+
+- [ ] **Bước 4: `src/components/project/StageTimelineChart.tsx`** (`'use client'`). Port `renderMilestones` + `mark()` ở mock-up dòng 1385-1395, 1416-1470:
+  - Props: `{ rows: StageTimelineRow[]; today: IsoDate; selected: StageCode | null; onToggle: (c: StageCode) => void }`.
+  - Hằng số: `W=1000, ROW_H=54, MT=56, MB=16, ML=212, MR=132, IW=W-ML-MR, BH=9`. `dom = buildTimeDomain(rows, today)`; null → `<p className="empty">{t('detail.stageMs.empty')}</p>`. `X = (d) => xOf(d, dom, ML, IW)`. `H = MT + rows.length*ROW_H + MB`. `tx = X(today)`.
+  - Nội dung SVG theo thứ tự:
+    1. Mỗi tick: vạch dọc `MT-12 → MT+n*ROW_H`, màu `--grid`; nếu `label` thì chữ ở `y=MT-19`, fontSize 11, fontWeight 700, màu `--axis`, middle.
+    2. Vạch hôm nay `tx, 19 → MT+n*ROW_H+4`, width 2, dash `6 5`, `--danger`. Viên `rect tx-36,1,72×20,rx10` màu `--danger`. Chữ `t('common.today')` ở `y=14.5`, fontSize 10.5, fontWeight 800, `fill="white"`.
+    3. Chữ `t('detail.stageMs.varianceCol')` ở `(W-6, MT-19)`, end, fontSize 9.5, fontWeight 800, `--label3`.
+    4. Mỗi hàng i (`top=MT+i*ROW_H`, `cy=top+ROW_H/2`, `pY=cy-13`, `aY=cy+4`, `on = selected===r.stageCode`, `aEnd = r.actualFinish ?? r.forecastDate`):
+       - `on` → `rect 2, top+3, W-4 × ROW_H-6, rx 10, strokeWidth 1.2`, `style={{ fill:'var(--accent-tint)', stroke:'var(--accent)' }}`.
+       - i>0: đường kẻ `--grid` tại `top`.
+       - Tên `t(stageKey[r.stageCode])` ở `(8, cy+5)`, fontSize 14, fontWeight 700, màu `on ? --accent : --label`. Trọng số `r.weightPct==null ? '-' : `${r.weightPct}%`` ở `(196, cy+5)`, end, fontSize 11, fontWeight 800, `--label3`.
+       - Thanh KH (nếu có cả BĐ và HT KH): `rect X(ps), pY, width max(X(pf)-X(ps),3), height BH, rx 4.5, fillOpacity .55`, `--s-plan`.
+       - Thanh TT (nếu có `actualStart` và `aEnd`): `rect X(as), aY, width max(X(aEnd)-X(as),3), BH, rx 4.5, fillOpacity .42`, màu `r.actualFinish ? --s-third : --s-cost`.
+       - `stageMarkers(r)` → `<Marker shape x={X(r[m.key]!)} y={(m.lane==='plan'?pY:aY)+BH/2} color={m.color} />`.
+       - Chênh lệch ở `(W-6, cy+5)`, end, fontSize 13.5, fontWeight 800, fill `varianceColor(r.dayVariance,'var(--label)')`, text `varianceText(t, r.dayVariance)`.
+       - Rect bắt chuột `0, top, W × ROW_H`, `fill="transparent"`, `style={{ cursor:'pointer' }}`, `onClick={() => onToggle(r.stageCode)}`. Tooltip: tiêu đề `r.weightPct==null ? tên : `${tên} · ${t('detail.stageMs.weight', { n: r.weightPct })}``, 5 dòng `STAGE_MARKERS.map(m => ({ k: t(m.labelKey), v: formatDateShort(r[m.key]), color: m.color }))` + dòng `{ k: t('detail.stageMs.variance'), v: varianceText(…), valueColor: varianceColor(…,'var(--label)') }`. `onMouseLeave={hide}`.
+  - `Marker` (component trong cùng file):
+    - `ring`: `circle r 5.4, strokeWidth 2.4`, fill `--glass-3`, stroke `color`.
+    - `dot`: `circle r 5.6, strokeWidth 1.6`, fill `color`, stroke `--glass-3`.
+    - `diamondO`: `rect x-4.9, y-4.9, 9.8×9.8, rx 1, strokeWidth 2.2, transform rotate(45 x y)`, fill `--glass-3`, stroke `color`.
+    - `diamond`: `rect x-5, y-5, 10×10, rx 1, strokeWidth 1.4, rotate`, fill `color`, stroke `--glass-3`.
+    - `tri`: `path M x y-6 L x+5.5 y+4.5 L x-5.5 y+4.5 Z, strokeWidth 1.3, strokeLinejoin round`, fill `color`, stroke `--glass-3`.
+
+    Màu đặt qua `style` (Global Constraint 6).
+  - Sau `</svg>` render `<ChartTip tip={tip} />`.
+- [ ] **Bước 5: `src/components/project/StageExplorer.tsx`** (`'use client'`)
+
+```tsx
+'use client';
+
+import { useState } from 'react';
+import { useTranslations } from 'next-intl';
+import type { StageCode } from '@/server/repo/types';
+import type { IsoDate } from '@/lib/clock';
+import { stageKey } from '@/lib/labels';
+import { formatDateShort } from '@/lib/format';
+import { STAGE_MARKERS, type StageTimelineRow } from '@/lib/stage-timeline';
+import { Card, CardBody, CardHeader } from '@/components/ui/Card';
+import { Legend } from '@/components/ui/Legend';
+import { StageTimelineChart } from './StageTimelineChart';
+import { varianceColor, varianceText } from './stageText';
+
+/** Thẻ "Timeline của 7 giai đoạn" (mock-up dòng 710-714). Task 10 thêm thẻ "Biểu đồ so sánh" dùng chung `selected`. */
+export function StageExplorer({ rows, today }: { rows: StageTimelineRow[]; today: IsoDate; locale: string }) {
+  const t = useTranslations();
+  const [selected, setSelected] = useState<StageCode | null>(null);
+  const toggle = (c: StageCode) => setSelected((s) => (s === c ? null : c));
+  const sel = rows.find((r) => r.stageCode === selected) ?? null;
+  return (
+    <>
+      <Card>
+        <CardHeader
+          title={t('detail.stageMs.title')}
+          action={<Legend items={[
+            ...STAGE_MARKERS.map((m) => ({ label: t(m.labelKey), color: m.color, shape: m.shape })),
+            { label: t('common.today'), color: 'var(--danger)', line: true },
+          ]} />}
+        />
+        <div className="msdetail">
+          {sel ? (
+            <>
+              <span style={{ fontWeight: 750, color: 'var(--label)' }}>{t(stageKey[sel.stageCode])}</span>
+              {STAGE_MARKERS.map((m) => (
+                <span key={m.key} className="k"><i style={{ background: m.color }} />{t(m.labelKey)} <b>{formatDateShort(sel[m.key])}</b></span>
+              ))}
+              <span className="k">
+                <i style={{ background: varianceColor(sel.dayVariance, 'var(--label3)') }} />{t('detail.stageMs.variance')}{' '}
+                <b style={{ color: varianceColor(sel.dayVariance, 'var(--label)') }}>{varianceText(t, sel.dayVariance)}</b>
+              </span>
+            </>
+          ) : (
+            <span className="hint">{t('detail.stageMs.hint')}</span>
+          )}
+        </div>
+        <CardBody>
+          {rows.length ? <StageTimelineChart rows={rows} today={today} selected={selected} onToggle={toggle} /> : <p className="empty">{t('detail.stageMs.empty')}</p>}
+        </CardBody>
+      </Card>
+    </>
+  );
+}
+```
+
+(`locale` chưa dùng ở Task 9. Khai báo sẵn để Task 10 không phải đổi chữ ký; nếu lint báo biến thừa thì destructure khi Task 10 cần.)
+- [ ] **Bước 6: Test `StageExplorer.test.ts`.** Mock `next-intl` như Task 4; `vi.mock('@/server/repo', …mock-repo)`. `rows = buildStageTimelineRows(repo.getStageMilestones(1), repo.getStageWeights(1))`, `today = '2026-09-16'`. Assert:
+  - Có đủ 7 chuỗi `stage.design` … `stage.handover`.
+  - Có `detail.stageMs.hint`.
+  - `detail.stageMs.days|0` xuất hiện đúng 3 lần (seed: design/shop/procurement xong đúng hạn, `src/data/seed/history.ts:325`).
+  - `rows = []` → có `detail.stageMs.empty`.
+- [ ] **Bước 7: i18n** vào `"detail"`:
+  - vi: `"stageMs": { "title": "Timeline của 7 giai đoạn", "plannedStart": "Ngày BĐ KH", "plannedFinish": "Ngày HT KH", "actualStart": "Ngày TT BĐ", "actualFinish": "Ngày TT HT", "forecast": "Ngày dự kiến", "variance": "Chênh lệch", "varianceCol": "CHÊNH LỆCH", "days": "{n} ngày", "weight": "trọng số {n}%", "hint": "Bấm vào một giai đoạn để xem đầy đủ 6 mốc ngày · rê chuột lên từng hàng để xem nhanh", "empty": "Chưa có mốc ngày của các giai đoạn" }`
+  - en: `"stageMs": { "title": "7-stage timeline", "plannedStart": "Planned start", "plannedFinish": "Planned finish", "actualStart": "Actual start", "actualFinish": "Actual finish", "forecast": "Forecast", "variance": "Variance", "varianceCol": "VARIANCE", "days": "{n} days", "weight": "weight {n}%", "hint": "Click a stage to see all 6 dates · hover a row for a quick look", "empty": "No stage dates yet" }`
+
+  Thêm `'StageExplorer': 'src/components/project/StageExplorer.tsx'`, `'StageTimelineChart': 'src/components/project/StageTimelineChart.tsx'`, `'stageText': 'src/components/project/stageText.ts'` vào `CHANGED_SOURCES`.
+- [ ] **Bước 8: Nối vào page.** Thêm dynamic `StageExplorer`; import `buildStageTimelineRows` từ `@/lib/stage-timeline`. Dữ liệu: `const stageRows = buildStageTimelineRows(await repo.getStageMilestones(id), await repo.getStageWeights(id));`. Chèn ngay SAU `</div>` đóng `g2` "Value chain + EVM" (dòng 227 gốc): `<StageExplorer rows={stageRows} today={today} locale={locale} />`.
+- [ ] **Bước 9:** `npx tsc --noEmit`, `npm test`. Kiểm mắt: 7 hàng, 5 loại mốc đúng hình, bấm hàng thì hàng sáng lên + dải `msdetail` hiện 6 chip, bấm lại thì bỏ chọn, tooltip đúng.
+- [ ] **Bước 10:** `git commit -m "feat(parity): timeline 7 giai doan + chon giai doan"`
+
+---
+
+### Task 10: "Biểu đồ so sánh theo hạng mục" (`cmpChart`)
+
+**Files:**
+- Create: `src/components/project/WorkItemCompareChart.tsx`
+- Modify: `src/lib/stage-timeline.ts`, `src/server/project-queries.ts` (+test), `src/components/project/StageExplorer.tsx` (+test), `page.tsx`, `vi.json`/`en.json`, `messages.test.ts`
+
+**Interfaces:**
+- Consumes `StageExplorer` + `selected` (Task 9), `Legend` (Task 2), `useChartTokens`, `TOOLTIP_STYLE`.
+- Produces `WorkItemCompareRow = { workItemId: number; name: string; planned: number; actual: number }`, `WorkItemCompare = Partial<Record<StageCode, WorkItemCompareRow[]>>` (ở `stage-timeline.ts`), `getWorkItemComparison(projectId, yearMonth): Promise<WorkItemCompare>`, prop mới `StageExplorer.compare: WorkItemCompare`.
+
+- [ ] **Bước 1:** thêm 2 kiểu trên vào `stage-timeline.ts`.
+- [ ] **Bước 2: Test đỏ** trong `project-queries.test.ts`:
+  - `getWorkItemComparison(1, MONTH)`: `fabrication` dài 10 phần tử, `fabrication[0]` = `{ workItemId: 1, name: 'Hệ giàn nâng', planned: 4828, actual: 3814 }` (seed `history.ts:357-377`: 26822×0.18 → 4828; tỷ lệ 1.15−3×0.12 = 0.79 → 3814); `shop` dài 10; `design` và `handover` là `undefined`.
+  - `(17, MONTH)` → `{}`.
+  - `(1, 'abc')` → không throw.
+- [ ] **Bước 3: Viết query** trong `project-queries.ts` (import `STAGE_CALC_MODE, STAGE_ORDER` từ `@/lib/stages`, type `WorkItemCompare` và `WorkItemCompareRow` từ `@/lib/stage-timeline`):
+
+```ts
+/** KH/TT (tấn) theo hạng mục cho từng giai đoạn ĐỊNH LƯỢNG của tháng (mock-up dòng 716-720, 1474-1506). */
+export async function getWorkItemComparison(projectId: number, yearMonth: string): Promise<WorkItemCompare> {
+  const ym = isValidYearMonth(yearMonth) ? yearMonth : currentMonth();
+  const items = await repo.getWorkItems(projectId);
+  const facts = await repo.getWorkItemFacts(projectId, ym);
+  const out: WorkItemCompare = {};
+  for (const stage of STAGE_ORDER) {
+    if (STAGE_CALC_MODE[stage] !== 'volume') continue;
+    const rows: WorkItemCompareRow[] = items.flatMap((wi) => {
+      const fs = facts.filter((f) => f.stageCode === stage && f.workItemId === wi.id);
+      if (!fs.length) return [];
+      return [{ workItemId: wi.id, name: wi.name, planned: fs.reduce((s, f) => s + f.qtyPlan, 0), actual: fs.reduce((s, f) => s + f.qtyActual, 0) }];
+    });
+    if (rows.length) out[stage] = rows;
+  }
+  return out;
+}
+```
+
+- [ ] **Bước 4: `WorkItemCompareChart.tsx`** (`'use client'`, Recharts, mẫu `ManpowerDailyChart.tsx`):
+  - Props `{ rows: WorkItemCompareRow[]; locale: string }`. Dùng `useTranslations()`, `const c = useChartTokens()`. `nf` = `Intl.NumberFormat(vi-VN|en-US, { maximumFractionDigits: 0 })`. `data = rows.map((r) => ({ ...r, short: r.name.length > 19 ? `${r.name.slice(0, 18)}…` : r.name }))`.
+  - Markup:
+
+```tsx
+    <div>
+      <div className="hintline">{t('detail.cmp.unit')}</div>
+      <ResponsiveContainer width="100%" height={340}>
+        <BarChart data={data} margin={{ top: 18, right: 10, left: 0, bottom: 0 }} barGap={3} barCategoryGap="17%">
+          <CartesianGrid stroke={c.grid} vertical={false} />
+          <XAxis dataKey="short" interval={0} angle={-38} textAnchor="end" height={92} tick={{ fontSize: 10, fill: c.label2 }} tickLine={false} axisLine={{ stroke: c.grid }} />
+          <YAxis width={48} tick={{ fontSize: 10, fill: c.axis }} tickLine={false} axisLine={false} tickFormatter={(v: number) => nf(v)} />
+          <Tooltip cursor={{ fill: c.grid }} content={({ active, payload }) => <CompareTip active={active} row={payload?.[0]?.payload as WorkItemCompareRow | undefined} nf={nf} />} />
+          <Bar dataKey="planned" name={t('detail.planned')} fill={c.plan} radius={[4, 4, 0, 0]}>
+            <LabelList dataKey="planned" position="top" fontSize={9} fontWeight={700} fill={c.label2} formatter={(v: unknown) => nf(Number(v))} />
+          </Bar>
+          <Bar dataKey="actual" name={t('detail.actual')} fill={c.actual} radius={[4, 4, 0, 0]}>
+            <LabelList dataKey="actual" position="top" fontSize={9} fontWeight={700} fill={c.actual} formatter={(v: unknown) => nf(Number(v))} />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+```
+
+  - `CompareTip` (trong cùng file, dùng `useTranslations`): `!active || !row` → `null`. Ngược lại `<div style={TOOLTIP_STYLE.contentStyle}>` gồm:
+    - `<div style={TOOLTIP_STYLE.labelStyle}>{row.name}</div>`
+    - 4 dòng, mỗi dòng `<div style={{ display: 'flex', justifyContent: 'space-between', gap: 18, color: 'var(--label2)' }}>`: KH `nf(planned) + ' ' + unit` · TT · Chênh lệch `nf(actual-planned)` với giá trị màu `var(--danger)` · `% HT` (1 chữ số thập phân; `planned=0` → `-`).
+    - Nhãn dòng: `t('detail.planned')`, `t('detail.actual')`, `t('detail.cmp.diff')`, `t('detail.cmp.pct')`.
+- [ ] **Bước 5: `StageExplorer.tsx`.** Thêm prop `compare: WorkItemCompare` (và dùng `locale`). Thêm Card thứ 2 ngay sau Card timeline, bên trong fragment:
+
+```tsx
+      <Card>
+        <CardHeader
+          title={`${t('detail.cmp.title')} -`}
+          titleExtra={<span style={{ color: 'var(--accent)' }}>{t(stageKey[cmpStage])}{selected ? '' : ` ${t('detail.cmp.default')}`}</span>}
+          action={<Legend items={[{ label: t('detail.cmp.planTon'), color: 'var(--s-plan)' }, { label: t('detail.cmp.actualTon'), color: 'var(--s-actual)' }]} />}
+        />
+        <CardBody>
+          {STAGE_CALC_MODE[cmpStage] === 'manual' ? (
+            <p className="empty">{t('detail.cmp.manualStage')}</p>
+          ) : cmpRows.length ? (
+            <WorkItemCompareChart rows={cmpRows} locale={locale} />
+          ) : (
+            <p className="empty">{t('detail.cmp.empty')}</p>
+          )}
+        </CardBody>
+      </Card>
+```
+
+với `const cmpStage: StageCode = selected ?? 'fabrication';` (mặc định "Gia công", mock-up dòng 1475-1477) và `const cmpRows = compare[cmpStage] ?? [];`. Import `STAGE_CALC_MODE` từ `@/lib/stages`, `WorkItemCompareChart`, type `WorkItemCompare`.
+- [ ] **Bước 6: Test** (thêm vào `StageExplorer.test.ts`): truyền `compare = await getWorkItemComparison(1, '2026-09')` (import từ `@/server/project-queries`, repo đã mock) → output có `detail.cmp.title`, `stage.fabrication`, `detail.cmp.default`. Truyền `compare = {}` → có `detail.cmp.empty`.
+- [ ] **Bước 7: i18n** vào `"detail"`:
+  - vi: `"cmp": { "title": "Biểu đồ so sánh", "default": "(mặc định)", "planTon": "Kế hoạch (tấn)", "actualTon": "Thực tế (tấn)", "unit": "tấn", "diff": "Chênh lệch", "pct": "% HT", "manualStage": "Giai đoạn này nhập tay %, không có sản lượng theo hạng mục", "empty": "Chưa có sản lượng hạng mục của tháng này" }`
+  - en: `"cmp": { "title": "Comparison", "default": "(default)", "planTon": "Plan (t)", "actualTon": "Actual (t)", "unit": "t", "diff": "Difference", "pct": "% done", "manualStage": "This stage is entered as %, no per-item quantities", "empty": "No item quantities for this month" }`
+
+  Thêm `'WorkItemCompareChart': 'src/components/project/WorkItemCompareChart.tsx'` vào `CHANGED_SOURCES`.
+- [ ] **Bước 8: Nối vào page.** Import `getWorkItemComparison`; `const compare = await getWorkItemComparison(id, month);`; đổi dòng Task 9 thành `<StageExplorer rows={stageRows} compare={compare} today={today} locale={locale} />`.
+- [ ] **Bước 9: Cổng cuối Đợt 2:** `npx tsc --noEmit`, `npm test` (≥ 548 + số test mới, không test nào đỏ), `npm run build` sạch. Kiểm mắt TOÀN trang `/vi/projects/1`, `/en/projects/1` và `/vi/projects/17` ở 390px, 1366px, 1920px, cả sáng lẫn tối. Bấm chọn "Lắp dựng" thì biểu đồ so sánh đổi theo; bấm "Thiết kế" thì hiện chữ "nhập tay"; bỏ chọn thì quay về "Gia công (mặc định)".
+- [ ] **Bước 10:** `git commit -m "feat(parity): bieu do so sanh khoi luong theo hang muc cho giai doan dang chon"`
+
+---
+
+## Bảng phủ phạm vi (tự rà)
+
+| Hạng mục chốt (`PROGRESS.md` mục 3) | Task |
 |---|---|
-| Token blur `--mat-*` 5 mức | 1 |
-| Corner radius `--r-*` continuous | 1 |
-| Elevation `--e0`→`--e4` | 1 |
-| Dynamic type `--t-*` kiểu SF | 1 |
-| Easing/motion `--ease-ios`, `--dur-*` | 1 (token) + 3 (áp dụng, Q4) |
-| Accent navy `#1d5a9e` trên nền `#e9eef6` | 1 |
-| Giữ vàng `#f5b301` cho tag "Trọng tâm" | 1 (token) + 4 (tag) |
-| Bộ màu series đã qua validator | 1 (token) + 9 (áp vào Recharts) |
-| Light/dark qua `prefers-color-scheme` + `data-theme` | 1 |
-| AppShell / sidebar / header | 2 |
-| TopProgressBar, SyncProgressBar | 2 |
-| `charts.tsx` + màu series Recharts | 9 |
-| KPI card / dashboard widget | 4, 10 |
-| Bảng | 5 |
-| Form / wizard 4 bước | 6, 7 |
-| Compliance, Audit, Admin (không có trong mock-up) | 8, 11 |
-| Login | 12 |
-| SettingsMenu | 2 |
-| Modal | 6 (ChangePasswordModal) + 8 (modal đặt lại mật khẩu) |
-| Trang phụ không bị bỏ sót | test `legacy-style-guard` bắt buộc `PENDING = []` ở Task 12 |
-| Không đụng data model / business logic / API | Global Constraint #1; `npm test` giữ xanh ở mọi Task |
+| 1. Đồng hồ đếm ngược + Timeline KH/TT dạng thanh | 3, 2 |
+| 2. Đủ 3 tag "Trọng tâm" (soát cả /overview, /report) | 1 + Q2 |
+| 3. Tracking huy động 7 ngày, 3 tab | 5 |
+| 4. Các mốc chính: biểu đồ (chi tiết) + bước sửa trong form | 6 (biểu đồ), 7 (ghi), 8 (form) |
+| 5. `msChart` + `cmpChart` + `manChart`/`eqpChart` | 9, 10, 4 |
+| 6. Rà soát form Tạo/Sửa | Q7 (G-1…G-20, chờ chủ dự án chọn) |
 
-**Quét placeholder:** không có "TBD"/"tương tự Task N"/"xử lý lỗi phù hợp". Mọi bước có bảng ánh xạ class cụ thể hoặc khối code đầy đủ; mọi khối CSS có số dòng nguồn trong `mockup-apple-glass.html`.
-
-**Nhất quán kiểu:** `ChartTokens` + `useChartTokens()` khai báo ở Task 9 và chỉ dùng ở Task 9; `KpiCardProps` giữ nguyên chữ ký cũ nên 3 nơi gọi ở Task 10/11 không phải sửa; `BadgeTone` giữ nguyên 5 giá trị nên `Badges.tsx` và mọi `<Badge tone=…>` ở Task 5/8/10/11 vẫn hợp lệ; `applyTheme` (Task 1) bắn `ddc:theme` mà `useChartTokens` (Task 9) lắng nghe — cùng tên sự kiện; `PENDING` (Task 1) được từng Task sau xoá đúng nhóm comment đã đặt sẵn.
-
-**Rủi ro đã ghi rõ trong plan, đừng để dính lại:**
-1. `.card{overflow:hidden}` cắt dropdown → mọi card chứa `<select>`/Combobox/popover phải thêm `overflow-visible` (Task 3, 5, 6, 7, 8, 11).
-2. `var()` không chạy trong presentation attribute của SVG → bắt buộc dùng `useChartTokens()` cho Recharts, **không** truyền chuỗi `'var(--s-plan)'` vào prop `fill`/`stroke` (Task 9).
-3. Không dùng opacity modifier lên màu token (Global Constraint #4).
-4. `.card > .hd` / `.card > .bd` là selector con **trực tiếp** — không bọc thêm div ở giữa (Task 3).
-5. Thêm key i18n phải thêm cả vi lẫn en (Global Constraint #8) — chỉ Task 4 thêm key (`kpi.focusTag`).
-
----
-
-## Bàn giao thi công
-
-Plan đã lưu ở `.bangiao/ke-hoach.md`. Hai cách chạy:
-
-**1. Subagent-Driven (khuyến nghị)** — mỗi Task một subagent mới, review giữa các Task, vòng lặp nhanh. Dùng `superpowers:subagent-driven-development`.
-
-**2. Chạy tuần tự trong phiên này** — dùng `superpowers:executing-plans`, chạy theo lô kèm điểm dừng review.
-
-**Trước khi bắt đầu:** trả lời Q1–Q6 (Q7, Q8 trả lời sau cũng được). Q6 chặn ngay Task 1 nên cần trả lời trước tiên.
-
+Thứ tự phụ thuộc: 1 → 2 (Legend, `today`) → 3 → 4 (ChartTip, motion, titleExtra, resources) → 5 (HelpTip, format) → 6 (time-axis, key-milestones) → 7 → 8 → 9 → 10. Làm tuần tự, không song song.
