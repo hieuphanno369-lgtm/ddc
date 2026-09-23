@@ -47,10 +47,21 @@
 (không phải lỗi mới, ngoài phạm vi): aria-label sai ở nút hamburger, thiếu key i18n `admin.delete`,
 404 mặc định Next.js cho URL lạ (giới hạn kiến trúc, không phải bug).
 
-**Đang chuyển sang debugger (vòng CAN SUA #1)** để sửa đúng gốc rễ 2 lỗi trên, không tự ý mở rộng
-phạm vi — agent nền `a8950778b71d058fe` (cách resume giống hệt agent tester/coder ở trên, dùng
-SendMessage tới đúng id nếu bị `stopped` giữa chừng). Đếm vòng: **1/2** — quá 2 vòng mà vẫn rớt
-thì dừng lại báo chủ dự án.
+**Debugger XONG vòng test-debug #1 (2026-09-23).** Cả 2 lỗi đã xác minh lại root cause bằng đo
+Playwright thật (không tin sẵn chẩn đoán tester) rồi sửa tối thiểu, commit `e35a540`:
+- Lỗi 1: root cause thật rộng hơn tester ban đầu tìm ra (đè tới 410px ở bản `en`, không phải chỉ
+  390px) — do `.tag` neo `position:absolute` theo cạnh phải card trong khi nhãn có bề rộng cố định.
+  Sửa bằng `@media(max-width:680px)` cho tag xuống dòng riêng thay vì đoán số padding.
+- Lỗi 2: cách CSS `margin-left` tester gợi ý sẽ KHÔNG làm xanh được `ActivityViewer.test.ts` (test
+  assert khoảng trắng thật trong chuỗi HTML) — debugger tự phát hiện, sửa bằng `{' '}` JSX tường
+  minh ở đúng 2 chỗ vỡ (`ActivityViewer.tsx`, `ImportPanel.tsx`), xác nhận 2 chỗ dùng `.en` còn lại
+  vẫn an toàn nhờ flex `gap`.
+- `npx tsc --noEmit` sạch, **545/545 test xanh** (bao gồm `ActivityViewer.test.ts` ĐỎ→XANH).
+
+**Đang chuyển lại tester (vòng xác nhận sau sửa)** để chạy lại toàn bộ + soi mắt xác nhận cả 2 lỗi
+đã hết thật, không có hồi quy mới — resume ĐÚNG agent tester cũ `a045103b661032c7a` (không giao
+tester mới, agent này đã có sẵn ngữ cảnh vòng 1). Đếm vòng test-debug: **1/2** đã dùng — quá 2 vòng
+mà vẫn rớt thì dừng lại báo chủ dự án, không tự ý giao debugger sửa lần 3.
 
 **8 quyết định Q1-Q8 đã chốt (2026-09-23, tóm tắt — chi tiết đầy đủ trong `ke-hoach.md`):**
 Q1 logo: giữ `logo.png` đỏ trên nền trắng bo góc (KHÔNG dùng `.appicon` navy vẽ tay). Q2 công tắc
