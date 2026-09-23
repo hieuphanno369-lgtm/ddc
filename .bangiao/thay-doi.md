@@ -172,7 +172,7 @@ Không có lệch nào về mặt thẩm mỹ/màu sắc/token — toàn bộ đ
    - `npm run build` chạy xong, compile + type-check + generate static pages
      thành công (0 lỗi CSS/Tailwind/TS).
    - Mở dev server thật, đăng nhập thật bằng tài khoản seed
-     (`admin@daidung.com.vn` / `Admin@123`, từ `src/data/seed/history.ts`),
+     (`admin@daidung.com.vn` / `Admin@***`, từ `src/data/seed/history.ts`),
      gọi HTTP thật tới cả 14 URL yêu cầu ở Task 12 Bước 10:
      `/vi/login /vi/overview /vi/projects/1 /vi/nhap-lieu /vi/report /vi/alerts
      /vi/compliance /vi/audit /vi/admin /vi/import /vi/data-dictionary
