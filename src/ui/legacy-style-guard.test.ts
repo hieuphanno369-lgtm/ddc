@@ -15,10 +15,6 @@ const HEX_ALLOW = new Set<string>([
 
 /** Con no: file chua doi sang he Apple Glass. Xoa dan theo tung Task. */
 const PENDING: string[] = [
-  // Task 5 - bang
-  'src/components/dashboard/ProjectTable.tsx',
-  'src/components/dashboard/Watchlist.tsx',
-  'src/components/alerts/AlertList.tsx',
   // Task 6 - form nho
   'src/components/dashboard/FilterBar.tsx',
   'src/components/form/Combobox.tsx',

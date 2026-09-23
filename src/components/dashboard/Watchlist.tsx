@@ -6,7 +6,7 @@ import { THRESHOLDS } from '@/lib/thresholds';
 import type { ProjectSummary } from '@/server/queries';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { IconAlert, IconChevronRight } from '@/components/icons';
+import { IconChevronRight } from '@/components/icons';
 
 function reasonsOf(t: (k: string) => string, s: ProjectSummary) {
   const reasons: string[] = [];
@@ -24,33 +24,26 @@ export function Watchlist({ items }: { items: ProjectSummary[] }) {
       <CardHeader title={t('overview.watchlist')} subtitle={t('watchlist.reason')} />
       <CardBody>
         {items.length === 0 ? (
-          <p className="py-4 text-center text-sm text-slate-400">{t('overview.noAlerts')}</p>
+          <p className="empty">{t('overview.noAlerts')}</p>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <div className="flex flex-col gap-2.5">
             {items.map((s) => (
-              <li key={s.id}>
-                <Link
-                  href={`/projects/${s.id}`}
-                  className="group flex items-center gap-3 px-1 py-3 transition-colors hover:bg-slate-50"
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-600">
-                    <IconAlert size={16} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-navy-900">{s.projectName}</div>
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {reasonsOf(t, s).map((r) => (
-                        <Badge key={r} tone="warn">
-                          {r}
-                        </Badge>
-                      ))}
-                    </div>
+              <Link key={s.id} href={`/projects/${s.id}`} className="alert">
+                <span className="dot" style={{ background: 'var(--danger)' }} />
+                <div className="min-w-0 flex-1">
+                  <h4>{s.projectName}</h4>
+                  <div className="mt">
+                    {reasonsOf(t, s).map((r) => (
+                      <Badge key={r} tone="warn">
+                        {r}
+                      </Badge>
+                    ))}
                   </div>
-                  <IconChevronRight size={18} className="shrink-0 text-slate-300 group-hover:text-navy-500" />
-                </Link>
-              </li>
+                </div>
+                <IconChevronRight size={18} className="shrink-0 text-label3" />
+              </Link>
             ))}
-          </ul>
+          </div>
         )}
       </CardBody>
     </Card>

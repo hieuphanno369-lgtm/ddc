@@ -265,6 +265,33 @@
   .kpi .sb .delta.down { color: var(--danger); }
   .kpi.key .sb .delta.up,
   .kpi.key .sb .delta.down { color: #fff; }
+
+  /* --- Task 5: Bang du lieu (mockup-apple-glass.html dong 362-370, copy nguyen van) --- */
+  .tbl{width:100%;border-collapse:collapse;font-size:var(--t-caption1)}
+  .tbl th{text-align:left;font-size:10px;font-weight:750;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--label3);padding:8px 9px;border-bottom:.5px solid var(--sep);white-space:nowrap}
+  .tbl td{padding:9px;border-bottom:.5px solid var(--sep);white-space:nowrap}
+  .tbl tbody tr:last-child td{border-bottom:none}
+  .tbl tbody tr{transition:background var(--dur-fast) var(--ease-std)}
+  .tbl tbody tr:hover{background:var(--fill)}
+  .tbl .num{text-align:right}
+  .scroll{overflow-x:auto}
+
+  /* Bang co header dinh khi cuon doc (Audit log, danh muc dim) */
+  .tbl.sticky thead th {
+    position: sticky; top: 0; z-index: 2;
+    background: var(--glass-3);
+    -webkit-backdrop-filter: blur(var(--mat-thick));
+    backdrop-filter: blur(var(--mat-thick));
+  }
+  /* O trong - mock-up khong ve nhung app can */
+  .tbl .empty {
+    padding: 40px 12px; text-align: center;
+    color: var(--label3); font-size: var(--t-footnote);
+  }
+  /* Hang co the bam sang trang khac */
+  .tbl a { color: inherit; text-decoration: none; }
+  .tbl a:hover { color: var(--accent); }
 }
 
 /* --- Thanh cuon --- */

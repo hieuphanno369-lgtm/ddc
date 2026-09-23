@@ -7,6 +7,7 @@ import type { ProjectSummary } from '@/server/queries';
 import { typeKey } from '@/lib/labels';
 import { formatPct, formatRatio, formatTyd } from '@/lib/format';
 import { OnTrackBadge, PriorityBadge, StatusBadge } from '@/components/ui/Badges';
+import { Badge } from '@/components/ui/Badge';
 import { IconChevronRight } from '@/components/icons';
 
 interface Props {
@@ -32,18 +33,19 @@ export function ProjectTable({ items, total, page, totalPages }: Props) {
   }
 
   return (
-    <div className="card">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-4">
-        <h3 className="text-sm font-semibold text-navy-900">
+    <div className="card overflow-visible">
+      <div className="hd">
+        <h3>
           {t('overview.projectList')}
-          <span className="ml-2 text-xs font-normal text-slate-400">
+          <span className="en">
             {total} {t('common.project').toLowerCase()}
           </span>
         </h3>
         <select
           value={searchParams.get('sort') ?? 'priority'}
           onChange={(e) => update('sort', e.target.value)}
-          className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-navy-800 focus:outline-none"
+          className="inp"
+          style={{ width: 'auto', padding: '5px 10px' }}
         >
           <option value="priority">Priority</option>
           <option value="value">{t('common.value')}</option>
@@ -54,60 +56,58 @@ export function ProjectTable({ items, total, page, totalPages }: Props) {
       </div>
 
       {/* Table */}
-      <div className="mt-2 overflow-x-auto">
-        <table className="w-full min-w-[980px] text-sm table-zebra">
+      <div className="bd scroll">
+        <table className="tbl" style={{ minWidth: 980 }}>
           <thead>
-            <tr className="border-y border-slate-100 bg-slate-50/60 text-left text-xs uppercase tracking-wide text-slate-500">
-              <th className="px-4 py-2.5 font-medium">Mã DA</th>
-              <th className="px-4 py-2.5 font-medium">{t('form.projectName')}</th>
-              <th className="px-4 py-2.5 font-medium">{t('common.customer')}</th>
-              <th className="px-4 py-2.5 font-medium">{t('common.team')}</th>
-              <th className="px-4 py-2.5 font-medium">{t('common.type')}</th>
-              <th className="px-4 py-2.5 font-medium">{t('common.priority')}</th>
-              <th className="px-4 py-2.5 font-medium">{t('common.status')}</th>
-              <th className="px-4 py-2.5 font-medium">{t('onTrack.onTrack')}</th>
-              <th className="px-4 py-2.5 text-right font-medium">% TT</th>
-              <th className="px-4 py-2.5 text-right font-medium">SPI</th>
-              <th className="px-4 py-2.5 text-right font-medium">CPI</th>
-              <th className="px-4 py-2.5 text-right font-medium">{t('metric.contractValue')}</th>
-              <th className="px-2 py-2.5" />
+            <tr>
+              <th>Mã DA</th>
+              <th>{t('form.projectName')}</th>
+              <th>{t('common.customer')}</th>
+              <th>{t('common.team')}</th>
+              <th>{t('common.type')}</th>
+              <th>{t('common.priority')}</th>
+              <th>{t('common.status')}</th>
+              <th>{t('onTrack.onTrack')}</th>
+              <th className="num">% TT</th>
+              <th className="num">SPI</th>
+              <th className="num">CPI</th>
+              <th className="num">{t('metric.contractValue')}</th>
+              <th />
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {items.map((s) => (
-              <tr key={s.id} className="group">
-                <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{s.currentAliasCode}</td>
-                <td className="px-4 py-2.5">
-                  <Link href={`/projects/${s.id}`} className="font-medium text-navy-900 hover:text-accent">
-                    {s.projectName}
-                  </Link>
+              <tr key={s.id}>
+                <td className="mono">{s.currentAliasCode}</td>
+                <td style={{ whiteSpace: 'normal', maxWidth: 260, fontWeight: 600 }}>
+                  <Link href={`/projects/${s.id}`}>{s.projectName}</Link>
                 </td>
-                <td className="px-4 py-2.5 text-slate-600">{s.customerName}</td>
-                <td className="px-4 py-2.5 text-slate-600">{s.teamName}</td>
-                <td className="px-4 py-2.5 text-slate-600">{t(typeKey[s.projectType])}</td>
-                <td className="px-4 py-2.5">
+                <td>{s.customerName}</td>
+                <td>{s.teamName}</td>
+                <td>{t(typeKey[s.projectType])}</td>
+                <td>
                   <PriorityBadge priority={s.priority} />
                 </td>
-                <td className="px-4 py-2.5">
+                <td>
                   <StatusBadge status={s.status} />
                 </td>
-                <td className="px-4 py-2.5">
+                <td>
                   <OnTrackBadge onTrack={s.onTrack} status={s.status} />
                 </td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">{formatPct(s.pctActual, locale)}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums">
-                  <span className={s.spi != null && s.spi < 0.9 ? 'font-medium text-amber-600' : 'text-slate-700'}>
+                <td className="num">{formatPct(s.pctActual, locale)}</td>
+                <td className="num">
+                  <Badge tone={s.spi != null && s.spi < 0.9 ? 'danger' : s.spi != null && s.spi < 1 ? 'warn' : 'ok'}>
                     {formatRatio(s.spi)}
-                  </span>
+                  </Badge>
                 </td>
-                <td className="px-4 py-2.5 text-right tabular-nums">
-                  <span className={s.cpi != null && s.cpi < 0.9 ? 'font-medium text-amber-600' : 'text-slate-700'}>
+                <td className="num">
+                  <Badge tone={s.cpi != null && s.cpi < 0.9 ? 'danger' : s.cpi != null && s.cpi < 1 ? 'warn' : 'ok'}>
                     {formatRatio(s.cpi)}
-                  </span>
+                  </Badge>
                 </td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">{formatTyd(s.contractValue, locale)}</td>
-                <td className="px-2 py-2.5">
-                  <Link href={`/projects/${s.id}`} className="text-slate-300 hover:text-navy-500">
+                <td className="num">{formatTyd(s.contractValue, locale)}</td>
+                <td>
+                  <Link href={`/projects/${s.id}`} className="text-label3">
                     <IconChevronRight size={18} />
                   </Link>
                 </td>
@@ -115,7 +115,7 @@ export function ProjectTable({ items, total, page, totalPages }: Props) {
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={13} className="px-4 py-10 text-center text-sm text-slate-400">
+                <td colSpan={13} className="empty">
                   {t('common.noData')}
                 </td>
               </tr>
@@ -125,11 +125,12 @@ export function ProjectTable({ items, total, page, totalPages }: Props) {
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-5 py-3 text-sm text-slate-600">
+      <div className="flex items-center justify-end gap-2 border-t border-sep px-4 py-3 text-caption1 text-label2">
         <button
           disabled={page <= 1}
           onClick={() => update('page', String(page - 1))}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium disabled:opacity-40"
+          className="btn ghost disabled:opacity-40"
+          style={{ padding: '5px 12px', fontSize: 'var(--t-caption1)' }}
         >
           ←
         </button>
@@ -139,7 +140,8 @@ export function ProjectTable({ items, total, page, totalPages }: Props) {
         <button
           disabled={page >= totalPages}
           onClick={() => update('page', String(page + 1))}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium disabled:opacity-40"
+          className="btn ghost disabled:opacity-40"
+          style={{ padding: '5px 12px', fontSize: 'var(--t-caption1)' }}
         >
           →
         </button>
