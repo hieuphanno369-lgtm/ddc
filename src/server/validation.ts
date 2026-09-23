@@ -1,12 +1,18 @@
 import { z } from 'zod';
 import { THRESHOLDS } from '@/lib/thresholds';
+import { isValidYearMonth } from '@/lib/clock';
 
 /**
  * Zod schema validate input mọi server action (spec §7.5 - không tin client).
  * Ngưỡng % dùng THRESHOLDS.pctInputMax - 1 chỗ, khớp form validate.
  */
 
-const yearMonth = z.string().regex(/^\d{4}-\d{2}$/, 'yearMonth phải dạng YYYY-MM');
+// N-7 (danh-gia.md, vòng 2): trước đây regex ở ĐÂY (đường GHI) chỉ check format (\d{2} chấp nhận
+// cả '00'/'99'), lỏng hơn isValidYearMonth() ở clock.ts (đường ĐỌC, đã validate cả tháng 01-12
+// lẫn miền năm 1900-2999 từ N-3). '2026-99' từng lọt qua đây, ghi 1 dòng vĩnh viễn vào bảng
+// append-only ở tháng không dropdown nào chọn được. Dùng CHUNG isValidYearMonth() - một nguồn
+// định nghĩa duy nhất cho cả đọc lẫn ghi, thay vì tự định nghĩa lại regex ở đây.
+const yearMonth = z.string().refine(isValidYearMonth, 'yearMonth phải dạng YYYY-MM hợp lệ (tháng 01-12)');
 const pct = z.number().min(0).max(THRESHOLDS.pctInputMax);
 const nonNegative = z.number().min(0);
 const nullableDate = z.string().nullable().optional();

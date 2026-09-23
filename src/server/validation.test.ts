@@ -43,6 +43,13 @@ describe('addPhotoSchema (Mục 6)', () => {
     expect(addPhotoSchema.safeParse({ ...ok, yearMonth: ym }).success).toBe(false);
   });
 
+  // N-7 (danh-gia.md, vòng 2): '2026-00'/'2026-99' KHỚP regex cũ /^\d{4}-\d{2}$/ (chỉ check
+  // 2 chữ số bất kỳ, không check tháng 01-12 thật) - từng lọt qua đây, ghi 1 dòng vĩnh viễn vào
+  // bảng append-only ở tháng không dropdown nào chọn được. Nay dùng chung isValidYearMonth().
+  it.each(['2026-00', '2026-99', '9999-12'])('N-7: chặn yearMonth ĐÚNG format 2 chữ số nhưng SAI miền giá trị: %s', (ym) => {
+    expect(addPhotoSchema.safeParse({ ...ok, yearMonth: ym }).success).toBe(false);
+  });
+
   it('chặn caption dài quá 200 ký tự', () => {
     expect(addPhotoSchema.safeParse({ ...ok, caption: 'a'.repeat(200) }).success).toBe(true);
     expect(addPhotoSchema.safeParse({ ...ok, caption: 'a'.repeat(201) }).success).toBe(false);
