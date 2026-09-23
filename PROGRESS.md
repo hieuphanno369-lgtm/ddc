@@ -21,14 +21,38 @@ hết 2/2). Commit code cuối trước merge: `1e34b26` (B-1..B-5). Chuỗi vá
    - `.cdpanel` "Còn lại đến ngày HT kế hoạch" (đếm ngược) + `.tl` "Timeline kế hoạch vs thực tế"
      (vạch "Hôm nay") — mock-up dòng 636-663. Bị loại theo **Q8 mặc định (a)**, chủ dự án chưa từng
      trả lời Q8. Plan dòng 2033 đã ghi sẵn cách làm nếu chọn (b)/(c), dữ liệu có sẵn, không cần query mới.
-   - 3 tag "Trọng tâm" (%TT, SPI, CPI) — app chỉ 1 tag theo **Q7 mặc định**.
+   - 3 tag "Trọng tâm" (%TT, SPI, CPI) — app chỉ 1 tag theo **Q7 mặc định** (gắn ở SPI qua
+     `hero heroTagLabel={t('kpi.focusTag')}`, `app/[locale]/(app)/projects/[id]/page.tsx:134`; %TT/CPI không có).
    - **Khối "Tracking huy động theo tuần — 7 ngày gần nhất"** (3 tab: Nhật ký theo ngày / Ma trận nhân
-     lực / Theo thiết bị, mock-up dòng 770-787) — **plan KHÔNG hề nhắc tới**, app không có. Đây là
-     tính năng dữ liệu (nhà thầu × thiết bị, nhiều-nhiều theo ngày), vượt Constraint #1 "thuần giao
-     diện" → nếu làm phải là 1 đợt riêng (planner mới).
+     lực / Theo thiết bị, mock-up dòng 770-787) — app không có UI. **Cập nhật quan trọng (2026-09-23):**
+     data model đã CÓ SẴN từ Run 1 — `FactDailyManpower` (projectId/contractorId/workDate/
+     plannedHeadcount/actualHeadcount) + `FactDailyEquipmentUsage` (+equipmentId/qtyPlanned/qtyActual,
+     đúng quan hệ nhiều-nhiều nhà thầu×thiết bị theo ngày) + `ProjectContractor`, xem `prisma/schema.prisma`
+     dòng ~560-624. KHÔNG cần vòng data-model riêng như đánh giá lúc trước — chỉ thiếu query + component
+     UI 3 tab. Vẫn nên qua 1 vòng planner (thiết kế UI/API cho tính năng mới, không phải sửa CSS).
    - Cố ý khác, đã chốt: Q1 logo đỏ, Q5 không HUD FPS, Q6 quả cầu đứng yên.
-   **ĐÃ CHỐT (2026-09-23): merge trước** (xong, xem mục 2) — phần mock-up còn thiếu ở trên để lại
-   làm đợt riêng sau (cần planner mới vì vượt phạm vi "thuần giao diện").
+
+   **ĐÃ CHỐT (2026-09-23): làm CẢ 3 phần trên**, cộng thêm 2 phát hiện mới khi chủ dự án yêu cầu rà
+   soát rộng hơn (so `app/[locale]/(app)/projects/[id]/page.tsx` với mock-up dòng 621-788, và
+   `src/components/form/CreateProjectForm.tsx` với mock-up dòng 866-1123, 2026-09-23):
+   - **"Các mốc chính của dự án" (Key Milestones) chưa có UI ở đâu cả** — thiếu cả biểu đồ
+     `kmChart`/`msChart` ("Timeline của 7 giai đoạn") ở Chi tiết dự án, LẪN bước 4 "Các mốc chính"
+     trong form Tạo/Sửa dự án (grep `CreateProjectForm.tsx` không ra chữ "mốc"/milestone nào). Model
+     `ProjectKeyMilestone` + `FactStageMilestone` cũng ĐÃ CÓ SẴN từ Run 1 (`schema.prisma` dòng
+     ~504-537) — cùng dạng thiếu UI, không thiếu data, giống Tracking huy động.
+   - **3 chart khác của Chi tiết dự án cũng chưa có:** "Biểu đồ so sánh theo hạng mục" (`cmpChart`,
+     KH/TT theo tấn cho 1 giai đoạn) và "Nhân lực theo nhà thầu" + "Thiết bị theo nhóm" (`manChart`/
+     `eqpChart` — breakdown theo nhà thầu/nhóm thiết bị, KHÁC với `ManpowerDailyChart` hiện có ở cuối
+     trang vốn là biểu đồ trend theo ngày, không phải breakdown theo nhà thầu/nhóm).
+   - **Chưa kiểm tra hết (làm tiếp khi resume):** đối chiếu từng field còn lại của form Tạo/Sửa dự án
+     (mã gốc/mã CT tách bạch, nguyên tệ, mức ưu tiên, nhà thầu tham gia, PIC/backup, mã SAP...) với
+     mock-up dòng 866-1123 — mới xem qua, chưa soát kỹ từng ô.
+
+   **Next khi chủ dự án gõ "tiếp tục":** giao `ddc-tower:planner` viết `.bangiao/ke-hoach.md` cho
+   "Đợt 2" gồm ít nhất 6 hạng mục trên (không cần chạy scout/architect/plan-critic riêng, khảo sát ở
+   trên đã đủ) + rà soát form còn thiếu ở trên, rồi chạy `ddc-tower:ship` (coder→tester→debugger→
+   security-reviewer→reviewer) như bình thường. Việc thẩm mỹ tag vàng (mục 4 dưới) và lỗi avatar
+   (mục 5 dưới) vẫn treo riêng, không thuộc Đợt 2 này trừ khi chủ dự án nói thêm.
 4. **Chủ dự án xem qua (thẩm mỹ, không chặn):** thẻ "Trọng tâm" ở `/overview` + `/report` giờ luôn
    hiện số màu VÀNG (2 trang truyền `tone="warn"` cố định) — giữ vàng, hay đổi về trắng như mock-up.
    Backlog reviewer thêm N-7: unit test `spring()`/`riseIn()` với rAF giả.
