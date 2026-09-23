@@ -4,7 +4,7 @@
 **Run 1 — ERP data model v2 (nhánh `feature/erp-model-v2`) — dây chuyền `/ddc-tower:ship` ĐÃ CHỐT (2026-09-23, chạy tự động qua scheduled task).**
 Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. Redesign UI Apple-style + 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
-### Trạng thái dây chuyền ship — Run 1 — **PHAN QUYET CUOI CUNG: CHOT** (kỹ thuật xong hết, chỉ còn 3 quyết định nghiệp vụ B-1/B-2/B-3, xem "Next step")
+### Trạng thái dây chuyền ship — Run 1 — **PHAN QUYET CUOI CUNG: CHOT** (kỹ thuật xong hết + 3 quyết định nghiệp vụ B-1/B-2/B-3 đã chốt 2026-09-23 — không cần vá code — chỉ còn merge/PR, xem "Next step")
 Dây chuyền ship có đúng **6 agent**: planner, coder, tester, debugger, security-reviewer, reviewer.
 
 | Chặng | Trạng thái | Bàn giao |
@@ -65,35 +65,50 @@ DB dev thật (`ddc_control_tower`) đã đồng bộ checksum + áp nốt `2026
 `npx prisma migrate status` xác nhận **"Database schema is up to date!"**. Không còn việc kỹ thuật
 nào treo cho Run 1.
 
-### Ưu tiên 1 — 3 quyết định NGHIỆP VỤ cần chủ dự án chốt (KHÔNG tự vá — đổi định nghĩa KPI cho BOD)
-- **B-1/B-2:** dự án thiếu ngày kế hoạch (`plannedStartDate`/`plannedFinishDate` = null) →
-  `pctPlan = null` → `queries.ts:86` `isOnTrack(pctActual, pctPlan ?? 0)` ép về 0 → dự án đó
-  VĨNH VIỄN được coi "đúng tiến độ", không bao giờ lọt KPI `behindSchedule` lẫn watchlist. Cần
-  chốt: khi chưa biết ngày kế hoạch, `onTrack` nên trả `true` (như hiện tại), `false` (thận
-  trọng — coi thiếu kế hoạch là rủi ro), hay tách hẳn thành trạng thái thứ 3 "chưa xác định"?
-- **B-3:** `queries.ts:71` tính `pctPlan` (% Kế hoạch) neo theo `today()` (ngày THẬT hôm nay),
-  trong khi `spi`/`pctActual` của CÙNG một dòng lấy từ fact của tháng ĐANG XEM (`?month=`). Xem
-  `?month=2025-11` sẽ thấy "% KH" tính theo hôm nay (2026-09) nằm cạnh "% TT"/SPI của 11/2025 —
-  hai con số không cùng một mốc thời gian. Bản kế hoạch gốc (`ke-hoach.md:1182`) chỉ định đúng
-  `today()` nên đây có thể là CHỦ Ý (đo "vị trí kế hoạch NGAY BÂY GIỜ" bất kể đang xem tháng
-  nào) hoặc là SƠ SÓT. Cần chốt: "% Kế hoạch" hiển thị trên trang chi tiết dự án nên luôn là
-  hôm nay, hay phải đổi theo tháng đang xem (`endOfMonth(yearMonth)`) để khớp với %TT/SPI cùng
-  dòng?
+### ~~Ưu tiên 1~~ B-1/B-2/B-3 ĐÃ CHỐT (2026-09-23, chủ dự án quyết định trực tiếp) — KHÔNG cần vá code
+- **B-1/B-2:** chủ dự án xác nhận thực tế nghiệp vụ "lúc nào cũng có 2 ngày [kế hoạch] đấy" — tạo
+  dự án mới luôn biết `plannedStartDate`/`plannedFinishDate` ngay từ đầu, tình huống thiếu gần như
+  không xảy ra. Quyết định: **giữ nguyên hành vi hiện tại** — khi thiếu ngày kế hoạch, `onTrack`
+  vẫn mặc định `true` (`queries.ts:86`). Không vá code.
+- **B-3:** chủ dự án chốt **giữ "% Kế hoạch" tính theo hôm nay** (`today()`, đúng như plan gốc
+  `ke-hoach.md:1182`), không đổi theo tháng đang xem. Không vá code.
+- **Phát hiện thêm khi rà lại (LOW, không chặn merge, chưa vá):** ô "Ngày cam kết bàn giao" trên
+  form Tạo/Sửa dự án có dấu `*` (gợi ý bắt buộc) nhưng KHÔNG được validate bắt buộc ở cả client
+  (`DataEntryForm.tsx` — comment dòng ~179 "Thiếu field → cho submit, bổ sung sau") lẫn server
+  (`createProjectSchema` ở `validation.ts:88` khai `committedHandoverDate: nullableDate`) — dấu
+  `*` hiện chỉ mang tính hình thức. `plannedStartDate`/`plannedFinishDate` cũng vậy. Ghi nhận cho
+  chủ dự án, chưa vá vì chưa được yêu cầu.
+- **Việc còn lại của Run 1: merge nhánh `feature/erp-model-v2` vào `main` + mở PR** (đang chờ chủ
+  dự án xác nhận trước khi push/tạo PR — xem quy tắc xác nhận hành động).
 
-*(Đã cân nhắc tự chọn một mặc định và vá luôn, nhưng đây là định nghĩa KPI hiển thị cho BOD —
-theo đúng quy ước làm việc đã có [tự quyết nghiệp vụ], phần này để chủ dự án quyết định.)*
+### Thứ tự ưu tiên tiếp theo (chủ dự án chốt 2026-09-23)
+1. **Redesign giao diện theo `mockup-apple-glass.html`** (nhánh riêng, làm SAU khi Run 1 merge) —
+   đổi hệ thống thiết kế từ đỏ/vàng (Apple-style 2026-09-20) sang "Apple Glass" — nền xanh navy
+   (`--accent:#1d5a9e`) + kính mờ nhiều lớp, giữ vàng `#f5b301` làm màu nhấn tag "TRỌNG TÂM", đầy
+   đủ token blur/bo góc/đổ bóng/easing kiểu iOS + light/dark. Mock-up (155KB, cập nhật 22/09) đã
+   phác đủ Tổng quan, Chi tiết dự án, Nhập liệu, Cảnh báo, Báo cáo, Tạo/Sửa dự án — khối lượng
+   LỚN, đụng toàn bộ trang trong app. Chưa có trong `ke-hoach.md` Run 1 — cần lập kế hoạch riêng
+   (planner) trước khi coder chạy.
+2. **Run 2** — 5 REST endpoint `GET /api/projects/[id]/{summary,value-chain,milestones,work-items,resources}`.
+   `src/server/authz.ts` (`requireProjectRead()`, viết cho B-4) tái dùng được ngay — chỉ còn phần
+   route handler + `authzError()` (401/403 JSON) chưa viết.
 
-### Ưu tiên 2 — phần Run 1 còn thiếu (plan tuyên bố nhưng chưa Task nào triển khai)
-- 5 REST endpoint `GET /api/projects/[id]/{summary,value-chain,milestones,work-items,resources}`.
-  `src/server/authz.ts` đã có (`requireProjectRead()`, viết cho B-4) và tái dùng được ngay cho
-  các endpoint này khi triển khai — chỉ còn phần route handler + `authzError()` (401/403 JSON)
-  chưa viết. **Chủ dự án cần quyết định có làm chunk tiếp theo cho Run 2 không.**
-
-### Ưu tiên 3 — nợ cũ (trước Run 1, chưa đụng tới)
+### Nợ cũ (trước Run 1, ưu tiên thấp hơn 2 việc trên trừ khi chủ dự án đổi ý)
 - **Vá HIGH `/api/export`** (thêm auth) + 4 LOW (closeAlert validate, rate-limit, getUserRoles).
 - **Thêm flow reset/forgot password** (pre-prod blocker).
 - Apply RLS + bật Google OAuth + deploy Supabase/Vercel + go-live reset.
 - Smoke UI bằng Playwright (redesign + 4 trang mới) — cần restart Claude Code để MCP nạp tool.
 - Điều tra MCP không tới subagent.
 
-> Cập nhật: 2026-09-23 (dây chuyền ship Run 1 đã CHỐT qua scheduled task; vá tuần tự N-2→N-8 + B-4, B-5 trong phiên tương tác; N-1 chủ dự án đã tự chạy xong (`prisma migrate status` → up to date). Toàn bộ phần KỸ THUẬT của Run 1 đã xong. Còn lại DUY NHẤT: B-1/B-2/B-3 cần chủ dự án chốt nghiệp vụ (xem "Next step" Ưu tiên 1) trước khi merge/push/PR — chưa làm gì trong 3 việc đó)
+### Ghi chú vận hành (2026-09-23, không phải bug code)
+Dev server cổng 3000 (chủ dự án tự chạy `npm run dev` ở terminal ngoài phiên này) đang bị kẹt ở
+trang đăng nhập — chunk `/_next/static/chunks/app/%5Blocale%5D/login/page.js` trả 404 liên tục,
+đăng nhập không vào được. Nhiều khả năng do dev server chạy lâu qua nhiều lần sửa file chưa được
+restart. Chưa tự ý tắt/khởi động lại vì đó là process chủ dự án đang chạy tay — chủ dự án restart
+`npm run dev` nếu cần soi giao diện thật.
+
+> Cập nhật: 2026-09-23 (dây chuyền ship Run 1 CHỐT qua scheduled task; vá tuần tự N-2→N-8 + B-4,
+> B-5; N-1 chủ dự án tự chạy xong; B-1/B-2/B-3 chủ dự án chốt trực tiếp trong phiên — cả 3 đều
+> GIỮ NGUYÊN, không cần vá code). **Run 1 kỹ thuật + nghiệp vụ đã xong 100%, chỉ còn merge/PR.**
+> Thứ tự việc tiếp theo đã chốt: Run 1 merge → Redesign giao diện theo mock-up (nhánh riêng) →
+> Run 2 (5 endpoint).
