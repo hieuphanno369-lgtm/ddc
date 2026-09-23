@@ -4,10 +4,13 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import type { Currency, CurrencyCode, Customer, Market, Priority, ProjectType, TeamKd } from '@/server/repo/types';
+import type { IsoDate } from '@/lib/clock';
 import { marketKey, typeKey } from '@/lib/labels';
 import { fmtNum, toTitleCase } from '@/lib/format';
+import { normalizeKeyMilestones, validateKeyMilestones, type KeyMilestoneDraft, type KeyMsErrors } from '@/lib/key-milestones';
 import { createDimValueAction, createProjectAction } from '@/server/actions';
 import { Combobox } from './Combobox';
+import { KeyMilestoneEditor } from './KeyMilestoneEditor';
 import { IconPlus } from '@/components/icons';
 
 const TYPES: ProjectType[] = ['EPC', 'San_van_dong', 'San_bay', 'Nha_xuong', 'Cau_cang', 'Cao_tang', 'Dong_tau', 'Cau_giao_thong', 'Khac'];
@@ -20,10 +23,12 @@ export function CreateProjectForm({
   customers,
   teams,
   currencies,
+  today,
 }: {
   customers: Customer[];
   teams: TeamKd[];
   currencies: Currency[];
+  today: IsoDate;
 }) {
   const t = useTranslations();
   const router = useRouter();
@@ -32,6 +37,8 @@ export function CreateProjectForm({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [msRows, setMsRows] = useState<KeyMilestoneDraft[]>([]);
+  const [msErrors, setMsErrors] = useState<KeyMsErrors>({});
   const [form, setForm] = useState({
     projectName: '',
     customerId: '',
@@ -61,6 +68,9 @@ export function CreateProjectForm({
       setErr(t('form.validation.missing') + ': ' + missing.join(', '));
       return false;
     }
+    const ms = validateKeyMilestones(msRows);
+    setMsErrors(ms.errors);
+    if (!ms.ok) { setErr(t('form.keyMs.invalid')); return false; }
     setErr(null);
     return true;
   }
@@ -79,6 +89,7 @@ export function CreateProjectForm({
         contractValue: Number(form.contractValue),
         tonnage: form.tonnage ? Number(form.tonnage) : undefined,
         currencyCode: form.currencyCode as CurrencyCode,
+        keyMilestones: msRows.length ? normalizeKeyMilestones(msRows) : undefined,
       });
       if (res.ok && res.id) {
         setSaved(true);
@@ -93,6 +104,8 @@ export function CreateProjectForm({
           tonnage: '',
           currencyCode: 'VND',
         });
+        setMsRows([]);
+        setMsErrors({});
         setErr(null);
         const params = new URLSearchParams(searchParams.toString());
         params.set('project', String(res.id));
@@ -194,6 +207,10 @@ export function CreateProjectForm({
             <Field label={`${t('common.tonnage')} (${t('common.ton')})`}>
               <input type="number" step="0.1" value={fmtNum(form.tonnage)} onChange={(e) => set('tonnage', e.target.value)} className={inputCls} />
             </Field>
+
+            <div style={{ gridColumn: '1 / -1' }}>
+              <KeyMilestoneEditor id="key-milestones-new" value={msRows} onChange={setMsRows} today={today} errors={msErrors} />
+            </div>
 
             {err && <p className="sumbar bad" style={{ gridColumn: '1 / -1' }}>{err}</p>}
             {saved && <p className="sumbar good" style={{ gridColumn: '1 / -1' }}>{t('form.savedProject')}</p>}

@@ -359,6 +359,34 @@
       "committedRequired": "Committed handover date is required when status is In Progress",
       "codeReadonly": "Project code cannot be edited directly",
       "missing": "Missing required field"
+    },
+    "keyMs": {
+      "title": "Key milestones",
+      "titleEn": "Key Milestones of the Project",
+      "subtitle": "Dynamic list - each project has its own milestones",
+      "intro": "This set is <b>not fixed</b>. Add project-specific milestones (Lifting Zone, Closure, Site clearance...) and remove unused ones - the <b>Key milestones</b> chart in Project detail updates immediately.",
+      "count": "<b>{count}</b> milestones · <b>{done}</b> achieved",
+      "colName": "Milestone",
+      "colPlanned": "Planned date",
+      "colActual": "Actual date",
+      "colStatus": "Status",
+      "add": "+ Add milestone",
+      "suggestLabel": "Quick picks:",
+      "newName": "New milestone {n}",
+      "remove": "Remove milestone",
+      "naming": "Name milestones as <b>noun + state</b> (e.g. \"Closure completed\") and avoid department-specific abbreviations - these appear in executive reports.",
+      "invalid": "Key milestones: name and planned date are required and dates must be valid",
+      "saveError": "Profile saved but key milestones could not be saved",
+      "limit": "Up to {n} milestones",
+      "suggest": {
+        "s1": "Lifting Zone 2 date",
+        "s2": "Foundation completed",
+        "s3": "Roof erection completed",
+        "s4": "Commissioning",
+        "s5": "Fire safety acceptance",
+        "s6": "Temporary handover",
+        "s7": "Main structure completed"
+      }
     }
   },
   "admin": {

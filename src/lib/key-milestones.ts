@@ -1,4 +1,5 @@
-import { daysBetween, type IsoDate } from '@/lib/clock';
+import { daysBetween, isValidIsoDate, type IsoDate } from '@/lib/clock';
+import type { KeyMilestoneInput, ProjectKeyMilestone } from '@/server/repo/types';
 
 export const KEY_MS_NAME_MAX = 160;
 /** Chặn payload phình (DoS) - mock-up không giới hạn, 50 mốc/dự án là quá đủ. */
@@ -55,4 +56,41 @@ export function keyMsDomain(dates: IsoDate[], today: IsoDate): { lo: number; hi:
   const hi = Math.max(...ms);
   const pad = (hi - lo) * 0.06 || 14 * 86_400_000;
   return { lo: lo - pad, hi: hi + pad };
+}
+
+export type KeyMilestoneDraft = KeyMilestoneInput;
+export type KeyMsField = 'name' | 'plannedDate' | 'actualDate';
+export type KeyMsErrors = Record<number, KeyMsField[]>;
+
+/** Validate phía client - cùng luật với keyMilestoneRowSchema (validation.ts). */
+export function validateKeyMilestones(rows: KeyMilestoneDraft[]): { ok: boolean; errors: KeyMsErrors } {
+  const errors: KeyMsErrors = {};
+  rows.forEach((r, i) => {
+    const bad: KeyMsField[] = [];
+    const name = r.name.trim();
+    if (!name || name.length > KEY_MS_NAME_MAX) bad.push('name');
+    if (!isValidIsoDate(r.plannedDate)) bad.push('plannedDate');
+    if (r.actualDate && !isValidIsoDate(r.actualDate)) bad.push('actualDate');
+    if (bad.length) errors[i] = bad;
+  });
+  return { ok: Object.keys(errors).length === 0 && rows.length <= KEY_MS_MAX_ROWS, errors };
+}
+export function normalizeKeyMilestones(rows: KeyMilestoneDraft[]): KeyMilestoneDraft[] {
+  return rows.map((r) => ({ name: r.name.trim(), plannedDate: r.plannedDate, actualDate: r.actualDate ? r.actualDate : null }));
+}
+export function toKeyMilestoneDraft(m: ProjectKeyMilestone): KeyMilestoneDraft {
+  return { name: m.name, plannedDate: m.plannedDate ?? '', actualDate: m.actualDate };
+}
+export function addKeyMilestone(rows: KeyMilestoneDraft[], name: string, today: string): KeyMilestoneDraft[] {
+  return rows.length >= KEY_MS_MAX_ROWS ? rows : [...rows, { name, plannedDate: today, actualDate: null }];
+}
+export function removeKeyMilestone(rows: KeyMilestoneDraft[], index: number): KeyMilestoneDraft[] {
+  return rows.filter((_, i) => i !== index);
+}
+export function updateKeyMilestone(rows: KeyMilestoneDraft[], index: number, patch: Partial<KeyMilestoneDraft>): KeyMilestoneDraft[] {
+  return rows.map((r, i) => (i === index ? { ...r, ...patch } : r));
+}
+/** Gợi ý nhanh chưa có trong danh sách (khớp tên y hệt), tối đa `limit` (mock-up dòng 2226-2228). */
+export function keyMsSuggestions(rows: KeyMilestoneDraft[], all: string[], limit = 4): string[] {
+  return all.filter((s) => !rows.some((r) => r.name === s)).slice(0, limit);
 }

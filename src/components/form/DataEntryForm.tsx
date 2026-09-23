@@ -14,6 +14,7 @@ import type {
   Priority,
   Project,
   ProjectAlias,
+  ProjectKeyMilestone,
   ProjectPhoto,
   ProjectSapCode,
   ProjectType,
@@ -21,18 +22,22 @@ import type {
   TeamKd,
   ValueChainProgress,
 } from '@/server/repo/types';
+import type { IsoDate } from '@/lib/clock';
 import { marketKey, stageKey, typeKey } from '@/lib/labels';
 import { computeEvm } from '@/lib/evm';
 import { STAGE_ORDER, calcChainPctActual, findCurrentStage, normPct } from '@/lib/stages';
 import { THRESHOLDS } from '@/lib/thresholds';
 import { fmtNum, formatPct, formatRatio, toTitleCase } from '@/lib/format';
-import { addPhotoAction, addSapCodeAction, closeAlertAction, createDimValueAction, deletePhotoAction, lockMonthAction, saveMonthlyData } from '@/server/actions';
+import { normalizeKeyMilestones, toKeyMilestoneDraft, validateKeyMilestones, type KeyMilestoneDraft, type KeyMsErrors } from '@/lib/key-milestones';
+import { addPhotoAction, addSapCodeAction, closeAlertAction, createDimValueAction, deletePhotoAction, lockMonthAction, saveKeyMilestonesAction, saveMonthlyData } from '@/server/actions';
 import { Combobox } from './Combobox';
+import { KeyMilestoneEditor } from './KeyMilestoneEditor';
 import { Badge, Dot } from '@/components/ui/Badge';
 import { StatusBadge } from '@/components/ui/Badges';
 import { IconProject } from '@/components/icons';
 
-type Step = 'progress' | 'finance' | 'profile' | 'extras';
+export type DataEntryStep = 'progress' | 'finance' | 'profile' | 'extras';
+type Step = DataEntryStep;
 
 const TYPES: ProjectType[] = ['EPC', 'San_van_dong', 'San_bay', 'Nha_xuong', 'Cau_cang', 'Cao_tang', 'Dong_tau', 'Cau_giao_thong', 'Khac'];
 const PRIORITIES: Priority[] = ['P0', 'P1', 'P2', 'P3'];
@@ -56,6 +61,9 @@ interface Props {
   customers: Customer[];
   teams: TeamKd[];
   currencies: Currency[];
+  keyMilestones: ProjectKeyMilestone[];
+  today: IsoDate;
+  initialStep?: DataEntryStep;
 }
 
 interface FormState {
@@ -106,15 +114,22 @@ export function DataEntryForm({
   customers,
   teams,
   currencies,
+  keyMilestones,
+  today,
+  initialStep,
 }: Props) {
   const t = useTranslations();
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [step, setStep] = useState<Step>('progress');
+  const [step, setStep] = useState<Step>(initialStep ?? 'progress');
   const [form, setForm] = useState<FormState>(() => loadDraft(projectId, month, project, fact, financial, chain));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
+  const [msRows, setMsRows] = useState<KeyMilestoneDraft[]>(() => keyMilestones.map(toKeyMilestoneDraft));
+  const [msDirty, setMsDirty] = useState(false);
+  const [msErrors, setMsErrors] = useState<KeyMsErrors>({});
+  const [msSaveErr, setMsSaveErr] = useState<string | null>(null);
   // Chỉ gửi `chain` khi user thực sự sửa tiến độ - tránh derive pctActual=0 ghi đè tháng import.
   const [chainDirty, setChainDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -176,8 +191,15 @@ export function DataEntryForm({
       e.committedHandoverDate = t('form.validation.committedRequired');
     }
     setErrors(e);
+    let msOk = true;
+    if (msDirty) {
+      const r = validateKeyMilestones(msRows);
+      setMsErrors(r.errors);
+      msOk = r.ok;
+      if (!r.ok) setStep('profile');
+    }
     // Chỉ chặn khi nhập SAI (vượt range %). Thiếu field → cho submit, bổ sung sau.
-    return !e.pctPlan && !STAGE_ORDER.some((s) => e['stagePct.' + s]);
+    return msOk && !e.pctPlan && !STAGE_ORDER.some((s) => e['stagePct.' + s]);
   }
 
   async function submit() {
@@ -213,6 +235,10 @@ export function DataEntryForm({
       });
       if (res.ok) {
         localStorage.removeItem(`ddc_draft_${projectId}_${month}`);
+        if (msDirty) {
+          const ms = await saveKeyMilestonesAction(projectId, normalizeKeyMilestones(msRows));
+          if (ms.ok) { setMsDirty(false); setMsSaveErr(null); } else setMsSaveErr(t('form.keyMs.saveError'));
+        }
         router.refresh();
         setSaved(true);
       }
@@ -341,6 +367,7 @@ export function DataEntryForm({
       <div className={`card overflow-visible ${locked ? 'pointer-events-none opacity-60' : ''}`}>
         <div className="bd">
         {step === 'profile' && (
+          <>
           <div className="f2">
             <Field label={t('form.projectCode')}>
               <input value={project.currentAliasCode} disabled className="inp ro" />
@@ -455,6 +482,11 @@ export function DataEntryForm({
               </label>
             </div>
           </div>
+            <KeyMilestoneEditor id="key-milestones" value={msRows} today={today} errors={msErrors}
+              onChange={(rows) => { setMsRows(rows); setMsDirty(true); setSaved(false); }} />
+            {Object.keys(msErrors).length > 0 && <p className="sumbar bad" style={{ marginTop: 10 }}>{t('form.keyMs.invalid')}</p>}
+            {msSaveErr && <p className="sumbar bad" style={{ marginTop: 10 }}>{msSaveErr}</p>}
+          </>
         )}
 
         {step === 'progress' && (

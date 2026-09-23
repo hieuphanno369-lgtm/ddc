@@ -359,6 +359,34 @@
       "committedRequired": "Ngày cam kết bàn giao là bắt buộc khi trạng thái Đang triển khai",
       "codeReadonly": "Mã dự án không được sửa trực tiếp",
       "missing": "Thiếu trường bắt buộc"
+    },
+    "keyMs": {
+      "title": "Các mốc chính của dự án",
+      "titleEn": "Key Milestones of the Project",
+      "subtitle": "Danh sách động - mỗi dự án một bộ mốc riêng",
+      "intro": "Bộ mốc này <b>không cố định</b>. Thêm mốc đặc thù của dự án (Lifting Zone, Hợp long, Thanh thải...), xoá mốc không dùng - biểu đồ <b>Các mốc chính</b> ở Chi tiết dự án đổi theo ngay.",
+      "count": "<b>{count}</b> mốc · <b>{done}</b> đã đạt",
+      "colName": "Tên mốc",
+      "colPlanned": "Ngày kế hoạch",
+      "colActual": "Ngày thực tế",
+      "colStatus": "Trạng thái",
+      "add": "+ Thêm mốc mới",
+      "suggestLabel": "Gợi ý nhanh:",
+      "newName": "Mốc mới {n}",
+      "remove": "Xoá mốc",
+      "naming": "Tên mốc nên là <b>danh từ + trạng thái</b> (ví dụ \"Ngày HT Hợp Long\"), tránh viết tắt riêng của một phòng ban vì mốc này hiển thị trên báo cáo ban điều hành.",
+      "invalid": "Các mốc chính: tên mốc và ngày kế hoạch là bắt buộc, ngày phải hợp lệ",
+      "saveError": "Đã lưu hồ sơ nhưng chưa lưu được các mốc chính",
+      "limit": "Tối đa {n} mốc",
+      "suggest": {
+        "s1": "Ngày Lifting Zone 2",
+        "s2": "Ngày HT móng",
+        "s3": "Ngày HT lắp dựng mái",
+        "s4": "Ngày chạy thử",
+        "s5": "Ngày nghiệm thu PCCC",
+        "s6": "Ngày bàn giao tạm",
+        "s7": "Ngày HT kết cấu chính"
+      }
     }
   },
   "admin": {

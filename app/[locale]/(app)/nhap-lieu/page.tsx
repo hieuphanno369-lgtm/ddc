@@ -1,9 +1,11 @@
 import { getTranslations } from 'next-intl/server';
 import { repo } from '@/server/repo';
-import { currentMonth, historyMonths } from '@/lib/clock';
+import { currentMonth, historyMonths, todayIso } from '@/lib/clock';
 import { getCurrentUser } from '@/lib/session';
-import { DataEntryForm } from '@/components/form/DataEntryForm';
+import { DataEntryForm, type DataEntryStep } from '@/components/form/DataEntryForm';
 import { CreateProjectForm } from '@/components/form/CreateProjectForm';
+
+const STEPS: DataEntryStep[] = ['progress', 'finance', 'profile', 'extras'];
 
 export default async function NhapLieuPage({
   searchParams,
@@ -42,12 +44,16 @@ export default async function NhapLieuPage({
   const sapCodes = project ? await repo.getSapCodes(project.id) : [];
   const photos = project ? await repo.getPhotos(project.id) : [];
   const locked = await repo.isMonthLocked(month);
+  const keyMilestones = project ? await repo.getKeyMilestones(project.id) : [];
+  const today = todayIso();
+  const initialStep = typeof searchParams.step === 'string' && (STEPS as string[]).includes(searchParams.step)
+    ? (searchParams.step as DataEntryStep) : undefined;
 
   return (
     <div className="mx-auto w-full max-w-5xl">
       <section className="mb-5">
         <div className="sect"><b>{t('form.sectionNew')}</b><i /></div>
-        <CreateProjectForm customers={dims.customers} teams={dims.teams} currencies={dims.currencies} />
+        <CreateProjectForm customers={dims.customers} teams={dims.teams} currencies={dims.currencies} today={today} />
       </section>
 
       <section>
@@ -74,6 +80,9 @@ export default async function NhapLieuPage({
             customers={dims.customers}
             teams={dims.teams}
             currencies={dims.currencies}
+            keyMilestones={keyMilestones}
+            today={today}
+            initialStep={initialStep}
           />
         )}
       </section>
