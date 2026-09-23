@@ -3,18 +3,51 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
-### ⚠️ NẾU PHIÊN NÀY BỊ ĐỨT GIỮA CHỪNG (chạm ngưỡng usage) — ĐỌC TRƯỚC KHI LÀM GÌ KHÁC
-1. Đọc `.bangiao/checkpoint.md` nếu có, rồi đọc hết mục này.
-2. Chạy `git log --oneline feature/apple-glass-redesign` — đếm commit prefix `style(glass):` để
-   biết đã xong Task mấy trong 12 Task (đối chiếu bảng "Trạng thái 12 Task" bên dưới).
-3. **KHÔNG chạy lại planner.** `.bangiao/ke-hoach.md` đã hoàn chỉnh, cả 8 câu hỏi Q1-Q8 đã có dòng
-   "QUYẾT ĐỊNH"/"MẶC ĐỊNH ĐANG ÁP DỤNG" ngay trong file (mục "CÂU HỎI CÒN BỎ NGỎ — ĐÃ CHỦ DỰ ÁN
-   CHỐT") — không cần hỏi lại chủ dự án các câu đó.
-4. **KHÔNG chạy lại coder từ Task 1.** Giao lại cho coder đúng câu: *"Đọc `.bangiao/ke-hoach.md`,
-   xem `git log feature/apple-glass-redesign` để biết đã xong Task nào (commit prefix
-   `style(glass):`), tiếp tục đúng từ Task kế tiếp — không làm lại Task đã commit."*
-5. Nếu coder đang dở 1 Task chưa commit lúc đứt phiên, đọc `.bangiao/thay-doi.md` xem có ghi chú
-   dở dang không trước khi tiếp tục Task đó.
+### ⚠️ RESUME SAU KHI ĐỔI ACCOUNT (ghi 2026-09-23, phiên dừng vì gần limit) — ĐỌC TRƯỚC
+Coder 12/12 Task + mọi vòng vá ĐÃ XONG, KHÔNG chạy lại planner/coder/tester. Dây chuyền đang ở
+**chặng cuối: reviewer VÒNG 3** (vòng review chốt, sau 2 vòng CAN SUA đã dùng hết 2/2).
+Commit code cuối: `1e34b26` (B-1..B-5). Chuỗi vá: `0c77fdd` CS-1/CS-2 → `9941505` CS-3 motion →
+`1e34b26` B-1..B-5. Test 548/548, `tsc` sạch, `npm run build` sạch (coder + tester build độc lập).
+
+1. ✅ **reviewer VÒNG 3 = CHỐT** (2026-09-23, tự chạy lại tsc/test 548/548/build sạch ở `1e34b26`,
+   ghi trong `.bangiao/danh-gia.md`). Dây chuyền ship redesign HOÀN TẤT về kỹ thuật.
+2. **Việc còn lại: dọn + merge — chủ dự án ĐÃ CHỐT trực tiếp (2026-09-23): merge trước, làm phần mock-up còn thiếu sau**, đúng thứ tự:
+   1. commit RIÊNG `.gitignore` trước mọi `git add` rộng (chặn `.playwright-mcp/` có mật khẩu);
+   2. commit `PROGRESS.md`;
+   3. commit `.bangiao/ke-hoach.md`, `danh-gia.md`, `danh-gia-bao-mat.md`;
+   4. che mật khẩu seed trong `.bangiao/ket-qua-test.md` dòng ~407 (`Admin@***`), ~409
+      (`Viewer@***`), ~615 (`Admin@***`) và `.bangiao/thay-doi.md:175` (đã commit) → rồi commit;
+   5. KHÔNG commit `checkpoint.md`; `archive/` (Run 1) mặc định không commit;
+   6. tuỳ chọn `git rm .bangiao/_test.md` (file rác có dòng `PHAN QUYET: CAN SUA` gây đọc nhầm);
+   7. merge `feature/apple-glass-redesign` → `main` (local, KHÔNG push nếu chưa được yêu cầu).
+3. **App CHƯA giống mock-up 100% — dù plan 12 Task đã xong** (đối chiếu class mock-up dòng 591-1135
+   với code, 2026-09-23). Phần mock-up có mà app chưa có, trang Chi tiết dự án:
+   - `.cdpanel` "Còn lại đến ngày HT kế hoạch" (đếm ngược) + `.tl` "Timeline kế hoạch vs thực tế"
+     (vạch "Hôm nay") — mock-up dòng 636-663. Bị loại theo **Q8 mặc định (a)**, chủ dự án chưa từng
+     trả lời Q8. Plan dòng 2033 đã ghi sẵn cách làm nếu chọn (b)/(c), dữ liệu có sẵn, không cần query mới.
+   - 3 tag "Trọng tâm" (%TT, SPI, CPI) — app chỉ 1 tag theo **Q7 mặc định**.
+   - **Khối "Tracking huy động theo tuần — 7 ngày gần nhất"** (3 tab: Nhật ký theo ngày / Ma trận nhân
+     lực / Theo thiết bị, mock-up dòng 770-787) — **plan KHÔNG hề nhắc tới**, app không có. Đây là
+     tính năng dữ liệu (nhà thầu × thiết bị, nhiều-nhiều theo ngày), vượt Constraint #1 "thuần giao
+     diện" → nếu làm phải là 1 đợt riêng (planner mới).
+   - Cố ý khác, đã chốt: Q1 logo đỏ, Q5 không HUD FPS, Q6 quả cầu đứng yên.
+   Chờ chủ dự án quyết: làm thêm trước khi merge, hay merge trước rồi làm đợt sau.
+4. **Chủ dự án xem qua (thẩm mỹ, không chặn):** thẻ "Trọng tâm" ở `/overview` + `/report` giờ luôn
+   hiện số màu VÀNG (2 trang truyền `tone="warn"` cố định) — giữ vàng, hay đổi về trắng như mock-up.
+   Backlog reviewer thêm N-7: unit test `spring()`/`riseIn()` với rAF giả.
+4. **Việc treo song song — lỗi avatar bị che góc phải topbar** (chủ dự án báo, có ảnh): CHƯA tái
+   hiện được. Đã đo `getBoundingClientRect()` ở 1366/1518/1920/2560px, cả dev lẫn production build,
+   và số đo console thật từ máy chủ dự án (`innerWidth 1518`, `devicePixelRatio ≈ 0.9` → Chrome
+   zoom ~90%) — avatar luôn cách mép topbar đúng 20px, không tràn. Đang CHỜ chủ dự án: mở lại
+   `npm run dev` + tab mới + Ctrl+Shift+R, xem còn bị che không. Nếu còn → xin ảnh chụp lúc TẮT
+   DevTools + mức zoom Chrome, rồi mới sửa (đừng vá mù). Nếu chủ dự án muốn chống tràn phòng xa bất
+   kể: hướng an toàn là cho `.search` (`app/globals.css:80`, đang `width:230px` cứng) co giãn
+   (`min-width:0; flex:0 1 230px`) để nó nhường chỗ trước avatar (`AppShell.tsx:152` `shrink-0`).
+5. **Lưu ý test animation:** pane trình duyệt của Claude khi bị ẩn sẽ ngừng `requestAnimationFrame`
+   → thẻ KPI trông như "kẹt opacity" — đó là artefact môi trường test, KHÔNG phải lỗi (đã loại trừ).
+6. **Backlog sau merge (không chặn):** modal đổi/reset mật khẩu bị giam trong sidebar
+   (`SettingsMenu.tsx:234`, `UserEditor.tsx:163`) → cần `createPortal`; T-2/T-3 bảo mật; `/api/export`
+   không auth (HIGH, nợ cũ). Rồi tới **Run 2** (5 REST endpoint).
 
 ### Trạng thái 12 Task (redesign) — cập nhật khi có commit `style(glass):` mới
 | Task | Nội dung | Trạng thái |
@@ -70,17 +103,81 @@ vi/en, cả 2 điểm biên sát ngưỡng 680px), khoảng trắng `/vi/admin` 
 desktop, alerts) — không phát sinh gì mới. Chi tiết đầy đủ + số đo trong `.bangiao/ket-qua-test.md`
 mục 7 "VÒNG 2" (giữ nguyên lịch sử vòng 1 FAIL phía trên).
 
-**⚠️ PHIÊN NÀY ĐÃ DỪNG THEO YÊU CẦU CHỦ DỰ ÁN (đổi account) — CHƯA giao security-reviewer.**
-Đây là chặng kế tiếp còn treo (chặng 4/6 dây chuyền ship: planner✅ → coder✅ → tester✅ PASS →
-**security-reviewer (CHƯA LÀM)** → reviewer). Phiên/account mới mở lên, muốn tiếp tục thì:
-1. Đọc `.bangiao/ket-qua-test.md` để tự xác nhận PASS thật (không cần tin suông dòng này).
-2. Giao việc mới cho subagent `ddc-tower:security-reviewer` — đọc `.bangiao/thay-doi.md` (toàn bộ
-   thay đổi 12 Task + CAN SUA #1) rồi rà bảo mật. Đây là redesign THUẦN GIAO DIỆN (constraint #1
-   trong `ke-hoach.md`: không đụng `src/server/**`/`src/lib/**`/`prisma/**`/business logic) nên rủi
-   ro bảo mật MỚI phát sinh từ chính đợt này nhiều khả năng thấp — nhưng vẫn phải chạy đúng quy
-   trình dây chuyền, không tự ý bỏ qua chặng này.
-3. Ghi kết quả vào `.bangiao/danh-gia-bao-mat.md`, rồi mới tới `reviewer` (chặng cuối, đọc cả
-   `danh-gia.md` lẫn `danh-gia-bao-mat.md`, tìm phán quyết CHỐT/CẦN SỬA/CHẶN).
+**security-reviewer XONG (2026-09-23) — KẾT LUẬN AN TOÀN.** Không có lỗ hổng mới mức cao/trung.
+3 ghi chú THẤP: T-1 (snapshot Playwright lộ mật khẩu seed, thư mục chưa gitignore — **ĐÃ VÁ ngay**,
+thêm `.playwright-mcp/`+`.obsidian/` vào `.gitignore`, chưa commit), T-2/T-3 (nợ có từ trước, đưa
+backlog). Chi tiết đầy đủ: `.bangiao/danh-gia-bao-mat.md`.
+
+**reviewer vòng 1 XONG (2026-09-23) — PHÁN QUYẾT: CẦN SỬA.** Tự chạy lại `npx tsc --noEmit` (0 lỗi)
++ `npm test` (545/545 xanh) độc lập, không tin suông báo cáo trước. Chi tiết đầy đủ:
+`.bangiao/danh-gia.md`. Tóm tắt:
+- 🔴 **CS-1 (CHẶN MERGE):** BUG #1 ("Trọng tâm" đè chữ) **CHƯA hết thật** — bản vá debugger chỉ phủ
+  ≤680px; suy từ chính số đo debugger/tester ra công thức hình học, lỗi vẫn còn ở desktop
+  **1181–~1450px** (đúng dải laptop văn phòng 1280/1366 phổ biến), do lưới 6 cột không có container
+  giới hạn rộng và tag vẫn `position:absolute`. Tester vòng 2 chỉ quét 360-720px rồi nhảy tới 1440px
+  nên bỏ sót đúng dải lỗi.
+- 🟡 **CS-2 (1 dòng, sửa cùng lượt):** `tailwind.config.ts:69` `transitionDuration` thiếu đơn vị
+  (`fast:'180'` thay vì `var(--dur-fast)`) → CSS build ra `transition-duration:180` không hợp lệ,
+  trình duyệt bỏ qua, token `--dur-*` vô hiệu ở 12 chỗ dùng.
+- 🟡 **CS-3 (CẦN CHỦ DỰ ÁN QUYẾT, chưa giao coder):** Q4=(a) "port engine spring y hệt mock-up" —
+  coder tạo đủ `src/components/ui/motion.ts` (210 dòng, đúng chữ plan) nhưng **không hook vào đâu**
+  → UI không có hiệu ứng rise/press nào. 3 phương án: (1) bật thật (cần vá thêm cleanup rAF/timeout
+  trước khi bật), (2) chấp nhận là hạ tầng để dành, (3) xoá cho tới khi cần.
+
+**⚠️ NEXT STEP đang treo:** đã giao coder vá CS-1 + CS-2 (chạy nền, không đụng gì khác) → tester đo
+lại `overlapX` thật bằng Playwright ở đúng "Điều kiện đóng CS-1" trong `danh-gia.md` (viewport
+1181/1200/1280/1366/1440/1536/1920, sidebar mở+thu gọn, cả vi/en, cả `/overview` và `/report`) →
+quay lại reviewer vòng 2. Đây là vòng CAN SUA #2 của redesign (vòng 1 là 2 lỗi UI đã xong ở
+tester/debugger trước đó) — đếm vòng: **dùng 1/2**, quá 2 vòng vẫn rớt thì dừng báo chủ dự án.
+
+**CS-3 XONG (2026-09-23):** chủ dự án chốt "bật thật" motion engine → coder gắn `useRise`/
+`useHoverLift`/`usePressable` vào 4 lưới `.kpis`, `Card.tsx`, nút đăng nhập (commit `9941505`) →
+tester PASS vòng 4 (rise-in/hover-lift/press hoạt động, tôn trọng `prefers-reduced-motion`, có 1
+quan sát KHÔNG CHẶN: failsafe 900ms trong `riseIn()` có thể bị spring gốc ghi đè dưới tải nặng
+dev/HMR).
+
+**reviewer vòng 2 XONG (2026-09-23) — PHÁN QUYẾT: CẦN SỬA (vẫn chưa CHỐT).** Tự chạy lại
+`npx tsc --noEmit` (0 lỗi) + `npm test` (546/546 xanh) độc lập. Xác nhận CS-1/CS-2/CS-3 đã đúng.
+Nhưng soát lại TOÀN NHÁNH (không chỉ diff mới) phát hiện **5 thoái lui so với `main`** mà vòng 1
+bỏ sót — chi tiết đầy đủ trong `.bangiao/danh-gia.md` mục "VÒNG 2":
+- 🔴 **B-1:** `ProjectTable.tsx:99,104` — dự án CHƯA có SPI/CPI hiện chip xanh "ok" (trông như đang
+  khoẻ, sai). Ngưỡng 0.9/1 gõ cứng, lệch với `THRESHOLDS` dùng chỗ khác (SPI 0.85 đỏ ở Tổng quan
+  nhưng vàng ở Báo cáo — không đồng bộ).
+- 🔴 **B-2:** `report/page.tsx:101,106` — cùng lỗi null→chip xanh, ở `main` là trung tính.
+- 🟡 **B-3:** `KpiCard.tsx:61` — thẻ "Trọng tâm" luôn chữ trắng nên SPI 0.70 và 1.10 trông giống
+  nhau ở `/projects/[id]` (không còn chỗ nào khác tô màu SPI trên trang đó). Vá: tô `var(--gold)`
+  khi tone warn/danger. Hệ quả phụ cần biết: hero ở Tổng quan/Báo cáo cũng chuyển vàng theo — nếu
+  muốn giữ trắng ở 2 trang đó thì bỏ `tone="warn"` (lựa chọn thẩm mỹ, không chặn).
+- 🟡 **B-4:** `globals.css:100-107` — trạng thái sidebar thu gọn rò sang drawer mobile: thu gọn ở
+  màn rộng rồi snap xuống ~960px thì drawer mở ra chỉ rộng 68px, không mở lại được. Vá: bọc trong
+  `@media (min-width:1024px)`.
+- 🟢 **B-5:** `motion.ts:117-126` — failsafe phải huỷ spring trước khi trả lại hiển thị (đúng quan
+  sát failsafe-race của tester vòng 4; reviewer tính ra thẻ KPI cuối xong ở ~0.74s, cách mốc 900ms
+  chỉ ~160ms nên dễ nhảy giữa chừng trên máy yếu). 1 dòng, gộp vào lượt vá.
+
+**Điều kiện đóng vòng sau (reviewer yêu cầu):** chạy `npm run build` thật (lần cuối trước CS-3, tức
+trước khi `Card`/`Rise` thành Client Component) + thêm 2 test hero vào `KpiCard.test.ts` + tester đo
+lại B-1→B-5. **Đây là vòng CAN SUA 2/2 — quá 2 vòng vẫn rớt thì DỪNG, báo chủ dự án, không tự ý
+giao coder vá lần 3.**
+
+**B-1→B-5 XONG (2026-09-23):** coder vá (commit `1e34b26`) → tester PASS VÒNG 5 (đo thật cả 5
+điểm, 548/548 test, `npm run build` sạch). **Next: reviewer vòng 3 chốt.**
+
+**Ghi nhận thêm (có từ trước, không do đợt này, ưu tiên cao nhưng KHÔNG chặn merge):** modal đổi
+mật khẩu (`SettingsMenu.tsx:234`) và modal reset mật khẩu (`UserEditor.tsx:163`) bị giam trong
+khung sidebar hẹp (~204px, ~36px khi thu gọn) — cần `createPortal`. Đưa vào backlog.
+
+**⚠️ ĐANG ĐIỀU TRA SONG SONG (chủ dự án báo 2026-09-23, CHƯA xác định root cause):** avatar tài
+khoản ở topbar bị cắt/che ở góc phải màn hình trên máy chủ dự án (có ảnh chụp). Đã test kỹ ở
+1366/1518/1920/2560px qua Playwright + đo `getBoundingClientRect()` thật — KHÔNG tái hiện được,
+avatar luôn cách mép topbar đúng 20px ở mọi mốc test. Dữ liệu console thật từ máy chủ dự án:
+`devicePixelRatio ~0.9` (bất thường, đang zoom/scale <100%), `innerWidth:1518` — nhưng số đo tại
+đúng thời điểm đó cũng cho kết quả bình thường (không tràn), ngay sau dòng log
+`[Fast Refresh] rebuilding/done` — nghi vấn ảnh lỗi gốc chụp TRƯỚC khi dev server tự cập nhật code
+mới nhất. Đã yêu cầu chủ dự án Ctrl+Shift+R rồi chụp lại để xác nhận — CHƯA có kết quả (máy chủ dự
+án shutdown giữa chừng). **Việc tiếp theo khi resume: xác nhận lại với chủ dự án xem hard-refresh
+có hết chưa; nếu còn, cần thêm dữ liệu thật (zoom % Windows, độ phân giải màn hình, có mở DevTools
+lúc chụp không) trước khi sửa code — tránh vá mù vì chưa tái hiện được lỗi.**
 
 **8 quyết định Q1-Q8 đã chốt (2026-09-23, tóm tắt — chi tiết đầy đủ trong `ke-hoach.md`):**
 Q1 logo: giữ `logo.png` đỏ trên nền trắng bo góc (KHÔNG dùng `.appicon` navy vẽ tay). Q2 công tắc
