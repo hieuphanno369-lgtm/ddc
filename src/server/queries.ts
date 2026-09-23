@@ -1,7 +1,7 @@
 import { calcDurationPctComplete, calcEac, calcVac, deriveStatus, isOnTrack, penaltyState, type PenaltyState } from '@/lib/evm';
 import { THRESHOLDS } from '@/lib/thresholds';
 import { repo } from './repo';
-import { currentMonth, historyMonths, prevMonth, today } from '@/lib/clock';
+import { currentMonth, historyMonths, isValidYearMonth, prevMonth, today } from '@/lib/clock';
 import type {
   FactProgressMonthly,
   Market,
@@ -189,24 +189,34 @@ async function kpisForMonth(yearMonth: string, filters: DashboardFilters) {
   };
 }
 
+const ZERO_DELTA: PortfolioKpis['delta'] = {
+  totalProjects: 0,
+  inProgress: 0,
+  behindSchedule: 0,
+  penaltyRisk: 0,
+  penalized: 0,
+  backlog: 0,
+};
+
 export async function getPortfolioKpis(yearMonth: string, filters: DashboardFilters = {}): Promise<PortfolioKpis> {
   const cur = await kpisForMonth(yearMonth, filters);
-  // 'all' không có tháng liền trước hợp lệ (prevMonth('all') ra chuỗi rác) - giữ đúng hành vi
-  // cũ trước Run 1: delta = 0 khi đang xem "Tất cả", không bịa số từ dữ liệu rỗng.
-  if (yearMonth === 'all') {
-    return {
-      ...cur,
-      delta: {
-        totalProjects: 0,
-        inProgress: 0,
-        behindSchedule: 0,
-        penaltyRisk: 0,
-        penalized: 0,
-        backlog: 0,
-      },
-    };
+  // 'all' không có tháng liền trước hợp lệ (prevMonth('all') ra chuỗi rác), và `month` rác/không
+  // đúng format 'YYYY-MM' cũng không có gì để so sánh - giữ đúng hành vi cũ trước Run 1: delta = 0.
+  if (yearMonth === 'all' || !isValidYearMonth(yearMonth)) {
+    return { ...cur, delta: ZERO_DELTA };
   }
   const prevYm = prevMonth(yearMonth);
+  // Tháng đang xem HOẶC tháng liền trước CHƯA CÓ dòng fact nào (vd chưa ai nhập số cho tháng mới,
+  // hoặc tháng liền trước nằm trước cửa sổ dữ liệu) khác hẳn "tháng đó có %TT = 0 thật" - không có
+  // dữ liệu để so sánh thì không được bịa ra một cú tăng/tụt KPI giả. Trả delta = 0 thay vì chạy
+  // tiếp với pctActual mặc định 0 cho mọi dự án ở bên thiếu dữ liệu.
+  const [curFacts, prevFacts] = await Promise.all([
+    repo.getFactsForMonth(yearMonth),
+    repo.getFactsForMonth(prevYm),
+  ]);
+  if (curFacts.length === 0 || prevFacts.length === 0) {
+    return { ...cur, delta: ZERO_DELTA };
+  }
   const prev = await kpisForMonth(prevYm, filters);
   return {
     ...cur,
