@@ -59,17 +59,17 @@ export function FilterBar({
 
   const activeCount = SCOPE_KEYS.filter((k) => searchParams.get(k) && k !== 'page').length;
 
-  const selectCls =
-    'h-8 rounded-lg border border-slate-200 bg-white/70 px-2 text-xs text-navy-900 focus:border-accent focus:outline-none dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-200';
+  const selectCls = 'inp';
+  const selStyle = { width: 'auto', padding: '6px 10px', fontSize: 'var(--t-caption1)' } as const;
 
   return (
-    <div className="card flex flex-wrap items-center gap-2 px-3 py-3">
-      <span className="flex items-center gap-1.5 px-1 text-xs font-medium text-slate-500">
-        <IconFilter size={15} className="text-slate-500" />
+    <div className="card overflow-visible flex flex-wrap items-center gap-2 px-3 py-3">
+      <span className="flex items-center gap-1.5 px-1 text-caption1 font-semibold text-label2">
+        <IconFilter size={15} />
         {t('common.filter')}
       </span>
 
-      <select className={selectCls} value={searchParams.get('month') ?? currentMonth} onChange={(e) => update('month', e.target.value)}>
+      <select className={selectCls} style={selStyle} value={searchParams.get('month') ?? currentMonth} onChange={(e) => update('month', e.target.value)}>
         <option value="all">{t('common.all')}</option>
         {months.map((m) => (
           <option key={m} value={m}>
@@ -78,42 +78,42 @@ export function FilterBar({
         ))}
       </select>
 
-      <select className={selectCls} value={searchParams.get('status') ?? 'all'} onChange={(e) => update('status', e.target.value)}>
+      <select className={selectCls} style={selStyle} value={searchParams.get('status') ?? 'all'} onChange={(e) => update('status', e.target.value)}>
         <option value="all">{t('common.status')}</option>
         {STATUSES.map((s) => (
           <option key={s} value={s}>{t(statusKey[s])}</option>
         ))}
       </select>
 
-      <select className={selectCls} value={searchParams.get('team') ?? 'all'} onChange={(e) => update('team', e.target.value)}>
+      <select className={selectCls} style={selStyle} value={searchParams.get('team') ?? 'all'} onChange={(e) => update('team', e.target.value)}>
         <option value="all">{t('common.team')}</option>
         {teams.map((tm) => (
           <option key={tm.id} value={tm.id}>{tm.name}</option>
         ))}
       </select>
 
-      <select className={selectCls} value={searchParams.get('customer') ?? 'all'} onChange={(e) => update('customer', e.target.value)}>
+      <select className={selectCls} style={selStyle} value={searchParams.get('customer') ?? 'all'} onChange={(e) => update('customer', e.target.value)}>
         <option value="all">{t('common.customer')}</option>
         {customers.map((c) => (
           <option key={c.id} value={c.id}>{c.name}</option>
         ))}
       </select>
 
-      <select className={selectCls} value={searchParams.get('priority') ?? 'all'} onChange={(e) => update('priority', e.target.value)}>
+      <select className={selectCls} style={selStyle} value={searchParams.get('priority') ?? 'all'} onChange={(e) => update('priority', e.target.value)}>
         <option value="all">{t('common.priority')}</option>
         {PRIORITIES.map((p) => (
           <option key={p} value={p}>{p}</option>
         ))}
       </select>
 
-      <select className={selectCls} value={searchParams.get('market') ?? 'all'} onChange={(e) => update('market', e.target.value)}>
+      <select className={selectCls} style={selStyle} value={searchParams.get('market') ?? 'all'} onChange={(e) => update('market', e.target.value)}>
         <option value="all">{t('common.market')}</option>
         {MARKETS.map((m) => (
           <option key={m} value={m}>{t(marketKey[m])}</option>
         ))}
       </select>
 
-      <select className={selectCls} value={searchParams.get('type') ?? 'all'} onChange={(e) => update('type', e.target.value)}>
+      <select className={selectCls} style={selStyle} value={searchParams.get('type') ?? 'all'} onChange={(e) => update('type', e.target.value)}>
         <option value="all">{t('common.type')}</option>
         {TYPES.map((ty) => (
           <option key={ty} value={ty}>{t(typeKey[ty])}</option>
@@ -121,7 +121,7 @@ export function FilterBar({
       </select>
 
       {activeCount > 0 && (
-        <button onClick={clearAll} className="rounded-lg bg-accent-soft px-2 py-1.5 text-xs text-accent hover:bg-accent-soft/70">
+        <button onClick={clearAll} className="btn ghost" style={{ padding: '5px 10px', fontSize: 'var(--t-caption1)' }}>
           ✕ {t('common.filter')}
         </button>
       )}

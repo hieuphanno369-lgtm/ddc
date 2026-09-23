@@ -24,7 +24,7 @@ export function PasswordInput({
   const [show, setShow] = useState(false);
   const strength = showStrength ? passwordStrength(value) : 0;
 
-  const colors = ['bg-slate-200', 'bg-red-500', 'bg-amber-500', 'bg-emerald-500'];
+  const colors = ['var(--fill-2)', 'var(--danger)', 'var(--warn)', 'var(--ok)'];
   const labels = ['', 'strengthWeak', 'strengthMedium', 'strengthStrong'];
 
   return (
@@ -41,7 +41,7 @@ export function PasswordInput({
         <button
           type="button"
           onClick={() => setShow((v) => !v)}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-label3 transition-colors duration-fast hover:text-label"
           aria-label={show ? t('auth.hidePassword') : t('auth.showPassword')}
         >
           {show ? <IconEyeOff size={16} /> : <IconEye size={16} />}
@@ -53,11 +53,12 @@ export function PasswordInput({
             {[1, 2, 3].map((i) => (
               <span
                 key={i}
-                className={`h-1 w-6 rounded-full ${i <= strength ? colors[strength] : 'bg-slate-200 dark:bg-slate-700'}`}
+                className="h-1 w-6 rounded-full"
+                style={{ background: i <= strength ? colors[strength] : 'var(--fill-2)' }}
               />
             ))}
           </div>
-          <span className="text-[11px] text-slate-500">{t(`auth.${labels[strength]}`)}</span>
+          <span className="text-caption2 text-label2">{t(`auth.${labels[strength]}`)}</span>
         </div>
       )}
     </div>

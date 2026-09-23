@@ -15,8 +15,7 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const inputCls =
-    'w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-navy-900 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none';
+  const inputCls = 'inp';
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,19 +42,19 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-navy-950/60 p-4" onClick={onClose}>
+    <div className="modal-scrim" onClick={onClose}>
       <div
-        className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-800"
+        className="modal"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between">
           <div>
-            <h2 className="text-base font-semibold text-navy-900 dark:text-slate-100">{t('auth.changePassword')}</h2>
-            <p className="mt-0.5 text-xs text-slate-400">{t('auth.passwordTooShort')}</p>
+            <h2 className="text-callout font-semibold">{t('auth.changePassword')}</h2>
+            <p className="hintline">{t('auth.passwordTooShort')}</p>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="rounded-sm p-2 text-label3 transition-colors duration-fast hover:bg-fill hover:text-label"
             aria-label={t('common.close')}
           >
             <IconClose size={18} />
@@ -63,24 +62,24 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <form onSubmit={submit} className="space-y-3.5">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-600">{t('auth.currentPassword')}</label>
+          <div className="field">
+            <span className="lb">{t('auth.currentPassword')}</span>
             <PasswordInput value={current} onChange={setCurrent} className={inputCls} required />
           </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-600">{t('auth.newPassword')}</label>
+          <div className="field">
+            <span className="lb">{t('auth.newPassword')}</span>
             <PasswordInput value={next} onChange={setNext} className={inputCls} required showStrength />
-            <p className="mt-1 text-[11px] text-slate-400">{t('auth.passwordHint')}</p>
+            <p className="hintline">{t('auth.passwordHint')}</p>
           </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-600">{t('auth.confirmPassword')}</label>
+          <div className="field">
+            <span className="lb">{t('auth.confirmPassword')}</span>
             <PasswordInput value={confirm} onChange={setConfirm} className={inputCls} required />
           </div>
-          {msg && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{msg}</p>}
+          {msg && <p className="sumbar bad">{msg}</p>}
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:opacity-50"
+            className="btn w-full justify-center"
           >
             {t('common.save')}
           </button>

@@ -14,8 +14,7 @@ const TYPES: ProjectType[] = ['EPC', 'San_van_dong', 'San_bay', 'Nha_xuong', 'Ca
 const PRIORITIES: Priority[] = ['P0', 'P1', 'P2', 'P3'];
 const MARKETS: Market[] = ['TN', 'XK', 'NoiBo'];
 
-const inputCls =
-  'w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-navy-900 focus:border-accent focus:outline-none';
+const inputCls = 'inp';
 
 export function CreateProjectForm({
   customers,
@@ -111,101 +110,105 @@ export function CreateProjectForm({
     <div className="mb-4">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90"
+        className="btn"
       >
         <IconPlus size={16} />
         {t('form.newProject')}
       </button>
 
       {open && (
-        <div className="card mt-3 grid gap-4 p-5 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <label className="mb-1 flex items-center gap-1 text-xs font-medium text-slate-600">
-              {t('form.projectName')} *
-              <span title={t('form.hintLabel.projectName')} className="cursor-help rounded-full bg-slate-200 px-1.5 text-[10px] font-bold leading-4 text-slate-500">!</span>
-            </label>
-            <input value={form.projectName} onChange={(e) => set('projectName', e.target.value.toUpperCase())} className={inputCls} />
-          </div>
-          <Field label={t('form.customer') + ' *'} hint={t('form.hintLabel.customer')}>
-            <Combobox
-              value={form.customerId}
-              onChange={(v) => set('customerId', v)}
-              options={customers.map((c) => ({ value: String(c.id), label: c.name }))}
-              allowCreate
-              createLabel={t('common.add')}
-              onCreate={async (name) => {
-                const res = await createDimValueAction('customer', toTitleCase(name));
-                return res.ok ? String(res.id) : '';
-              }}
-              className={inputCls}
-            />
-          </Field>
-          <Field label={t('form.teamKd') + ' *'}>
-            <Combobox
-              value={form.teamKdId}
-              onChange={(v) => set('teamKdId', v)}
-              options={teams.map((x) => ({ value: String(x.id), label: x.name }))}
-              allowCreate
-              createLabel={t('common.add')}
-              onCreate={async (name) => {
-                const res = await createDimValueAction('team', name);
-                return res.ok ? String(res.id) : '';
-              }}
-              className={inputCls}
-            />
-          </Field>
-          <Field label={t('form.projectType') + ' *'} hint={t('form.hintLabel.projectType')}>
-            <Combobox
-              value={form.projectType}
-              onChange={(v) => set('projectType', v)}
-              options={TYPES.map((ty) => ({ value: ty, label: t(typeKey[ty]) }))}
-              className={inputCls}
-            />
-          </Field>
-          <Field label={t('form.priority') + ' *'} hint={t('form.hintLabel.priority')}>
-            <Combobox
-              value={form.priority}
-              onChange={(v) => set('priority', v)}
-              options={PRIORITIES.map((p) => ({ value: p, label: p }))}
-              className={inputCls}
-            />
-          </Field>
-          <Field label={t('common.market') + ' *'} hint={t('form.hintLabel.market')}>
-            <Combobox
-              value={form.marketCode}
-              onChange={(v) => set('marketCode', v)}
-              options={MARKETS.map((m) => ({ value: m, label: t(marketKey[m]) }))}
-              className={inputCls}
-            />
-          </Field>
-          <Field label={t('form.currency')}>
-            <Combobox
-              value={form.currencyCode}
-              onChange={(v) => set('currencyCode', v)}
-              options={currencies.map((c) => ({ value: c.code, label: c.code }))}
-              className={inputCls}
-            />
-          </Field>
-          <Field label={t('form.contractValue') + ' *'} hint={t('form.hintLabel.contractValue')}>
-            <input type="number" step="0.1" value={fmtNum(form.contractValue)} onChange={(e) => set('contractValue', e.target.value)} className={inputCls} />
-          </Field>
-          <Field label={`${t('common.tonnage')} (${t('common.ton')})`}>
-            <input type="number" step="0.1" value={fmtNum(form.tonnage)} onChange={(e) => set('tonnage', e.target.value)} className={inputCls} />
-          </Field>
+        <div className="card overflow-visible mt-3 p-4">
+          <div className="f2">
+            <div className="field" style={{ gridColumn: '1 / -1' }}>
+              <span className="lb">
+                {t('form.projectName')} *
+                <button type="button" className="help" aria-label={t('form.hintLabel.projectName')}>
+                  ?<span className="bub">{t('form.hintLabel.projectName')}</span>
+                </button>
+              </span>
+              <input value={form.projectName} onChange={(e) => set('projectName', e.target.value.toUpperCase())} className={inputCls} />
+            </div>
+            <Field label={t('form.customer') + ' *'} hint={t('form.hintLabel.customer')}>
+              <Combobox
+                value={form.customerId}
+                onChange={(v) => set('customerId', v)}
+                options={customers.map((c) => ({ value: String(c.id), label: c.name }))}
+                allowCreate
+                createLabel={t('common.add')}
+                onCreate={async (name) => {
+                  const res = await createDimValueAction('customer', toTitleCase(name));
+                  return res.ok ? String(res.id) : '';
+                }}
+                className={inputCls}
+              />
+            </Field>
+            <Field label={t('form.teamKd') + ' *'}>
+              <Combobox
+                value={form.teamKdId}
+                onChange={(v) => set('teamKdId', v)}
+                options={teams.map((x) => ({ value: String(x.id), label: x.name }))}
+                allowCreate
+                createLabel={t('common.add')}
+                onCreate={async (name) => {
+                  const res = await createDimValueAction('team', name);
+                  return res.ok ? String(res.id) : '';
+                }}
+                className={inputCls}
+              />
+            </Field>
+            <Field label={t('form.projectType') + ' *'} hint={t('form.hintLabel.projectType')}>
+              <Combobox
+                value={form.projectType}
+                onChange={(v) => set('projectType', v)}
+                options={TYPES.map((ty) => ({ value: ty, label: t(typeKey[ty]) }))}
+                className={inputCls}
+              />
+            </Field>
+            <Field label={t('form.priority') + ' *'} hint={t('form.hintLabel.priority')}>
+              <Combobox
+                value={form.priority}
+                onChange={(v) => set('priority', v)}
+                options={PRIORITIES.map((p) => ({ value: p, label: p }))}
+                className={inputCls}
+              />
+            </Field>
+            <Field label={t('common.market') + ' *'} hint={t('form.hintLabel.market')}>
+              <Combobox
+                value={form.marketCode}
+                onChange={(v) => set('marketCode', v)}
+                options={MARKETS.map((m) => ({ value: m, label: t(marketKey[m]) }))}
+                className={inputCls}
+              />
+            </Field>
+            <Field label={t('form.currency')}>
+              <Combobox
+                value={form.currencyCode}
+                onChange={(v) => set('currencyCode', v)}
+                options={currencies.map((c) => ({ value: c.code, label: c.code }))}
+                className={inputCls}
+              />
+            </Field>
+            <Field label={t('form.contractValue') + ' *'} hint={t('form.hintLabel.contractValue')}>
+              <input type="number" step="0.1" value={fmtNum(form.contractValue)} onChange={(e) => set('contractValue', e.target.value)} className={inputCls} />
+            </Field>
+            <Field label={`${t('common.tonnage')} (${t('common.ton')})`}>
+              <input type="number" step="0.1" value={fmtNum(form.tonnage)} onChange={(e) => set('tonnage', e.target.value)} className={inputCls} />
+            </Field>
 
-          {err && <p className="text-xs text-red-600 sm:col-span-2">{err}</p>}
-          {saved && <p className="text-xs text-emerald-600 sm:col-span-2">{t('form.savedProject')}</p>}
-          <div className="flex items-center gap-2 sm:col-span-2">
-            <button
-              onClick={submit}
-              disabled={busy}
-              className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50"
-            >
-              {t('common.save')}
-            </button>
-            <button onClick={() => setOpen(false)} className="rounded-xl px-4 py-2 text-sm text-slate-500 hover:bg-slate-50">
-              {t('common.cancel')}
-            </button>
+            {err && <p className="sumbar bad" style={{ gridColumn: '1 / -1' }}>{err}</p>}
+            {saved && <p className="sumbar good" style={{ gridColumn: '1 / -1' }}>{t('form.savedProject')}</p>}
+            <div className="flex items-center gap-2" style={{ gridColumn: '1 / -1' }}>
+              <button
+                onClick={submit}
+                disabled={busy}
+                className="btn"
+              >
+                {t('common.save')}
+              </button>
+              <button onClick={() => setOpen(false)} className="btn ghost">
+                {t('common.cancel')}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -215,13 +218,15 @@ export function CreateProjectForm({
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div>
-      <label className="mb-1 flex items-center gap-1 text-xs font-medium text-slate-600">
+    <div className="field">
+      <span className="lb">
         {label}
         {hint && (
-          <span title={hint} className="cursor-help rounded-full bg-slate-200 px-1.5 text-[10px] font-bold leading-4 text-slate-500">!</span>
+          <button type="button" className="help" aria-label={hint}>
+            ?<span className="bub">{hint}</span>
+          </button>
         )}
-      </label>
+      </span>
       {children}
     </div>
   );

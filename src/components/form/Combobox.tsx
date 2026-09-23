@@ -77,7 +77,7 @@ export function Combobox({
         className={className}
       />
       {open && (
-        <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+        <div className="pop">
           {filtered.map((o) => (
             <button
               key={o.value}
@@ -88,7 +88,6 @@ export function Combobox({
                 setQuery('');
                 setOpen(false);
               }}
-              className="block w-full px-3 py-2 text-left text-sm text-navy-900 hover:bg-slate-50"
             >
               {o.label}
             </button>
@@ -99,13 +98,14 @@ export function Combobox({
               onMouseDown={(e) => e.preventDefault()}
               onClick={create}
               disabled={busy}
-              className="block w-full border-t border-slate-100 px-3 py-2 text-left text-sm font-medium text-accent hover:bg-slate-50 disabled:opacity-50"
+              className="disabled:opacity-50"
+              style={{ borderTop: '.5px solid var(--sep)', color: 'var(--accent)', fontWeight: 600 }}
             >
               {busy ? '…' : `${createLabel} “${query.trim()}”`}
             </button>
           )}
           {filtered.length === 0 && !allowCreate && (
-            <div className="px-3 py-2 text-sm text-slate-400">-</div>
+            <div className="px-3 py-2 text-footnote text-label3">-</div>
           )}
         </div>
       )}

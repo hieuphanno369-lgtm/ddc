@@ -47,7 +47,7 @@ export function ProjectSwitcher({
   return (
     <div className="relative w-full max-w-sm" ref={ref}>
       <div className="relative">
-        <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-label3" />
         <input
           value={query}
           onChange={(e) => {
@@ -56,23 +56,23 @@ export function ProjectSwitcher({
           }}
           onFocus={() => setOpen(true)}
           placeholder={current ? `${current.code} - ${current.name}` : t('common.searchProject')}
-          className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-sm text-navy-800 focus:border-accent focus:outline-none"
+          className="inp pl-8"
         />
       </div>
 
       {open && q && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800">
+        <div className="pop">
           {results.length === 0 ? (
-            <p className="px-3 py-2.5 text-xs text-slate-400">{t('common.noResult')}</p>
+            <p className="px-3 py-2.5 text-caption1 text-label3">{t('common.noResult')}</p>
           ) : (
             results.map((p) => (
               <button
                 key={p.id}
                 onClick={() => select(p.id)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-700"
+                className="flex items-center gap-2"
               >
-                <span className="shrink-0 font-mono text-xs text-slate-400">{p.code}</span>
-                <span className="flex-1 truncate text-navy-800 dark:text-slate-200">{p.name}</span>
+                <span className="mono shrink-0">{p.code}</span>
+                <span className="flex-1 truncate">{p.name}</span>
               </button>
             ))
           )}

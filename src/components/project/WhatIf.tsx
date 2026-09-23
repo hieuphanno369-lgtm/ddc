@@ -21,8 +21,8 @@ export function WhatIf({ ac, pctActual, bac }: { ac: number; pctActual: number; 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between text-sm">
-        <span className="text-slate-600">{t('whatif.label')}</span>
-        <span className="font-semibold text-accent">{formatPct(delta, locale)}</span>
+        <span className="text-label2">{t('whatif.label')}</span>
+        <span className="font-semibold text-brand">{formatPct(delta, locale)}</span>
       </div>
       <input
         type="range"
@@ -31,20 +31,21 @@ export function WhatIf({ ac, pctActual, bac }: { ac: number; pctActual: number; 
         step={0.01}
         value={delta}
         onChange={(e) => setDelta(Number(e.target.value))}
-        className="w-full accent-accent"
+        className="w-full"
+        style={{ accentColor: 'var(--accent)' }}
       />
-      <div className="grid grid-cols-3 gap-2">
-        <div className="rounded-lg bg-slate-50 p-3">
-          <div className="label">{t('whatif.currentEac')}</div>
-          <div className="mt-1 text-sm font-semibold text-navy-900">{formatTyd(baseEac, locale)}</div>
+      <div className="fgrid" style={{ gap: 10 }}>
+        <div style={{ background: 'var(--fill)', borderRadius: 'var(--r-sm)', padding: '10px 12px' }}>
+          <div className="text-[10px] font-bold uppercase text-label3">{t('whatif.currentEac')}</div>
+          <div className="mt-[3px] text-callout font-bold">{formatTyd(baseEac, locale)}</div>
         </div>
-        <div className="rounded-lg bg-accent-soft p-3">
-          <div className="label text-accent">{t('whatif.newEac')}</div>
-          <div className="mt-1 text-sm font-semibold text-accent">{formatTyd(newEac, locale)}</div>
+        <div style={{ background: 'var(--fill)', borderRadius: 'var(--r-sm)', padding: '10px 12px' }}>
+          <div className="text-[10px] font-bold uppercase text-label3">{t('whatif.newEac')}</div>
+          <div className="mt-[3px] text-callout font-bold" style={{ color: 'var(--accent)' }}>{formatTyd(newEac, locale)}</div>
         </div>
-        <div className="rounded-lg bg-emerald-50 p-3">
-          <div className="label text-emerald-700">{t('whatif.saving')}</div>
-          <div className="mt-1 text-sm font-semibold text-emerald-700">{formatTyd(saving, locale)}</div>
+        <div style={{ background: 'var(--fill)', borderRadius: 'var(--r-sm)', padding: '10px 12px' }}>
+          <div className="text-[10px] font-bold uppercase text-label3">{t('whatif.saving')}</div>
+          <div className="mt-[3px] text-callout font-bold" style={{ color: 'var(--ok)' }}>{formatTyd(saving, locale)}</div>
         </div>
       </div>
     </div>

@@ -292,6 +292,128 @@
   /* Hang co the bam sang trang khac */
   .tbl a { color: inherit; text-decoration: none; }
   .tbl a:hover { color: var(--accent); }
+
+  /* --- Task 6: Form nen tang (mockup-apple-glass.html, copy nguyen van) --- */
+  /* dong 393-411 */
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field label{font-size:var(--t-caption1);font-weight:600;color:var(--label2)}
+  .inp{padding:9px 12px;border-radius:var(--r-sm);border:.5px solid var(--sep-2);background:var(--glass-3);
+    font-size:var(--t-footnote);outline:none;width:100%;
+    transition:box-shadow var(--dur-fast) var(--ease-std),border-color var(--dur-fast)}
+  .inp:focus{border-color:var(--accent);box-shadow:0 0 0 3.5px var(--accent-tint)}
+  .fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:900px){.fgrid{grid-template-columns:1fr}}
+  .btn{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:var(--r-sm);border:none;
+    font-size:var(--t-footnote);font-weight:650;cursor:pointer;will-change:transform;
+    background:linear-gradient(160deg,var(--accent-2),var(--accent));color:#fff;box-shadow:var(--e2)}
+  .btn.ghost{background:var(--fill);color:var(--label);border:.5px solid var(--sep-2);box-shadow:none}
+  .btn svg{width:16px;height:16px}
+  .switch{position:relative;width:44px;height:26px;border-radius:var(--r-full);background:var(--fill-2);
+    cursor:pointer;border:.5px solid var(--sep);transition:background var(--dur-base) var(--ease-ios);flex:0 0 44px}
+  .switch i{position:absolute;top:2px;left:2px;width:21px;height:21px;border-radius:50%;background:#fff;
+    box-shadow:var(--e2);transition:transform var(--dur-base) var(--ease-ios)}
+  .switch.on{background:var(--ok)}
+  .switch.on i{transform:translateX(18px)}
+
+  /* dong 438-458 */
+  .help{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;flex:0 0 15px;
+    border-radius:50%;background:var(--fill-2);color:var(--label2);font-size:9.5px;font-weight:800;
+    cursor:help;position:relative;vertical-align:1px;border:none;padding:0;
+    transition:background var(--dur-fast) var(--ease-std),color var(--dur-fast)}
+  .help:hover,.help:focus-visible{background:var(--accent);color:#fff;outline:none}
+  .help .bub{position:absolute;bottom:calc(100% + 9px);left:50%;transform:translateX(-50%) translateY(4px) scale(.97);
+    width:268px;padding:10px 12px;border-radius:var(--r-sm);text-align:left;z-index:110;
+    background:var(--glass-3);
+    -webkit-backdrop-filter:blur(var(--mat-thick)) saturate(var(--mat-sat));
+    backdrop-filter:blur(var(--mat-thick)) saturate(var(--mat-sat));
+    border:.5px solid var(--glass-stroke);box-shadow:var(--e4);
+    color:var(--label2);font-size:var(--t-caption1);font-weight:500;line-height:1.5;letter-spacing:0;
+    opacity:0;visibility:hidden;pointer-events:none;
+    transition:opacity var(--dur-fast) var(--ease-out),transform var(--dur-fast) var(--ease-out),visibility var(--dur-fast)}
+  .help .bub b{color:var(--label);font-weight:700}
+  .help .bub:after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);
+    border:5px solid transparent;border-top-color:var(--glass-stroke)}
+  .help:hover .bub,.help:focus-visible .bub{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0) scale(1)}
+  .help.rt .bub{left:auto;right:-8px;transform:translateY(4px) scale(.97)}
+  .help.rt:hover .bub,.help.rt:focus-visible .bub{transform:translateY(0) scale(1)}
+  .help.rt .bub:after{left:auto;right:12px;transform:none}
+
+  /* dong 461-494 */
+  .fsec{border-top:.5px solid var(--sep);padding-top:16px;margin-top:4px}
+  .fsec:first-child{border-top:none;padding-top:0;margin-top:0}
+  .fsec>.h{display:flex;align-items:center;gap:9px;margin-bottom:13px}
+  .fsec>.h .n{width:22px;height:22px;flex:0 0 22px;border-radius:7px;display:grid;place-items:center;
+    background:var(--accent-tint);color:var(--accent);font-size:10.5px;font-weight:800}
+  .fsec>.h h4{font-size:var(--t-footnote);font-weight:700}
+  .fsec>.h p{font-size:var(--t-caption1);color:var(--label3);margin-left:auto}
+  .field .lb{display:flex;align-items:center;gap:6px;font-size:var(--t-caption1);font-weight:600;color:var(--label2)}
+  .req{color:var(--danger);font-weight:800}
+  .hintline{font-size:var(--t-caption2);color:var(--label3);margin-top:1px;line-height:1.4}
+  .inp.ro{background:var(--fill);color:var(--label2);cursor:not-allowed}
+  .inp.bad{border-color:var(--danger);box-shadow:0 0 0 3.5px var(--danger-fill)}
+  .f2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .f4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  @media(max-width:1100px){.f4{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:820px){.f2,.f4{grid-template-columns:1fr}}
+  .inline{display:flex;align-items:center;gap:9px}
+  .tagbox{display:flex;flex-wrap:wrap;gap:6px;padding:8px 9px;border-radius:var(--r-sm);
+    border:.5px solid var(--sep-2);background:var(--glass-3);min-height:38px;align-items:center}
+  .tagbox .tg{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:7px;
+    background:var(--accent-tint);color:var(--accent);font-size:var(--t-caption2);font-weight:700}
+  .tagbox .tg b{cursor:pointer;opacity:.6;font-weight:800}
+  .tagbox .tg b:hover{opacity:1}
+  .tagbox .add{border:none;background:none;color:var(--label3);font-size:var(--t-caption1);cursor:pointer;font-weight:600}
+  .sumbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    padding:11px 14px;border-radius:var(--r-md);background:var(--fill);border:.5px solid var(--sep);
+    font-size:var(--t-caption1);color:var(--label2)}
+  .sumbar.good{background:var(--ok-fill);border-color:transparent;color:var(--ok)}
+  .sumbar.bad{background:var(--danger-fill);border-color:transparent;color:var(--danger)}
+  .stickybar{position:sticky;bottom:0;z-index:20;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    padding:12px 16px;border-top:.5px solid var(--sep);
+    background:var(--glass-3);
+    -webkit-backdrop-filter:blur(var(--mat-chrome)) saturate(var(--mat-sat));
+    backdrop-filter:blur(var(--mat-chrome)) saturate(var(--mat-sat))}
+
+  /* Nut chinh khi bi khoa */
+  .btn:disabled, .btn[aria-disabled='true'] { opacity: .5; cursor: not-allowed; }
+  .btn.danger { background: linear-gradient(160deg, #e0524c, var(--danger)); }
+
+  /* Nen mo phia sau modal - mock-up khong co modal nen tu suy tu .tip/.hud */
+  .modal-scrim {
+    position: fixed; inset: 0; z-index: 90;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+    background: rgba(10, 31, 61, 0.36);
+    -webkit-backdrop-filter: blur(var(--mat-thin)) saturate(var(--mat-sat));
+    backdrop-filter: blur(var(--mat-thin)) saturate(var(--mat-sat));
+  }
+  .modal {
+    width: 100%; max-width: 420px; border-radius: var(--r-xl);
+    background: var(--glass-3);
+    -webkit-backdrop-filter: blur(var(--mat-chrome)) saturate(var(--mat-sat));
+    backdrop-filter: blur(var(--mat-chrome)) saturate(var(--mat-sat));
+    border: .5px solid var(--glass-stroke);
+    box-shadow: var(--e4), var(--inner-hi);
+    padding: 22px;
+  }
+
+  /* Danh sach goi y cua combobox - tu suy tu .tip (glass-3 + mat-thick + e4) */
+  .pop {
+    position: absolute; z-index: 60; margin-top: 4px; width: 100%;
+    max-height: 288px; overflow: auto;
+    border-radius: var(--r-sm);
+    background: var(--glass-3);
+    -webkit-backdrop-filter: blur(var(--mat-thick)) saturate(var(--mat-sat));
+    backdrop-filter: blur(var(--mat-thick)) saturate(var(--mat-sat));
+    border: .5px solid var(--glass-stroke);
+    box-shadow: var(--e4);
+  }
+  .pop button {
+    display: block; width: 100%; text-align: left;
+    padding: 8px 12px; font-size: var(--t-footnote); color: var(--label);
+    background: none; border: none; cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-std);
+  }
+  .pop button:hover { background: var(--fill); }
 }
 
 /* --- Thanh cuon --- */
