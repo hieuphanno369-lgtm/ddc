@@ -1,8 +1,45 @@
 # PROGRESS — DDC Control Tower
 
 ## Giai đoạn hiện tại
-**Run 1 — ERP data model v2 (nhánh `feature/erp-model-v2`) — dây chuyền `/ddc-tower:ship` ĐÃ CHỐT (2026-09-23, chạy tự động qua scheduled task).**
-Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. Redesign UI Apple-style + 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
+**Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
+
+### ⚠️ NẾU PHIÊN NÀY BỊ ĐỨT GIỮA CHỪNG (chạm ngưỡng usage) — ĐỌC TRƯỚC KHI LÀM GÌ KHÁC
+1. Đọc `.bangiao/checkpoint.md` nếu có, rồi đọc hết mục này.
+2. Chạy `git log --oneline feature/apple-glass-redesign` — đếm commit prefix `style(glass):` để
+   biết đã xong Task mấy trong 12 Task (đối chiếu bảng "Trạng thái 12 Task" bên dưới).
+3. **KHÔNG chạy lại planner.** `.bangiao/ke-hoach.md` đã hoàn chỉnh, cả 8 câu hỏi Q1-Q8 đã có dòng
+   "QUYẾT ĐỊNH"/"MẶC ĐỊNH ĐANG ÁP DỤNG" ngay trong file (mục "CÂU HỎI CÒN BỎ NGỎ — ĐÃ CHỦ DỰ ÁN
+   CHỐT") — không cần hỏi lại chủ dự án các câu đó.
+4. **KHÔNG chạy lại coder từ Task 1.** Giao lại cho coder đúng câu: *"Đọc `.bangiao/ke-hoach.md`,
+   xem `git log feature/apple-glass-redesign` để biết đã xong Task nào (commit prefix
+   `style(glass):`), tiếp tục đúng từ Task kế tiếp — không làm lại Task đã commit."*
+5. Nếu coder đang dở 1 Task chưa commit lúc đứt phiên, đọc `.bangiao/thay-doi.md` xem có ghi chú
+   dở dang không trước khi tiếp tục Task đó.
+
+### Trạng thái 12 Task (redesign) — cập nhật khi có commit `style(glass):` mới
+| Task | Nội dung | Trạng thái |
+|---|---|---|
+| 1 | Token màu/blur/elevation + cơ chế theme + 2 test canh | Chưa xong |
+| 2 | Shell (sidebar/topbar/progress bar) | Chưa xong |
+| 3 | Card / chip / alert / skeleton + motion engine | Chưa xong |
+| 4 | KPI + tag vàng "Trọng tâm" | Chưa xong |
+| 5 | Bảng | Chưa xong |
+| 6 | Form nền tảng + modal | Chưa xong |
+| 7 | Wizard nhập liệu + import | Chưa xong |
+| 8 | 5 editor quản trị | Chưa xong |
+| 9 | Recharts (màu series + tooltip kính) | Chưa xong |
+| 10 | Tổng quan + Chi tiết dự án | Chưa xong |
+| 11 | 10 trang còn lại (gồm trang không có trong mock-up) | Chưa xong |
+| 12 | Login + dọn sạch di sản | Chưa xong |
+
+**8 quyết định Q1-Q8 đã chốt (2026-09-23, tóm tắt — chi tiết đầy đủ trong `ke-hoach.md`):**
+Q1 logo: giữ `logo.png` đỏ trên nền trắng bo góc (KHÔNG dùng `.appicon` navy vẽ tay). Q2 công tắc
+sáng/tối: giữ nguyên trong SettingsMenu, không thêm lên topbar. Q3 sidebar: giữ đủ cả 3 tính năng
+hiện có (thu gọn/hamburger/drawer mobile), tự thiết kế kiểu kính. Q4 motion engine: port đủ engine
+spring bằng JavaScript (không làm bản CSS xấp xỉ). Q5 HUD đo FPS: KHÔNG ship. Q6 nền động 4 quả
+cầu mờ: giữ màu/vị trí, TẮT HẲN animation drift (đứng yên mọi trang). Q7 tag "Trọng tâm" (không
+chặn): mặc định giữ hiện trạng (1 tag ở "Chậm tiến độ"). Q8 thêm đồng hồ đếm ngược/timeline (không
+chặn): mặc định KHÔNG thêm, đúng phạm vi chỉ đổi giao diện.
 
 ### Trạng thái dây chuyền ship — Run 1 — **PHAN QUYET CUOI CUNG: CHOT** (kỹ thuật xong hết + 3 quyết định nghiệp vụ B-1/B-2/B-3 đã chốt 2026-09-23 — không cần vá code — chỉ còn merge/PR, xem "Next step")
 Dây chuyền ship có đúng **6 agent**: planner, coder, tester, debugger, security-reviewer, reviewer.
@@ -82,16 +119,11 @@ nào treo cho Run 1.
   dự án xác nhận trước khi push/tạo PR — xem quy tắc xác nhận hành động).
 
 ### Thứ tự ưu tiên tiếp theo (chủ dự án chốt 2026-09-23)
-1. **Redesign giao diện theo `mockup-apple-glass.html`** (nhánh riêng, làm SAU khi Run 1 merge) —
-   đổi hệ thống thiết kế từ đỏ/vàng (Apple-style 2026-09-20) sang "Apple Glass" — nền xanh navy
-   (`--accent:#1d5a9e`) + kính mờ nhiều lớp, giữ vàng `#f5b301` làm màu nhấn tag "TRỌNG TÂM", đầy
-   đủ token blur/bo góc/đổ bóng/easing kiểu iOS + light/dark. Mock-up (155KB, cập nhật 22/09) đã
-   phác đủ Tổng quan, Chi tiết dự án, Nhập liệu, Cảnh báo, Báo cáo, Tạo/Sửa dự án — khối lượng
-   LỚN, đụng toàn bộ trang trong app. Chưa có trong `ke-hoach.md` Run 1 — cần lập kế hoạch riêng
-   (planner) trước khi coder chạy.
+1. ~~Redesign giao diện theo `mockup-apple-glass.html`~~ **ĐANG CHẠY** — xem mục "Giai đoạn hiện
+   tại" ở đầu file (nhánh, trạng thái 12 Task, resume nếu đứt phiên).
 2. **Run 2** — 5 REST endpoint `GET /api/projects/[id]/{summary,value-chain,milestones,work-items,resources}`.
    `src/server/authz.ts` (`requireProjectRead()`, viết cho B-4) tái dùng được ngay — chỉ còn phần
-   route handler + `authzError()` (401/403 JSON) chưa viết.
+   route handler + `authzError()` (401/403 JSON) chưa viết. Làm SAU khi redesign xong.
 
 ### Nợ cũ (trước Run 1, ưu tiên thấp hơn 2 việc trên trừ khi chủ dự án đổi ý)
 - **Vá HIGH `/api/export`** (thêm auth) + 4 LOW (closeAlert validate, rate-limit, getUserRoles).
