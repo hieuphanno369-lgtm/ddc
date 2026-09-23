@@ -43,28 +43,15 @@ const config: Config = {
         'danger-fill': 'var(--danger-fill)',
         info: 'var(--info)',
         'info-fill': 'var(--info-fill)',
-
-        // --- Di san: XOA o Task 12, giu tam de trang chua doi khong mat mau ---
-        navy: {
-          50: '#eef2f7', 100: '#d9e2ee', 200: '#b3c4da', 300: '#8aa5c4',
-          400: '#4f729d', 500: '#204060', 600: '#12314f', 700: '#0e2741',
-          800: '#0a1f3d', 900: '#071832', 950: '#04101f',
-        },
-        accent: { DEFAULT: '#B91C1C', soft: '#FEE2E2' },
-        canvas: '#f5f7fa',
-        offwhite: '#e8e4d9',
       },
       borderRadius: {
         xs: 'var(--r-xs)', sm: 'var(--r-sm)', md: 'var(--r-md)',
         lg: 'var(--r-lg)', xl: 'var(--r-xl)', '2xl': 'var(--r-2xl)',
         full: 'var(--r-full)', icon: 'var(--r-icon)',
-        card: '16px', // di san - xoa o Task 12
       },
       boxShadow: {
         e0: 'var(--e0)', e1: 'var(--e1)', e2: 'var(--e2)',
         e3: 'var(--e3)', e4: 'var(--e4)',
-        card: '0 1px 2px rgba(10,31,61,0.04), 0 4px 16px rgba(10,31,61,0.06)', // di san
-        'card-hover': '0 6px 20px rgba(10,31,61,0.12)', // di san
       },
       fontSize: {
         caption2: 'var(--t-caption2)', caption1: 'var(--t-caption1)',

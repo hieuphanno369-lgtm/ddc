@@ -476,6 +476,30 @@
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) .c-gold { color: var(--gold); }
   }
+
+  /* --- Task 12: Trang dang nhap (mock-up khong ve; suy tu .modal + .card) --- */
+  .authwrap {
+    position: relative; z-index: 1;
+    min-height: 100vh; display: grid; place-items: center; padding: 16px;
+  }
+  .authcard {
+    width: 100%; max-width: 380px; padding: 30px 28px;
+    border-radius: var(--r-xl);
+    background: var(--glass-3);
+    -webkit-backdrop-filter: blur(var(--mat-chrome)) saturate(var(--mat-sat));
+    backdrop-filter: blur(var(--mat-chrome)) saturate(var(--mat-sat));
+    border: .5px solid var(--glass-stroke);
+    box-shadow: var(--e4), var(--inner-hi);
+  }
+  .authcard .brandbox { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 22px; }
+  .authcard .brandbox h1 { margin-top: 12px; font-size: var(--t-title3); font-weight: 700; letter-spacing: var(--tr-title); }
+  .authcard .brandbox p { font-size: var(--t-caption1); color: var(--label3); margin-top: 2px; }
+  .authsep { position: relative; text-align: center; margin: 4px 0; }
+  .authsep:before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: .5px; background: var(--sep); }
+  .authsep span {
+    position: relative; padding: 0 12px; background: var(--glass-3);
+    font-size: var(--t-caption2); text-transform: uppercase; letter-spacing: .06em; color: var(--label3);
+  }
 }
 
 /* --- Thanh cuon --- */
@@ -490,179 +514,3 @@
   }
 }
 
-/* Dark mode — override các utility màu sáng tập trung tại 1 chỗ */
-.dark body {
-  background-color: #0a1428;
-  color: #e2e8f0;
-  background-image:
-    radial-gradient(900px 460px at 88% -8%, rgba(245, 179, 1, 0.06), transparent 60%),
-    radial-gradient(820px 480px at 6% 108%, rgba(185, 28, 28, 0.05), transparent 60%);
-  background-attachment: fixed;
-}
-.dark .card {
-  background-color: rgba(17, 28, 51, 0.62);
-  border-color: rgba(30, 43, 71, 0.7);
-}
-.dark .bg-canvas {
-  background-color: #0a1428;
-}
-.dark .bg-white {
-  background-color: #111c33;
-}
-.dark .bg-white\/80 {
-  background-color: rgba(17, 28, 51, 0.8);
-}
-.dark .bg-slate-50 {
-  background-color: #16233d;
-}
-.dark .bg-slate-100 {
-  background-color: #16233d;
-}
-.dark .bg-slate-50\/60 {
-  background-color: rgba(22, 35, 61, 0.6);
-}
-.dark .bg-slate-50\/70 {
-  background-color: rgba(22, 35, 61, 0.7);
-}
-.dark .bg-accent-soft {
-  background-color: rgba(185, 28, 28, 0.22);
-}
-.dark .bg-red-50 {
-  background-color: rgba(220, 38, 38, 0.15);
-}
-.dark .border-slate-200 {
-  border-color: #1e2b47;
-}
-.dark .border-slate-200\/70 {
-  border-color: #1e2b47;
-}
-.dark .border-slate-100 {
-  border-color: #1e2b47;
-}
-.dark .border-slate-300 {
-  border-color: #1e2b47;
-}
-.dark .border-red-200 {
-  border-color: rgba(220, 38, 38, 0.35);
-}
-.dark .divide-slate-100 > * + * {
-  border-color: #1e2b47;
-}
-.dark .text-navy-900 {
-  color: #e2e8f0;
-}
-.dark .text-navy-800 {
-  color: #cbd5e1;
-}
-.dark .text-navy-700 {
-  color: #cbd5e1;
-}
-.dark .text-navy-500 {
-  color: #8aa5c4;
-}
-.dark .text-navy-400 {
-  color: #64748b;
-}
-.dark .text-slate-700 {
-  color: #cbd5e1;
-}
-.dark .text-slate-600 {
-  color: #94a3b8;
-}
-.dark .text-slate-500 {
-  color: #94a3b8;
-}
-.dark .text-slate-400 {
-  color: #64748b;
-}
-.dark .text-slate-300 {
-  color: #64748b;
-}
-.dark .text-red-900 {
-  color: #fecaca;
-}
-.dark .text-red-800 {
-  color: #fca5a5;
-}
-.dark .text-red-700 {
-  color: #f87171;
-}
-.dark .text-red-600 {
-  color: #f87171;
-}
-.dark .text-blue-700 {
-  color: #93c5fd;
-}
-.dark .text-emerald-900 {
-  color: #86efac;
-}
-.dark .text-emerald-700 {
-  color: #4ade80;
-}
-.dark .text-emerald-600 {
-  color: #4ade80;
-}
-.dark .text-amber-900 {
-  color: #fcd34d;
-}
-.dark .text-amber-700 {
-  color: #fbbf24;
-}
-.dark .text-amber-600 {
-  color: #fbbf24;
-}
-.dark .bg-navy-50 {
-  background-color: #16233d;
-}
-.dark .bg-blue-50 {
-  background-color: rgba(30, 94, 255, 0.15);
-}
-.dark .bg-emerald-50 {
-  background-color: rgba(22, 163, 74, 0.15);
-}
-.dark .bg-amber-50 {
-  background-color: rgba(245, 158, 11, 0.15);
-}
-.dark .bg-slate-200\/70 {
-  background-color: #16233d;
-}
-/* Form fields: nền tối + chữ sáng, dropdown option trắng/chữ đen */
-.dark input:not([type='file']),
-.dark select,
-.dark textarea {
-  background-color: #111c33;
-  color: #e2e8f0;
-}
-.dark select option {
-  background-color: #ffffff;
-  color: #0a1f3d;
-}
-.dark input::-webkit-calendar-picker-indicator {
-  filter: invert(1);
-}
-/* Recharts theme-aware */
-.dark .recharts-cartesian-grid line {
-  stroke: #1e2b47;
-}
-.dark .recharts-cartesian-axis-tick-value {
-  fill: #94a3b8;
-}
-.dark .recharts-legend-item-text {
-  color: #cbd5e1 !important;
-}
-.dark .recharts-default-tooltip {
-  background-color: #111c33 !important;
-  border-color: #1e2b47 !important;
-}
-.dark .recharts-tooltip-item {
-  color: #e2e8f0 !important;
-}
-.dark .recharts-tooltip-label {
-  color: #cbd5e1 !important;
-}
-.dark .hover\:bg-slate-50:hover {
-  background-color: #16233d;
-}
-.dark .hover\:bg-slate-100:hover {
-  background-color: #1e2b47;
-}

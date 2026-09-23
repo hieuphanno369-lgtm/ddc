@@ -15,9 +15,6 @@ const HEX_ALLOW = new Set<string>([
 
 /** Con no: file chua doi sang he Apple Glass. Xoa dan theo tung Task. */
 const PENDING: string[] = [
-  // Task 12 - dang nhap
-  'app/[locale]/login/page.tsx',
-  'src/components/layout/LoginForm.tsx',
 ];
 
 const BANNED: { re: RegExp; why: string }[] = [
@@ -65,4 +62,20 @@ describe('canh style cu', () => {
       }
     });
   }
+
+  it('globals.css khong con override .dark', () => {
+    const css = readFileSync(join(ROOT, 'app/globals.css'), 'utf-8');
+    expect(css.includes('.dark ')).toBe(false);
+  });
+
+  it('tailwind.config.ts khong con palette di san', () => {
+    const cfg = readFileSync(join(ROOT, 'tailwind.config.ts'), 'utf-8');
+    for (const k of ['#B91C1C', '#FEE2E2', "canvas:", "offwhite:", "navy: {", "navy:{"]) {
+      expect(cfg.includes(k), `con "${k}"`).toBe(false);
+    }
+  });
+
+  it('PENDING da rong - khong con file nao chua doi', () => {
+    expect(PENDING).toEqual([]);
+  });
 });

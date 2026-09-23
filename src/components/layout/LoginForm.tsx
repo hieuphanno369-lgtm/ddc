@@ -15,8 +15,7 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const inputCls =
-    'w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-navy-900 placeholder:text-slate-400 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none';
+  const inputCls = 'inp';
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,10 +31,10 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
   }
 
   return (
-    <div className="space-y-4">
-      <form onSubmit={submit} className="space-y-3.5">
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-slate-600">{t('auth.email')}</label>
+    <div className="flex flex-col gap-3.5">
+      <form onSubmit={submit} className="flex flex-col gap-3">
+        <div className="field">
+          <span className="lb">{t('auth.email')}</span>
           <input
             type="email"
             value={email}
@@ -45,17 +44,17 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
             className={inputCls}
           />
         </div>
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-slate-600">{t('auth.password')}</label>
+        <div className="field">
+          <span className="lb">{t('auth.password')}</span>
           <PasswordInput value={password} onChange={setPassword} className={inputCls} required />
         </div>
         {error && (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>
+          <p className="sumbar bad">{error}</p>
         )}
         <button
           type="submit"
           disabled={busy}
-          className="w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:opacity-50"
+          className="btn w-full justify-center"
         >
           {t('auth.signIn')}
         </button>
@@ -63,13 +62,8 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
 
       {googleEnabled && (
         <>
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-slate-200" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-white px-3 text-xs uppercase tracking-wide text-slate-400">{t('auth.or')}</span>
-            </div>
+          <div className="authsep">
+            <span>{t('auth.or')}</span>
           </div>
 
           <button
@@ -78,7 +72,7 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
               signIn('google', { callbackUrl: `/${locale}` });
             }}
             disabled={busy}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-navy-900 transition-colors hover:bg-slate-50 disabled:opacity-50"
+            className="btn ghost w-full justify-center"
           >
             <GoogleIcon />
             {t('auth.signInGoogle')}

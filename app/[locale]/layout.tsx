@@ -30,7 +30,7 @@ export default async function LocaleLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('ddc-theme')||'system';var r=document.documentElement;if(t==='light'||t==='dark'){r.setAttribute('data-theme',t)}else{r.removeAttribute('data-theme')}if(t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches)){r.classList.add('dark')}}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem('ddc-theme')||'system';var r=document.documentElement;if(t==='light'||t==='dark'){r.setAttribute('data-theme',t)}else{r.removeAttribute('data-theme')}}catch(e){}})();`,
           }}
         />
       </head>
