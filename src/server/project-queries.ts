@@ -6,8 +6,17 @@ import { repo } from './repo';
 const RESOURCE_WINDOW_DAYS = 180;
 
 export interface ResourceSnapshot {
-  /** Ngày mà con số thuộc về; null = chưa có dữ liệu ngày nào trong cửa sổ. */
+  /**
+   * Ngày MỚI HƠN trong 2 ngày cuối (nhân lực/thiết bị) - CHỈ dùng khi cần một mốc chung
+   * (vd sắp xếp/so sánh nhiều dự án); null = cả 2 bên đều chưa có dữ liệu ngày nào.
+   * KHÔNG dùng làm nhãn "Số liệu ngày ..." cho từng card riêng - xem N-6 (danh-gia.md vòng 2):
+   * nhân lực và thiết bị có thể nhập lệch ngày, dán chung 1 nhãn sẽ hiện sai ngày cho bên còn lại.
+   */
   asOfDate: IsoDate | null;
+  /** Ngày cuối CÓ dữ liệu nhân lực - dùng cho nhãn ngày của card nhân lực. */
+  manpowerAsOfDate: IsoDate | null;
+  /** Ngày cuối CÓ dữ liệu thiết bị - dùng cho nhãn ngày của card thiết bị. */
+  equipmentAsOfDate: IsoDate | null;
   manpowerPlanned: number;
   manpowerActual: number;
   equipmentPlanned: number;
@@ -45,6 +54,8 @@ export async function getResourceSnapshot(projectId: number, yearMonth: string):
 
   return {
     asOfDate: days.at(-1) ?? null,
+    manpowerAsOfDate: lastManpowerDay,
+    equipmentAsOfDate: lastEquipmentDay,
     manpowerPlanned: manpowerRows.reduce((s, m) => s + m.plannedHeadcount, 0),
     manpowerActual: manpowerRows.reduce((s, m) => s + m.actualHeadcount, 0),
     equipmentPlanned: equipmentRows.reduce((s, e) => s + e.qtyPlanned, 0),

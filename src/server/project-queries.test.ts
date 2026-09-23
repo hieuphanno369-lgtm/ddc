@@ -6,6 +6,7 @@ vi.mock('@/server/repo', async () => {
 });
 
 import { currentMonth, isValidYearMonth } from '@/lib/clock';
+import { repo } from '@/server/repo';
 import { getProjectSummary } from './queries';
 import { getManpowerDaily, getResourceSnapshot, resourceWindow } from './project-queries';
 
@@ -15,6 +16,8 @@ describe('getResourceSnapshot - ảnh chụp ngày gần nhất, KHÔNG cộng d
   it('dự án 1: đúng số của ngày cuối (520/486 người, 72/63 thiết bị) + ngày kèm theo', async () => {
     const s = await getResourceSnapshot(1, MONTH);
     expect(s.asOfDate).toBe('2026-09-16');
+    expect(s.manpowerAsOfDate).toBe('2026-09-16');
+    expect(s.equipmentAsOfDate).toBe('2026-09-16');
     expect(s.manpowerPlanned).toBe(520);
     expect(s.manpowerActual).toBe(486);
     expect(s.equipmentPlanned).toBe(72);
@@ -29,7 +32,36 @@ describe('getResourceSnapshot - ảnh chụp ngày gần nhất, KHÔNG cộng d
   it('dự án chưa có dữ liệu ngày → asOfDate null, mọi số = 0 (UI hiện "-")', async () => {
     const s = await getResourceSnapshot(17, MONTH);
     expect(s.asOfDate).toBeNull();
+    expect(s.manpowerAsOfDate).toBeNull();
+    expect(s.equipmentAsOfDate).toBeNull();
     expect(s.manpowerPlanned + s.manpowerActual + s.equipmentPlanned + s.equipmentActual).toBe(0);
+  });
+});
+
+/**
+ * N-6 (danh-gia.md, vòng 2): nhân lực và thiết bị có thể nhập lệch ngày (nhân lực tới 16/09,
+ * thiết bị dừng ở 13/09 chẳng hạn). asOfDate CŨ = ngày MỚI HƠN trong 2 ngày - nếu dùng chung 1
+ * nhãn cho cả 2 card, card có dữ liệu CŨ HƠN sẽ hiện nhầm ngày của card kia (số của 13/09 nhưng
+ * ghi "16/09"). Test giả lập lệch ngày bằng cách mock 2 hàm đọc dữ liệu ngày của repo.
+ */
+describe('getResourceSnapshot - N-6: nhân lực và thiết bị lệch ngày nhập', () => {
+  it('nhân lực tới 16/09, thiết bị dừng ở 13/09 -> mỗi bên trả ĐÚNG ngày của chính nó, không dùng chung asOfDate', async () => {
+    vi.spyOn(repo, 'getDailyManpower').mockResolvedValueOnce([
+      { projectId: 1, contractorId: 1, workDate: '2026-09-16', plannedHeadcount: 100, actualHeadcount: 90 },
+    ]);
+    vi.spyOn(repo, 'getDailyEquipment').mockResolvedValueOnce([
+      { projectId: 1, contractorId: 1, equipmentId: 1, workDate: '2026-09-13', qtyPlanned: 10, qtyActual: 8 },
+    ]);
+
+    const s = await getResourceSnapshot(1, MONTH);
+
+    expect(s.manpowerAsOfDate).toBe('2026-09-16');
+    expect(s.equipmentAsOfDate).toBe('2026-09-13');
+    // asOfDate (nhãn chung, KHÔNG dùng cho card riêng nữa) vẫn là ngày mới hơn - chứng minh 2 ngày
+    // thật sự khác nhau trong kịch bản này, không phải test vô hại.
+    expect(s.asOfDate).toBe('2026-09-16');
+    expect(s.manpowerActual).toBe(90);
+    expect(s.equipmentActual).toBe(8);
   });
 });
 

@@ -65,7 +65,11 @@ export default async function ProjectDetailPage({
   const dims = await repo.getDims();
   const resources = await getResourceSnapshot(id, month);
   const manpowerDaily = await getManpowerDaily(id, month);
-  const asOf = resources.asOfDate ? t('detail.asOfDate', { date: formatDate(resources.asOfDate, locale) }) : t('detail.noDailyData');
+  // N-6 (danh-gia.md, vòng 2): nhân lực và thiết bị có thể nhập lệch ngày - MỖI card phải hiện
+  // đúng ngày CỦA CHÍNH NÓ, không dùng chung 1 nhãn (asOfDate cũ = ngày mới hơn trong 2 ngày,
+  // khiến card có dữ liệu cũ hơn hiện nhầm ngày của card kia).
+  const manpowerAsOf = resources.manpowerAsOfDate ? t('detail.asOfDate', { date: formatDate(resources.manpowerAsOfDate, locale) }) : t('detail.noDailyData');
+  const equipmentAsOf = resources.equipmentAsOfDate ? t('detail.asOfDate', { date: formatDate(resources.equipmentAsOfDate, locale) }) : t('detail.noDailyData');
   const customer = dims.customers.find((c) => c.id === project.customerId);
   const team = dims.teams.find((x) => x.id === project.teamKdId);
 
@@ -133,16 +137,16 @@ export default async function ProjectDetailPage({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <KpiCard
           label={t('detail.manpower')}
-          value={resources.asOfDate ? `${resources.manpowerActual}/${resources.manpowerPlanned}` : '-'}
-          sub={asOf}
+          value={resources.manpowerAsOfDate ? `${resources.manpowerActual}/${resources.manpowerPlanned}` : '-'}
+          sub={manpowerAsOf}
           delta={null}
           tone="neutral"
           icon={IconProject}
         />
         <KpiCard
           label={t('detail.equipment')}
-          value={resources.asOfDate ? `${resources.equipmentActual}/${resources.equipmentPlanned}` : '-'}
-          sub={asOf}
+          value={resources.equipmentAsOfDate ? `${resources.equipmentActual}/${resources.equipmentPlanned}` : '-'}
+          sub={equipmentAsOf}
           delta={null}
           tone="neutral"
           icon={IconGauge}
