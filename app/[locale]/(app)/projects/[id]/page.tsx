@@ -21,12 +21,13 @@ import { Badge } from '@/components/ui/Badge';
 import { PlanActualTimeline } from '@/components/project/PlanActualTimeline';
 const SCurve = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SCurve), { ssr: false, loading: () => <div className="sk h-60" /> });
 const CountdownPanel = dynamic(() => import('@/components/project/CountdownPanel').then((m) => m.CountdownPanel), { ssr: false, loading: () => <div className="sk" style={{ width: 240, height: 88 }} /> });
+const ResourceBreakdownChart = dynamic(() => import('@/components/project/ResourceBreakdownChart').then((m) => m.ResourceBreakdownChart), { ssr: false, loading: () => <div className="sk h-60" /> });
 const SpiCpiLine = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SpiCpiLine), { ssr: false, loading: () => <div className="sk h-60" /> });
 const ManpowerDailyChart = dynamic(
   () => import('@/components/project/ManpowerDailyChart').then((m) => m.ManpowerDailyChart),
   { ssr: false, loading: () => <div className="sk h-60" /> },
 );
-import { getManpowerDaily, getResourceSnapshot } from '@/server/project-queries';
+import { getManpowerDaily, getResourceBreakdown, getResourceSnapshot } from '@/server/project-queries';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { WhatIf } from '@/components/project/WhatIf';
 import { ProjectSwitcher } from '@/components/project/ProjectSwitcher';
@@ -83,6 +84,7 @@ export default async function ProjectDetailPage({
   const dims = await repo.getDims();
   const resources = await getResourceSnapshot(id, month);
   const manpowerDaily = await getManpowerDaily(id, month);
+  const breakdown = await getResourceBreakdown(id, month);
   // N-6 (danh-gia.md, vòng 2): nhân lực và thiết bị có thể nhập lệch ngày - MỖI card phải hiện
   // đúng ngày CỦA CHÍNH NÓ, không dùng chung 1 nhãn (asOfDate cũ = ngày mới hơn trong 2 ngày,
   // khiến card có dữ liệu cũ hơn hiện nhầm ngày của card kia).
@@ -414,6 +416,26 @@ export default async function ProjectDetailPage({
           )}
         </CardBody>
       </Card>
+
+      {/* Tang 4 - Huy dong nguon luc (mock-up dong 759-767) */}
+      <div className="g2">
+        <Card>
+          <CardHeader
+            title={t('detail.res.manTitle')}
+            titleExtra={<span className="chip c-plain">{t('detail.res.manual')}</span>}
+            action={<Legend items={[{ label: t('detail.planned'), color: 'var(--s-plan)' }, { label: t('detail.actual'), color: 'var(--s-third)' }]} />}
+          />
+          <CardBody><ResourceBreakdownChart rows={breakdown.manpower} kind="manpower" /></CardBody>
+        </Card>
+        <Card>
+          <CardHeader
+            title={t('detail.res.eqpTitle')}
+            titleExtra={<span className="chip c-plain">{t('detail.res.manual')}</span>}
+            action={<Legend items={[{ label: t('detail.planned'), color: 'var(--s-plan)' }, { label: t('detail.actual'), color: 'var(--s-cost)' }]} />}
+          />
+          <CardBody><ResourceBreakdownChart rows={breakdown.equipment} kind="equipment" /></CardBody>
+        </Card>
+      </div>
 
       {/* Biểu đồ nhân lực KH vs TT - đặt cuối trang theo yêu cầu */}
       <Card>

@@ -8,7 +8,7 @@ vi.mock('@/server/repo', async () => {
 import { currentMonth, isValidYearMonth } from '@/lib/clock';
 import { repo } from '@/server/repo';
 import { getProjectSummary } from './queries';
-import { getManpowerDaily, getResourceSnapshot, resourceWindow } from './project-queries';
+import { getManpowerDaily, getResourceBreakdown, getResourceSnapshot, resourceWindow } from './project-queries';
 
 const MONTH = '2026-09';
 
@@ -71,6 +71,39 @@ describe('resourceWindow', () => {
   });
   it('tháng quá khứ → kết thúc ở cuối tháng đó', () => {
     expect(resourceWindow('2026-07').to).toBe('2026-07-31');
+  });
+});
+
+describe('getResourceBreakdown - "Nhan luc theo nha thau" / "Thiet bi theo nhom"', () => {
+  it('du an 1 ngay 16/09: 6 nha thau, tong 520/486, dong dau la KH lon nhat', async () => {
+    const r = await getResourceBreakdown(1, MONTH);
+    expect(r.manpowerAsOfDate).toBe('2026-09-16');
+    expect(r.manpower).toHaveLength(6);
+    expect(r.manpower[0]).toEqual({ id: 1, name: 'Nhà thầu Lắp dựng A', note: 'Lắp dựng kết cấu chính', planned: 120, actual: 112 });
+    expect(r.manpower.reduce((s, x) => s + x.planned, 0)).toBe(520);
+    expect(r.manpower.reduce((s, x) => s + x.actual, 0)).toBe(486);
+  });
+  it('thiet bi gop theo nhom, cong NGANG nha thau dung chung: TB1 = 14/12 cua NT1+NT2+NT3', async () => {
+    const r = await getResourceBreakdown(1, MONTH);
+    expect(r.equipmentAsOfDate).toBe('2026-09-16');
+    expect(r.equipment).toHaveLength(7);
+    expect(r.equipment[0]).toEqual({ id: 1, name: 'Cẩu bánh xích', note: 'Nhà thầu Lắp dựng A, Nhà thầu Lắp dựng B, Nhà thầu Cơ khí C', planned: 14, actual: 12 });
+    expect(r.equipment.reduce((s, x) => s + x.planned, 0)).toBe(72);
+    expect(r.equipment.reduce((s, x) => s + x.actual, 0)).toBe(63);
+  });
+  it('hoa KH thi xep theo ten (vi): "Giàn giáo di động" (8) truoc "Xe tải chuyên dụng" (8)', async () => {
+    const r = await getResourceBreakdown(1, MONTH);
+    expect(r.equipment.slice(5).map((x) => x.id)).toEqual([7, 6]);
+  });
+  it('du an chua co du lieu ngay -> mang rong, ngay null', async () => {
+    expect(await getResourceBreakdown(17, MONTH)).toEqual({ manpowerAsOfDate: null, equipmentAsOfDate: null, manpower: [], equipment: [] });
+  });
+  it('nha thau/thiet bi khong con trong dim -> ten "#id", khong crash', async () => {
+    vi.spyOn(repo, 'getDailyManpower').mockResolvedValueOnce([{ projectId: 1, contractorId: 99, workDate: '2026-09-16', plannedHeadcount: 3, actualHeadcount: 2 }]);
+    vi.spyOn(repo, 'getDailyEquipment').mockResolvedValueOnce([{ projectId: 1, contractorId: 99, equipmentId: 98, workDate: '2026-09-16', qtyPlanned: 1, qtyActual: 1 }]);
+    const r = await getResourceBreakdown(1, MONTH);
+    expect(r.manpower[0].name).toBe('#99');
+    expect(r.equipment[0]).toMatchObject({ name: '#98', note: '#99' });
   });
 });
 

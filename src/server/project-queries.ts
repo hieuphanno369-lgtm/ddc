@@ -1,5 +1,6 @@
 import { addDaysIso, currentMonth, endOfMonth, isValidYearMonth, todayIso, type IsoDate } from '@/lib/clock';
 import { sumByDate, type DailyPoint } from '@/lib/daily-series';
+import type { ResourceRow } from '@/lib/resources';
 import { repo } from './repo';
 
 /** Cửa sổ đọc bảng theo ngày: đủ dài để vẽ ~6 tháng mà không quét cả bảng. */
@@ -61,6 +62,51 @@ export async function getResourceSnapshot(projectId: number, yearMonth: string):
     equipmentPlanned: equipmentRows.reduce((s, e) => s + e.qtyPlanned, 0),
     equipmentActual: equipmentRows.reduce((s, e) => s + e.qtyActual, 0),
   };
+}
+
+export interface ResourceBreakdown {
+  manpowerAsOfDate: IsoDate | null;
+  equipmentAsOfDate: IsoDate | null;
+  /** Theo nhà thầu, đúng ngày manpowerAsOfDate; sort KH giảm dần rồi tên. */
+  manpower: ResourceRow[];
+  /** Theo nhóm thiết bị (dim_equipment), đúng ngày equipmentAsOfDate, cộng ngang nhà thầu; note = tên nhà thầu dùng. */
+  equipment: ResourceRow[];
+}
+
+const byPlannedDesc = (a: ResourceRow, b: ResourceRow) => b.planned - a.planned || a.name.localeCompare(b.name, 'vi');
+
+/** Bảng "Nhân lực theo nhà thầu" / "Thiết bị theo nhóm" (mock-up dòng 759-767) - cùng ngày chụp với getResourceSnapshot. */
+export async function getResourceBreakdown(projectId: number, yearMonth: string): Promise<ResourceBreakdown> {
+  const { from, to } = resourceWindow(yearMonth);
+  const manpower = await repo.getDailyManpower(projectId, from, to);
+  const equipment = await repo.getDailyEquipment(projectId, from, to);
+  const contractors = new Map((await repo.getContractors()).map((c) => [c.id, c]));
+  const equipments = new Map((await repo.getEquipments()).map((e) => [e.id, e]));
+  const manpowerAsOfDate = manpower.at(-1)?.workDate ?? null;
+  const equipmentAsOfDate = equipment.at(-1)?.workDate ?? null;
+
+  const man = new Map<number, ResourceRow>();
+  for (const m of manpower) {
+    if (m.workDate !== manpowerAsOfDate) continue;
+    const c = contractors.get(m.contractorId);
+    const row = man.get(m.contractorId) ?? { id: m.contractorId, name: c?.name ?? `#${m.contractorId}`, note: c?.scopeOfWork ?? '', planned: 0, actual: 0 };
+    row.planned += m.plannedHeadcount;
+    row.actual += m.actualHeadcount;
+    man.set(m.contractorId, row);
+  }
+  const eqp = new Map<number, ResourceRow & { users: number[] }>();
+  for (const e of equipment) {
+    if (e.workDate !== equipmentAsOfDate) continue;
+    const row = eqp.get(e.equipmentId) ?? { id: e.equipmentId, name: equipments.get(e.equipmentId)?.name ?? `#${e.equipmentId}`, note: '', planned: 0, actual: 0, users: [] };
+    row.planned += e.qtyPlanned;
+    row.actual += e.qtyActual;
+    if (!row.users.includes(e.contractorId)) row.users.push(e.contractorId);
+    eqp.set(e.equipmentId, row);
+  }
+  const equipmentRows = [...eqp.values()].map(({ users, ...r }) => ({
+    ...r, note: [...users].sort((a, b) => a - b).map((id) => contractors.get(id)?.name ?? `#${id}`).join(', '),
+  }));
+  return { manpowerAsOfDate, equipmentAsOfDate, manpower: [...man.values()].sort(byPlannedDesc), equipment: equipmentRows.sort(byPlannedDesc) };
 }
 
 /** Chuỗi nhân lực theo ngày (đã cộng ngang nhà thầu) để client tự gộp tuần/tháng. */

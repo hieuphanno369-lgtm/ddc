@@ -27,10 +27,12 @@ export function Card({
 export function CardHeader({
   title,
   subtitle,
+  titleExtra,
   action,
 }: {
   title: string;
   subtitle?: string;
+  titleExtra?: React.ReactNode;
   action?: React.ReactNode;
 }) {
   return (
@@ -38,6 +40,7 @@ export function CardHeader({
       <h3>
         {title}
         {subtitle && <span className="en">{subtitle}</span>}
+        {titleExtra}
       </h3>
       {action}
     </div>

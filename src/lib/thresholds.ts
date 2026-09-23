@@ -26,6 +26,12 @@ export const THRESHOLDS = {
   stageWeightTotal: 100,
   /** Sai số float chấp nhận khi cộng trọng số (0.01 điểm phần trăm) */
   stageWeightEpsilon: 0.01,
+  /** Tỷ lệ huy động TT/KH của 1 dòng (mock-up dòng 1600, 1828): < 85% đỏ */
+  mobilizationDangerPct: 0.85,
+  /** ... < 95% vàng, còn lại xanh */
+  mobilizationWarnPct: 0.95,
+  /** Dòng TỔNG của bảng nguồn lực và cả tuần tracking (mock-up dòng 1616, 1922): < 90% cảnh báo */
+  mobilizationTotalWarnPct: 0.9,
 } as const;
 
 export type ThresholdKey = keyof typeof THRESHOLDS;

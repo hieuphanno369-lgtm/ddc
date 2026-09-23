@@ -43,6 +43,7 @@ const CHANGED_SOURCES: Record<string, string> = {
   'AppShell (sidebar)': 'src/components/layout/AppShell.tsx',
   'trang /projects/[id]': 'app/[locale]/(app)/projects/[id]/page.tsx',
   'CountdownPanel': 'src/components/project/CountdownPanel.tsx',
+  'ResourceBreakdownChart': 'src/components/project/ResourceBreakdownChart.tsx',
 };
 
 describe('i18n: vi/en phủ key như nhau', () => {

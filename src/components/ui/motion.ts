@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useState, type RefObject } from 'react';
 
 /**
  * Port nguyen ham "MOTION ENGINE" cua mockup-apple-glass.html (dong 1156-1230)
@@ -14,7 +14,7 @@ import { useEffect, type RefObject } from 'react';
  * khong con 2 spring chong nhau tren cung 1 phan tu khi bam/re nhanh lien tiep.
  */
 
-type SpringPreset = 'snappy' | 'smooth' | 'gentle' | 'bouncy';
+export type SpringPreset = 'snappy' | 'smooth' | 'gentle' | 'bouncy';
 
 const SPRING: Record<SpringPreset, { stiffness: number; damping: number; mass: number }> = {
   snappy: { stiffness: 400, damping: 30, mass: 1 }, // nut bam, hover
@@ -259,4 +259,16 @@ export function useHoverLift(ref: RefObject<HTMLElement>, dy = 3): void {
       el.removeEventListener('pointerleave', onLeave);
     };
   }, [ref, dy]);
+}
+
+/** 0 → 1 bằng spring mỗi khi mount / `key` đổi. Reduced-motion hoặc không có rAF: nhảy thẳng 1. */
+export function useSpringProgress(preset: SpringPreset = 'smooth', key: unknown = 0): number {
+  const [p, setP] = useState(0);
+  useEffect(() => spring({ preset, from: 0, to: 1, onUpdate: setP }), [preset, key]);
+  return p;
+}
+
+/** Tiến độ so le của phần tử i/n (mock-up dùng delay i*step), kẹp [0, 1]. */
+export function staggered(p: number, i: number, n: number, step = 0.04): number {
+  return Math.max(0, Math.min(1, p * (1 + step * n) - step * i));
 }

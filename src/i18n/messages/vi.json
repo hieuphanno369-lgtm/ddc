@@ -208,6 +208,21 @@
       "seconds": "giây",
       "target": "Ngày HT KH",
       "today": "hôm nay"
+    },
+    "res": {
+      "manTitle": "Nhân lực theo nhà thầu",
+      "eqpTitle": "Thiết bị theo nhóm",
+      "manual": "Nhập tay",
+      "header": "Huy động (thanh: KH / TT)",
+      "planShort": "KH",
+      "actualShort": "TT",
+      "rate": "Đạt",
+      "totalMan": "TỔNG ({n} nhà thầu)",
+      "totalEqp": "TỔNG ({n} nhóm thiết bị)",
+      "owner": "Phụ trách",
+      "shortfall": "Thiếu",
+      "people": "người",
+      "units": "thiết bị"
     }
   },
   "stage": {

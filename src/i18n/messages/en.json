@@ -208,6 +208,21 @@
       "seconds": "sec",
       "target": "Planned finish",
       "today": "today"
+    },
+    "res": {
+      "manTitle": "Manpower by contractor",
+      "eqpTitle": "Equipment by group",
+      "manual": "Manual input",
+      "header": "Mobilisation (bars: plan / actual)",
+      "planShort": "Plan",
+      "actualShort": "Act.",
+      "rate": "Rate",
+      "totalMan": "TOTAL ({n} contractors)",
+      "totalEqp": "TOTAL ({n} equipment groups)",
+      "owner": "Scope",
+      "shortfall": "Shortfall",
+      "people": "people",
+      "units": "units"
     }
   },
   "stage": {
