@@ -96,15 +96,20 @@
   .sect b{font-size:var(--t-caption1);font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--label3)}
   .sect i{flex:1;height:.5px;background:var(--sep);display:block}
 
-  /* --- Bu cho trang thai mock-up khong ve (Q3=(a): giu ca 3 - thu gon/hamburger/drawer) --- */
-  .side.is-collapsed { width: 68px; flex: 0 0 68px; }
-  .side.is-collapsed .brand .nm,
-  .side.is-collapsed .sgrp,
-  .side.is-collapsed .nav span,
-  .side.is-collapsed .foot p { display: none; }
-  .side.is-collapsed .brand { justify-content: center; padding: 8px 0 16px; }
-  .side.is-collapsed .nav { justify-content: center; }
-  .side.is-collapsed .foot { justify-content: center; }
+  /* --- Bu cho trang thai mock-up khong ve (Q3=(a): giu ca 3 - thu gon/hamburger/drawer) ---
+     Chi hieu luc tu 1024px (desktop) - duoi nguong nay la drawer mobile, khong
+     duoc nhiem trang thai is-collapsed cua desktop rot sang (B-4, danh-gia.md
+     VONG 2: neu khong khoanh vung, drawer mobile mo ra se chi rong 68px). */
+  @media (min-width: 1024px) {
+    .side.is-collapsed { width: 68px; flex: 0 0 68px; }
+    .side.is-collapsed .brand .nm,
+    .side.is-collapsed .sgrp,
+    .side.is-collapsed .nav span,
+    .side.is-collapsed .foot p { display: none; }
+    .side.is-collapsed .brand { justify-content: center; padding: 8px 0 16px; }
+    .side.is-collapsed .nav { justify-content: center; }
+    .side.is-collapsed .foot { justify-content: center; }
+  }
 
   @media (max-width: 1023px) {
     .side {

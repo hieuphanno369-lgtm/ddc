@@ -46,6 +46,10 @@ export function KpiCard({
   const deltaUp = (delta ?? 0) > 0;
   const hasDelta = delta != null && delta !== 0;
   const good = invertDelta ? !deltaUp : deltaUp;
+  // The hero luon nen gradient navy nen chu trang moi doc duoc, TRU khi tone
+  // dang canh bao (warn/danger) - luc do phai giu tin hieu mau, dung --gold
+  // vi --warn ban sang khong du doi tren nen navy (B-3, danh-gia.md VONG 2).
+  const heroAlert = hero && (tone === 'warn' || tone === 'danger');
 
   return (
     <div className={`kpi rise${hero ? ' key' : ''}`}>
@@ -58,7 +62,7 @@ export function KpiCard({
       )}
 
       <div className="lb">{label}</div>
-      <div className="vl" style={hero ? undefined : { color: TONE_VALUE[tone] }}>
+      <div className="vl" style={hero ? (heroAlert ? { color: 'var(--gold)' } : undefined) : { color: TONE_VALUE[tone] }}>
         {value}
       </div>
 

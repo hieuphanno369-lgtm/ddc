@@ -616,3 +616,126 @@ chỉ giữ lại `box-shadow` — tách rõ theo thuộc tính: `transform` do 
    dung server-rendered qua `children`), không phải lỗi, nhưng nếu sau này có
    ai thêm logic chỉ-chạy-server vào bên trong `Card`/`Rise` (gọi DB, đọc
    cookie server...) sẽ vỡ ngay vì 2 file này giờ thuộc client boundary.
+
+---
+
+## 10. Vá B-1..B-5 (Reviewer vòng 2 chấm CẦN SỬA — đây là vòng CAN SUA thứ 2/2)
+
+Skill đã dùng: `ddc-tower:coding-standards`, `ddc-tower:frontend-patterns`.
+Phạm vi: ĐÚNG 5 điểm reviewer chỉ ra ở mục "VÒNG 2" của `danh-gia.md` (B-1 →
+B-5), không đụng lại CS-1/CS-2/CS-3 (đã CHỐT ở vòng trước), không đụng
+business logic/server ngoài phần đọc `THRESHOLDS` vốn đã có sẵn.
+
+### 10.1. B-1 — `ProjectTable.tsx`: chip SPI/CPI null ra xanh + ngưỡng gõ cứng lệch `THRESHOLDS`
+
+**Trước:** `tone={s.spi != null && s.spi < 0.9 ? 'danger' : s.spi != null && s.spi < 1 ? 'warn' : 'ok'}`
+— dự án chưa có SPI/CPI (`null`) rơi vào nhánh `else` cuối, ra `'ok'` (chip
+xanh); đồng thời ngưỡng `0.9`/`1` gõ cứng tại chỗ, lệch với `THRESHOLDS.spiWarn
+= 0.9` mà `Watchlist.tsx`/`report/page.tsx`/`DataEntryForm.tsx`/
+`projects/[id]/page.tsx` đang dùng chung.
+
+**Sau:** import `THRESHOLDS` từ `@/lib/thresholds`, đổi thành
+`tone={s.spi == null ? 'neutral' : s.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'}`
+(và tương tự cho CPI với `THRESHOLDS.cpiWarn`). `Badge` đã có sẵn tone
+`neutral` → render class `c-plain` (trung tính), đúng cách `main` xử lý null
+trước redesign. Không thêm mức `danger` mới (đúng cảnh báo của reviewer: thêm
+ngưỡng 3 mức là thay đổi nghiệp vụ, phải làm ở đợt riêng).
+
+### 10.2. B-2 — `report/page.tsx`: cùng lỗi null ra chip xanh
+
+**Trước:** `tone={r.spi != null && r.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'}`
+— null cũng rơi vào `'ok'`.
+
+**Sau:** `tone={r.spi == null ? 'neutral' : r.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'}`
+(và tương tự CPI). File này đã import sẵn `THRESHOLDS` từ trước nên không cần
+thêm import.
+
+### 10.3. B-3 — `KpiCard.tsx`: thẻ "Trọng tâm" mất tín hiệu cảnh báo SPI
+
+**Trước:** `style={hero ? undefined : { color: TONE_VALUE[tone] }}` — thẻ hero
+luôn chữ trắng bất kể `tone`, nên SPI 0.70 (nguy hiểm) và SPI 1.10 (tốt) hiện
+y hệt nhau ở `/projects/[id]` (trang này không còn chỗ nào khác tô màu SPI).
+
+**Sau:** thêm biến `heroAlert = hero && (tone === 'warn' || tone === 'danger')`;
+đổi thành `style={hero ? (heroAlert ? { color: 'var(--gold)' } : undefined) : { color: TONE_VALUE[tone] }}`.
+Dùng `--gold` (không dùng `--warn` bản sáng vì không đủ tương phản trên nền
+navy của thẻ hero). `KpiCard` vẫn là hàm đồng bộ thuần, không đổi chữ ký, các
+test render trang thật không bị ảnh hưởng.
+
+**Hệ quả phụ đã biết trước (đúng ý reviewer, không phải bug):** `OverviewWidgets.tsx`
+và `report/page.tsx` đều truyền `tone="warn"` cố định cho thẻ hero
+"Chậm tiến độ", nên 2 thẻ này cũng chuyển sang chữ vàng — khớp đúng ngữ nghĩa
+cũ ở `main` (amber), giữ nguyên không né tránh.
+
+**Test mới** (`src/components/dashboard/KpiCard.test.ts`, thêm đúng 2 `it()`
+vào describe "the 'Trong tam'"):
+- `hero=true` + `tone: 'warn'`/`'danger'` → `style="color:var(--gold)"`.
+- `hero=true` + `tone: 'ok'` → không có thuộc tính `style` nào (vẫn kế thừa
+  chữ trắng từ nền gradient).
+
+### 10.4. B-4 — `app/globals.css:100-107`: trạng thái thu gọn rò sang drawer mobile
+
+**Trước:** khối `.side.is-collapsed …` không nằm trong media query nào → khi
+thu gọn sidebar ở desktop rồi thu cửa sổ xuống <1024px (chuyển sang drawer
+mobile), class `is-collapsed` vẫn còn trên DOM, drawer mở ra chỉ rộng 68px,
+không có cách nào mở lại.
+
+**Sau:** bọc nguyên khối 8 dòng CSS đó trong `@media (min-width: 1024px) { … }`,
+giữ nguyên 100% nội dung bên trong (không đổi selector/thuộc tính nào), chỉ
+thêm điều kiện bề rộng để nó không còn hiệu lực ở chế độ drawer mobile.
+
+### 10.5. B-5 — `src/components/ui/motion.ts`: failsafe không huỷ spring gốc trước khi gán giá trị cuối
+
+**Trước:** `cancelSprings` khai báo SAU `setTimeout`; nhánh failsafe (900ms)
+chỉ xoá `el.style.opacity`/`transform`, không huỷ spring gốc — nếu spring còn
+sống (máy chậm), khung rAF kế tiếp ghi đè lại, gây chớp-sáng-rồi-mờ-lại.
+
+**Sau:** chuyển khai báo `const cancelSprings: Array<() => void> = []` lên
+TRƯỚC `setTimeout`; trong vòng lặp failsafe đổi `els.forEach((el) => …)` thành
+`els.forEach((el, i) => …)` và gọi `cancelSprings[i]?.()` ngay trước khi xoá
+`opacity`/`transform`. Vì `cancelSprings` được điền đồng bộ (cùng tick) ngay
+sau khi `setTimeout` được lập lịch, tới thời điểm 900ms trôi qua thì mảng đã
+có đủ hàm huỷ cho mọi phần tử.
+
+### 10.6. Cổng kiểm tra cuối (chạy trên working tree sau khi vá)
+
+1. `npx tsc --noEmit` → sạch, 0 lỗi.
+2. `npm test` → **548/548 xanh (31 file test)** — tăng đúng 2 so với 546/546
+   trước đó, đúng bằng 2 test case mới của B-3; không file test nào khác bị
+   sửa nội dung.
+3. `npm run build` → biên dịch + type-check + generate static pages thành
+   công, 0 lỗi — đây là lần build đầu tiên kể từ khi `Card.tsx`/`Rise.tsx`
+   thành Client Component ở CS-3 (reviewer yêu cầu riêng vì lần build gần nhất
+   diễn ra trước đó).
+
+**File đã sửa (đúng 6 file, không đụng gì ngoài phạm vi):**
+`src/components/dashboard/ProjectTable.tsx`,
+`app/[locale]/(app)/report/page.tsx`, `src/components/dashboard/KpiCard.tsx`,
+`src/components/dashboard/KpiCard.test.ts`, `app/globals.css`,
+`src/components/ui/motion.ts`.
+
+### 10.7. Chỗ Tester nên soi kỹ
+
+1. **B-1/B-2**: mở cùng lúc `/vi/overview` và `/vi/report`, tìm cùng một dự án
+   xuất hiện ở cả hai trang — chip SPI/CPI phải cùng màu ở cả hai nơi. Dự án
+   chưa có SPI/CPI (hiện dấu "-") phải ra chip xám trung tính (`c-plain`),
+   KHÔNG phải xanh.
+2. **B-3**: `/vi/projects/<id>` — thẻ "Trọng tâm" phải đổi màu chữ theo SPI:
+   SPI < 0.9 (ứng `tone="warn"` do trang này truyền) ra chữ vàng, SPI ≥ 0.9
+   vẫn chữ trắng. Kiểm cả `data-theme=light` lẫn `data-theme=dark`. Đồng thời
+   chụp lại thẻ hero ở `/vi/overview` và `/vi/report` để chủ dự án xác nhận có
+   chấp nhận việc 2 trang này cũng chuyển vàng hay không (hệ quả phụ đã khai ở
+   mục 10.3, không phải lỗi).
+3. **B-4**: thu gọn sidebar ở ≥1280px, sau đó thu cửa sổ dần xuống 960px rồi
+   768px, mở drawer — drawer phải rộng đủ 236px (đủ nhãn/tên nhóm), không còn
+   kẹt ở 68px. Kéo cửa sổ trở lại ≥1024px thì sidebar vẫn đang ở trạng thái
+   thu gọn như trước (không bị reset).
+4. **B-5**: cần giả lập CPU chậm (throttle ≥6x trong DevTools hoặc
+   `Emulation.setCPUThrottlingRate` qua CDP/Playwright) trên `/vi/overview` để
+   có cơ hội quan sát được — ở tốc độ máy bình thường failsafe hiếm khi kích
+   hoạt giữa chừng nên khó thấy khác biệt bằng mắt thường. Sau mốc 900ms không
+   còn lần ghi `opacity < 1` nào nữa.
+5. Đã KHÔNG động tới `@container (max-width: 210px)` (CS-1), `transitionDuration`
+   (CS-2), hay bất kỳ hook `spring/useRise/usePressable/useHoverLift` nào khác
+   ngoài đúng đoạn failsafe trong `riseIn()` (CS-3) — soát nhanh không hồi quy
+   nếu nghi ngờ.

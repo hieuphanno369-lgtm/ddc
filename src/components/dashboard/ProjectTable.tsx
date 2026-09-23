@@ -6,6 +6,7 @@ import { Link } from '@/i18n/navigation';
 import type { ProjectSummary } from '@/server/queries';
 import { typeKey } from '@/lib/labels';
 import { formatPct, formatRatio, formatTyd } from '@/lib/format';
+import { THRESHOLDS } from '@/lib/thresholds';
 import { OnTrackBadge, PriorityBadge, StatusBadge } from '@/components/ui/Badges';
 import { Badge } from '@/components/ui/Badge';
 import { IconChevronRight } from '@/components/icons';
@@ -96,12 +97,12 @@ export function ProjectTable({ items, total, page, totalPages }: Props) {
                 </td>
                 <td className="num">{formatPct(s.pctActual, locale)}</td>
                 <td className="num">
-                  <Badge tone={s.spi != null && s.spi < 0.9 ? 'danger' : s.spi != null && s.spi < 1 ? 'warn' : 'ok'}>
+                  <Badge tone={s.spi == null ? 'neutral' : s.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'}>
                     {formatRatio(s.spi)}
                   </Badge>
                 </td>
                 <td className="num">
-                  <Badge tone={s.cpi != null && s.cpi < 0.9 ? 'danger' : s.cpi != null && s.cpi < 1 ? 'warn' : 'ok'}>
+                  <Badge tone={s.cpi == null ? 'neutral' : s.cpi < THRESHOLDS.cpiWarn ? 'warn' : 'ok'}>
                     {formatRatio(s.cpi)}
                   </Badge>
                 </td>

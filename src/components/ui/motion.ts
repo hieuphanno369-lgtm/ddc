@@ -114,16 +114,20 @@ function riseIn(scope: ParentNode, baseDelay: number): () => void {
     });
     return () => {};
   }
-  // failsafe: neu rAF khong chay (tab an, snapshot...) thi tra lai hien thi sau 900ms
+  const cancelSprings: Array<() => void> = [];
+  // failsafe: neu rAF khong chay (tab an, snapshot...) thi tra lai hien thi sau 900ms.
+  // Phai huy spring goc TRUOC KHI gan gia tri cuoi - neu khong, spring con song
+  // se ghi de lai o khung rAF ke tiep, gay chop-sang-roi-mo-lai (B-5, danh-gia.md
+  // VONG 2).
   const timeoutId = setTimeout(() => {
-    els.forEach((el) => {
+    els.forEach((el, i) => {
       if (parseFloat(el.style.opacity || '1') < 1) {
+        cancelSprings[i]?.();
         el.style.opacity = '';
         el.style.transform = '';
       }
     });
   }, 900);
-  const cancelSprings: Array<() => void> = [];
   els.forEach((el, i) => {
     el.style.opacity = '0';
     el.style.transform = 'translate3d(0,14px,0)';

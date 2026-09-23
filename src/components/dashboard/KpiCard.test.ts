@@ -90,4 +90,24 @@ describe('KpiCard - the "Trong tam" (hero=true, Task 4 spec dong 958 ke-hoach.md
 
     expect(out).toContain('<span class="tag"></span>');
   });
+
+  it('hero=true + tone warn/danger: chu gia tri phai la mau vang --gold, KHONG con trang cung (B-3)', () => {
+    const warn = renderToStaticMarkup(
+      React.createElement(KpiCard, { ...BASE, hero: true, heroTagLabel: 'Trọng tâm', tone: 'warn' })
+    );
+    const danger = renderToStaticMarkup(
+      React.createElement(KpiCard, { ...BASE, hero: true, heroTagLabel: 'Trọng tâm', tone: 'danger' })
+    );
+
+    expect(warn).toContain('style="color:var(--gold)"');
+    expect(danger).toContain('style="color:var(--gold)"');
+  });
+
+  it('hero=true + tone ok/neutral: khong co mau inline (van la chu trang ke thua tu nen gradient)', () => {
+    const ok = renderToStaticMarkup(
+      React.createElement(KpiCard, { ...BASE, hero: true, heroTagLabel: 'Trọng tâm', tone: 'ok' })
+    );
+
+    expect(ok).not.toContain('style=');
+  });
 });

@@ -98,12 +98,12 @@ export default async function ReportPage() {
                       </Link>
                     </td>
                     <td className="num">
-                      <Badge tone={r.spi != null && r.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'}>
+                      <Badge tone={r.spi == null ? 'neutral' : r.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'}>
                         {formatRatio(r.spi)}
                       </Badge>
                     </td>
                     <td className="num">
-                      <Badge tone={r.cpi != null && r.cpi < THRESHOLDS.cpiWarn ? 'warn' : 'ok'}>
+                      <Badge tone={r.cpi == null ? 'neutral' : r.cpi < THRESHOLDS.cpiWarn ? 'warn' : 'ok'}>
                         {formatRatio(r.cpi)}
                       </Badge>
                     </td>
