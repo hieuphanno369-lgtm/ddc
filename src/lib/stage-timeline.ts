@@ -61,3 +61,6 @@ export const STAGE_MARKERS: { key: StageMarkerKey; lane: 'plan' | 'actual'; colo
 export function stageMarkers(r: StageTimelineRow) {
   return STAGE_MARKERS.filter((m) => r[m.key] != null && !(m.key === 'forecastDate' && r.actualFinish));
 }
+
+export interface WorkItemCompareRow { workItemId: number; name: string; planned: number; actual: number }
+export type WorkItemCompare = Partial<Record<StageCode, WorkItemCompareRow[]>>;

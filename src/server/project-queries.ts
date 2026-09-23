@@ -1,6 +1,8 @@
 import { addDaysIso, currentMonth, endOfMonth, isValidYearMonth, todayIso, type IsoDate } from '@/lib/clock';
 import { sumByDate, type DailyPoint } from '@/lib/daily-series';
 import type { ResourceRow } from '@/lib/resources';
+import { STAGE_CALC_MODE, STAGE_ORDER } from '@/lib/stages';
+import type { WorkItemCompare, WorkItemCompareRow } from '@/lib/stage-timeline';
 import { TRACKING_DAYS, type WeeklyTracking } from '@/lib/tracking';
 import { repo } from './repo';
 
@@ -136,6 +138,24 @@ export async function getWeeklyTracking(projectId: number, yearMonth: string): P
   const equipments = [...new Set(equipmentUsage.map((e) => e.equipmentId))].sort((a, b) => a - b)
     .map((id) => ({ id, name: eqNames.get(id) ?? `#${id}` }));
   return { days, today: todayIso(), contractors, equipments, manpower, equipmentUsage };
+}
+
+/** KH/TT (tấn) theo hạng mục cho từng giai đoạn ĐỊNH LƯỢNG của tháng (mock-up dòng 716-720, 1474-1506). */
+export async function getWorkItemComparison(projectId: number, yearMonth: string): Promise<WorkItemCompare> {
+  const ym = isValidYearMonth(yearMonth) ? yearMonth : currentMonth();
+  const items = await repo.getWorkItems(projectId);
+  const facts = await repo.getWorkItemFacts(projectId, ym);
+  const out: WorkItemCompare = {};
+  for (const stage of STAGE_ORDER) {
+    if (STAGE_CALC_MODE[stage] !== 'volume') continue;
+    const rows: WorkItemCompareRow[] = items.flatMap((wi) => {
+      const fs = facts.filter((f) => f.stageCode === stage && f.workItemId === wi.id);
+      if (!fs.length) return [];
+      return [{ workItemId: wi.id, name: wi.name, planned: fs.reduce((s, f) => s + f.qtyPlan, 0), actual: fs.reduce((s, f) => s + f.qtyActual, 0) }];
+    });
+    if (rows.length) out[stage] = rows;
+  }
+  return out;
 }
 
 /** Chuỗi nhân lực theo ngày (đã cộng ngang nhà thầu) để client tự gộp tuần/tháng. */

@@ -285,6 +285,17 @@
       "weight": "weight {n}%",
       "hint": "Click a stage to see all 6 dates · hover a row for a quick look",
       "empty": "No stage dates yet"
+    },
+    "cmp": {
+      "title": "Comparison",
+      "default": "(default)",
+      "planTon": "Plan (t)",
+      "actualTon": "Actual (t)",
+      "unit": "t",
+      "diff": "Difference",
+      "pct": "% done",
+      "manualStage": "This stage is entered as %, no per-item quantities",
+      "empty": "No item quantities for this month"
     }
   },
   "stage": {

@@ -285,6 +285,17 @@
       "weight": "trọng số {n}%",
       "hint": "Bấm vào một giai đoạn để xem đầy đủ 6 mốc ngày · rê chuột lên từng hàng để xem nhanh",
       "empty": "Chưa có mốc ngày của các giai đoạn"
+    },
+    "cmp": {
+      "title": "Biểu đồ so sánh",
+      "default": "(mặc định)",
+      "planTon": "Kế hoạch (tấn)",
+      "actualTon": "Thực tế (tấn)",
+      "unit": "tấn",
+      "diff": "Chênh lệch",
+      "pct": "% HT",
+      "manualStage": "Giai đoạn này nhập tay %, không có sản lượng theo hạng mục",
+      "empty": "Chưa có sản lượng hạng mục của tháng này"
     }
   },
   "stage": {

@@ -32,7 +32,7 @@ const ManpowerDailyChart = dynamic(
   () => import('@/components/project/ManpowerDailyChart').then((m) => m.ManpowerDailyChart),
   { ssr: false, loading: () => <div className="sk h-60" /> },
 );
-import { getManpowerDaily, getResourceBreakdown, getResourceSnapshot, getWeeklyTracking } from '@/server/project-queries';
+import { getManpowerDaily, getResourceBreakdown, getResourceSnapshot, getWeeklyTracking, getWorkItemComparison } from '@/server/project-queries';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { WhatIf } from '@/components/project/WhatIf';
 import { ProjectSwitcher } from '@/components/project/ProjectSwitcher';
@@ -95,6 +95,7 @@ export default async function ProjectDetailPage({
   const keyMilestones = await repo.getKeyMilestones(id);
   const canEditMs = user?.role === 'admin' || user?.role === 'data-entry';
   const stageRows = buildStageTimelineRows(await repo.getStageMilestones(id), await repo.getStageWeights(id));
+  const compare = await getWorkItemComparison(id, month);
   // N-6 (danh-gia.md, vòng 2): nhân lực và thiết bị có thể nhập lệch ngày - MỖI card phải hiện
   // đúng ngày CỦA CHÍNH NÓ, không dùng chung 1 nhãn (asOfDate cũ = ngày mới hơn trong 2 ngày,
   // khiến card có dữ liệu cũ hơn hiện nhầm ngày của card kia).
@@ -298,7 +299,7 @@ export default async function ProjectDetailPage({
         </Card>
       </div>
 
-      <StageExplorer rows={stageRows} today={today} locale={locale} />
+      <StageExplorer rows={stageRows} compare={compare} today={today} locale={locale} />
 
       {/* Charts */}
       <div className="g2">

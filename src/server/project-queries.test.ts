@@ -8,7 +8,7 @@ vi.mock('@/server/repo', async () => {
 import { currentMonth, isValidYearMonth } from '@/lib/clock';
 import { repo } from '@/server/repo';
 import { getProjectSummary } from './queries';
-import { getManpowerDaily, getResourceBreakdown, getResourceSnapshot, getWeeklyTracking, resourceWindow } from './project-queries';
+import { getManpowerDaily, getResourceBreakdown, getResourceSnapshot, getWeeklyTracking, getWorkItemComparison, resourceWindow } from './project-queries';
 
 const MONTH = '2026-09';
 
@@ -140,6 +140,25 @@ describe('getWeeklyTracking - 7 ngay tracking + nha thau/thiet bi xuat hien tron
     ]);
     const w = await getWeeklyTracking(1, MONTH);
     expect(w!.contractors.at(-1)).toEqual({ id: 99, name: '#99', scopeOfWork: '' });
+  });
+});
+
+describe('getWorkItemComparison - KH/TT theo hang muc cho giai doan DINH LUONG', () => {
+  it('du an 1: fabrication dai 10, dung so phan tu dau; shop dai 10; design/handover khong co', async () => {
+    const r = await getWorkItemComparison(1, MONTH);
+    expect(r.fabrication).toHaveLength(10);
+    expect(r.fabrication![0]).toEqual({ workItemId: 1, name: 'Hệ giàn nâng', planned: 4828, actual: 3814 });
+    expect(r.shop).toHaveLength(10);
+    expect(r.design).toBeUndefined();
+    expect(r.handover).toBeUndefined();
+  });
+
+  it('du an chua co du lieu -> object rong', async () => {
+    expect(await getWorkItemComparison(17, MONTH)).toEqual({});
+  });
+
+  it('month rac khong throw', async () => {
+    await expect(getWorkItemComparison(1, 'abc')).resolves.toBeDefined();
   });
 });
 
