@@ -252,6 +252,18 @@
     text-transform:uppercase;color:#3b2b00;background:var(--gold);border-radius:6px;padding:3px 7px}
   .kpi.key .chip{background:rgba(255,255,255,.95)}
 
+  /* Fix CAN SUA #1: padding-right:30px (dong tren) chi du cho icon .ic 26px
+     dung o the thuong. The .key (hero) thay icon bang tag chu ".tag" - voi
+     nhan dai nhu "Tre tien do"/"Behind Schedule", tag de vao dung vung chu
+     tren man hinh hep (do that bang Playwright: de 8-32px o 360-410px, ca 2
+     locale). Man hinh hep trung dung luoi 2 cot ben duoi (@680px) - tai day
+     cho tag xuong dong rieng, tra lai toan bo be rong cho nhan, thay vi doan
+     mot con so padding co dinh se lai vo neu sau nay doi nhan/tag dai hon. */
+  @media(max-width:680px){
+    .kpi.key .tag{position:static;display:inline-block;margin:0 0 6px}
+    .kpi.key .lb{padding-right:0}
+  }
+
   /* Bien the so cot - app co luoi 5 / 4 / 2 thay vi luon 6 */
   .kpis.k5 { grid-template-columns: repeat(5, 1fr); }
   .kpis.k4 { grid-template-columns: repeat(4, 1fr); }

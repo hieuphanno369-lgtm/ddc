@@ -84,7 +84,7 @@ export function ImportPanel({
           >
             <IconUpload size={20} className="text-brand" />
             <span className="flex-1">
-              <span className="font-medium">{t('import.upload')}</span>
+              <span className="font-medium">{t('import.upload')}</span>{' '}
               <span className="en">{t('import.hint')}</span>
             </span>
             <input

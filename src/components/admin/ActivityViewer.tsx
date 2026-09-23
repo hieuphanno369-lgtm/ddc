@@ -43,7 +43,7 @@ export function ActivityViewer({ activity }: { activity: ActivityLogEntry[] }) {
               <tr key={a.id}>
                 <td className="mono">{formatDate(a.createdAt, locale)}</td>
                 <td>
-                  {a.userName}
+                  {a.userName}{' '}
                   <span className="en">{a.userEmail}</span>
                 </td>
                 <td>
