@@ -469,11 +469,12 @@
     -webkit-backdrop-filter:blur(var(--mat-thick)) saturate(var(--mat-sat));
     backdrop-filter:blur(var(--mat-thick)) saturate(var(--mat-sat));
     border:.5px solid var(--glass-stroke);box-shadow:var(--e4);font-size:var(--t-caption1);min-width:160px;
+    max-width:min(320px,calc(100vw - 20px));
     opacity:0;transform:scale(.96);transition:opacity .12s var(--ease-out),transform .12s var(--ease-out)}
   .tip.show{opacity:1;transform:none}
   .tip b{display:block;font-size:var(--t-caption1);font-weight:700;margin-bottom:6px}
-  .tip .r{display:flex;align-items:center;justify-content:space-between;gap:18px;color:var(--label2);padding:1.5px 0}
-  .tip .r span:last-child{font-weight:700;color:var(--label)}
+  .tip .r{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;color:var(--label2);padding:1.5px 0}
+  .tip .r span:last-child{font-weight:700;color:var(--label);text-align:right;white-space:normal;word-break:break-word}
   .tip i{width:9px;height:9px;border-radius:3px;display:inline-block;margin-right:7px}
 
   /* --- Recharts: keo ve he token --- */
