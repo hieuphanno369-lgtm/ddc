@@ -222,6 +222,49 @@
   /* Q4=(a): rise/press/hover-lift chay bang engine spring that trong
      src/components/ui/motion.ts (useRise/usePressable/useHoverLift), khong
      dung CSS keyframes/`: active` xap xi. .rise chi la marker de JS truy van. */
+
+  /* --- Task 4: The KPI (mockup-apple-glass.html dong 254-280, copy nguyen van) --- */
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+  @media(max-width:1180px){.kpis{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:680px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  .kpi{position:relative;overflow:hidden;border-radius:var(--r-lg);padding:13px 15px 14px;min-width:0;
+    background:var(--glass);
+    -webkit-backdrop-filter:blur(var(--mat-regular)) saturate(var(--mat-sat));
+    backdrop-filter:blur(var(--mat-regular)) saturate(var(--mat-sat));
+    border:.5px solid var(--glass-stroke);box-shadow:var(--e2),var(--inner-hi);
+    will-change:transform}
+  .kpi .lb{font-size:var(--t-caption2);font-weight:700;letter-spacing:.025em;text-transform:uppercase;
+    color:var(--label3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:30px}
+  .kpi .vl{font-size:var(--t-title1);font-weight:700;letter-spacing:var(--tr-large);line-height:var(--lh-tight);margin-top:6px}
+  .kpi .sb{margin-top:6px;font-size:var(--t-caption1);color:var(--label2);min-height:18px;
+    display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kpi .ic{position:absolute;right:13px;top:13px;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
+    background:var(--fill);color:var(--label3);transition:all var(--dur-fast) var(--ease-std)}
+  .kpi .ic svg{width:15px;height:15px}
+  .kpi.tap{cursor:pointer}
+  .kpi.tap:hover .ic{background:var(--accent-tint);color:var(--accent)}
+  .kpi.key{border-color:transparent;color:#fff;
+    background:linear-gradient(158deg,var(--accent-2) 0%,var(--accent) 46%,var(--accent-deep) 100%);
+    box-shadow:var(--e3), inset 0 .5px 0 rgba(255,255,255,.34)}
+  .kpi.key .lb{color:rgba(255,255,255,.76)}
+  .kpi.key .sb{color:rgba(255,255,255,.78)}
+  .kpi.key .tag{position:absolute;right:13px;top:13px;font-size:9px;font-weight:800;letter-spacing:.06em;
+    text-transform:uppercase;color:#3b2b00;background:var(--gold);border-radius:6px;padding:3px 7px}
+  .kpi.key .chip{background:rgba(255,255,255,.95)}
+
+  /* Bien the so cot - app co luoi 5 / 4 / 2 thay vi luon 6 */
+  .kpis.k5 { grid-template-columns: repeat(5, 1fr); }
+  .kpis.k4 { grid-template-columns: repeat(4, 1fr); }
+  .kpis.k2 { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 1180px) { .kpis.k5, .kpis.k4 { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 680px)  { .kpis.k5, .kpis.k4 { grid-template-columns: repeat(2, 1fr); } }
+
+  /* Mui ten delta trong .sb - mock-up viet ky tu tho "▼", ta dung icon nen can can chinh */
+  .kpi .sb .delta { display: inline-flex; align-items: center; gap: 2px; font-weight: 650; }
+  .kpi .sb .delta.up { color: var(--ok); }
+  .kpi .sb .delta.down { color: var(--danger); }
+  .kpi.key .sb .delta.up,
+  .kpi.key .sb .delta.down { color: #fff; }
 }
 
 /* --- Thanh cuon --- */

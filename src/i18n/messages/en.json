@@ -94,7 +94,8 @@
     "behindSchedule": "Behind Schedule",
     "penaltyRisk": "Penalty Risk",
     "penalized": "Penalized",
-    "backlog": "Backlog"
+    "backlog": "Backlog",
+    "focusTag": "Focus"
   },
   "status": {
     "preparation": "Preparation",

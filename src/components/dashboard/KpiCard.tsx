@@ -1,5 +1,4 @@
 import { IconArrowDown, IconArrowUp, type IconProps } from '@/components/icons';
-import { Card } from '@/components/ui/Card';
 
 export type KpiTone = 'neutral' | 'ok' | 'warn' | 'danger';
 
@@ -11,15 +10,25 @@ export interface KpiCardProps {
   deltaSuffix?: string;
   tone?: KpiTone;
   invertDelta?: boolean;
+  /** true -> the "Trong tam": nen gradient navy + tag vang, khong hien icon. */
   hero?: boolean;
+  /**
+   * Chu tren tag vang khi hero=true (vd. da dich san "Trong tam"/"Focus").
+   * KpiCard KHONG tu dich: component nay phai o lai dang sync (khong 'use client',
+   * khong async) de renderToStaticMarkup trong test render trang van dung duoc
+   * khi long trong cay Server Component - nen ben goi (da co t() san) tu tinh
+   * chu roi truyen xuong.
+   */
+  heroTagLabel?: string;
   icon: (p: IconProps) => React.ReactNode;
 }
 
-const TONE_STYLES: Record<KpiTone, { ring: string; text: string; tint: string; glow: string }> = {
-  neutral: { ring: 'bg-navy-50 text-navy-700', text: 'text-navy-900', tint: 'from-slate-400', glow: 'rgba(100,116,139,0.18)' },
-  ok: { ring: 'bg-emerald-50 text-emerald-700', text: 'text-emerald-900', tint: 'from-emerald-500', glow: 'rgba(22,163,74,0.18)' },
-  warn: { ring: 'bg-amber-50 text-amber-700', text: 'text-amber-900', tint: 'from-amber-500', glow: 'rgba(245,158,11,0.18)' },
-  danger: { ring: 'bg-red-50 text-red-700', text: 'text-red-900', tint: 'from-red-500', glow: 'rgba(220,38,38,0.18)' },
+/** Mau chu so chinh theo sac thai. The hero luon chu trang (nen gradient). */
+const TONE_VALUE: Record<KpiTone, string> = {
+  neutral: 'var(--label)',
+  ok: 'var(--ok)',
+  warn: 'var(--warn)',
+  danger: 'var(--danger)',
 };
 
 export function KpiCard({
@@ -31,42 +40,42 @@ export function KpiCard({
   tone = 'neutral',
   invertDelta = false,
   hero = false,
+  heroTagLabel,
   icon: Icon,
 }: KpiCardProps) {
-  const s = TONE_STYLES[tone];
   const deltaUp = (delta ?? 0) > 0;
   const hasDelta = delta != null && delta !== 0;
   const good = invertDelta ? !deltaUp : deltaUp;
+
   return (
-    <Card className={`card-hover relative overflow-hidden p-4 ${hero ? 'border-l-4 border-gold' : ''}`}>
-      <span className={`absolute inset-x-0 top-0 h-[2.5px] bg-gradient-to-r ${hero ? 'from-gold' : s.tint} to-transparent`} />
-      <span
-        className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl"
-        style={{ background: `radial-gradient(circle, ${hero ? 'rgba(245,179,1,0.25)' : s.glow}, transparent 70%)` }}
-      />
-      <div className="flex items-center justify-between">
-        <span className="label">{label}</span>
-        <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${hero ? 'bg-gold-soft text-gold' : s.ring}`}>
-          <Icon size={17} />
-        </span>
+    <div className={`kpi rise${hero ? ' key' : ''}`}>
+      {hero ? (
+        <span className="tag">{heroTagLabel}</span>
+      ) : (
+        <div className="ic">
+          <Icon size={15} />
+        </div>
+      )}
+
+      <div className="lb">{label}</div>
+      <div className="vl" style={hero ? undefined : { color: TONE_VALUE[tone] }}>
+        {value}
       </div>
-      <div className={`mt-2 ${hero ? 'text-[34px]' : 'text-[28px]'} font-bold tracking-tight tabular-nums ${s.text}`}>{value}</div>
-      <div className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500">
+
+      <div className="sb">
         {hasDelta ? (
           <>
-            <span
-              className={`flex items-center gap-0.5 font-medium ${good ? 'text-emerald-600' : 'text-red-600'}`}
-            >
+            <span className={`delta ${good ? 'up' : 'down'}`}>
               {deltaUp ? <IconArrowUp size={13} /> : <IconArrowDown size={13} />}
               {Math.abs(delta!)}
             </span>
             {deltaSuffix && <span>{deltaSuffix}</span>}
           </>
         ) : (
-          <span>-</span>
+          !sub && <span>-</span>
         )}
-        {sub && <span className="ml-auto text-slate-400">{sub}</span>}
+        {sub && <span>{sub}</span>}
       </div>
-    </Card>
+    </div>
   );
 }

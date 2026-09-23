@@ -130,7 +130,7 @@ export default async function ProjectDetailPage({
 
       {/* 6 KPI cards */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <KpiCard label={t('metric.spi')} value={formatRatio(summary.spi)} delta={null} tone={summary.spi != null && summary.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'} hero icon={IconTrend} />
+        <KpiCard label={t('metric.spi')} value={formatRatio(summary.spi)} delta={null} tone={summary.spi != null && summary.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'} hero heroTagLabel={t('kpi.focusTag')} icon={IconTrend} />
         <KpiCard label={t('metric.cpi')} value={formatRatio(summary.cpi)} delta={null} tone={summary.cpi != null && summary.cpi < THRESHOLDS.cpiWarn ? 'warn' : 'ok'} icon={IconMoney} />
         <KpiCard label={t('metric.eac')} value={formatTyd(summary.eac, locale)} delta={null} tone="neutral" icon={IconGauge} />
         <KpiCard label={t('metric.vac')} value={formatTyd(summary.vac, locale)} delta={null} tone={summary.vac != null && summary.vac < 0 ? 'danger' : 'ok'} icon={IconFlag} />

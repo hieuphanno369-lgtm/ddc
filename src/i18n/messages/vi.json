@@ -94,7 +94,8 @@
     "behindSchedule": "Trễ tiến độ",
     "penaltyRisk": "Nguy cơ phạt",
     "penalized": "Đã phạt",
-    "backlog": "Backlog"
+    "backlog": "Backlog",
+    "focusTag": "Trọng tâm"
   },
   "status": {
     "preparation": "Chuẩn bị triển khai",
