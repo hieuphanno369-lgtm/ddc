@@ -2,6 +2,7 @@ import { prisma } from '@/server/db';
 import { DEFAULT_STAGE_WEIGHTS, type StageInput } from '@/lib/stages';
 import { calcCpi, calcDayVariance, calcDurationPctComplete, calcEv, calcPv, calcSpi } from '@/lib/evm';
 import { endOfMonth } from '@/lib/clock';
+import { keyMsAuditText } from '@/lib/key-milestones';
 import type {
   ActivityLogEntry,
   AlertLog,
@@ -27,6 +28,7 @@ import type {
   ProjectContractor,
   ProjectHistoryEntry,
   ProjectKeyMilestone,
+  KeyMilestoneInput,
   ProjectPhoto,
   ProjectSapCode,
   ProjectStageWeight,
@@ -941,6 +943,27 @@ export const repo = {
       create: { projectId, userEmail, roleInProject, assignedBy: 'system' },
       update: { roleInProject },
     });
+  },
+
+  /** Thay TOÀN BỘ bộ mốc trong 1 transaction; ngày lưu 00:00Z khớp cách đọc day() của getKeyMilestones. */
+  async replaceKeyMilestones(projectId: number, rows: KeyMilestoneInput[], changedBy = 'system'): Promise<void> {
+    const before = await this.getKeyMilestones(projectId);
+    const del = prisma.projectKeyMilestone.deleteMany({ where: { projectId } });
+    if (rows.length) {
+      await prisma.$transaction([
+        del,
+        prisma.projectKeyMilestone.createMany({
+          data: rows.map((r, i) => ({
+            projectId, name: r.name, sortOrder: i + 1,
+            plannedDate: dayStart(r.plannedDate),
+            actualDate: r.actualDate ? dayStart(r.actualDate) : null,
+          })),
+        }),
+      ]);
+    } else {
+      await prisma.$transaction([del]);
+    }
+    await this.logAudit('project_key_milestone', String(projectId), 'replace', keyMsAuditText(before), keyMsAuditText(rows), changedBy);
   },
 
   async closeAlert(id: number, action: string, changedBy = 'system') {

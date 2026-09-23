@@ -216,6 +216,13 @@ export interface ProjectKeyMilestone {
   actualDate: string | null;
 }
 
+/** Dòng mốc chính khi GHI (form → action → repo). sortOrder = thứ tự trong mảng, không nhận từ client. */
+export interface KeyMilestoneInput {
+  name: string;
+  plannedDate: string;        // 'YYYY-MM-DD', bắt buộc
+  actualDate: string | null;  // 'YYYY-MM-DD'
+}
+
 export interface Contractor {
   id: number;
   name: string;

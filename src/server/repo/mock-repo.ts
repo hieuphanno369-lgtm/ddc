@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { DEFAULT_STAGE_WEIGHTS, type StageInput } from '@/lib/stages';
 import { calcDayVariance, calcDurationPctComplete, calcSpi } from '@/lib/evm';
 import { endOfMonth } from '@/lib/clock';
+import { keyMsAuditText } from '@/lib/key-milestones';
 import type {
   ActivityLogEntry,
   AlertLog,
@@ -26,6 +27,7 @@ import type {
   ProjectContractor,
   ProjectHistoryEntry,
   ProjectKeyMilestone,
+  KeyMilestoneInput,
   ProjectSapCode,
   ProjectPhoto,
   ProjectStageWeight,
@@ -781,6 +783,17 @@ export const repo = {
       assignedBy: 'system',
       assignedAt: new Date().toISOString(),
     });
+  },
+
+  /** Thay TOÀN BỘ bộ mốc của 1 dự án (bảng cấu hình, không phải fact append-only); sortOrder = thứ tự mảng. */
+  replaceKeyMilestones(projectId: number, rows: KeyMilestoneInput[], changedBy = 'system') {
+    const d = getData();
+    const before = this.getKeyMilestones(projectId);
+    let nextId = d.keyMilestones.reduce((m, x) => Math.max(m, x.id), 0) + 1;
+    d.keyMilestones = d.keyMilestones
+      .filter((m) => m.projectId !== projectId)
+      .concat(rows.map((r, i) => ({ id: nextId++, projectId, name: r.name, sortOrder: i + 1, plannedDate: r.plannedDate, actualDate: r.actualDate })));
+    this.logAudit('project_key_milestone', String(projectId), 'replace', keyMsAuditText(before), keyMsAuditText(rows), changedBy);
   },
 
   closeAlert(id: number, action: string, changedBy = 'system') {

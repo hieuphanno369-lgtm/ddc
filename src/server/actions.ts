@@ -6,9 +6,9 @@ import { getCurrentUser, type CurrentUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
 import { hashPassword, verifyPassword } from '@/lib/password';
 import { calcChainPctActual, findCurrentStage, normPct } from '@/lib/stages';
-import type { CurrencyCode, Market, Priority, Project, ProjectType, Role, StageCode } from './repo/types';
+import type { CurrencyCode, KeyMilestoneInput, Market, Priority, Project, ProjectType, Role, StageCode } from './repo/types';
 import { listTag, overviewTag, profileTag, trendTag } from './cache';
-import { addPhotoSchema, addSapCodeSchema, changePasswordSchema, commitImportSchema, createAccountSchema, createDimSchema, createProjectSchema, deletePhotoSchema, importFileSchema, lockMonthSchema, mergeDimSchema, photoFileSchema, renameDimSchema, resetPasswordSchema, saveMonthlyDataSchema, userRoleSchema } from './validation';
+import { addPhotoSchema, addSapCodeSchema, changePasswordSchema, commitImportSchema, createAccountSchema, createDimSchema, createProjectSchema, deletePhotoSchema, importFileSchema, lockMonthSchema, mergeDimSchema, photoFileSchema, renameDimSchema, resetPasswordSchema, saveKeyMilestonesSchema, saveMonthlyDataSchema, userRoleSchema } from './validation';
 import { repo } from './repo';
 import { deletePhotoFile, savePhotoFile } from '@/lib/uploads';
 import { historyMonths } from '@/lib/clock';
@@ -198,13 +198,16 @@ export async function createProjectAction(input: {
   plannedFinishDate?: string | null;
   committedHandoverDate?: string | null;
   penaltyValue?: number | null;
+  keyMilestones?: KeyMilestoneInput[];
 }) {
   const user = await requireRole(['admin', 'data-entry']);
   if (!user) return { ok: false, error: 'Forbidden' };
   const parsed = createProjectSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
-  const p = await repo.createProject(parsed.data, user.email);
+  const { keyMilestones, ...projectInput } = parsed.data;
+  const p = await repo.createProject(projectInput, user.email);
   if (user.role === 'data-entry') await repo.addAssignment(p.id, user.email, 'PIC');
+  if (keyMilestones?.length) await repo.replaceKeyMilestones(p.id, keyMilestones, user.email);
   await logActivity(user, 'create_project', p.projectName);
   revalidateTag(profileTag);
   revalidateTag(trendTag);
@@ -213,6 +216,18 @@ export async function createProjectAction(input: {
     revalidateTag(listTag(m));
   }
   return { ok: true, id: p.id };
+}
+
+/** Thay toàn bộ "Các mốc chính" của dự án. Quyền như saveMonthlyData: admin, hoặc data-entry là PIC dự án. */
+export async function saveKeyMilestonesAction(projectId: number, rows: KeyMilestoneInput[]) {
+  const user = await requireProject(projectId);
+  if (!user) return { ok: false, error: 'Forbidden' };
+  const parsed = saveKeyMilestonesSchema.safeParse({ projectId, rows });
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
+  if (!(await repo.getProject(projectId))) return { ok: false, error: 'Not found' };
+  await repo.replaceKeyMilestones(projectId, parsed.data.rows, user.email);
+  await logActivity(user, 'save_key_milestones', `project ${projectId} · ${parsed.data.rows.length}`);
+  return { ok: true };
 }
 
 /** Reset go-live (chỉ Admin) - xóa hết data nghiệp vụ. */

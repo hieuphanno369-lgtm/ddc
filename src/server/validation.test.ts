@@ -5,6 +5,7 @@ import {
   createProjectSchema,
   deletePhotoSchema,
   photoFileSchema,
+  saveKeyMilestonesSchema,
   saveMonthlyDataSchema,
 } from './validation';
 import { STAGE_ORDER } from '@/lib/stages';
@@ -171,5 +172,28 @@ describe('saveMonthlyDataSchema - chain 7 giai đoạn (thay ô nhập tay pctAc
     const r = saveMonthlyDataSchema.safeParse({ ...base, patch: { pctActual: 0.9 } });
     expect(r.success).toBe(true);
     if (r.success) expect('pctActual' in r.data.patch).toBe(false);
+  });
+});
+
+describe('saveKeyMilestonesSchema', () => {
+  const ok = { name: 'Mốc A', plannedDate: '2026-09-20', actualDate: null };
+  it('hop le + trim ten', () => {
+    const r = saveKeyMilestonesSchema.safeParse({ projectId: 1, rows: [{ ...ok, name: '  Mốc A ' }] });
+    expect(r.success && r.data.rows[0].name).toBe('Mốc A');
+  });
+  it('mang rong hop le (xoa het moc)', () => expect(saveKeyMilestonesSchema.safeParse({ projectId: 1, rows: [] }).success).toBe(true));
+  it.each([
+    ['ten rong', { ...ok, name: '   ' }],
+    ['ten 161 ky tu', { ...ok, name: 'x'.repeat(161) }],
+    ['thieu ngay KH', { ...ok, plannedDate: '' }],
+    ['ngay KH khong ton tai', { ...ok, plannedDate: '2026-02-30' }],
+    ['ngay TT sai dinh dang', { ...ok, actualDate: '20/09/2026' }],
+  ])('tu choi: %s', (_, row) => expect(saveKeyMilestonesSchema.safeParse({ projectId: 1, rows: [row] }).success).toBe(false));
+  it('tu choi > 50 dong', () => expect(saveKeyMilestonesSchema.safeParse({ projectId: 1, rows: Array(51).fill(ok) }).success).toBe(false));
+  it('createProjectSchema nhan keyMilestones tuy chon', () => {
+    const base = { projectName: 'X', customerId: 1, teamKdId: 1, marketCode: 'TN', projectType: 'EPC', priority: 'P1', contractValue: 1 };
+    expect(createProjectSchema.safeParse(base).success).toBe(true);
+    expect(createProjectSchema.safeParse({ ...base, keyMilestones: [ok] }).success).toBe(true);
+    expect(createProjectSchema.safeParse({ ...base, keyMilestones: [{ ...ok, name: '' }] }).success).toBe(false);
   });
 });

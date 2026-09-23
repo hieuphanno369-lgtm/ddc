@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { THRESHOLDS } from '@/lib/thresholds';
-import { isValidYearMonth } from '@/lib/clock';
+import { isValidIsoDate, isValidYearMonth } from '@/lib/clock';
+import { KEY_MS_MAX_ROWS, KEY_MS_NAME_MAX } from '@/lib/key-milestones';
 
 /**
  * Zod schema validate input mọi server action (spec §7.5 - không tin client).
@@ -16,6 +17,16 @@ const yearMonth = z.string().refine(isValidYearMonth, 'yearMonth phải dạng Y
 const pct = z.number().min(0).max(THRESHOLDS.pctInputMax);
 const nonNegative = z.number().min(0);
 const nullableDate = z.string().nullable().optional();
+const isoDate = z.string().refine(isValidIsoDate, 'Ngày phải dạng YYYY-MM-DD hợp lệ');
+export const keyMilestoneRowSchema = z.object({
+  name: z.string().trim().min(1).max(KEY_MS_NAME_MAX),
+  plannedDate: isoDate,
+  actualDate: isoDate.nullable(),
+});
+export const saveKeyMilestonesSchema = z.object({
+  projectId: z.number().int().positive(),
+  rows: z.array(keyMilestoneRowSchema).max(KEY_MS_MAX_ROWS),
+});
 
 const MARKET = ['TN', 'XK', 'NoiBo'] as const;
 const PROJECT_TYPE = [
@@ -87,6 +98,7 @@ export const createProjectSchema = z.object({
   plannedFinishDate: nullableDate,
   committedHandoverDate: nullableDate,
   penaltyValue: z.number().min(0).nullable().optional(),
+  keyMilestones: z.array(keyMilestoneRowSchema).max(KEY_MS_MAX_ROWS).optional(),
 });
 
 export const addSapCodeSchema = z.object({

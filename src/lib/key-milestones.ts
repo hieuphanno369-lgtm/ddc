@@ -1,5 +1,14 @@
 import { daysBetween, type IsoDate } from '@/lib/clock';
 
+export const KEY_MS_NAME_MAX = 160;
+/** Chặn payload phình (DoS) - mock-up không giới hạn, 50 mốc/dự án là quá đủ. */
+export const KEY_MS_MAX_ROWS = 50;
+
+/** Chuỗi audit_log cho bộ mốc: "tên|ngàyKH|ngàyTT; ...". */
+export function keyMsAuditText(rows: { name: string; plannedDate: string | null; actualDate: string | null }[]): string {
+  return rows.map((r) => `${r.name}|${r.plannedDate ?? ''}|${r.actualDate ?? ''}`).join('; ');
+}
+
 export type KeyMsTone = 'ok' | 'warn' | 'danger' | 'accent';
 export interface KeyMsState { kind: 'done' | 'late' | 'next'; days: number; tone: KeyMsTone }
 export const KEY_MS_TONE_VAR: Record<KeyMsTone, string> = { ok: 'var(--ok)', warn: 'var(--warn)', danger: 'var(--danger)', accent: 'var(--accent)' };
