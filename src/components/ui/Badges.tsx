@@ -38,7 +38,7 @@ export function PenaltyBadge({ penalty }: { penalty: PenaltyState }) {
 
 export function OnTrackBadge({ onTrack, status }: { onTrack: boolean; status: Status }) {
   const t = useTranslations();
-  if (status !== 'Dang_trien_khai') return <span className="text-xs text-slate-400">-</span>;
+  if (status !== 'Dang_trien_khai') return <span className="text-caption1 text-label3">-</span>;
   return onTrack ? (
     <Badge tone="ok">{t('onTrack.onTrack')}</Badge>
   ) : (

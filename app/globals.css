@@ -132,6 +132,96 @@
     box-shadow: 0 0 8px var(--accent-tint);
     transition: width var(--dur-base) var(--ease-out);
   }
+
+  /* --- Task 3: Be mat nen tang (mockup-apple-glass.html, copy nguyen van) --- */
+  /* dong 159-169 */
+  .mat{
+    background:var(--glass);
+    -webkit-backdrop-filter:blur(var(--mat-regular)) saturate(var(--mat-sat));
+    backdrop-filter:blur(var(--mat-regular)) saturate(var(--mat-sat));
+    border:.5px solid var(--glass-stroke);
+    box-shadow:var(--e2),var(--inner-hi);
+  }
+  .mat-thin{-webkit-backdrop-filter:blur(var(--mat-thin)) saturate(var(--mat-sat));
+    backdrop-filter:blur(var(--mat-thin)) saturate(var(--mat-sat));background:var(--glass-2)}
+  .mat-chrome{-webkit-backdrop-filter:blur(var(--mat-chrome)) saturate(var(--mat-sat));
+    backdrop-filter:blur(var(--mat-chrome)) saturate(var(--mat-sat));background:var(--glass-3)}
+
+  /* dong 230-252 */
+  .card{border-radius:var(--r-lg);overflow:hidden;
+    background:var(--glass);
+    -webkit-backdrop-filter:blur(var(--mat-regular)) saturate(var(--mat-sat));
+    backdrop-filter:blur(var(--mat-regular)) saturate(var(--mat-sat));
+    border:.5px solid var(--glass-stroke);
+    box-shadow:var(--e2),var(--inner-hi)}
+  .card>.hd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    padding:12px 16px;border-bottom:.5px solid var(--sep)}
+  .card>.hd h3{font-size:var(--t-footnote);font-weight:650;letter-spacing:var(--tr-body);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .en{font-size:var(--t-caption2);font-weight:550;color:var(--label3);letter-spacing:.01em}
+  .card>.bd{padding:15px 16px}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .g21{display:grid;grid-template-columns:1.55fr 1fr;gap:14px}
+  @media(max-width:1180px){.g2,.g3,.g21{grid-template-columns:1fr}}
+
+  .chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:var(--r-full);
+    font-size:var(--t-caption2);font-weight:650;letter-spacing:.01em}
+  .c-ok{background:var(--ok-fill);color:var(--ok)}
+  .c-warn{background:var(--warn-fill);color:var(--warn)}
+  .c-dan{background:var(--danger-fill);color:var(--danger)}
+  .c-info{background:var(--info-fill);color:var(--info)}
+  .c-plain{background:var(--fill);color:var(--label2)}
+
+  /* dong 288 */
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-caption2);letter-spacing:0}
+
+  /* dong 353-359 */
+  .msdetail{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:11px 16px;
+    border-bottom:.5px solid var(--sep);background:var(--fill);font-size:var(--t-caption1);color:var(--label2)}
+  .msdetail .k{display:inline-flex;align-items:center;gap:6px;background:var(--glass-3);
+    border:.5px solid var(--sep);border-radius:var(--r-xs);padding:5px 10px;font-weight:600}
+  .msdetail .k i{width:9px;height:9px;border-radius:3px;flex:0 0 9px}
+  .msdetail .k b{color:var(--label);font-weight:750}
+  .msdetail .hint{color:var(--label3);font-style:italic}
+
+  /* dong 371-372 */
+  .bar-mini{height:6px;border-radius:3px;background:var(--fill-2);overflow:hidden;min-width:60px}
+  .bar-mini i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent-2),var(--accent))}
+
+  /* dong 375-378 */
+  .legend{display:flex;flex-wrap:wrap;gap:5px 14px;font-size:var(--t-caption1);color:var(--label2);font-weight:550}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:10px;height:10px;border-radius:3px}
+  .legend .ln{width:15px;height:3px;border-radius:2px}
+
+  /* dong 414-419 */
+  .alert{display:flex;gap:12px;padding:13px 14px;border-radius:var(--r-md);background:var(--fill);
+    border:.5px solid var(--sep);align-items:flex-start;will-change:transform}
+  .alert .dot{width:9px;height:9px;border-radius:50%;margin-top:6px;flex:0 0 9px}
+  .alert h4{font-size:var(--t-footnote);font-weight:650}
+  .alert p{font-size:var(--t-caption1);color:var(--label2);margin-top:3px}
+  .alert .mt{display:flex;gap:6px 16px;flex-wrap:wrap;margin-top:8px;font-size:var(--t-caption2);color:var(--label3)}
+
+  /* Ho tro: card bi overflow:hidden se cat dropdown ben trong.
+     Cho nao co Combobox/menu thi them utility "overflow-visible". */
+  .card-hover {
+    transition: transform var(--dur-base) var(--ease-ios),
+                box-shadow var(--dur-base) var(--ease-ios);
+  }
+  .card-hover:hover { transform: translate3d(0, -3px, 0); box-shadow: var(--e3), var(--inner-hi); }
+
+  /* Khung xuong tai trang */
+  .sk {
+    border-radius: var(--r-sm);
+    background: linear-gradient(90deg, var(--fill) 25%, var(--fill-2) 37%, var(--fill) 63%);
+    background-size: 400% 100%;
+    animation: skShimmer 1.4s var(--ease-std) infinite;
+  }
+  @keyframes skShimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+
+  /* Q4=(a): rise/press/hover-lift chay bang engine spring that trong
+     src/components/ui/motion.ts (useRise/usePressable/useHoverLift), khong
+     dung CSS keyframes/`: active` xap xi. .rise chi la marker de JS truy van. */
 }
 
 /* --- Thanh cuon --- */

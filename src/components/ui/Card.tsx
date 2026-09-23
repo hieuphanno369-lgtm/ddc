@@ -1,7 +1,18 @@
 import type { HTMLAttributes } from 'react';
 
-export function Card({ className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={`card card-hover ${className}`} {...props} />;
+/**
+ * Be mat kinh chuan. Mac dinh KHONG co padding - dung <CardBody> cho phan than.
+ * padded=true them p-4 - danh cho cho nao dang viet noi dung truc tiep vao Card
+ * ma khong qua CardHeader/CardBody (thay cho kieu cu <Card className="p-5">).
+ * Luu y: .card co overflow:hidden (theo mock-up). Card nao chua dropdown/popover
+ * (Combobox, ProjectSwitcher, menu sap xep) phai them className="overflow-visible".
+ */
+export function Card({
+  className = '',
+  padded = false,
+  ...props
+}: HTMLAttributes<HTMLDivElement> & { padded?: boolean }) {
+  return <div className={`card card-hover ${padded ? 'p-4' : ''} ${className}`} {...props} />;
 }
 
 export function CardHeader({
@@ -14,16 +25,16 @@ export function CardHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3 px-5 pt-4 pb-2">
-      <div>
-        <h3 className="text-sm font-semibold tracking-tight text-navy-900">{title}</h3>
-        {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
-      </div>
+    <div className="hd">
+      <h3>
+        {title}
+        {subtitle && <span className="en">{subtitle}</span>}
+      </h3>
       {action}
     </div>
   );
 }
 
 export function CardBody({ className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={`px-5 pb-4 ${className}`} {...props} />;
+  return <div className={`bd ${className}`} {...props} />;
 }
