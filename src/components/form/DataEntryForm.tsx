@@ -268,12 +268,8 @@ export function DataEntryForm({
     { key: 'extras', label: t('form.stepExtras') },
   ];
 
-  const inputCls = (key: string) =>
-    `w-full rounded-xl border px-3 py-2 text-sm text-navy-900 focus:outline-none ${
-      errors[key] ? 'border-red-400' : 'border-slate-200 focus:border-accent'
-    }`;
-  const selectCls =
-    'w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-navy-900 focus:border-accent focus:outline-none';
+  const inputCls = (key: string) => `inp${errors[key] ? ' bad' : ''}`;
+  const selectCls = 'inp';
 
   const bac = Number(form.contractValue) || project.contractValue || 0;
   const pp = Number(form.pctPlan);
@@ -293,12 +289,13 @@ export function DataEntryForm({
   return (
     <div className="space-y-4">
       {/* Project + month selector */}
-      <div className="card flex flex-wrap items-center gap-3 p-4">
-        <label className="text-sm font-medium text-navy-900">{t('form.selectProject')}</label>
+      <div className="card overflow-visible flex flex-wrap items-center gap-3 p-4">
+        <label className="text-footnote font-semibold">{t('form.selectProject')}</label>
         <select
           value={projectId}
           onChange={(e) => updateQuery({ project: e.target.value })}
-          className="h-9 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-sm text-navy-800 focus:border-accent focus:outline-none sm:max-w-xs"
+          className="inp min-w-0 flex-1 sm:max-w-xs"
+          style={{ width: 'auto' }}
         >
           {projects.map((p) => (
             <option key={p.id} value={p.id}>
@@ -309,7 +306,8 @@ export function DataEntryForm({
         <select
           value={month}
           onChange={(e) => updateQuery({ month: e.target.value })}
-          className="h-9 rounded-xl border border-slate-200 px-2.5 text-sm text-navy-800 focus:border-accent focus:outline-none"
+          className="inp"
+          style={{ width: 'auto' }}
         >
           {months.map((m) => (
             <option key={m} value={m}>
@@ -323,34 +321,34 @@ export function DataEntryForm({
       </div>
 
       {/* Steps */}
-      <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-200 pb-1">
+      <div className="msdetail" style={{ borderBottom: 'none', background: 'transparent', padding: 0 }}>
         {steps.map((s, i) => {
           const active = step === s.key;
           return (
             <button
               key={s.key}
               onClick={() => setStep(s.key)}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                active ? 'bg-accent text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-              }`}
+              className="k"
+              style={active ? { background: 'var(--accent-tint)', color: 'var(--accent)', borderColor: 'transparent' } : undefined}
             >
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white/25 text-[10px]">{i + 1}</span>
+              <b>{i + 1}</b>
               {s.label}
             </button>
           );
         })}
       </div>
 
-      <div className={`card p-5 ${locked ? 'pointer-events-none opacity-60' : ''}`}>
+      <div className={`card overflow-visible ${locked ? 'pointer-events-none opacity-60' : ''}`}>
+        <div className="bd">
         {step === 'profile' && (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="f2">
             <Field label={t('form.projectCode')}>
-              <input value={project.currentAliasCode} disabled className={`${inputCls('code')} bg-slate-50 text-slate-400`} />
-              <p className="mt-1 text-[11px] text-slate-400">{t('form.validation.codeReadonly')}</p>
+              <input value={project.currentAliasCode} disabled className="inp ro" />
+              <p className="hintline">{t('form.validation.codeReadonly')}</p>
             </Field>
             <Field label={t('form.projectName') + ' *'} hint={t('form.hintLabel.projectName')}>
               <input value={form.projectName} onChange={(e) => set('projectName', e.target.value.toUpperCase())} className={inputCls('name')} />
-              {errors.projectName && <p className="mt-1 text-xs text-red-600">{errors.projectName}</p>}
+              {errors.projectName && <p className="hintline" style={{ color: 'var(--danger)' }}>{errors.projectName}</p>}
             </Field>
             <Field label={t('form.customer')} hint={t('form.hintLabel.customer')}>
               <Combobox
@@ -434,7 +432,7 @@ export function DataEntryForm({
                 onChange={(e) => set('committedHandoverDate', e.target.value)}
                 className={inputCls('committedHandoverDate')}
               />
-              {errors.committedHandoverDate && <p className="mt-1 text-xs text-red-600">{errors.committedHandoverDate}</p>}
+              {errors.committedHandoverDate && <p className="hintline" style={{ color: 'var(--danger)' }}>{errors.committedHandoverDate}</p>}
             </Field>
             <Field label={t('form.actualStart')}>
               <input type="date" value={form.actualStartDate} onChange={(e) => set('actualStartDate', e.target.value)} className={inputCls('actualStartDate')} />
@@ -446,12 +444,12 @@ export function DataEntryForm({
               <input type="number" step="0.1" value={fmtNum(form.penaltyValue)} onChange={(e) => set('penaltyValue', e.target.value)} className={inputCls('penaltyValue')} />
             </Field>
             <div className="flex items-end">
-              <label className="flex items-center gap-2 text-sm text-navy-800">
+              <label className="flex items-center gap-2 text-footnote">
                 <input
                   type="checkbox"
                   checked={form.penalized}
                   onChange={(e) => set('penalized', e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
+                  className="h-4 w-4 rounded border-sep2 text-brand focus:ring-brand"
                 />
                 {t('penalty.penalized')}
               </label>
@@ -461,65 +459,73 @@ export function DataEntryForm({
 
         {step === 'progress' && (
           <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="f2">
               <Field label={t('form.pctPlan')}>
                 <input type="number" step="0.01" value={fmtNum(form.pctPlan)} onChange={(e) => set('pctPlan', e.target.value)} className={inputCls('pctPlan')} />
-                <p className="mt-1 text-[11px] text-slate-400">{t('form.hint.pctPlan')}</p>
-                {errors.pctPlan && <p className="mt-1 text-xs text-red-600">{errors.pctPlan}</p>}
+                <p className="hintline">{t('form.hint.pctPlan')}</p>
+                {errors.pctPlan && <p className="hintline" style={{ color: 'var(--danger)' }}>{errors.pctPlan}</p>}
               </Field>
               <Field label={t('metric.ac') + ' (tỷ)'}>
                 <input type="number" step="0.1" value={fmtNum(form.ac)} onChange={(e) => set('ac', e.target.value)} className={inputCls('ac')} />
-                <p className="mt-1 text-[11px] text-slate-400">{t('form.hint.ac')}</p>
+                <p className="hintline">{t('form.hint.ac')}</p>
               </Field>
             </div>
 
             <div>
-              <p className="mb-2 text-xs font-medium uppercase text-slate-400">{t('form.stageSection')}</p>
-              <div className="space-y-2">
-                {STAGE_ORDER.map((s) => (
-                  <div key={s}>
-                    <div className="flex items-center gap-3">
-                      <span className="w-28 shrink-0 text-xs text-slate-600">{t(stageKey[s])}</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={fmtNum(form.stagePct?.[s] ?? '')}
-                        onChange={(e) => {
-                          set('stagePct', { ...form.stagePct, [s]: e.target.value });
-                          setChainDirty(true);
-                        }}
-                        className={inputCls('stagePct.' + s)}
-                      />
-                      <label className="flex shrink-0 items-center gap-1.5 text-xs text-slate-500">
+              <div className="sect"><b>{t('form.stageSection')}</b><i /></div>
+              <div className="stagegrid">
+                {STAGE_ORDER.map((s, i) => {
+                  const pct = stageInputs[i].pctComplete;
+                  return (
+                    <div key={s}>
+                      <div className="stage">
+                        <span className="nm">{t(stageKey[s])}</span>
+                        <span className="w">-</span>
+                        <div className="bar"><i className="fill" style={{ width: `${Math.min(100, Math.max(0, pct * 100))}%` }} /></div>
+                        <span className="pc">{formatPct(pct)}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
                         <input
-                          type="checkbox"
-                          checked={form.stageApplicable?.[s] ?? true}
+                          type="number"
+                          step="0.01"
+                          value={fmtNum(form.stagePct?.[s] ?? '')}
                           onChange={(e) => {
-                            set('stageApplicable', { ...form.stageApplicable, [s]: e.target.checked });
+                            set('stagePct', { ...form.stagePct, [s]: e.target.value });
                             setChainDirty(true);
                           }}
-                          className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
+                          className={inputCls('stagePct.' + s)}
                         />
-                        {t('form.stageApplicable')}
-                      </label>
+                        <label className="inline" style={{ fontSize: 'var(--t-caption1)', color: 'var(--label2)' }}>
+                          <input
+                            type="checkbox"
+                            checked={form.stageApplicable?.[s] ?? true}
+                            onChange={(e) => {
+                              set('stageApplicable', { ...form.stageApplicable, [s]: e.target.checked });
+                              setChainDirty(true);
+                            }}
+                            className="h-4 w-4 rounded border-sep2 text-brand focus:ring-brand"
+                          />
+                          {t('form.stageApplicable')}
+                        </label>
+                      </div>
+                      {errors['stagePct.' + s] && <p className="hintline" style={{ color: 'var(--danger)' }}>{errors['stagePct.' + s]}</p>}
                     </div>
-                    {errors['stagePct.' + s] && <p className="mt-1 text-xs text-red-600">{errors['stagePct.' + s]}</p>}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-              <p className="mt-1 text-[11px] text-slate-400">{t('form.stagePctHint')}</p>
-              <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-navy-800">
+              <p className="hintline">{t('form.stagePctHint')}</p>
+              <div className="chainfoot">
                 <span>{t('form.stageTotal')}: <b>{formatPct(derivedPctActual)}</b></span>
                 <span>{t('form.currentStage')}: <b>{currentStage ? t(stageKey[currentStage]) : '-'}</b></span>
               </div>
             </div>
 
             {evm && (
-              <div className="rounded-lg bg-slate-50 p-3">
-                <p className="text-xs font-medium uppercase text-slate-400">{t('form.preview')}</p>
-                <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-navy-800">
-                  <span>SPI: <b className={evm.spi != null && evm.spi < THRESHOLDS.spiWarn ? 'text-amber-600' : ''}>{formatRatio(evm.spi)}</b></span>
-                  <span>CPI: <b className={evm.cpi != null && evm.cpi < THRESHOLDS.cpiWarn ? 'text-amber-600' : ''}>{formatRatio(evm.cpi)}</b></span>
+              <div className="sumbar" style={{ display: 'block' }}>
+                <p className="text-caption2 font-bold uppercase text-label3">{t('form.preview')}</p>
+                <div className="chainfoot">
+                  <span>SPI: <b className={evm.spi != null && evm.spi < THRESHOLDS.spiWarn ? 'text-warn' : ''}>{formatRatio(evm.spi)}</b></span>
+                  <span>CPI: <b className={evm.cpi != null && evm.cpi < THRESHOLDS.cpiWarn ? 'text-warn' : ''}>{formatRatio(evm.cpi)}</b></span>
                   <span>EAC: <b>{formatRatio(evm.eac)}</b></span>
                   <span>VAC: <b>{formatRatio(evm.vac)}</b></span>
                 </div>
@@ -529,7 +535,7 @@ export function DataEntryForm({
         )}
 
         {step === 'finance' && (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="f2">
             <Field label={t('metric.revenue') + ' (' + t('metric.cumulative') + ', tỷ)'}>
               <input type="number" step="0.1" value={fmtNum(form.revenueCumulative)} onChange={(e) => set('revenueCumulative', e.target.value)} className={inputCls('rev')} />
             </Field>
@@ -543,7 +549,7 @@ export function DataEntryForm({
               <input type="number" step="0.1" value={fmtNum(form.arOverdue)} onChange={(e) => set('arOverdue', e.target.value)} className={inputCls('over')} />
             </Field>
             <Field label={t('metric.outstanding')}>
-              <div className="h-9 rounded-lg bg-slate-50 px-3 py-2 text-sm font-medium text-navy-800">
+              <div className="text-footnote font-semibold" style={{ background: 'var(--fill)', borderRadius: 'var(--r-sm)', padding: '9px 12px' }}>
                 {fmtNum(String((Number(form.contractValue) || 0) - (Number(form.arCollected) || 0) - (Number(form.arOverdue) || 0)))} tỷ
               </div>
             </Field>
@@ -553,57 +559,61 @@ export function DataEntryForm({
         {step === 'extras' && (
           <div className="space-y-5">
             <div>
-              <h4 className="text-sm font-medium text-navy-900">{t('detail.aliasHistory')}</h4>
-              <ul className="mt-2 divide-y divide-slate-100">
+              <h4 className="text-footnote font-semibold">{t('detail.aliasHistory')}</h4>
+              <ul className="mt-2 flex flex-col">
                 {aliases.map((a) => (
-                  <li key={a.id} className="flex items-center justify-between py-2 text-sm">
-                    <span className="font-mono text-xs text-navy-800">{a.aliasCode}</span>
-                    <span className="text-xs text-slate-400">{a.aliasType}</span>
+                  <li key={a.id} className="flex items-center justify-between py-2 text-footnote border-t-[0.5px] border-sep first:border-t-0">
+                    <span className="mono">{a.aliasCode}</span>
+                    <span className="text-caption1 text-label3">{a.aliasType}</span>
                   </li>
                 ))}
               </ul>
             </div>
             <div>
-              <h4 className="text-sm font-medium text-navy-900">{t('sap.linked')}</h4>
-              <ul className="mt-2 divide-y divide-slate-100">
-                {sapCodes.length === 0 && <li className="py-2 text-sm text-slate-400">{t('common.noData')}</li>}
+              <h4 className="text-footnote font-semibold">{t('sap.linked')}</h4>
+              <ul className="mt-2 flex flex-col">
+                {sapCodes.length === 0 && <li className="empty">{t('common.noData')}</li>}
                 {sapCodes.map((s) => (
-                  <li key={s.id} className="flex items-center justify-between py-2 text-sm">
-                    <span className="font-mono text-xs text-navy-800">{s.sapCode}</span>
-                    <span className="text-xs text-slate-400">{s.sourceDocType}</span>
+                  <li key={s.id} className="flex items-center justify-between py-2 text-footnote border-t-[0.5px] border-sep first:border-t-0">
+                    <span className="mono">{s.sapCode}</span>
+                    <span className="text-caption1 text-label3">{s.sourceDocType}</span>
                   </li>
                 ))}
               </ul>
               <div className="mt-3 flex flex-wrap items-end gap-2">
-                <div className="min-w-0 flex-1">
-                  <label className="mb-1 block text-xs font-medium text-slate-600">{t('sap.addSap')}</label>
+                <div className="min-w-0 flex-1 field">
+                  <span className="lb">{t('sap.addSap')}</span>
                   <input
                     value={sapCode}
                     onChange={(e) => setSapCode(e.target.value)}
                     placeholder="SAP-..."
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                    className="inp"
                   />
                 </div>
                 <input
                   value={sapDoc}
                   onChange={(e) => setSapDoc(e.target.value)}
-                  className="h-9 rounded-xl border border-slate-200 px-3 text-sm focus:border-accent focus:outline-none"
+                  className="inp"
+                  style={{ width: 'auto' }}
                 />
                 <button
                   onClick={addSap}
-                  className="h-9 rounded-xl bg-accent px-4 text-sm font-medium text-white hover:bg-accent/90"
+                  className="btn"
                 >
                   {t('common.add')}
                 </button>
               </div>
-              {sapMsg && <p className="mt-1 text-xs text-red-600">{sapMsg}</p>}
+              {sapMsg && <p className="hintline" style={{ color: 'var(--danger)' }}>{sapMsg}</p>}
             </div>
           </div>
         )}
 
         {step === 'extras' && (
           <div className="mt-5 space-y-3">
-            <label className={`flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-slate-300 px-4 py-3 text-sm text-navy-800 hover:bg-slate-50 ${photoBusy ? 'pointer-events-none opacity-60' : ''}`}>
+            <label
+              className={`flex cursor-pointer items-center gap-2 px-4 py-3 text-footnote transition-colors duration-fast hover:bg-fill ${photoBusy ? 'pointer-events-none opacity-60' : ''}`}
+              style={{ border: '1px dashed var(--sep-2)', borderRadius: 'var(--r-md)' }}
+            >
               <input
                 type="file"
                 accept="image/*"
@@ -616,24 +626,25 @@ export function DataEntryForm({
               />
               {t('detail.photos')} - {t('common.add')}
             </label>
-            {photoErr && <p className="text-xs text-red-600">{photoErr}</p>}
+            {photoErr && <p className="hintline" style={{ color: 'var(--danger)' }}>{photoErr}</p>}
             {photos.length === 0 ? (
-              <p className="py-4 text-center text-sm text-slate-400">{t('common.noData')}</p>
+              <p className="empty">{t('common.noData')}</p>
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
                 {photos.map((ph) => (
-                  <div key={ph.id} className="relative aspect-[4/3] overflow-hidden rounded-xl bg-slate-100">
+                  <div key={ph.id} className="relative aspect-[4/3] overflow-hidden rounded-md" style={{ background: 'var(--fill)' }}>
                     {ph.url ? (
                       <img src={`/api/photos/${ph.url}`} alt={ph.caption || t('detail.photos')} className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex h-full flex-col items-center justify-center text-slate-400">
+                      <div className="flex h-full flex-col items-center justify-center text-label3">
                         <IconProject size={24} />
                         <span className="mt-1 px-2 text-center text-xs">{ph.caption}</span>
                       </div>
                     )}
                     <button
                       onClick={() => removePhoto(ph.id)}
-                      className="absolute right-1 top-1 rounded-xl bg-white/90 px-2 py-1 text-xs font-medium text-red-600 shadow-sm hover:bg-white"
+                      className="absolute right-1 top-1 rounded-md px-2 py-1 text-caption1 font-semibold"
+                      style={{ background: 'var(--glass-3)', color: 'var(--danger)', boxShadow: 'var(--e1)' }}
                     >
                       {t('common.delete')}
                     </button>
@@ -643,10 +654,11 @@ export function DataEntryForm({
             )}
           </div>
         )}
+        </div>
       </div>
 
       {/* Actions */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="stickybar">
         <div className="flex items-center gap-2">
           {locked && <Badge tone="warn">{t('form.locked')}</Badge>}
           {!locked && canLock && (
@@ -655,19 +667,19 @@ export function DataEntryForm({
                 await lockMonthAction(month);
                 router.refresh();
               }}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-navy-800 hover:bg-slate-50"
+              className="btn ghost"
             >
               {t('form.lockMonth')}
             </button>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          {saved && <span className="text-sm text-emerald-600">{t('form.savedProfile')}</span>}
+          {saved && <span className="chip c-ok">{t('form.savedProfile')}</span>}
           <div className="ml-auto flex items-center gap-2">
             {step !== 'progress' && (
               <button
                 onClick={() => go(-1)}
-                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-navy-800 hover:bg-slate-50"
+                className="btn ghost"
               >
                 {t('common.back')}
               </button>
@@ -675,7 +687,7 @@ export function DataEntryForm({
             {step !== 'extras' && (
               <button
                 onClick={() => go(1)}
-                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-navy-800 hover:bg-slate-50"
+                className="btn ghost"
               >
                 {t('common.next')}
               </button>
@@ -683,7 +695,7 @@ export function DataEntryForm({
             <button
               onClick={submit}
               disabled={saving || locked}
-              className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent/90 disabled:opacity-50"
+              className="btn"
             >
               {t('common.save')}
             </button>
@@ -696,13 +708,15 @@ export function DataEntryForm({
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div>
-      <label className="mb-1 flex items-center gap-1 text-xs font-medium text-slate-600">
+    <div className="field">
+      <span className="lb">
         {label}
         {hint && (
-          <span title={hint} className="cursor-help rounded-full bg-slate-200 px-1.5 text-[10px] font-bold leading-4 text-slate-500">!</span>
+          <button type="button" className="help" aria-label={hint}>
+            ?<span className="bub">{hint}</span>
+          </button>
         )}
-      </label>
+      </span>
       {children}
     </div>
   );
@@ -726,22 +740,23 @@ function AlertTab({ alerts }: { alerts: AlertLog[] }) {
 
   const open = alerts.filter((a) => !a.closedAt);
   return (
-    <div className="space-y-2">
-      {open.length === 0 && <p className="py-4 text-center text-sm text-slate-400">{t('overview.noAlerts')}</p>}
+    <div className="flex flex-col gap-2.5">
+      {open.length === 0 && <p className="empty">{t('overview.noAlerts')}</p>}
       {open.map((a) => (
-        <div key={a.id} className="flex items-start gap-3 rounded-lg border border-slate-100 p-3">
-          <Dot tone={a.alertType === 'Red' ? 'danger' : 'warn'} />
+        <div key={a.id} className="alert">
+          <span className="dot" style={{ background: a.alertType === 'Red' ? 'var(--danger)' : 'var(--warn)' }} />
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
+            <h4>{a.message}</h4>
+            <div className="mt">
               <Badge tone={a.alertType === 'Red' ? 'danger' : 'warn'}>{t(`alert.${a.alertType === 'Red' ? 'red' : 'amber'}`)}</Badge>
-              <span className="text-xs text-slate-400">{a.ruleTriggered}</span>
+              <span>{a.ruleTriggered}</span>
             </div>
-            <p className="mt-1 text-sm text-navy-800">{a.message}</p>
           </div>
           <button
             onClick={() => close(a.id)}
             disabled={busy === a.id}
-            className="shrink-0 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-navy-800 hover:bg-slate-50 disabled:opacity-50"
+            className="btn ghost disabled:opacity-50"
+            style={{ padding: '6px 12px', fontSize: 'var(--t-caption1)' }}
           >
             {t('alert.closeAlert')}
           </button>

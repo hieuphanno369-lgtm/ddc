@@ -414,6 +414,26 @@
     transition: background var(--dur-fast) var(--ease-std);
   }
   .pop button:hover { background: var(--fill); }
+
+  /* --- Task 7: Chuoi gia tri / wizard (mockup-apple-glass.html dong 335-352, copy nguyen van) --- */
+  .stagegrid{display:grid;grid-template-columns:1fr 1fr;gap:2px 26px}
+  @media(max-width:1180px){.stagegrid{grid-template-columns:1fr}}
+  .stage{display:grid;grid-template-columns:116px 34px 1fr 50px;gap:10px;align-items:center;
+    padding:7px 9px;border-radius:var(--r-sm);cursor:pointer;border:.5px solid transparent;
+    transition:background var(--dur-fast) var(--ease-std)}
+  .stage:hover{background:var(--fill)}
+  .stage.on{background:var(--accent-tint);border-color:rgba(29,90,158,.3)}
+  .stage .nm{font-size:var(--t-caption1);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stage.on .nm{color:var(--accent);font-weight:700}
+  .stage .w{font-size:10px;font-weight:750;color:var(--label3);background:var(--fill);border-radius:6px;
+    padding:2px 0;text-align:center}
+  .stage .bar{height:10px;border-radius:5px;background:var(--fill-2);overflow:hidden}
+  .stage .fill{height:100%;border-radius:5px;background:linear-gradient(90deg,var(--accent-2),var(--accent));
+    transition:width var(--dur-slow) var(--ease-ios)}
+  .stage.bt .fill{background:linear-gradient(90deg,#ffb340,var(--warn))}
+  .stage .pc{font-size:var(--t-caption1);font-weight:700;text-align:right}
+  .chainfoot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:11px;
+    padding-top:11px;border-top:.5px solid var(--sep);font-size:var(--t-caption1);color:var(--label2)}
 }
 
 /* --- Thanh cuon --- */
