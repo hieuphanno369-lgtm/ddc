@@ -25,10 +25,14 @@ import { ChangePasswordModal } from './ChangePasswordModal';
 type Theme = 'light' | 'dark' | 'system';
 
 function applyTheme(theme: Theme) {
+  const root = document.documentElement;
+  if (theme === 'light' || theme === 'dark') root.setAttribute('data-theme', theme);
+  else root.removeAttribute('data-theme');
   const dark =
     theme === 'dark' ||
-    (theme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  document.documentElement.classList.toggle('dark', dark);
+    (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  root.classList.toggle('dark', dark); // di san, Task 12 xoa
+  window.dispatchEvent(new Event('ddc:theme')); // chart doc lai mau token
 }
 
 const THEMES = [

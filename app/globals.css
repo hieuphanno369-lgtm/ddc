@@ -2,20 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
-html,
-body {
-  padding: 0;
-  margin: 0;
+/* ============================================================
+   DDC · Apple Glass — nen tang
+   Token: app/tokens.css. CSS component: cuoi file nay.
+   ============================================================ */
+@layer base {
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    font-size: var(--t-subhead);
+    line-height: var(--lh-body);
+    letter-spacing: var(--tr-body);
+    color: var(--label);
+    background: var(--bg-base);
+    background-image: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'cv11', 'ss01';
+    font-variant-numeric: tabular-nums;
+    overflow-x: hidden;
+  }
+  h1, h2, h3, h4, p { margin: 0; }
+  button, input, select, textarea { font: inherit; color: inherit; }
 }
 
-body {
-  background-color: #f5f7fa;
-  color: #0a1f3d;
-  background-image:
-    radial-gradient(900px 460px at 88% -8%, rgba(245, 179, 1, 0.08), transparent 60%),
-    radial-gradient(820px 480px at 6% 108%, rgba(185, 28, 28, 0.07), transparent 60%);
-  background-attachment: fixed;
-  -webkit-font-smoothing: antialiased;
+@layer components {
+  /* --- Hinh nen mesh: vat lieu kinh can co cai de lam mo ---
+     Q6=(b): giu mau/vi tri/kich thuoc/blur nhu mock-up (dong 145-151)
+     nhung TAT HAN animation drift - dung yen, khong @keyframes. */
+  .wall{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+  .wall b{position:absolute;display:block;border-radius:50%;filter:blur(90px);opacity:.55;
+    will-change:transform;transform:translateZ(0)}
+  .wall b:nth-child(1){width:52vw;height:52vw;left:-12vw;top:-16vw;background:#2a6db4}
+  .wall b:nth-child(2){width:44vw;height:44vw;right:-10vw;top:-8vw;background:#0f8a63;opacity:.34}
+  .wall b:nth-child(3){width:40vw;height:40vw;left:22vw;bottom:-18vw;background:#f5b301;opacity:.22}
+  .wall b:nth-child(4){width:34vw;height:34vw;right:4vw;bottom:-14vw;background:#5856d6;opacity:.24}
+}
+
+/* --- Thanh cuon --- */
+* { scrollbar-width: thin; scrollbar-color: var(--sep-2) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: var(--sep-2); border-radius: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Dark mode — override các utility màu sáng tập trung tại 1 chỗ */
@@ -193,69 +226,4 @@ body {
 }
 .dark .hover\:bg-slate-100:hover {
   background-color: #1e2b47;
-}
-
-/* Zebra cho bảng dữ liệu */
-.table-zebra tbody tr:nth-child(even) {
-  background-color: rgba(10, 31, 61, 0.025);
-}
-.table-zebra tbody tr:hover {
-  background-color: rgba(10, 31, 61, 0.05);
-}
-.dark .table-zebra tbody tr:nth-child(even) {
-  background-color: rgba(148, 163, 184, 0.05);
-}
-.dark .table-zebra tbody tr:hover {
-  background-color: rgba(148, 163, 184, 0.09);
-}
-
-/* Scrollbar tinh tế */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #c7d0dd transparent;
-}
-*::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-*::-webkit-scrollbar-thumb {
-  background: #c7d0dd;
-  border-radius: 8px;
-}
-
-/* Header title — slide-in + glow nhẹ */
-@keyframes headerSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.header-title {
-  animation: headerSlideIn 0.6s ease-out;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.25);
-}
-
-@layer components {
-  .card {
-    @apply rounded-card border border-slate-200/70 bg-white/70 shadow-card backdrop-blur-xl backdrop-saturate-150;
-  }
-  .card-hover {
-    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover;
-  }
-  .label {
-    @apply text-xs font-medium uppercase tracking-wide text-slate-500;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
 }

@@ -1,0 +1,118 @@
+/* ============================================================
+   DDC · Apple Glass — Design Token
+   Nguon: mockup-apple-glass.html dong 16-128. Copy nguyen van.
+   Sua token o day, KHONG sua rai rac trong component.
+   ============================================================ */
+:root{
+  color-scheme: light;
+
+  /* ---------- MATERIAL / BLUR (UIBlurEffect.Style) ---------- */
+  --mat-ultrathin: 8px;
+  --mat-thin:      14px;
+  --mat-regular:   22px;
+  --mat-thick:     34px;
+  --mat-chrome:    44px;
+  --mat-sat:       180%;
+
+  /* ---------- CORNER RADIUS (continuous) ---------- */
+  --r-xs:8px; --r-sm:12px; --r-md:16px; --r-lg:20px; --r-xl:26px; --r-2xl:32px; --r-full:999px;
+  --r-icon:22.37%;               /* superellipse iOS app icon */
+
+  /* ---------- DYNAMIC TYPE (SF scale) ---------- */
+  --t-caption2:11px; --t-caption1:12px; --t-footnote:13px; --t-subhead:15px;
+  --t-callout:16px;  --t-body:17px;    --t-title3:20px;   --t-title2:22px;
+  --t-title1:28px;   --t-large:34px;
+  --lh-tight:1.12; --lh-snug:1.3; --lh-body:1.47;
+  --tr-large:-0.026em; --tr-title:-0.02em; --tr-body:-0.006em;
+
+  /* ---------- SPATIAL ELEVATION (key + ambient light) ---------- */
+  --e0:none;
+  --e1:0 .5px 1px rgba(10,31,61,.05), 0 1px 3px rgba(10,31,61,.05);
+  --e2:0 1px 2px rgba(10,31,61,.05), 0 6px 16px rgba(10,31,61,.07);
+  --e3:0 4px 10px rgba(10,31,61,.06), 0 16px 38px rgba(10,31,61,.10);
+  --e4:0 10px 24px rgba(10,31,61,.10), 0 30px 68px rgba(10,31,61,.16);
+  --inner-hi:inset 0 .5px 0 rgba(255,255,255,.75);
+
+  /* ---------- MOTION ---------- */
+  --ease-ios:cubic-bezier(.32,.72,0,1);      /* iOS sheet */
+  --ease-out:cubic-bezier(.22,1,.36,1);
+  --ease-std:cubic-bezier(.4,0,.2,1);
+  --dur-fast:.18s; --dur-base:.32s; --dur-slow:.52s;
+
+  /* ---------- COLOR · label hierarchy ---------- */
+  --label:#0a1f3d; --label2:rgba(10,31,61,.62); --label3:rgba(10,31,61,.42); --label4:rgba(10,31,61,.24);
+  --sep:rgba(10,31,61,.10); --sep-2:rgba(10,31,61,.16);
+
+  --bg-base:#e9eef6;
+  --glass:rgba(255,255,255,.60);
+  --glass-2:rgba(255,255,255,.42);
+  --glass-3:rgba(255,255,255,.80);
+  --glass-stroke:rgba(255,255,255,.72);
+  --fill:rgba(10,31,61,.05);
+  --fill-2:rgba(10,31,61,.08);
+
+  /* brand navy = accent (thay 1 dòng này sang #007AFF nếu muốn systemBlue) */
+  --accent:#1d5a9e; --accent-2:#2a6db4; --accent-deep:#0e2741;
+  --accent-tint:rgba(29,90,158,.12);
+  --gold:#f5b301;
+
+  /* ---------- SERIES (đã qua validator: PASS all-pairs, light) ---------- */
+  --s-plan:#93b8e0; --s-actual:#1d5a9e; --s-cost:#a86a12; --s-third:#0f8a63; --s-third-lt:#6fbf9b;
+  --s-neutral:#c3cddb;
+  --grid:rgba(10,31,61,.08); --axis:rgba(10,31,61,.42);
+
+  /* ---------- STATUS (system colors) ---------- */
+  --ok:#248a3d;   --ok-fill:rgba(52,199,89,.16);
+  --warn:#b25000; --warn-fill:rgba(255,149,0,.16);
+  --danger:#c30d0d; --danger-fill:rgba(255,59,48,.14);
+  --info:#1d5a9e; --info-fill:rgba(29,90,158,.12);
+}
+
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  color-scheme: dark;
+  --label:#f2f5f9; --label2:rgba(235,242,250,.62); --label3:rgba(235,242,250,.40); --label4:rgba(235,242,250,.22);
+  --sep:rgba(255,255,255,.10); --sep-2:rgba(255,255,255,.16);
+  --bg-base:#0a1020;
+  --glass:rgba(28,38,58,.58);
+  --glass-2:rgba(28,38,58,.40);
+  --glass-3:rgba(30,41,62,.82);
+  --glass-stroke:rgba(255,255,255,.10);
+  --fill:rgba(255,255,255,.06); --fill-2:rgba(255,255,255,.10);
+  --inner-hi:inset 0 .5px 0 rgba(255,255,255,.14);
+  --accent:#4e8ed0; --accent-2:#6ba6e0; --accent-deep:#123a66; --accent-tint:rgba(78,142,208,.18);
+  --s-plan:#2f6197; --s-actual:#7ab0ea; --s-cost:#c07d1a; --s-third:#12996b; --s-third-lt:#0d6349;
+  --s-neutral:#33456b;
+  --grid:rgba(255,255,255,.08); --axis:rgba(235,242,250,.40);
+  --ok:#30d158; --ok-fill:rgba(48,209,88,.16);
+  --warn:#ff9f0a; --warn-fill:rgba(255,159,10,.16);
+  --danger:#ff6961; --danger-fill:rgba(255,69,58,.16);
+  --info:#7ab0ea; --info-fill:rgba(122,176,234,.16);
+  --e1:0 .5px 1px rgba(0,0,0,.30), 0 1px 3px rgba(0,0,0,.24);
+  --e2:0 1px 2px rgba(0,0,0,.30), 0 6px 16px rgba(0,0,0,.34);
+  --e3:0 4px 10px rgba(0,0,0,.34), 0 16px 38px rgba(0,0,0,.42);
+  --e4:0 10px 24px rgba(0,0,0,.42), 0 30px 68px rgba(0,0,0,.52);
+}}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --label:#f2f5f9; --label2:rgba(235,242,250,.62); --label3:rgba(235,242,250,.40); --label4:rgba(235,242,250,.22);
+  --sep:rgba(255,255,255,.10); --sep-2:rgba(255,255,255,.16);
+  --bg-base:#0a1020;
+  --glass:rgba(28,38,58,.58);
+  --glass-2:rgba(28,38,58,.40);
+  --glass-3:rgba(30,41,62,.82);
+  --glass-stroke:rgba(255,255,255,.10);
+  --fill:rgba(255,255,255,.06); --fill-2:rgba(255,255,255,.10);
+  --inner-hi:inset 0 .5px 0 rgba(255,255,255,.14);
+  --accent:#4e8ed0; --accent-2:#6ba6e0; --accent-deep:#123a66; --accent-tint:rgba(78,142,208,.18);
+  --s-plan:#2f6197; --s-actual:#7ab0ea; --s-cost:#c07d1a; --s-third:#12996b; --s-third-lt:#0d6349;
+  --s-neutral:#33456b;
+  --grid:rgba(255,255,255,.08); --axis:rgba(235,242,250,.40);
+  --ok:#30d158; --ok-fill:rgba(48,209,88,.16);
+  --warn:#ff9f0a; --warn-fill:rgba(255,159,10,.16);
+  --danger:#ff6961; --danger-fill:rgba(255,69,58,.16);
+  --info:#7ab0ea; --info-fill:rgba(122,176,234,.16);
+  --e1:0 .5px 1px rgba(0,0,0,.30), 0 1px 3px rgba(0,0,0,.24);
+  --e2:0 1px 2px rgba(0,0,0,.30), 0 6px 16px rgba(0,0,0,.34);
+  --e3:0 4px 10px rgba(0,0,0,.34), 0 16px 38px rgba(0,0,0,.42);
+  --e4:0 10px 24px rgba(0,0,0,.42), 0 30px 68px rgba(0,0,0,.52);
+}
