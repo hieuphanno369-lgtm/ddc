@@ -63,6 +63,19 @@ Playwright thật (không tin sẵn chẩn đoán tester) rồi sửa tối thi�
 tester mới, agent này đã có sẵn ngữ cảnh vòng 1). Đếm vòng test-debug: **1/2** đã dùng — quá 2 vòng
 mà vẫn rớt thì dừng lại báo chủ dự án, không tự ý giao debugger sửa lần 3.
 
+**⚠️ ĐỔI ACCOUNT/PHIÊN NGAY LÚC TESTER ĐANG CHẠY (2026-09-23, ghi lúc gần chạm ngưỡng usage 5h):**
+Agent tester `a045103b661032c7a` đang chạy nền lúc phiên này sắp dừng, CHƯA có kết quả. Phiên mới
+(kể cả account khác) mở lên:
+1. Chạy `ListAgents` xem `a045103b661032c7a` đang `running`/`completed`/`stopped`.
+2. Nếu `completed` nhưng chưa thấy thông báo → đọc thẳng `.bangiao/ket-qua-test.md` xem đã cập
+   nhật kết luận vòng 2 chưa (tìm dòng có "vòng 2"/"xác nhận sau sửa"); nếu file chưa có mục vòng 2
+   → agent có thể đã báo kết quả cho phiên cũ (không tới được phiên mới) → `SendMessage` tới đúng
+   id đó hỏi lại kết quả, ĐỪNG giao tester mới từ đầu.
+3. Nếu `stopped` (bị ngắt giữa chừng) → `SendMessage` resume đúng id, kèm tóm tắt: "phiên trước bị
+   ngắt, bạn đang xác nhận lại 2 lỗi debugger vừa sửa (commit `e35a540`) — tiếp tục đúng việc đó."
+4. Kết quả vòng 2: PASS → chuyển security-reviewer (chặng 4/6 dây chuyền, chưa làm). FAIL → dừng
+   lại, báo chủ dự án (đã hết 2/2 vòng test-debug, không tự ý sửa thêm lần 3).
+
 **8 quyết định Q1-Q8 đã chốt (2026-09-23, tóm tắt — chi tiết đầy đủ trong `ke-hoach.md`):**
 Q1 logo: giữ `logo.png` đỏ trên nền trắng bo góc (KHÔNG dùng `.appicon` navy vẽ tay). Q2 công tắc
 sáng/tối: giữ nguyên trong SettingsMenu, không thêm lên topbar. Q3 sidebar: giữ đủ cả 3 tính năng
