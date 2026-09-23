@@ -434,6 +434,29 @@
   .stage .pc{font-size:var(--t-caption1);font-weight:700;text-align:right}
   .chainfoot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:11px;
     padding-top:11px;border-top:.5px solid var(--sep);font-size:var(--t-caption1);color:var(--label2)}
+
+  /* --- Task 9: Bieu do (mockup-apple-glass.html dong 379-390, copy nguyen van) --- */
+  /* Q5=(a): KHONG ship .hud (widget do fps) - bo hoan toan, khong dua vao app that. */
+  svg.chart{display:block;width:100%;height:auto;overflow:visible}
+  .tip{position:fixed;z-index:120;pointer-events:none;padding:10px 12px;border-radius:var(--r-sm);
+    background:var(--glass-3);
+    -webkit-backdrop-filter:blur(var(--mat-thick)) saturate(var(--mat-sat));
+    backdrop-filter:blur(var(--mat-thick)) saturate(var(--mat-sat));
+    border:.5px solid var(--glass-stroke);box-shadow:var(--e4);font-size:var(--t-caption1);min-width:160px;
+    opacity:0;transform:scale(.96);transition:opacity .12s var(--ease-out),transform .12s var(--ease-out)}
+  .tip.show{opacity:1;transform:none}
+  .tip b{display:block;font-size:var(--t-caption1);font-weight:700;margin-bottom:6px}
+  .tip .r{display:flex;align-items:center;justify-content:space-between;gap:18px;color:var(--label2);padding:1.5px 0}
+  .tip .r span:last-child{font-weight:700;color:var(--label)}
+  .tip i{width:9px;height:9px;border-radius:3px;display:inline-block;margin-right:7px}
+
+  /* --- Recharts: keo ve he token --- */
+  .recharts-cartesian-axis-tick-value { fill: var(--axis); font-size: var(--t-caption1); }
+  .recharts-legend-item-text { color: var(--label2) !important; font-size: var(--t-caption1); }
+  .recharts-default-tooltip { background: none !important; border: none !important; }
+  .recharts-tooltip-item { color: var(--label2) !important; }
+  .recharts-tooltip-label { color: var(--label) !important; font-weight: 700; }
+  .recharts-surface { overflow: visible; }
 }
 
 /* --- Thanh cuon --- */

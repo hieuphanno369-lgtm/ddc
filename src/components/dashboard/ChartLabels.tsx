@@ -12,15 +12,15 @@ export function useLabelMode(initial: LabelMode = 'smart') {
 
 export function LabelModeSwitch({ mode, onChange }: { mode: LabelMode; onChange: (m: LabelMode) => void }) {
   const t = useTranslations();
-  const base = 'rounded-md px-2 py-0.5 text-[11px] font-medium';
-  const on = 'bg-white text-navy-900 shadow-sm dark:bg-slate-700 dark:text-white';
-  const off = 'text-slate-500';
+  const base = 'rounded-[6px] px-2.5 py-1 text-caption1 font-semibold transition-all duration-fast ease-std';
+  const on = 'text-label';
+  const off = 'text-label2';
   return (
-    <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-0.5 dark:bg-slate-800">
-      <button onClick={() => onChange('smart')} className={`${base} ${mode === 'smart' ? on : off}`}>
+    <div className="seg">
+      <button onClick={() => onChange('smart')} className={`${base} ${mode === 'smart' ? 'on ' + on : off}`}>
         {t('chart.smart')}
       </button>
-      <button onClick={() => onChange('detail')} className={`${base} ${mode === 'detail' ? on : off}`}>
+      <button onClick={() => onChange('detail')} className={`${base} ${mode === 'detail' ? 'on ' + on : off}`}>
         {t('chart.detail')}
       </button>
     </div>

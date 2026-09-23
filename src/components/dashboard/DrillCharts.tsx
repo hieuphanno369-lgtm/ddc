@@ -5,14 +5,8 @@ import { useTranslations } from 'next-intl';
 import type { Status } from '@/server/repo/types';
 import { statusKey, typeKey, marketKey } from '@/lib/labels';
 import type { GroupBy } from '@/server/queries';
-import { GroupBar, StatusDonut, CHART_COLORS } from './charts';
-
-const STATUS_COLOR: Record<Status, string> = {
-  Chuan_bi: CHART_COLORS.statusChuanBi,
-  Dang_trien_khai: CHART_COLORS.statusDang,
-  Hoan_thanh: CHART_COLORS.statusHoanThanh,
-  Tam_dung: CHART_COLORS.statusTamDung,
-};
+import { GroupBar, StatusDonut } from './charts';
+import { useChartTokens } from './useChartTokens';
 
 function useDrill() {
   const router = useRouter();
@@ -32,6 +26,13 @@ function useDrill() {
 export function DrillDonut({ data }: { data: { status: Status; value: number }[] }) {
   const t = useTranslations();
   const drill = useDrill();
+  const c = useChartTokens();
+  const STATUS_COLOR: Record<Status, string> = {
+    Chuan_bi: c.plan,
+    Dang_trien_khai: c.actual,
+    Hoan_thanh: c.third,
+    Tam_dung: c.cost,
+  };
   const chartData = data.map((d) => ({
     status: d.status,
     value: d.value,
@@ -47,12 +48,12 @@ export function DrillDonut({ data }: { data: { status: Status; value: number }[]
           <button
             key={d.status}
             onClick={() => drill({ status: d.status })}
-            className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-xs hover:bg-slate-50"
+            className="flex w-full items-center gap-2 rounded-xs px-2 py-1 text-caption1 transition-colors duration-fast hover:bg-fill"
           >
-            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: d.color }} />
-            <span className="flex-1 text-left text-slate-600">{d.label}</span>
-            <span className="font-semibold text-navy-900">{d.value}</span>
-            <span className="text-slate-400">
+            <span className="h-2.5 w-2.5 rounded-[3px]" style={{ backgroundColor: d.color }} />
+            <span className="flex-1 text-left text-label2">{d.label}</span>
+            <span className="font-bold">{d.value}</span>
+            <span className="text-label3">
               {total ? Math.round((d.value / total) * 100) : 0}%
             </span>
           </button>
@@ -83,13 +84,14 @@ export function GroupByCard({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-sm font-semibold text-navy-900">
+        <span className="text-footnote font-semibold">
           {t('overview.tonnageValueByTeam', { group: groupLabel })}
         </span>
         <select
           value={groupBy}
           onChange={(e) => drill({ groupBy: e.target.value, groupKey: '' })}
-          className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-xs text-navy-800 focus:outline-none"
+          className="inp"
+          style={{ width: 'auto', padding: '4px 9px', fontSize: 'var(--t-caption1)' }}
         >
           <option value="team">{t('overview.groupTeam')}</option>
           <option value="type">{t('overview.groupType')}</option>
