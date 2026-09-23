@@ -562,7 +562,12 @@ model ProjectContractor {
   contractorId Int
 
   project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  contractor Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  // B-5 (danh-gia.md, vòng 2): Contractor là dimension DÙNG CHUNG mọi dự án - Cascade ở đây từng
+  // có nghĩa "xoá 1 nhà thầu -> xoá luôn liên kết của nó ở MỌI dự án khác", một hành động không
+  // ai chủ ý muốn. Đổi Restrict, dùng cờ `isActive=false` (đã có sẵn) để "xoá mềm" thay vì xoá
+  // hàng thật - hiện KHÔNG có action nào xoá Contractor/Equipment nên đây là hardening phòng
+  // ngừa cho Run 2, không đổi hành vi nào đang chạy.
+  contractor Contractor @relation(fields: [contractorId], references: [id], onDelete: Restrict)
 
   @@id([projectId, contractorId])
   @@map("project_contractor")
@@ -590,7 +595,9 @@ model FactDailyManpower {
   actualHeadcount  Int      @default(0)
 
   project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  contractor Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  // B-5: xem ghi chú ở ProjectContractor.contractor - Restrict thay Cascade để bảo vệ lịch sử
+  // nhân lực của TOÀN BỘ dự án khác khỏi bị xoá dây chuyền khi 1 nhà thầu bị xoá.
+  contractor Contractor @relation(fields: [contractorId], references: [id], onDelete: Restrict)
 
   @@id([projectId, contractorId, workDate])
   @@index([projectId, workDate])
@@ -610,8 +617,10 @@ model FactDailyEquipmentUsage {
   qtyActual    Int      @default(0)
 
   project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  contractor Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
-  equipment  Equipment  @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  // B-5: xem ghi chú ở ProjectContractor.contractor - Restrict thay Cascade để bảo vệ lịch sử
+  // thiết bị của TOÀN BỘ dự án khác khỏi bị xoá dây chuyền khi 1 nhà thầu/thiết bị bị xoá.
+  contractor Contractor @relation(fields: [contractorId], references: [id], onDelete: Restrict)
+  equipment  Equipment  @relation(fields: [equipmentId], references: [id], onDelete: Restrict)
 
   @@id([projectId, contractorId, equipmentId, workDate])
   @@index([projectId, workDate])
