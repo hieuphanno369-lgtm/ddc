@@ -6,6 +6,7 @@ import { repo } from '@/server/repo';
 import { getProjectSummary } from '@/server/queries';
 import { currentMonth, isValidYearMonth } from '@/lib/clock';
 import { getCurrentUser } from '@/lib/session';
+import { requireProjectRead } from '@/server/authz';
 import { stageKey } from '@/lib/labels';
 import { STAGE_ORDER } from '@/lib/stages';
 import { THRESHOLDS } from '@/lib/thresholds';
@@ -48,6 +49,10 @@ export default async function ProjectDetailPage({
   const locale = await getLocale();
   const user = await getCurrentUser();
   const canViewFinance = user?.canViewFinance ?? true;
+  // B-4 (danh-gia.md, vòng 2 - BOLA/IDOR): data-entry/viewer chỉ được xem dự án mình có trong
+  // project_assignments; admin/bod xem mọi dự án. Check TRƯỚC khi đọc project để không lộ qua
+  // timing/behavior khác nhau giữa "không có quyền" và "chưa load xong".
+  await requireProjectRead(user, id);
 
   const project = await repo.getProject(id);
   if (!project) notFound();

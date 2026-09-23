@@ -46,11 +46,15 @@ import ProjectDetailPage from '../../app/[locale]/(app)/projects/[id]/page';
 (globalThis as unknown as { React: typeof React }).React = React;
 
 const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.com.vn', role: 'admin', canViewFinance: true };
+const VIEWER: CurrentUser = { name: 'Viewer', email: 'viewer@daidung.com.vn', role: 'viewer', canViewFinance: false };
 
-const render = async (searchParams: Record<string, string | string[] | undefined>) =>
+const render = async (
+  searchParams: Record<string, string | string[] | undefined>,
+  projectId = '1',
+) =>
   renderToStaticMarkup(
     (await ProjectDetailPage({
-      params: { id: '1', locale: 'vi' },
+      params: { id: projectId, locale: 'vi' },
       searchParams,
     })) as React.ReactElement,
   );
@@ -82,5 +86,28 @@ describe('/projects/1 - render với searchParams.month rác (A-3, vòng CAN SUA
 
   it('?month=2026-07 (hợp lệ) vẫn render đúng, không bị guard chặn nhầm giá trị hợp lệ', async () => {
     await expect(render({ month: '2026-07' })).resolves.toContain(repo.getProject(1)!.projectName);
+  });
+});
+
+/**
+ * B-4 (danh-gia.md, vòng 2) - BOLA/IDOR: render THẬT trang với user viewer@ (chỉ được gán Backup
+ * ở dự án {1,2,4,6,8,10} theo buildAssignments()), xác nhận đúng hành vi mới: dự án được gán thì
+ * xem được, dự án KHÔNG được gán (vd 3, 9) thì notFound() - không phải re-test lại logic
+ * requireProjectRead() (đã test riêng ở authz.test.ts), mà xác nhận page.tsx THẬT sự gọi nó.
+ */
+describe('/projects/[id] - BOLA/IDOR (B-4, vòng CAN SUA #1 vòng 2)', () => {
+  it('viewer@ xem dự án 1 (được gán Backup) -> render bình thường', async () => {
+    (getCurrentUser as Mock).mockResolvedValue(VIEWER);
+    await expect(render({}, '1')).resolves.toContain(repo.getProject(1)!.projectName);
+  });
+
+  it('viewer@ xem dự án 3 (KHÔNG được gán - chỉ pm@ là PIC) -> notFound()', async () => {
+    (getCurrentUser as Mock).mockResolvedValue(VIEWER);
+    await expect(render({}, '3')).rejects.toThrow('NOT_FOUND');
+  });
+
+  it('admin xem dự án 3 (không phải PIC/Backup của admin nhưng admin xem MỌI dự án) -> render bình thường', async () => {
+    (getCurrentUser as Mock).mockResolvedValue(ADMIN);
+    await expect(render({}, '3')).resolves.toContain(repo.getProject(3)!.projectName);
   });
 });
