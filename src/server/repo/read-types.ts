@@ -1,4 +1,4 @@
-import type { FactProgressMonthly, ProjectEquipmentPlan, Shift } from './types';
+import type { ActivityLogEntry, AuditLogEntry, FactProgressMonthly, ProjectEquipmentPlan, Shift } from './types';
 
 /** Nhân lực theo tháng × nhà thầu × ca (đã cộng các ngày). days = số ngày có dòng của ca đó. */
 export interface ShiftMonthRow { yearMonth: string; contractorId: number; shiftCode: string; planned: number; actual: number; days: number }
@@ -14,6 +14,8 @@ export type FactSnapshot = Pick<FactProgressMonthly,
 export interface FinancialSnapshot { projectId: number; yearMonth: string; revenuePeriod: number; arOverdue: number }
 export interface VolumeSnapshot { projectId: number; factoryId: number; yearMonth: string; tonnageProcessed: number }
 export interface MonthlyEvmRow { yearMonth: string; pv: number; ev: number; ac: number; spiAvg: number | null; cpiAvg: number | null }
+// --- Bước 6 (T1) ---
+export interface AuditLogPageResult { items: AuditLogEntry[]; total: number; page: number; totalPages: number; pageSize: number }
 
 export interface ReadRepo {
   readShifts(): Promise<Shift[]>;                                                   // mọi ca, sortOrder tăng
@@ -27,4 +29,8 @@ export interface ReadRepo {
   readFinancialSnapshots(yearMonth: string): Promise<FinancialSnapshot[]>; // như trên cho fact_financial
   readVolumeSnapshots(yearMonth: string): Promise<VolumeSnapshot[]>;       // 'all' = tháng mới nhất mỗi (projectId, factoryId)
   readMonthlyEvm(months: string[], projectIds: number[]): Promise<MonthlyEvmRow[]>; // chỉ isLatest; tháng không có dòng → không trả
+  // Bước 6
+  readLastAuditAt(): Promise<string | null>;                                 // ISO; bảng rỗng → null
+  readActivitySince(since: Date): Promise<ActivityLogEntry[]>;               // createdAt >= since, mới nhất trước
+  readAuditLogPage(opts: { since: Date | null; page: number; pageSize: number }): Promise<AuditLogPageResult>;
 }

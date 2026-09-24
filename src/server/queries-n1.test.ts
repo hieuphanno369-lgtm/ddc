@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import * as React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import type { CurrentUser } from '@/lib/session';
 
 vi.mock('@/server/repo', async () => {
   const mockRepo = await import('@/server/repo/mock-repo');
@@ -11,10 +14,34 @@ vi.mock('@/server/cache', () => ({
   })),
   loadWatchlist: vi.fn(async () => []),
 }));
+// Boilerplate render trang Chi tiết - giống projects-detail-page-render.test.ts.
+vi.mock('next/navigation', () => ({ notFound: () => { throw new Error('NOT_FOUND'); } }));
+vi.mock('next-intl/server', () => ({
+  getLocale: vi.fn(async () => 'vi'),
+  getTranslations: vi.fn(async () => (key: string) => key),
+}));
+vi.mock('@/lib/session', () => ({ getCurrentUser: vi.fn() }));
+vi.mock('@/i18n/navigation', () => ({
+  Link: (props: { href: string; children?: React.ReactNode; className?: string }) =>
+    React.createElement('a', { href: props.href, className: props.className }, props.children),
+}));
+vi.mock('@/components/ui/Badges', () => ({
+  MarketLabel: () => null,
+  PriorityBadge: () => null,
+  StatusBadge: (p: { status: string }) => React.createElement('span', null, `status:${p.status}`),
+  TypeLabel: () => null,
+}));
+vi.mock('@/components/project/WhatIf', () => ({ WhatIf: () => null }));
+vi.mock('@/components/project/ProjectSwitcher', () => ({ ProjectSwitcher: () => null }));
 
+import { getCurrentUser } from '@/lib/session';
 import { repo } from '@/server/repo';
 import { getProjectSummaries, getSpiCpiTrend, getTonnageValueByGroup } from './queries';
 import { getReportData } from './report';
+import ProjectDetailPage from '../../app/[locale]/(app)/projects/[id]/page';
+
+(globalThis as unknown as { React: typeof React }).React = React;
+const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.com.vn', role: 'admin', canViewFinance: true };
 
 /**
  * T1 (T1-code a): sau khi bỏ N+1 ở queries.ts, các hàm đọc-nhiều-dự-án chỉ được gọi repo theo
@@ -49,5 +76,14 @@ describe('queries N+1 (T1 Bước 5)', () => {
     const getLatestFact = vi.spyOn(repo, 'getLatestFact');
     await getReportData('2026-09');
     expect(getLatestFact).not.toHaveBeenCalled();
+  });
+
+  it('render trang Chi tiet: goi repo.getAuditLog 0 lan (dung readLastAuditAt thay the)', async () => {
+    const getAuditLog = vi.spyOn(repo, 'getAuditLog');
+    (getCurrentUser as ReturnType<typeof vi.fn>).mockResolvedValue(ADMIN);
+    await renderToStaticMarkup(
+      (await ProjectDetailPage({ params: { id: '1', locale: 'vi' }, searchParams: {} })) as React.ReactElement,
+    );
+    expect(getAuditLog).not.toHaveBeenCalled();
   });
 });

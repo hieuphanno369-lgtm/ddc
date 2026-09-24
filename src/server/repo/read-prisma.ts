@@ -1,8 +1,8 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/server/db';
 import type {
-  DateRange, EquipmentUsageDay, FactSnapshot, FinancialSnapshot, MonthlyEvmRow, ReadRepo, ShiftMonthRow,
-  VolumeSnapshot, WeekContractorRow,
+  AuditLogPageResult, DateRange, EquipmentUsageDay, FactSnapshot, FinancialSnapshot, MonthlyEvmRow, ReadRepo,
+  ShiftMonthRow, VolumeSnapshot, WeekContractorRow,
 } from './read-types';
 
 /**
@@ -128,15 +128,55 @@ export const readRepoPrisma = {
       GROUP BY "yearMonth" ORDER BY "yearMonth"
     `);
   },
-} satisfies Pick<ReadRepo,
-  | 'readShifts'
-  | 'readManpowerByShiftMonth'
-  | 'readManpowerWeekly'
-  | 'readManpowerRange'
-  | 'readEquipmentPlans'
-  | 'readEquipmentUsageDays'
-  | 'readFactSnapshots'
-  | 'readFinancialSnapshots'
-  | 'readVolumeSnapshots'
-  | 'readMonthlyEvm'
->;
+
+  async readLastAuditAt(): Promise<string | null> {
+    const r = await prisma.auditLog.aggregate({ _max: { changedAt: true } });
+    return r._max.changedAt ? r._max.changedAt.toISOString() : null;
+  },
+
+  async readActivitySince(since: Date) {
+    const rows = await prisma.activityLog.findMany({
+      where: { createdAt: { gte: since } },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((a) => ({
+      id: a.id,
+      userEmail: a.userEmail,
+      userName: a.userName,
+      action: a.action,
+      detail: a.detail,
+      ip: a.ip,
+      userAgent: a.userAgent,
+      createdAt: a.createdAt.toISOString(),
+    }));
+  },
+
+  async readAuditLogPage(opts: { since: Date | null; page: number; pageSize: number }): Promise<AuditLogPageResult> {
+    const where = opts.since ? { changedAt: { gte: opts.since } } : {};
+    const total = await prisma.auditLog.count({ where });
+    const totalPages = Math.max(1, Math.ceil(total / opts.pageSize));
+    const page = Math.min(Math.max(1, opts.page), totalPages);
+    const rows = await prisma.auditLog.findMany({
+      where,
+      orderBy: [{ changedAt: 'desc' }, { id: 'desc' }],
+      skip: (page - 1) * opts.pageSize,
+      take: opts.pageSize,
+    });
+    return {
+      items: rows.map((a) => ({
+        id: a.id,
+        tableName: a.tableName,
+        recordId: a.recordId,
+        field: a.field,
+        oldValue: a.oldValue,
+        newValue: a.newValue,
+        changedBy: a.changedBy,
+        changedAt: a.changedAt.toISOString(),
+      })),
+      total,
+      page,
+      totalPages,
+      pageSize: opts.pageSize,
+    };
+  },
+} satisfies ReadRepo;

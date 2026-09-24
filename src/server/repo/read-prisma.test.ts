@@ -1,13 +1,20 @@
 import type { Prisma } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { queryRaw, shiftFindMany, planFindMany, factFindMany, financialFindMany, volumeFindMany } = vi.hoisted(() => ({
+const {
+  queryRaw, shiftFindMany, planFindMany, factFindMany, financialFindMany, volumeFindMany,
+  auditAggregate, activityFindMany, auditLogCount, auditLogFindMany,
+} = vi.hoisted(() => ({
   queryRaw: vi.fn(async (_sql: unknown): Promise<unknown[]> => []),
   shiftFindMany: vi.fn(async (): Promise<unknown[]> => []),
   planFindMany: vi.fn(async (_args: unknown): Promise<unknown[]> => []),
   factFindMany: vi.fn(async (_args: unknown): Promise<unknown[]> => []),
   financialFindMany: vi.fn(async (_args: unknown): Promise<unknown[]> => []),
   volumeFindMany: vi.fn(async (_args: unknown): Promise<unknown[]> => []),
+  auditAggregate: vi.fn(async (_args: unknown): Promise<{ _max: { changedAt: Date | null } }> => ({ _max: { changedAt: null } })),
+  activityFindMany: vi.fn(async (_args: unknown): Promise<unknown[]> => []),
+  auditLogCount: vi.fn(async (_args: unknown): Promise<number> => 0),
+  auditLogFindMany: vi.fn(async (_args: unknown): Promise<unknown[]> => []),
 }));
 vi.mock('@/server/db', () => ({
   prisma: {
@@ -17,6 +24,8 @@ vi.mock('@/server/db', () => ({
     factProgressMonthly: { findMany: factFindMany },
     factFinancial: { findMany: financialFindMany },
     factVolume: { findMany: volumeFindMany },
+    auditLog: { aggregate: auditAggregate, count: auditLogCount, findMany: auditLogFindMany },
+    activityLog: { findMany: activityFindMany },
   },
 }));
 import { readRepoPrisma } from './read-prisma';
@@ -29,6 +38,10 @@ beforeEach(() => {
   factFindMany.mockClear();
   financialFindMany.mockClear();
   volumeFindMany.mockClear();
+  auditAggregate.mockClear();
+  activityFindMany.mockClear();
+  auditLogCount.mockClear();
+  auditLogFindMany.mockClear();
 });
 
 describe('read-prisma', () => {
@@ -145,5 +158,88 @@ describe('read-prisma', () => {
     const prismaKeys = Object.keys(prismaRepo);
     const overlap = readKeys.filter((k) => prismaKeys.includes(k));
     expect(overlap).toEqual([]);
+  });
+
+  it('readLastAuditAt: bang co dong -> ISO cua MAX(changedAt)', async () => {
+    auditAggregate.mockResolvedValueOnce({ _max: { changedAt: new Date('2026-09-20T10:00:00Z') } });
+    const r = await readRepoPrisma.readLastAuditAt();
+    expect(auditAggregate).toHaveBeenCalledWith({ _max: { changedAt: true } });
+    expect(r).toBe('2026-09-20T10:00:00.000Z');
+  });
+
+  it('readLastAuditAt: bang rong -> null', async () => {
+    auditAggregate.mockResolvedValueOnce({ _max: { changedAt: null } });
+    expect(await readRepoPrisma.readLastAuditAt()).toBeNull();
+  });
+
+  it('readActivitySince: goi findMany voi where.createdAt.gte va orderBy createdAt desc', async () => {
+    const since = new Date('2026-09-10T00:00:00Z');
+    await readRepoPrisma.readActivitySince(since);
+    expect(activityFindMany).toHaveBeenCalledWith({
+      where: { createdAt: { gte: since } },
+      orderBy: { createdAt: 'desc' },
+    });
+  });
+
+  describe('readAuditLogPage', () => {
+    it('count=45, page=2, since=2026-09-10: goi findMany dung where.changedAt.gte, orderBy, skip 20 take 20', async () => {
+      const since = new Date('2026-09-10T00:00:00Z');
+      auditLogCount.mockResolvedValueOnce(45);
+      auditLogFindMany.mockResolvedValueOnce([]);
+
+      const r = await readRepoPrisma.readAuditLogPage({ since, page: 2, pageSize: 20 });
+
+      expect(auditLogCount).toHaveBeenCalledWith({ where: { changedAt: { gte: since } } });
+      expect(auditLogFindMany).toHaveBeenCalledWith({
+        where: { changedAt: { gte: since } },
+        orderBy: [{ changedAt: 'desc' }, { id: 'desc' }],
+        skip: 20,
+        take: 20,
+      });
+      expect(r.total).toBe(45);
+      expect(r.page).toBe(2);
+      expect(r.totalPages).toBe(3);
+      expect(r.pageSize).toBe(20);
+    });
+
+    it('count=45, page=99 (vuot qua) -> kep ve page 3, skip 40', async () => {
+      auditLogCount.mockResolvedValueOnce(45);
+      auditLogFindMany.mockResolvedValueOnce([]);
+      const r = await readRepoPrisma.readAuditLogPage({ since: null, page: 99, pageSize: 20 });
+      expect(r.page).toBe(3);
+      expect(auditLogFindMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 40 }));
+    });
+
+    it('count=0 -> page 1, totalPages 1', async () => {
+      auditLogCount.mockResolvedValueOnce(0);
+      auditLogFindMany.mockResolvedValueOnce([]);
+      const r = await readRepoPrisma.readAuditLogPage({ since: null, page: 1, pageSize: 20 });
+      expect(r.page).toBe(1);
+      expect(r.totalPages).toBe(1);
+    });
+
+    it('since = null -> where rong (khong loc theo changedAt)', async () => {
+      auditLogCount.mockResolvedValueOnce(0);
+      auditLogFindMany.mockResolvedValueOnce([]);
+      await readRepoPrisma.readAuditLogPage({ since: null, page: 1, pageSize: 20 });
+      expect(auditLogCount).toHaveBeenCalledWith({ where: {} });
+      expect(auditLogFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+    });
+
+    it('page=0 truyen truc tiep -> tu kep ve page 1, skip 0', async () => {
+      auditLogCount.mockResolvedValueOnce(45);
+      auditLogFindMany.mockResolvedValueOnce([]);
+      const r = await readRepoPrisma.readAuditLogPage({ since: null, page: 0, pageSize: 20 });
+      expect(r.page).toBe(1);
+      expect(auditLogFindMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 0 }));
+    });
+
+    it('page=-5 -> van kep ve page 1, khong ra skip am', async () => {
+      auditLogCount.mockResolvedValueOnce(45);
+      auditLogFindMany.mockResolvedValueOnce([]);
+      const r = await readRepoPrisma.readAuditLogPage({ since: null, page: -5, pageSize: 20 });
+      expect(r.page).toBe(1);
+      expect(auditLogFindMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 0 }));
+    });
   });
 });

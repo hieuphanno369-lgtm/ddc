@@ -80,7 +80,36 @@ export default async function ProjectDetailPage({
   const project = await repo.getProject(id);
   if (!project) notFound();
 
-  const summary = (await getProjectSummary(id, month))!;
+  // T1 Bước 6: gom mọi lệnh đọc ĐỘC LẬP (không phụ thuộc kết quả của nhau) vào 1 Promise.all -
+  // trang Chi tiết trước đây await tuần tự từng dòng (>20 round-trip nối tiếp).
+  const [
+    summaryOrNull, lastUpdate, facts, chain, financial, alerts, aliases, sapCodes, photos, dims,
+    resources, breakdown, tracking, keyMilestones, stageWeights, stageMilestones, compare,
+    projectsList, shiftChart, weekly, gantt,
+  ] = await Promise.all([
+    getProjectSummary(id, month),
+    repo.readLastAuditAt(),
+    repo.getFacts(id),
+    repo.getValueChain(id, month),
+    repo.getFinancial(id),
+    repo.getAlerts(id),
+    repo.getAliases(id),
+    repo.getSapCodes(id),
+    repo.getPhotos(id),
+    repo.getDims(),
+    getResourceSnapshot(id, month),
+    getResourceBreakdown(id, month),
+    getWeeklyTracking(id, month),
+    repo.getKeyMilestones(id),
+    repo.getStageWeights(id),
+    repo.getStageMilestones(id),
+    getWorkItemComparison(id, month),
+    repo.listProjects(),
+    getShiftChartData(id, locale),
+    getWeeklyChartData(id, project),
+    getEquipmentGantt(id, t('equipmentGantt.noWorkItem')),
+  ]);
+  const summary = summaryOrNull!;
   const today = todayIso();
   const timeline = buildPlanActualTimeline({
     plannedStart: project.plannedStartDate, plannedFinish: project.plannedFinishDate,
@@ -88,29 +117,12 @@ export default async function ProjectDetailPage({
   });
   const startDelay = timeline?.startDelayDays ?? null;
   const gap = summary.pctPlan != null ? calcScheduleGap(summary.pctPlan, summary.pctActual) : null;
-  const lastUpdate = (await repo.getAuditLog())[0]?.changedAt ?? null;
-  const facts = await repo.getFacts(id);
   const latest = facts[facts.length - 1];
-  const chain = await repo.getValueChain(id, month);
-  const financial = await repo.getFinancial(id);
-  const alerts = await repo.getAlerts(id);
-  const aliases = await repo.getAliases(id);
-  const sapCodes = await repo.getSapCodes(id);
-  const photos = await repo.getPhotos(id);
-  const dims = await repo.getDims();
-  const resources = await getResourceSnapshot(id, month);
-  const breakdown = await getResourceBreakdown(id, month);
-  const tracking = await getWeeklyTracking(id, month);
-  const shiftChart = await getShiftChartData(id, locale);
-  const weekly = await getWeeklyChartData(id, project);
-  const gantt = await getEquipmentGantt(id, t('equipmentGantt.noWorkItem'));
-  const keyMilestones = await repo.getKeyMilestones(id);
   const canEditMs = user?.role === 'admin' || user?.role === 'data-entry';
-  const stageWeights = await repo.getStageWeights(id);
-  const stageRows = buildStageTimelineRows(await repo.getStageMilestones(id), stageWeights);
-  const compare = await getWorkItemComparison(id, month);
+  const stageRows = buildStageTimelineRows(stageMilestones, stageWeights);
   const customer = dims.customers.find((c) => c.id === project.customerId);
   const team = dims.teams.find((x) => x.id === project.teamKdId);
+  const switcherProjects = projectsList.map((p) => ({ id: p.id, name: p.projectName, code: p.currentAliasCode }));
 
   const sCurve = facts.map((f) => ({ month: f.yearMonth, pv: Math.round(f.pv), ev: Math.round(f.ev), ac: Math.round(f.ac) }));
   const trend = facts.map((f) => ({ month: f.yearMonth, spi: f.spi, cpi: f.cpi }));
@@ -129,7 +141,7 @@ export default async function ProjectDetailPage({
         </div>
         <ProjectSwitcher
           currentId={project.id}
-          projects={(await repo.listProjects()).map((p) => ({ id: p.id, name: p.projectName, code: p.currentAliasCode }))}
+          projects={switcherProjects}
         />
       </div>
 

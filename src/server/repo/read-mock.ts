@@ -1,8 +1,8 @@
 import type { RepoData } from '@/data/seed/history';
 import { bucketOf } from '@/lib/daily-series';
 import type {
-  DateRange, EquipmentUsageDay, FactSnapshot, FinancialSnapshot, MonthlyEvmRow, ReadRepo, ShiftMonthRow,
-  VolumeSnapshot, WeekContractorRow,
+  AuditLogPageResult, DateRange, EquipmentUsageDay, FactSnapshot, FinancialSnapshot, MonthlyEvmRow, ReadRepo,
+  ShiftMonthRow, VolumeSnapshot, WeekContractorRow,
 } from './read-types';
 import type { FactProgressMonthly } from './types';
 
@@ -148,6 +148,30 @@ export function createReadMock(getData: () => RepoData): ReadRepo {
           spiAvg: avg(fs.map((f) => f.spi).filter((x): x is number => x != null)),
           cpiAvg: avg(fs.map((f) => f.cpi).filter((x): x is number => x != null)),
         }));
+    },
+
+    async readLastAuditAt(): Promise<string | null> {
+      const rows = getData().auditLog;
+      if (!rows.length) return null;
+      return rows.reduce((max, a) => (a.changedAt > max ? a.changedAt : max), rows[0].changedAt);
+    },
+
+    async readActivitySince(since: Date) {
+      const sinceIso = since.toISOString();
+      return getData()
+        .activityLog.filter((a) => a.createdAt >= sinceIso)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    },
+
+    async readAuditLogPage(opts: { since: Date | null; page: number; pageSize: number }): Promise<AuditLogPageResult> {
+      const sinceIso = opts.since ? opts.since.toISOString() : null;
+      const filtered = getData().auditLog.filter((a) => !sinceIso || a.changedAt >= sinceIso);
+      const sorted = [...filtered].sort((a, b) => b.changedAt.localeCompare(a.changedAt) || b.id - a.id);
+      const total = sorted.length;
+      const totalPages = Math.max(1, Math.ceil(total / opts.pageSize));
+      const page = Math.min(Math.max(1, opts.page), totalPages);
+      const start = (page - 1) * opts.pageSize;
+      return { items: sorted.slice(start, start + opts.pageSize), total, page, totalPages, pageSize: opts.pageSize };
     },
   };
 }

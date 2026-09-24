@@ -25,9 +25,9 @@ export default async function AdminPage() {
   const projects = (await repo.listProjects()).map((p) => ({ id: p.id, name: p.projectName, code: p.currentAliasCode }));
   const auditPage = await getAuditLogPage({ page: 1, range: '14d' });
   const users = await repo.getUserRoles();
-  // Xoa luoi chi chay khi co ghi moi -> phai loc luc doc (giu retention 14 ngay).
-  const since = logSince('14d', new Date())!;
-  const activity = (await repo.getActivity()).filter((a) => new Date(a.createdAt) >= since);
+  // Loc theo since NGAY TRONG TRUY VAN (readActivitySince) thay vi doc het roi loc trong bo nho
+  // (giu retention 14 ngay, T1: tranh quet ca bang activity_log).
+  const activity = await repo.readActivitySince(logSince('14d', new Date())!);
   const customerValues = await repo.getDimFieldValues('customer');
   const teamValues = await repo.getDimFieldValues('team');
 

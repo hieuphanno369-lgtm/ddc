@@ -1,97 +1,39 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-/**
- * Mock thang @/server/db (giong prisma-repo-reset.test.ts) - khong dung DB Postgres dev that.
- */
-const { auditLogCount, auditLogFindMany } = vi.hoisted(() => ({
-  auditLogCount: vi.fn(async () => 0),
-  auditLogFindMany: vi.fn(async () => [] as unknown[]),
-}));
+vi.mock('@/server/repo', async () => {
+  const mockRepo = await import('@/server/repo/mock-repo');
+  return { repo: mockRepo.repo };
+});
 
-vi.mock('@/server/db', () => ({
-  prisma: {
-    auditLog: { count: auditLogCount, findMany: auditLogFindMany },
-  },
-}));
-
+import { repo } from '@/server/repo';
 import { getAuditLogPage } from './audit-log-page';
 
 const NOW = new Date('2026-09-24T00:00:00Z');
-
-beforeEach(() => {
-  auditLogCount.mockClear();
-  auditLogFindMany.mockClear();
-});
+const EMPTY_PAGE = { items: [], total: 0, page: 1, totalPages: 1, pageSize: 20 };
 
 describe('getAuditLogPage', () => {
-  it('count=45, page=2, range 14d: goi findMany dung where.changedAt.gte, orderBy, skip 20 take 20', async () => {
-    auditLogCount.mockResolvedValueOnce(45);
-    auditLogFindMany.mockResolvedValueOnce([]);
-
-    const r = await getAuditLogPage({ page: 2, range: '14d', now: NOW });
-
-    expect(auditLogCount).toHaveBeenCalledWith({ where: { changedAt: { gte: new Date('2026-09-10T00:00:00Z') } } });
-    expect(auditLogFindMany).toHaveBeenCalledWith({
-      where: { changedAt: { gte: new Date('2026-09-10T00:00:00Z') } },
-      orderBy: [{ changedAt: 'desc' }, { id: 'desc' }],
-      skip: 20,
-      take: 20,
-    });
-    expect(r.total).toBe(45);
-    expect(r.page).toBe(2);
-    expect(r.totalPages).toBe(3);
-    expect(r.pageSize).toBe(20);
+  it('range "14d" -> truyen since dung now - 14 ngay, pageSize mac dinh 20', async () => {
+    const spy = vi.spyOn(repo, 'readAuditLogPage').mockResolvedValueOnce(EMPTY_PAGE);
+    await getAuditLogPage({ page: 2, range: '14d', now: NOW });
+    expect(spy).toHaveBeenCalledWith({ since: new Date('2026-09-10T00:00:00Z'), page: 2, pageSize: 20 });
   });
 
-  it('count=45, page=99 (vuot qua) -> kep ve page 3, skip 40', async () => {
-    auditLogCount.mockResolvedValueOnce(45);
-    auditLogFindMany.mockResolvedValueOnce([]);
-
-    const r = await getAuditLogPage({ page: 99, range: '14d', now: NOW });
-
-    expect(r.page).toBe(3);
-    expect(auditLogFindMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 40 }));
-  });
-
-  it('count=0 -> page 1, totalPages 1', async () => {
-    auditLogCount.mockResolvedValueOnce(0);
-    auditLogFindMany.mockResolvedValueOnce([]);
-
-    const r = await getAuditLogPage({ page: 1, range: '14d', now: NOW });
-
-    expect(r.page).toBe(1);
-    expect(r.totalPages).toBe(1);
-  });
-
-  it('range "all" -> where rong (khong loc theo changedAt)', async () => {
-    auditLogCount.mockResolvedValueOnce(0);
-    auditLogFindMany.mockResolvedValueOnce([]);
-
+  it('range "all" -> since null', async () => {
+    const spy = vi.spyOn(repo, 'readAuditLogPage').mockResolvedValueOnce(EMPTY_PAGE);
     await getAuditLogPage({ page: 1, range: 'all', now: NOW });
-
-    expect(auditLogCount).toHaveBeenCalledWith({ where: {} });
-    expect(auditLogFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+    expect(spy).toHaveBeenCalledWith({ since: null, page: 1, pageSize: 20 });
   });
 
-  // Tester (P1B): goi truc tiep voi page ngoai bien (0/am), BO QUA lop guard parsePage() o
-  // tang page.tsx - kiem chinh ham getAuditLogPage() tu phong ve, khong chi dua vao caller.
-  it('page=0 truyen truc tiep (khong qua parsePage) -> tu kep ve page 1, skip 0', async () => {
-    auditLogCount.mockResolvedValueOnce(45);
-    auditLogFindMany.mockResolvedValueOnce([]);
-
-    const r = await getAuditLogPage({ page: 0, range: '14d', now: NOW });
-
-    expect(r.page).toBe(1);
-    expect(auditLogFindMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 0 }));
+  it('pageSize tuy chinh -> truyen dung, khong ep 20', async () => {
+    const spy = vi.spyOn(repo, 'readAuditLogPage').mockResolvedValueOnce(EMPTY_PAGE);
+    await getAuditLogPage({ page: 1, range: '14d', pageSize: 5, now: NOW });
+    expect(spy).toHaveBeenCalledWith({ since: new Date('2026-09-10T00:00:00Z'), page: 1, pageSize: 5 });
   });
 
-  it('page=-5 truyen truc tiep -> van kep ve page 1, khong ra skip am', async () => {
-    auditLogCount.mockResolvedValueOnce(45);
-    auditLogFindMany.mockResolvedValueOnce([]);
-
-    const r = await getAuditLogPage({ page: -5, range: '14d', now: NOW });
-
-    expect(r.page).toBe(1);
-    expect(auditLogFindMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 0 }));
+  it('tra ve nguyen ket qua cua repo.readAuditLogPage', async () => {
+    const page = { items: [], total: 45, page: 2, totalPages: 3, pageSize: 20 };
+    vi.spyOn(repo, 'readAuditLogPage').mockResolvedValueOnce(page);
+    const r = await getAuditLogPage({ page: 2, range: '14d', now: NOW });
+    expect(r).toEqual(page);
   });
 });

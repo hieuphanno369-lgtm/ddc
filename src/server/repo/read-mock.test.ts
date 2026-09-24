@@ -5,6 +5,17 @@ import { createReadMock } from './read-mock';
 const data = buildRepoData();
 const mock = createReadMock(() => data);
 
+// Seed mac dinh de auditLog/activityLog rong (chi sinh khi co mutation) - bom du lieu tay cho
+// cac test Buoc 6 (readLastAuditAt/readActivitySince/readAuditLogPage).
+data.auditLog.push(
+  { id: 1, tableName: 'dim_project', recordId: '1', field: 'x', oldValue: '', newValue: '', changedBy: 'u', changedAt: '2026-09-10T00:00:00.000Z' },
+  { id: 2, tableName: 'dim_project', recordId: '1', field: 'x', oldValue: '', newValue: '', changedBy: 'u', changedAt: '2026-09-20T00:00:00.000Z' },
+);
+data.activityLog.push(
+  { id: 1, userEmail: 'a@x', userName: 'A', action: 'view', detail: '', ip: '', userAgent: '', createdAt: '2026-09-15T00:00:00.000Z' },
+  { id: 2, userEmail: 'b@x', userName: 'B', action: 'view', detail: '', ip: '', userAgent: '', createdAt: '2026-09-22T00:00:00.000Z' },
+);
+
 describe('read-mock', () => {
   it('readManpowerByShiftMonth: co dung cac shiftCode cua seed, tong actual khop tong actualHeadcount', async () => {
     const rows = await mock.readManpowerByShiftMonth(1);
@@ -87,5 +98,28 @@ describe('read-mock', () => {
   it('readMonthlyEvm([], ids) hoac (months, []) -> mang rong', async () => {
     expect(await mock.readMonthlyEvm([], [1])).toEqual([]);
     expect(await mock.readMonthlyEvm(['2026-09'], [])).toEqual([]);
+  });
+
+  it('readLastAuditAt: ISO cua dong moi nhat', async () => {
+    expect(await mock.readLastAuditAt()).toBe('2026-09-20T00:00:00.000Z');
+  });
+
+  it('readActivitySince: chi lay dong >= since, moi nhat truoc', async () => {
+    const rows = await mock.readActivitySince(new Date('2026-09-18T00:00:00.000Z'));
+    expect(rows.map((r) => r.id)).toEqual([2]);
+  });
+
+  it('readAuditLogPage: phan trang + sap xep moi nhat truoc', async () => {
+    const page = await mock.readAuditLogPage({ since: null, page: 1, pageSize: 1 });
+    expect(page.total).toBe(2);
+    expect(page.totalPages).toBe(2);
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0].id).toBe(2);
+  });
+
+  it('readAuditLogPage: since loc dung, khong con dong cu', async () => {
+    const page = await mock.readAuditLogPage({ since: new Date('2026-09-15T00:00:00.000Z'), page: 1, pageSize: 20 });
+    expect(page.total).toBe(1);
+    expect(page.items.map((r) => r.id)).toEqual([2]);
   });
 });
