@@ -103,4 +103,25 @@ describe('entry repo (mock)', () => {
     const totals = repo.getDailyManpower(2, '2026-09-16', '2026-09-16');
     expect(totals).toEqual([{ projectId: 2, contractorId: 1, workDate: '2026-09-16', plannedHeadcount: 8, actualHeadcount: 6 }]);
   });
+
+  it('saveVolume: created -> updated -> unchanged, audit 2 dong', () => {
+    const before = repo.getAuditLog().length;
+
+    expect(repo.saveVolume(2, '2026-09', 1, 100, 'u@x')).toBe('created');
+    expect(repo.saveVolume(2, '2026-09', 1, 150, 'u@x')).toBe('updated');
+    expect(repo.saveVolume(2, '2026-09', 1, 150, 'u@x')).toBe('unchanged');
+
+    expect(repo.getVolumes(2, '2026-09').find((v) => v.factoryId === 1)?.tonnageProcessed).toBe(150);
+    const newAudits = repo.getAuditLog().slice(0, repo.getAuditLog().length - before);
+    expect(newAudits.filter((a) => a.tableName === 'fact_volume')).toHaveLength(2);
+  });
+
+  it('saveFactory: trung ten -> duplicate_name; id khong co -> not_found', () => {
+    expect(repo.saveFactory({ name: 'nhà máy đồng nai', region: '', capacityTonPerYear: 1 }, 'u@x')).toBe('duplicate_name');
+    expect(repo.saveFactory({ id: 999999, name: 'X', region: '', capacityTonPerYear: 1 }, 'u@x')).toBe('not_found');
+  });
+
+  it('setFactoryActive: id khong co -> false', () => {
+    expect(repo.setFactoryActive(999999, false, 'u@x')).toBe(false);
+  });
 });

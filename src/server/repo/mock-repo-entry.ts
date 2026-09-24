@@ -1,6 +1,6 @@
 import type { RepoData } from '@/data/seed/history';
 import type { EquipmentCellInput, ManpowerCellInput } from '@/lib/daily-entry';
-import type { AuditLogEntry, Contractor, FactDailyManpowerShift, Shift } from './types';
+import type { AuditLogEntry, Contractor, FactDailyManpowerShift, FactVolume, Factory, Shift } from './types';
 
 export interface EntryMockDeps {
   getData: () => RepoData;
@@ -176,6 +176,71 @@ export function makeEntryMockRepo({ getData, persist }: EntryMockDeps) {
 
       persist();
       return { created, updated, unchanged };
+    },
+
+    /** T8 (Task 6): tao/sua khu vuc san xuat - trung ten (khong phan biet hoa thuong) voi khu vuc
+     * KHAC id -> 'duplicate_name'; id khong co -> 'not_found'. */
+    saveFactory(
+      input: { id?: number; name: string; region: string; capacityTonPerYear: number },
+      by: string,
+    ): Factory | 'duplicate_name' | 'not_found' {
+      const d = getData();
+      const name = input.name.trim();
+      const dup = d.factories.find(
+        (f) => f.name.toLowerCase() === name.toLowerCase() && (input.id == null || f.id !== input.id),
+      );
+      if (dup) return 'duplicate_name';
+
+      if (input.id != null) {
+        const existing = d.factories.find((f) => f.id === input.id);
+        if (!existing) return 'not_found';
+        const old = `${existing.name}/${existing.region}/${existing.capacityTonPerYear}`;
+        existing.name = name;
+        existing.region = input.region;
+        existing.capacityTonPerYear = input.capacityTonPerYear;
+        auditMock(d, 'dim_factory', String(input.id), 'name,region,capacityTonPerYear', old, `${existing.name}/${existing.region}/${existing.capacityTonPerYear}`, by);
+        persist();
+        return existing;
+      }
+      const id = d.factories.reduce((m, f) => Math.max(m, f.id), 0) + 1;
+      const created: Factory = { id, name, region: input.region, capacityTonPerYear: input.capacityTonPerYear, isActive: true };
+      d.factories.push(created);
+      auditMock(d, 'dim_factory', String(id), 'create', '', created.name, by);
+      persist();
+      return created;
+    },
+
+    setFactoryActive(id: number, isActive: boolean, by: string): boolean {
+      const d = getData();
+      const f = d.factories.find((x) => x.id === id);
+      if (!f) return false;
+      const old = String(f.isActive);
+      f.isActive = isActive;
+      auditMock(d, 'dim_factory', String(id), 'isActive', old, String(isActive), by);
+      persist();
+      return true;
+    },
+
+    getVolumes(projectId: number, yearMonth: string): FactVolume[] {
+      return getData().volumes.filter((v) => v.projectId === projectId && v.yearMonth === yearMonth);
+    },
+
+    /** Upsert khoa (projectId, yearMonth, factoryId); audit khi created/updated. */
+    saveVolume(projectId: number, yearMonth: string, factoryId: number, tonnageProcessed: number, by: string): 'created' | 'updated' | 'unchanged' {
+      const d = getData();
+      const prev = d.volumes.find((v) => v.projectId === projectId && v.yearMonth === yearMonth && v.factoryId === factoryId);
+      if (!prev) {
+        d.volumes.push({ projectId, yearMonth, factoryId, tonnageProcessed });
+        auditMock(d, 'fact_volume', `${projectId}/${yearMonth}/${factoryId}`, 'tonnageProcessed', '', String(tonnageProcessed), by);
+        persist();
+        return 'created';
+      }
+      if (prev.tonnageProcessed === tonnageProcessed) return 'unchanged';
+      const old = String(prev.tonnageProcessed);
+      prev.tonnageProcessed = tonnageProcessed;
+      auditMock(d, 'fact_volume', `${projectId}/${yearMonth}/${factoryId}`, 'tonnageProcessed', old, String(tonnageProcessed), by);
+      persist();
+      return 'updated';
     },
   };
 }

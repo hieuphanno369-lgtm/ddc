@@ -246,3 +246,32 @@ describe('saveMonthlyData - luu tao moi khi chua co dong fact/tai chinh', () => 
     expect(res).toEqual({ ok: false, error: 'Not found' });
   });
 });
+
+describe('saveMonthlyData - T8 (Task 6, P2A): khu vuc san xuat + san luong', () => {
+  it('PIC gui { factoryId: 2, volumeTonnage: 120 } du an 1 -> ok, ghi ca 2', async () => {
+    login(dataEntry('pm@daidung.com.vn'));
+    const res = await saveMonthlyData(1, YM, { factoryId: 2, volumeTonnage: 120 });
+    expect(res).toEqual({ ok: true });
+    expect(repo.getProject(1)!.factoryId).toBe(2);
+    expect(repo.getVolumes(1, YM).find((v) => v.factoryId === 2)?.tonnageProcessed).toBe(120);
+  });
+
+  it('du an moi (factoryId null) chi gui volumeTonnage -> no_factory, khong ghi gi', async () => {
+    login(ADMIN);
+    const created = repo.createProject({
+      projectName: 'Du an chua co khu vuc', customerId: 1, teamKdId: 1, marketCode: 'TN',
+      projectType: 'EPC', priority: 'P1', contractValue: 100,
+    });
+    const before = repo.getFacts(created.id).length;
+    const res = await saveMonthlyData(created.id, YM, { volumeTonnage: 50 });
+    expect(res).toEqual({ ok: false, error: 'no_factory' });
+    expect(repo.getFacts(created.id).length).toBe(before);
+  });
+
+  it('factory da ngung dung -> invalid_factory', async () => {
+    login(ADMIN);
+    repo.setFactoryActive(1, false, 'admin@daidung.com.vn');
+    const res = await saveMonthlyData(1, YM, { factoryId: 1 });
+    expect(res).toEqual({ ok: false, error: 'invalid_factory' });
+  });
+});

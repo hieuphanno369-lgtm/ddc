@@ -71,6 +71,12 @@ export default async function NhapLieuPage({
   const dailyEquipment = project ? await repo.getDailyEquipment(project.id, date, date) : [];
   const monthLocked = await repo.isMonthLocked(date.slice(0, 7));
 
+  // T8 (Task 6, P2A): sản lượng tháng của khu vực sản xuất chính của dự án.
+  const volumeTonnage =
+    project && project.factoryId != null
+      ? (await repo.getVolumes(project.id, month)).find((v) => v.factoryId === project.factoryId)?.tonnageProcessed ?? null
+      : null;
+
   return (
     <div className="mx-auto w-full max-w-5xl">
       <section className="mb-5">
@@ -103,12 +109,15 @@ export default async function NhapLieuPage({
             customers={dims.customers}
             teams={dims.teams}
             currencies={dims.currencies}
+            factories={dims.factories}
+            volumeTonnage={volumeTonnage}
             keyMilestones={keyMilestones}
             today={today}
             initialStep={initialStep}
             canEditFinance={user.role === 'admin'}
             resourcesPanel={
               <ResourceEntryPanel
+                key={date}
                 projectId={project.id}
                 masterCode={project.currentAliasCode}
                 date={date}

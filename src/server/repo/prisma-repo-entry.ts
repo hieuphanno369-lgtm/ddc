@@ -1,7 +1,7 @@
 import { prisma } from '@/server/db';
 import type { Prisma, PrismaClient } from '@prisma/client';
 import type { EquipmentCellInput, ManpowerCellInput } from '@/lib/daily-entry';
-import type { Contractor, FactDailyManpowerShift, Shift } from './types';
+import type { Contractor, FactDailyManpowerShift, FactVolume, Factory, Shift } from './types';
 
 /** 'YYYY-MM-DD' → Date tại 00:00:00Z, để so sánh với cột @db.Date (khớp prisma-repo.ts). */
 const dayStart = (s: string): Date => new Date(`${s}T00:00:00Z`);
@@ -185,5 +185,66 @@ export const entryPrismaRepo = {
 
       return { created, updated, unchanged };
     });
+  },
+
+  /** T8 (Task 6): tao/sua khu vuc san xuat - trung ten (khong phan biet hoa thuong) voi khu vuc
+   * KHAC id -> 'duplicate_name'; id khong co -> 'not_found'. */
+  async saveFactory(
+    input: { id?: number; name: string; region: string; capacityTonPerYear: number },
+    by: string,
+  ): Promise<Factory | 'duplicate_name' | 'not_found'> {
+    const name = input.name.trim();
+    const dup = await prisma.factory.findFirst({
+      where: { name: { equals: name, mode: 'insensitive' }, ...(input.id != null ? { id: { not: input.id } } : {}) },
+    });
+    if (dup) return 'duplicate_name';
+
+    if (input.id != null) {
+      const before = await prisma.factory.findUnique({ where: { id: input.id } });
+      if (!before) return 'not_found';
+      const after = await prisma.factory.update({
+        where: { id: input.id },
+        data: { name, region: input.region, capacityTonPerYear: input.capacityTonPerYear },
+      });
+      await audit(
+        prisma, 'dim_factory', String(input.id), 'name,region,capacityTonPerYear',
+        `${before.name}/${before.region}/${before.capacityTonPerYear}`, `${after.name}/${after.region}/${after.capacityTonPerYear}`, by,
+      );
+      return after;
+    }
+    const created = await prisma.factory.create({ data: { name, region: input.region, capacityTonPerYear: input.capacityTonPerYear } });
+    await audit(prisma, 'dim_factory', String(created.id), 'create', '', created.name, by);
+    return created;
+  },
+
+  async setFactoryActive(id: number, isActive: boolean, by: string): Promise<boolean> {
+    const before = await prisma.factory.findUnique({ where: { id } });
+    if (!before) return false;
+    await prisma.factory.update({ where: { id }, data: { isActive } });
+    await audit(prisma, 'dim_factory', String(id), 'isActive', String(before.isActive), String(isActive), by);
+    return true;
+  },
+
+  async getVolumes(projectId: number, yearMonth: string): Promise<FactVolume[]> {
+    return prisma.factVolume.findMany({ where: { projectId, yearMonth } });
+  },
+
+  /** Upsert khoa (projectId, yearMonth, factoryId); audit khi created/updated. */
+  async saveVolume(projectId: number, yearMonth: string, factoryId: number, tonnageProcessed: number, by: string): Promise<'created' | 'updated' | 'unchanged'> {
+    const prev = await prisma.factVolume.findUnique({
+      where: { projectId_yearMonth_factoryId: { projectId, yearMonth, factoryId } },
+    });
+    if (!prev) {
+      await prisma.factVolume.create({ data: { projectId, yearMonth, factoryId, tonnageProcessed, updatedBy: by } });
+      await audit(prisma, 'fact_volume', `${projectId}/${yearMonth}/${factoryId}`, 'tonnageProcessed', '', String(tonnageProcessed), by);
+      return 'created';
+    }
+    if (prev.tonnageProcessed === tonnageProcessed) return 'unchanged';
+    await prisma.factVolume.update({
+      where: { projectId_yearMonth_factoryId: { projectId, yearMonth, factoryId } },
+      data: { tonnageProcessed, updatedBy: by },
+    });
+    await audit(prisma, 'fact_volume', `${projectId}/${yearMonth}/${factoryId}`, 'tonnageProcessed', String(prev.tonnageProcessed), String(tonnageProcessed), by);
+    return 'updated';
   },
 };

@@ -9,6 +9,7 @@ import type {
   Customer,
   FactFinancial,
   FactProgressMonthly,
+  Factory,
   Market,
   Priority,
   Project,
@@ -74,6 +75,8 @@ interface Props {
   customers: Customer[];
   teams: TeamKd[];
   currencies: Currency[];
+  factories: Factory[];
+  volumeTonnage: number | null;
   keyMilestones: ProjectKeyMilestone[];
   today: IsoDate;
   initialStep?: DataEntryStep;
@@ -99,6 +102,8 @@ export function DataEntryForm({
   customers,
   teams,
   currencies,
+  factories,
+  volumeTonnage,
   keyMilestones,
   today,
   initialStep,
@@ -109,7 +114,10 @@ export function DataEntryForm({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const base = useMemo(() => buildBaseForm(project, fact, financial, chain), [project, fact, financial, chain]);
+  const base = useMemo(
+    () => buildBaseForm(project, fact, financial, chain, volumeTonnage),
+    [project, fact, financial, chain, volumeTonnage],
+  );
   const stamp = useMemo(() => makeStamp(project, fact, financial), [project, fact, financial]);
 
   const [step, setStep] = useState<Step>(initialStep ?? 'progress');
@@ -453,6 +461,20 @@ export function DataEntryForm({
             <Field label={`${t('common.tonnage')} (${t('common.ton')})`}>
               <input type="number" step="0.1" value={fmtNum(form.tonnage)} onChange={(e) => set('tonnage', e.target.value)} className={inputCls('tonnage')} />
             </Field>
+            <Field label={t('volumeEntry.factory')}>
+              <select value={form.factoryId} onChange={(e) => set('factoryId', e.target.value)} className="inp">
+                <option value="">{t('volumeEntry.none')}</option>
+                {factories.filter((f) => f.isActive).map((f) => (
+                  <option key={f.id} value={f.id}>{f.name}</option>
+                ))}
+                {(() => {
+                  const current = factories.find((f) => !f.isActive && String(f.id) === form.factoryId);
+                  return current ? (
+                    <option key={current.id} value={current.id}>{current.name} {t('volumeEntry.inactiveSuffix')}</option>
+                  ) : null;
+                })()}
+              </select>
+            </Field>
             <Field label={t('form.contractDate')}>
               <input type="date" value={form.contractDate} onChange={(e) => set('contractDate', e.target.value)} className={inputCls('contractDate')} />
             </Field>
@@ -510,6 +532,10 @@ export function DataEntryForm({
               <Field label={t('metric.ac') + ' (tỷ)'}>
                 <input type="number" step="0.1" value={fmtNum(form.ac)} onChange={(e) => set('ac', e.target.value)} className={inputCls('ac')} />
                 <p className="hintline">{t('form.hint.ac')}</p>
+              </Field>
+              <Field label={t('volumeEntry.tonnage')}>
+                <input type="number" step="0.1" value={fmtNum(form.volumeTonnage)} onChange={(e) => set('volumeTonnage', e.target.value)} className="inp" />
+                <p className="hintline">{t('volumeEntry.hint')}</p>
               </Field>
             </div>
 
@@ -689,6 +715,8 @@ export function DataEntryForm({
         {saveErr && (
           <p className="sumbar bad">
             {(() => {
+              if (saveErr === 'no_factory') return t('volumeEntry.noFactory');
+              if (saveErr === 'invalid_factory') return t('volumeEntry.invalidFactory');
               const kind = saveErrorKind(saveErr);
               if (kind === 'generic') return t('dataGuard.save.generic', { msg: saveErr });
               if (kind === 'locked') return t('dataGuard.save.locked', { month });

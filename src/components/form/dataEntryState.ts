@@ -33,6 +33,8 @@ export interface FormState {
   arCollected: string;
   arOutstanding: string;
   arOverdue: string;
+  factoryId: string;
+  volumeTonnage: string;
 }
 
 /** ISO/Date-string → 'YYYY-MM-DD' cho <input type="date">. Lấy 10 ký tự đầu nếu khớp /^\d{4}-\d{2}-\d{2}/, còn lại ''. */
@@ -47,6 +49,7 @@ export function buildBaseForm(
   fact: FactProgressMonthly | undefined,
   financial: FactFinancial | undefined,
   chain: ValueChainProgress[],
+  volumeTonnage: number | null = null,
 ): FormState {
   const stagePct = {} as Record<StageCode, string>;
   const stageApplicable = {} as Record<StageCode, boolean>;
@@ -83,6 +86,8 @@ export function buildBaseForm(
     arCollected: financial ? String(financial.arCollected) : '',
     arOutstanding: financial ? String(financial.arOutstanding) : '',
     arOverdue: financial ? String(financial.arOverdue) : '',
+    factoryId: project.factoryId != null ? String(project.factoryId) : '',
+    volumeTonnage: volumeTonnage != null ? String(volumeTonnage) : '',
   };
 }
 
@@ -101,6 +106,7 @@ const SIMPLE_FIELDS: (keyof FormState)[] = [
   'plannedFinishDate', 'committedHandoverDate', 'actualStartDate', 'actualFinishDate',
   'penaltyValue', 'penalized', 'pctPlan', 'ac', 'equipmentActual',
   'revenueCumulative', 'costActualCumulative', 'arCollected', 'arOutstanding', 'arOverdue',
+  'factoryId', 'volumeTonnage',
 ];
 
 export function formsEqual(a: FormState, b: FormState): boolean {
@@ -148,6 +154,12 @@ export function buildSavePatch(base: FormState, form: FormState, opts: { canEdit
   }
   if (form.penalized !== base.penalized) {
     patch.penalized = form.penalized;
+  }
+  if (form.factoryId !== base.factoryId) {
+    patch.factoryId = form.factoryId === '' ? null : Number(form.factoryId);
+  }
+  if (form.volumeTonnage !== base.volumeTonnage && form.volumeTonnage !== '') {
+    patch.volumeTonnage = Number(form.volumeTonnage);
   }
 
   const dateFields = [

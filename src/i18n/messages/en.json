@@ -699,5 +699,31 @@
       "too_many_rows": "File exceeds 5000 rows.",
       "too_many_days": "File exceeds 62 days — split it."
     }
+  },
+  "factoryAdmin": {
+    "title": "Production areas / Factories",
+    "name": "Area name",
+    "region": "Region",
+    "capacity": "Capacity (t/year)",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "deactivate": "Deactivate",
+    "activate": "Reactivate",
+    "add": "Add area",
+    "save": "Save",
+    "err": {
+      "duplicate_name": "Area name already exists.",
+      "invalid": "Invalid data (name required, capacity > 0)."
+    }
+  },
+  "volumeEntry": {
+    "factory": "Production area",
+    "none": "— Not set —",
+    "inactiveSuffix": "(inactive)",
+    "tonnage": "Monthly processed tonnage (t)",
+    "hint": "Recorded against the project's production area (Profile step).",
+    "noFactory": "Choose a production area in the Profile step before entering tonnage.",
+    "invalidFactory": "Invalid or inactive production area."
   }
 }

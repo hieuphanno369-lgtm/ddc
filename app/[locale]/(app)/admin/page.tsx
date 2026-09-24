@@ -11,6 +11,7 @@ import { ActivityViewer } from '@/components/admin/ActivityViewer';
 import { FieldEditor } from '@/components/admin/FieldEditor';
 import { DeleteProject } from '@/components/admin/DeleteProject';
 import { AuditMiniTable } from '@/components/admin/AuditMiniTable';
+import { FactoryEditor } from '@/components/admin/FactoryEditor';
 import { logSince } from '@/lib/log-paging';
 import { getAuditLogPage } from '@/server/audit-log-page';
 
@@ -95,6 +96,13 @@ export default async function AdminPage() {
         </CardBody>
       </Card>
 
+      <Card className="overflow-visible">
+        <CardHeader title={t('factoryAdmin.title')} action={<IconFactory size={18} />} />
+        <CardBody>
+          <FactoryEditor factories={dims.factories} />
+        </CardBody>
+      </Card>
+
       <div className="g2">
         <Card>
           <CardHeader title={t('admin.customers')} action={<IconUser size={18} />} />
@@ -112,16 +120,6 @@ export default async function AdminPage() {
             <DimTable
               head={[t('admin.name'), t('admin.picName')]}
               rows={dims.teams.map((x) => [x.name, x.picName])}
-            />
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader title={t('admin.factories')} action={<IconFactory size={18} />} />
-          <CardBody>
-            <DimTable
-              head={[t('admin.name'), t('admin.region'), t('admin.capacity')]}
-              rows={dims.factories.map((f) => [f.name, f.region, formatTon(f.capacityTonPerYear, locale)])}
             />
           </CardBody>
         </Card>

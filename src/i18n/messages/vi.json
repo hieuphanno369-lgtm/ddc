@@ -699,5 +699,31 @@
       "too_many_rows": "File quá 5000 dòng.",
       "too_many_days": "File quá 62 ngày — tách nhỏ file."
     }
+  },
+  "factoryAdmin": {
+    "title": "Khu vực / Nhà máy sản xuất",
+    "name": "Tên khu vực",
+    "region": "Vùng",
+    "capacity": "Công suất (tấn/năm)",
+    "status": "Trạng thái",
+    "active": "Đang dùng",
+    "inactive": "Ngừng dùng",
+    "deactivate": "Ngừng dùng",
+    "activate": "Dùng lại",
+    "add": "Thêm khu vực",
+    "save": "Lưu",
+    "err": {
+      "duplicate_name": "Tên khu vực đã tồn tại.",
+      "invalid": "Dữ liệu không hợp lệ (tên bắt buộc, công suất > 0)."
+    }
+  },
+  "volumeEntry": {
+    "factory": "Khu vực sản xuất",
+    "none": "— Chưa chọn —",
+    "inactiveSuffix": "(ngừng dùng)",
+    "tonnage": "Sản lượng gia công tháng (tấn)",
+    "hint": "Ghi vào khu vực sản xuất của dự án (bước Hồ sơ).",
+    "noFactory": "Chọn khu vực sản xuất ở bước Hồ sơ trước khi nhập sản lượng.",
+    "invalidFactory": "Khu vực không hợp lệ hoặc đã ngừng dùng."
   }
 }

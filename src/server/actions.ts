@@ -64,6 +64,8 @@ export async function saveMonthlyData(
     arCollected?: number;
     arOutstanding?: number;
     arOverdue?: number;
+    factoryId?: number | null;
+    volumeTonnage?: number;
   },
 ) {
   const user = await requireProject(projectId);
@@ -73,7 +75,8 @@ export async function saveMonthlyData(
   if (!['admin', 'bod'].includes(user.role) && FINANCE_FIELDS.some((f) => patch[f] != null)) {
     return { ok: false, error: 'Forbidden' };
   }
-  if (!(await repo.getProject(projectId))) return { ok: false, error: 'Not found' };
+  const project = await repo.getProject(projectId);
+  if (!project) return { ok: false, error: 'Not found' };
   const by = user.email;
   const parsed = saveMonthlyDataSchema.safeParse({ projectId, month, patch });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
@@ -104,7 +107,17 @@ export async function saveMonthlyData(
     arCollected,
     arOutstanding,
     arOverdue,
+    factoryId,
+    volumeTonnage,
   } = patch;
+
+  // T8 (Task 6, P2A): khu vực sản xuất + sản lượng tháng - kiểm TRƯỚC mọi ghi.
+  if (factoryId != null) {
+    const active = (await repo.getDims()).factories.some((f) => f.id === factoryId && f.isActive);
+    if (!active) return { ok: false, error: 'invalid_factory' };
+  }
+  const volumeTarget = factoryId !== undefined ? factoryId : project.factoryId;
+  if (volumeTonnage != null && volumeTarget == null) return { ok: false, error: 'no_factory' };
 
   const profilePatch: Partial<Project> = {};
   if (projectName) profilePatch.projectName = projectName;
@@ -124,6 +137,7 @@ export async function saveMonthlyData(
   if (actualFinishDate !== undefined) profilePatch.actualFinishDate = actualFinishDate;
   if (penaltyValue !== undefined) profilePatch.penaltyValue = penaltyValue;
   if (penalized !== undefined) profilePatch.penalized = penalized;
+  if (factoryId !== undefined) profilePatch.factoryId = factoryId;
 
   const profileChanged = Object.keys(profilePatch).length > 0;
   if (profileChanged) {
@@ -176,6 +190,10 @@ export async function saveMonthlyData(
       by,
     );
     if (r === 'not_found') return { ok: false, error: 'Not found' };
+  }
+
+  if (volumeTonnage != null && volumeTarget != null) {
+    await repo.saveVolume(projectId, month, volumeTarget, volumeTonnage, by);
   }
 
   await logActivity(user, 'save_data', `project ${projectId} · ${month}`);

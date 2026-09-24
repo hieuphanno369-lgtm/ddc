@@ -81,6 +81,8 @@ export const saveMonthlyDataSchema = z.object({
     arCollected: nonNegative.optional(),
     arOutstanding: nonNegative.optional(),
     arOverdue: nonNegative.optional(),
+    factoryId: z.number().int().positive().nullable().optional(),
+    volumeTonnage: z.number().min(0).max(1_000_000).optional(),
   }),
 });
 
@@ -238,6 +240,14 @@ export const saveDailyResourcesSchema = z.object({
 export const dailyImportFileSchema = z.object({
   name: z.string().regex(/\.xlsx$/i, 'Chỉ chấp nhận file .xlsx'),
   size: z.number().int().positive().max(IMPORT_MAX_BYTES, 'File vượt quá 10MB'),
+});
+
+/** T8 (Task 6, P2A): CRUD khu vực sản xuất / công suất. */
+export const factorySchema = z.object({
+  id: z.number().int().positive().optional(),
+  name: z.string().trim().min(1).max(120),
+  region: z.string().trim().max(60),
+  capacityTonPerYear: z.number().positive().max(10_000_000),
 });
 
 /** Task 5 (P2A): commit các ngày đã xem trước từ import Excel. */
