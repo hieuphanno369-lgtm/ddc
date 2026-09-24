@@ -201,3 +201,67 @@ mới chỉ phủ file dựng bằng thư viện `xlsx`/CSV thuần; nên thử 
 - `npm test`: **95/95 file · 1140/1140 test** xanh (1134 cũ + 6 test mới ở mục H-1c).
 - Build kiểm compile: `NEXT_FONT_GOOGLE_MOCKED_RESPONSES=".../tools/font-mock.js" npx next build` →
   `Compiled successfully`, mọi route lên trang.
+
+## Vòng sửa 2 (sau reviewer v2)
+
+> Sửa đúng 2 mục "CÁC MỤC PHẢI SỬA" trong `danh-gia.md` vòng 2 ([H-1b] chưa đóng hết,
+> thiếu key i18n `activity.*`). Không đụng gì khác. Commit `60aedc1` (mục 1) rồi `ff8bafe` (mục 2).
+
+### 1. [H-1b] `assertXlsxInflatedSize` — đo MỌI entry, cộng dồn, trần số entry (`60aedc1`)
+
+- **Sửa** `src/server/daily-import.ts`:
+  - Thêm hằng export `XLSX_MAX_ENTRIES = 200` cạnh `SHEET_MAX_COLS`.
+  - Bỏ hẳn regex lọc tên entry (`/^xl\/(worksheets\/[^/]+\.xml|sharedStrings\.xml)$/`) — lỗ hổng cũ:
+    exceljs (`entry.async(...)`) giải nén MỌI entry không phải thư mục bất kể tên, kể cả tên có `/`
+    đầu; regex cũ chỉ đo 1 phần nên file gài bom ở `xl/styles.xml`/`docProps/*` lọt qua.
+  - Sau `JSZip.loadAsync`: `entries = Object.values(zip.files).filter((f) => !f.dir)`; vượt
+    `XLSX_MAX_ENTRIES` → trả `false` ngay (chặn số entry, chưa giải nén byte nào).
+  - `let total = 0` chuyển ra NGOÀI vòng `for` — một biến cộng dồn dung lượng sau giải nén qua **mọi**
+    entry (bug cũ: biến nằm trong từng promise, mỗi entry tính riêng, không cộng dồn — file 5 entry ×
+    20KB dưới trần 64KB mỗi entry vẫn lọt dù tổng 100KB vượt trần).
+  - Giữ nguyên cơ chế stream có thể dừng sớm (`internalStream`, `stream.pause()` khi vượt `limitBytes`,
+    không dùng `entry.async(...)`) — chỉ sửa vùng đo/lọc, không đổi cách dừng.
+  - Sửa JSDoc cho khớp code mới (đo mọi entry, cộng dồn, trần entry).
+- **Test mới** `src/server/daily-import.test.ts` (7 ca, `describe('assertXlsxInflatedSize (H-1b,
+  chong zip bomb)')`):
+  - (a) Entry ngoài regex cũ (`xl/styles.xml` nạp lại bằng JSZip vào file mẫu `buildDailyTemplate`) →
+    `assertXlsxInflatedSize` `false`, `readDailyWorkbook` `{ok:false,error:'bad_file'}`, < 2000ms.
+  - (b) Tên entry có `/` đầu (`/xl/worksheets/sheet1.xml`) → `false`; xác nhận
+    `JSZip.loadAsync` giữ nguyên tên có `/` đầu (không tự chuẩn hoá — đã đối chiếu
+    `jszip/lib/utils.js` `exports.resolve`, phần tử rỗng đầu tiên được giữ lại).
+  - (c) Cộng dồn: `limitBytes=64KB`, 5 entry × 20KB → `false`; đối chứng 2 entry × 20KB → `true`.
+  - (d) Số entry: 201 entry nhỏ → `false`; đối chứng 50 entry → `true`.
+  - (e) Thời gian: 3 entry × 15MB (trần mặc định 20MB) → `false`, đo thực tế elapsed ~600ms (< 2000ms)
+    — xác minh `stream.pause()` dừng giải nén THẬT (đã đối chiếu `jszip/lib/stream/DataWorker.js`:
+    `_tickAndRepeat` kiểm `isPaused` trước mỗi block 16KB, lịch qua `utils.delay` — pause dừng vòng lặp
+    giữa các block chứ không đợi xong 1 entry).
+- **Test mới** `src/server/actions-import.test.ts` — 1 ca tầng action trong `describe('importExcelAction
+  - chan file doc hai (H-1c)')`: file có `xl/styles.xml` bom (như ca (a)) qua `importExcelAction` →
+  `{ ok:false, error:'Invalid file' }`, < 2000ms.
+- Test cũ `'file mau buildDailyTemplate (nho) -> true'` (`daily-import.test.ts`) và 2 ca trong
+  `actions-import-v2.test.ts` (`XLSX.write` thật) vẫn xanh, không sửa.
+
+**Tester nên soi:** ca (e) đo thời gian thực (không mock timer) — nếu môi trường CI/máy khác chậm hơn máy
+dev (đo được ~600ms), ngưỡng `< 2000ms` vẫn còn biên khá rộng nhưng nên theo dõi nếu flakey.
+
+### 2. Thêm 14 key i18n `activity.*` còn thiếu (`ff8bafe`)
+
+- **Sửa** `src/i18n/messages/vi.json`, `src/i18n/messages/en.json` — nối 14 key vào **CUỐI** object
+  `activity` (sau `delete_photo`, ngoại lệ có lý do vì `ActivityViewer.tsx` tra `activity.<action>`
+  theo đúng chuỗi action lưu trong `logActivity`, không nhóm theo tính năng): `save_exchange_rate`,
+  `delete_exchange_rate`, `save_factory`, `activate_factory`, `deactivate_factory`,
+  `project_contractor_add`, `project_contractor_remove`, `save_daily_resources`, `contractor_create`,
+  `commit_daily_import` (action P2A) và `create_dim`, `rename_dim`, `merge_dim`, `save_key_milestones`
+  (action cũ trước P2A, bỏ sót từ trước).
+- **Test mới** `src/i18n/messages.test.ts` — `describe('i18n: moi action logActivity duoi src/server/
+  co key activity.<action>')`: đọc đệ quy mọi `.ts` dưới `src/server/` (bỏ `*.test.ts`), quét
+  `logActivity(user, ...)` bằng regex, trích literal action (bắt cả dạng ternary
+  `isActive ? 'a' : 'b'`), đối chiếu mỗi action phải có `activity.<action>` ở CẢ vi và en. Chạy thực tế:
+  không phát hiện action nào khác còn thiếu key ngoài 14 key đã thêm.
+
+## Cổng kiểm vòng sửa 2
+
+- `npx tsc --noEmit`: sạch.
+- `npm test`: **97/97 file · 1168/1168 test** xanh (1157 cũ + 8 test H-1b + 3 test i18n).
+- Build kiểm compile: `NEXT_FONT_GOOGLE_MOCKED_RESPONSES=".../tools/font-mock.js" npx next build` →
+  `Compiled successfully`, mọi route lên trang.
