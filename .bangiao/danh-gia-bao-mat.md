@@ -1,158 +1,93 @@
-BAO MAT: CAN SUA
+BAO MAT: DAT
 
-# P1A — Đánh giá bảo mật (chặng SECURITY-REVIEWER)
+# P1A — Đánh giá bảo mật vòng 2 (sau vòng sửa 1)
 
-Nhánh `feature/p1a-du-lieu-dung` (HEAD `67201cd`), diff `main...HEAD`. Skill đã dùng: `security-review`,
-`security-audit` (guidance mode, soi có trọng tâm, không chạy full 6 pha). DB `ddc_control_tower` chỉ SELECT.
-Không chạy app: mọi phát hiện có bằng chứng source và code Next.js đã cài trong node_modules.
+> Security-reviewer không có công cụ ghi file; chặng điều phối (ship) ghi nguyên văn nội dung trả về. Bản vòng 1 nằm trong git ở commit `02b77c7`.
 
-## Kết luận ngắn
+Nhánh `feature/p1a-du-lieu-dung`, vòng sửa `4c22bce..6b725e9` (HEAD `02b77c7`), soát cả `main...HEAD` ở vùng đụng tới.
+Skill: `security-review`, `security-audit` (guidance mode). DB `ddc_control_tower` chỉ SELECT. Không chạy app, chỉ đọc source và `node_modules`. Có chạy `npm audit --omit=dev` (kiểm TLS bật, qua NODE_EXTRA_CA_CERTS).
 
-Các thay đổi P1A tự thân đúng: `/api/export` đã có 401/403 admin/bod; `safeCell` đủ 6 ký tự OWASP;
-`NEXTAUTH_SECRET` bắt buộc, hết fallback; `canViewFinance ?? false` ở session/auth/overview/project detail;
-upload có same-origin + quyền PIC/Backup; import không lộ projectId ngoài assignment; migration sạch.
-Nhưng có 2 lỗ hổng High trong đúng vùng được giao soi (upload ảnh, tài chính "ở mọi nơi"). Gốc rễ có
-từ trước, P1A không tạo ra nhưng mở thêm đường vào (route upload mới) hoặc bỏ sót (trang nhập liệu).
-Nên vá trước khi merge `main`.
+**Phán quyết:** DAT trong phạm vi P1A. F1, F2a, F2b, F3 đã đóng, vòng sửa không sinh lỗ hổng mới trong code.
+**Cần chủ dự án quyết trước merge:** F10 (Critical, có điều kiện). Dòng Next 14.x còn CVE RCE khi host trên Windows; 14.x không có bản vá, phải nâng major (≥ 15.5.24).
 
-## Bảng phát hiện
+## Bảng trạng thái
 
-| # | Mức | File:dòng | Vấn đề | Mới/Cũ |
-|---|---|---|---|---|
-| F1 | High | `src/server/validation.ts:164-167`, `src/lib/uploads.ts:19,47`, `app/api/photos/[...path]/route.ts:18-23` | Upload SVG → stored XSS cùng origin | Cũ, route P1A kế thừa |
-| F2 | High | `app/[locale]/(app)/nhap-lieu/page.tsx:20-24,38,72`; `package.json:16` (next 14.2.15) | Trang nhập liệu không tự kiểm role/canViewFinance, chỉ dựa middleware bypass được (CVE-2025-29927) → viewer đọc tài chính mọi dự án | Cũ + P1A bỏ sót |
-| F3 | Medium | `app/api/photo-upload/route.ts:20` | `req.formData()` đọc toàn bộ body không giới hạn trước khi kiểm quyền/5MB | Mới |
-| F4 | Medium | `package.json:22` (`xlsx ^0.18.5`) | SheetJS 0.18.5 có CVE-2023-30533 (prototype pollution) + CVE-2024-22363 (ReDoS) khi parse file người dùng | Cũ |
-| F5 | Low | `src/lib/excel-safe.ts:4` + 2 route export | Tiền tố nháy đơn trong .xlsx hiện nguyên văn (hỏng hiển thị); rủi ro công thức trong xlsx vốn thấp vì ExcelJS ghi kiểu chuỗi | Mới |
-| F6 | Low | `src/components/form/dataEntryState.ts:212-214`, `DataEntryForm.tsx:152-155` | Bản nháp localStorage chứa cả 5 field tài chính, key không gắn email, tồn tại sau logout | Mới |
-| F7 | Low | `src/lib/auth.ts:36,43` | `resolveAccess` suy `canViewFinance` từ role, bỏ qua cột `user_roles.canViewFinance` | Cũ |
-| F8 | Low | `src/server/actions.ts:474` | Import: lý do `not_assigned` khác `queued` → data-entry dò được mã SAP nào tồn tại ở dự án không được gán | Mới |
-| F9 | Info | `app/api/export/route.ts:13,16`; `src/lib/same-origin.ts:5`; `app/api/photos/[...path]/route.ts:12-16`; `middleware.ts:31` | Phòng thủ chiều sâu (xem cuối) | — |
+| # | Mức (v1) | Trạng thái v2 | Ghi chú |
+|---|---|---|---|
+| F1 | High | **ĐÃ ĐÓNG** | Magic byte + đuôi theo kind + nosniff/CSP sandbox |
+| F2a | High | **ĐÃ ĐÓNG** | `nhap-lieu` tự redirect theo role, `financial` fail-closed, server action chặn độc lập |
+| F2b | High | **ĐÃ ĐÓNG** | next 14.2.35 (package.json + lock + node_modules), đoạn xử lý `x-middleware-subrequest` đã bị gỡ |
+| F3 | Medium | **ĐÃ ĐÓNG** (còn Low) | Content-Length kiểm trước `formData()`, không có đường vòng qua chunked/CL sai |
+| F4 | Medium | GHI NỢ → P2A | `xlsx` 0.18.5, audit vẫn báo High, không có fix trên npm |
+| F5 | Low | GHI NỢ → P5B | |
+| F6 | Low | GHI NỢ → P3A | |
+| F7 | Low | GHI NỢ → P5B | admin/data-entry luôn `canViewFinance=true` nên prop `project.contractValue` ở nhập liệu chưa khai thác được |
+| F8 | Low | GHI NỢ, chờ chủ dự án | |
+| F9 | Info | GHI NỢ → P5B | `/api/photos` chỉ kiểm đăng nhập (BOLA, uuid khó đoán); chưa rate-limit upload |
+| F10 | **Critical (có điều kiện)** | **MỚI**, chờ chủ dự án | Next 14.2.35 còn CVE, xem dưới |
+| F11 | Low | **MỚI** | next-auth 4.24.7 có advisory, vá được không cần major |
+| F12 | Medium | **MỚI** (có từ trước) | next-intl 3.26.3 open redirect GHSA-8f24-v5vv-gm5j |
 
-## Chi tiết
+## Soát lại chi tiết
 
-### F1 — High — Upload SVG gây stored XSS
+### F1 — ĐÃ ĐÓNG
+- `src/lib/uploads.ts:33-39` `detectImageKind`: mỗi nhánh kiểm `header.length` trước khi đọc byte → file < 12 byte/0 byte trả `null` → 400. WEBP so `RIFF` byte 0-3 và `WEBP` byte 8-11 (đúng offset). `photo-service.ts:34` đọc `file.slice(0,12)` từ nội dung thật, sau kiểm quyền `canWriteProject` (dòng 23).
+- Đuôi lưu lấy từ `EXT_BY_KIND[kind]` (`uploads.ts:69`), không từ `file.name`; tên gốc chỉ qua `sanitizePhotoName` (≤ 60 ký tự).
+- `CONTENT_TYPE_BY_EXT` đã bỏ `.svg`/`.bmp`; đuôi lạ → `application/octet-stream`.
+- `/api/photos` (`route.ts:18-27`) có `X-Content-Type-Options: nosniff` + `Content-Security-Policy: default-src 'none'; sandbox`.
+- Polyglot (header ảnh + HTML/JS): lưu đuôi raster, phục vụ `image/*` + nosniff → không render HTML; `<script src>` bị nosniff chặn; mở trực tiếp thì sandbox → không script. Không còn rủi ro thực tế.
+- Ảnh cũ `.svg`/`.bmp` (nếu có) → `application/octet-stream` + nosniff + sandbox, trình duyệt tải về. Thực tế: `project_photos` 4 bản ghi `url` rỗng (seed); `data/uploads/` không có svg/bmp/html.
+- Hai đường vào (`addPhotoAction` `actions.ts:372` và `/api/photo-upload`) dùng chung `addPhotoForUser`.
 
-- Chuỗi: `photoFileSchema` chỉ kiểm `file.type` (client tự khai) khớp `^image\/` và size; không kiểm magic
-  bytes. `savePhotoFile` lấy đuôi file từ `file.name` (`uploads.ts:47`), không whitelist. `readPhotoFile` map
-  `.svg → image/svg+xml` (`uploads.ts:19`). `/api/photos/...` trả file với Content-Type đó, không có
-  `X-Content-Type-Options`, `Content-Security-Policy`, `Content-Disposition` (`route.ts:18-23`); `next.config.mjs`
-  cũng không đặt security header.
-- Tái hiện (dummy): data-entry được gán dự án 7 gửi `POST /api/photo-upload` (Origin = host app), form
-  `projectId=7, yearMonth=2026-09, file=x.svg`, `type=image/svg+xml`, nội dung
-  `<svg xmlns="http://www.w3.org/2000/svg"><script>/* gọi server action bằng phiên nạn nhân */</script></svg>`.
-  URL `7/2026-09/<ts>-<uuid>-x.svg` hiện trên trang dự án. Gửi link `/api/photos/7/2026-09/...svg` cho admin →
-  script chạy trong origin app với phiên admin (gọi server action đổi role/tạo tài khoản). `<img>` trong UI
-  không chạy script, nhưng mở trực tiếp URL thì chạy. Đuôi `.html` + `type=image/png` cũng lọt (ra
-  `application/octet-stream`, trình duyệt tải về, không XSS, nhưng cho thấy đuôi/nội dung không được ràng buộc).
-- DB hiện tại: 4 ảnh, không có file `.svg` (SELECT `project_photos`).
-- Cách vá nhỏ nhất:
-  1. `photo-service.ts`: đọc 12 byte đầu, nhận diện JPEG `FF D8 FF` / PNG `89 50 4E 47` / GIF `47 49 46 38` /
-     WEBP `RIFF....WEBP`; loại khác → 400. Bỏ SVG (và BMP nếu không cần).
-  2. `savePhotoFile`: đặt đuôi theo loại đã nhận diện, không lấy từ `file.name`.
-  3. `/api/photos`: thêm `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; sandbox`;
-     chỉ trả Content-Type trong whitelist ảnh raster.
-  4. Test: SVG với `type=image/svg+xml` → 400; PNG đổi tên `.svg` → lưu `.png`.
+### F2a — ĐÃ ĐÓNG
+- `nhap-lieu/page.tsx:18-21`: chưa login → `/login`; role ngoài admin/data-entry → `homeForRole`; `redirect()` ném `NEXT_REDIRECT`.
+- `financial` chỉ nạp khi `user.canViewFinance` (dòng 47-48), kiểm lần hai khi truyền prop (dòng 79). `canEditFinance` chỉ admin (dòng 95).
+- `selectedId` chỉ lấy từ danh sách `all` đã lọc theo assignment (dòng 32-34) → data-entry không đổi `?project=` sang dự án khác được.
+- Server `saveMonthlyData` (`actions.ts:69-75`): `requireProject` chỉ admin hoặc data-entry được gán; field tài chính chặn khi role ∉ admin/bod; bod không qua `requireProject` → thực tế chỉ admin ghi tài chính. Không dựa middleware.
+- Info: `overview/page.tsx` vẫn dựa middleware để chặn data-entry — nay middleware không bị bỏ qua và tài chính lọc theo `canViewFinance`, không chặn.
 
-### F2 — High — Nhập liệu lộ tài chính cho viewer qua bypass middleware
+### F2b — ĐÃ ĐÓNG (CVE-2025-29927)
+- `package.json:16` `"next": "14.2.35"`; `package-lock.json:3473-3476` 14.2.35 có integrity; `node_modules/next/package.json` = 14.2.35.
+- `next/dist/server/web/sandbox/sandbox.js` không còn đọc `x-middleware-subrequest`; grep toàn `next/dist` không còn chuỗi `middleware-subrequest`.
+- Bằng chứng động của tester chỉ gửi `middleware` 1 lần; payload đúng cho 14.x là `middleware:middleware:middleware:middleware:middleware`. Code đã gỡ nên kết luận không đổi; nếu muốn bằng chứng động nên thử lại payload 5 lần.
 
-- `nhap-lieu/page.tsx` không kiểm role: chỉ lọc dự án khi `role === 'data-entry'` (dòng 20-24), viewer/bod rơi vào
-  nhánh "thấy hết". Nạp `financial` (dòng 38) và `project` (có `contractValue`) rồi truyền vào client component
-  (dòng 72) mà không xét `canViewFinance`. Việc chặn viewer khỏi `/nhap-lieu` chỉ nằm ở `middleware.ts` (DENIED).
-- Next đã cài `14.2.15`. `node_modules/next/dist/server/web/sandbox/sandbox.js:78-90` vẫn tin header
-  `x-middleware-subrequest` do client gửi: đủ 5 lần tên `middleware` → bỏ qua middleware (CVE-2025-29927,
-  vá ở 14.2.25).
-- Tái hiện (dummy, local): đăng nhập `viewer@daidung.com.vn` (`canViewFinance=false`), gọi
-  `GET /vi/nhap-lieu?project=<id>` kèm header
-  `x-middleware-subrequest: middleware:middleware:middleware:middleware:middleware` → trang render, payload RSC
-  chứa `revenueCumulative/costActualCumulative/arCollected/arOutstanding/arOverdue` + `contractValue` của bất kỳ
-  dự án nào (đổi `?project=`). Ghi vẫn bị `requireProject` chặn. Chưa chạy thật (pentester nên xác nhận), nhưng
-  cả 2 đầu đường code đã rõ.
-- Cách vá:
-  1. `nhap-lieu/page.tsx`: đầu trang `if (!user || !['admin','data-entry'].includes(user.role)) redirect(...)`
-     (giống `admin/page.tsx:19`); chỉ truyền `financial` khi `user.canViewFinance`, ngược lại `undefined`.
-     Làm tương tự cho `import` và `overview` (data-entry chỉ bị chặn `/overview` ở middleware).
-  2. Nâng `next` lên ≥ 14.2.25 (hoặc chặn header `x-middleware-subrequest` ở reverse proxy).
-  3. Test: render page với viewer → redirect; data-entry `canViewFinance=false` → prop `financial` undefined.
+### F3 — ĐÃ ĐÓNG, còn Low
+- `app/api/photo-upload/route.ts:24-28` kiểm Content-Length trước `req.formData()`: thiếu/không phải số/> 5MB+64KB → 413.
+- Không đường vòng: chunked không CL → `null` → 413; có cả CL lẫn TE → llhttp trả 400; CL khai nhỏ → Node chỉ đọc đúng số byte; CL khai lớn → treo tới timeout, không tốn RAM; CL `1e3`/âm → Node từ chối.
+- Next không đệm body trước handler: matcher `middleware.ts:57` loại trừ `/api` → `getCloneableBody` không chạy cho route này.
+- Còn lại (Low, gộp nợ F9/P5B): user đã login (kể cả viewer) gửi được body ≤ 5.06MB, bị đệm trước `canWriteProject`, chưa rate-limit → vá: `rateLimit('photo:' + user.email)` ngay sau kiểm login.
 
-### F3 — Medium — Upload route không giới hạn kích thước body
+### Vòng sửa có sinh lỗ hổng mới không — KHÔNG
+- `DataEntryForm.tsx` `catch` → `setSaveErr(e.message)`: production Next che lỗi server action (chỉ digest), không lộ stack.
+- Test mới không đổi bề mặt tấn công.
 
-- `app/api/photo-upload/route.ts:20` gọi `req.formData()`. Route Handler Next 14 không có `bodySizeLimit` như
-  server action (1MB). Toàn bộ body được buffer vào RAM trước khi `photoFileSchema` kiểm 5MB và trước cả
-  `canWriteProject` (bất kỳ user đã login nào, kể cả viewer, tới được dòng này).
-- Tái hiện: viewer đăng nhập, `curl -H "Origin: http://localhost:3000" -b <cookie> -F file=@2GB.bin` nhiều luồng →
-  tiến trình Node phình bộ nhớ/OOM. (Không thử trên máy chung.)
-- Cách vá: trước `formData()` kiểm `Content-Length` ≤ 5MB + 64KB (thiếu/quá → 413); thêm
-  `rateLimit('photo:' + user.email, ...)` (có sẵn `src/lib/rate-limit.ts`).
+## Phát hiện mới
 
-### F4 — Medium — `xlsx` 0.18.5 có CVE đã biết
+### F10 — Critical có điều kiện — Next 14.2.35 (dòng 14.x hết hỗ trợ)
+- `npm audit --omit=dev` với next 14.2.35: tổng 2 critical, 5 high. Advisory liên quan next:
+  - **GHSA-p293-qw3h-jr36 (Critical):** RCE không cần đăng nhập khi server host trên Windows (App/Pages Router). `>=13.4.0 <15.5.24`, không có bản 14.x vá, không workaround.
+  - **GHSA-2xp9-vwfh-vxw4 (Critical):** RCE qua Image Optimization xử lý AVIF (libheif/sharp).
+  - **GHSA-m99w-x7hq-7vfj (High):** DoS CPU qua Server Actions.
+  - **GHSA-h25m-26qc-wcjf (High):** DoS deserialize RSC.
+  - **GHSA-89xv-2m56-2m9x (High):** SSRF trong Server Actions khi Host không cố định (`next start` 14.2+ đã cố định → thấp).
+  - **GHSA-955p-x3mx-jcvp (Medium):** lộ ID server action (app đã kiểm quyền từng action → thấp).
+- Khai thác: máy dev Windows, `"dev": "next dev"` (`package.json:6`) nghe mọi interface → người cùng LAN gửi request tới 3000/3001 được; theo advisory là đủ điều kiện RCE (chưa chạy PoC).
+- Production dự kiến Vercel/Linux (`docs/DEPLOY.md`) → RCE Windows không áp dụng; DoS vẫn còn. (Lưu ý: lộ trình P6 là deploy VPS — cần kiểm OS VPS.)
+- Cách vá: (1) ngay: `"dev": "next dev -H 127.0.0.1"`, không host production trên Windows khi còn Next 14; (2) task riêng nâng `next` ≥ 15.5.24 (hoặc 16.3.3+) — major: React 19, `params`/`cookies()` async, next-intl 4.x; gộp F12 và F4.
+- Không tính là chặn P1A: có từ trước (14.2.15 cũng dính), không do vòng sửa gây ra; F2b đã đúng yêu cầu "bản 14.2.x mới nhất". Chủ dự án quyết thời điểm nâng major.
 
-- `importExcelAction` (`actions.ts:433`) chạy `XLSX.read` trên file data-entry tải lên. 0.18.5 (bản cuối trên
-  npm) dính CVE-2023-30533 (prototype pollution khi đọc file dựng sẵn) và CVE-2024-22363 (ReDoS). P1A không đổi
-  thư viện nhưng mở rộng luồng import.
-- Cách vá: dùng bản SheetJS chính thức `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz` hoặc parse bằng
-  `exceljs` (đã có); giữ giới hạn 10MB hiện có.
+### F11 — Low — next-auth 4.24.7
+- Audit báo critical GHSA-5jpx-9hw9-2fx4 và GHSA-7rqj-j65f-68wh — chỉ ảnh hưởng EmailProvider; `src/lib/auth.ts` chỉ dùng Credentials + Google → không áp dụng.
+- Còn: GHSA-x445-f3h2-j279 (rất thấp, 1 OAuth provider), GHSA-xmf8-cvqr-rfgj (`getToken` ném lỗi với Bearer lỗi).
+- Vá: `"next-auth": "4.24.15"` (không major).
 
-### F5 — Low — `safeCell` và định dạng xlsx
+### F12 — Medium — next-intl 3.26.3 open redirect
+- GHSA-8f24-v5vv-gm5j (<4.9.1), ở middleware locale → link trông như của app nhưng chuyển ra ngoài (phishing). Chưa dựng PoC.
+- Vá: next-intl ≥ 4.9.1 (major), gộp đợt nâng Next 15 (F10).
 
-- Regex `^[=+\-@\t\r]` đủ theo OWASP; số âm kiểu `number` không bị đụng (chỉ xử lý `typeof string`, các cột số
-  truyền thẳng). Nhưng file là .xlsx: ExcelJS ghi chuỗi dạng shared string, Excel không tính công thức từ ô
-  chuỗi; nháy đơn bị lưu nguyên văn nên tên như `-DA01` hiện thành `'-DA01`. Không phải lỗ hổng, chỉ hỏng hiển
-  thị. Nếu sau này có CSV thì `safeCell` là đúng.
-- Cách vá (tuỳ chọn): với xlsx giữ giá trị gốc và đặt `cell.style.quotePrefix = true`; dùng `safeCell` cho CSV.
+### Ngoài phạm vi, không chặn
+- `postcss`, `prisma`/`deepmerge-ts`: chỉ build/CLI. `exceljs` → `uuid` bounds check: chỉ v3/v5/v6 khi có `buf`. `cookie` < 0.7: Low, theo next-auth.
 
-### F6 — Low — Bản nháp giữ số tài chính trong localStorage
-
-- Nháp lưu toàn bộ `form` (gồm 5 field tài chính lấy từ `base`) theo key `ddc_draft_v2_<projectId>_<month>`,
-  không gắn email, không xoá khi logout. Máy dùng chung: admin sửa tài chính chưa lưu → người sau (data-entry cùng
-  dự án) thấy banner "Khôi phục" và xem được số chưa lưu. Ghi thì server vẫn chặn (`saveMonthlyData` và
-  `buildSavePatch` loại field tài chính khi `!canEditFinance`).
-- Cách vá: key thêm email; bỏ field tài chính khỏi nháp khi `!canEditFinance`; xoá `ddc_draft_*` khi logout.
-
-### F7 — Low — `canViewFinance` không lấy từ DB
-
-- `resolveAccess` trả `canViewFinance: row.role !== 'viewer'` (auth.ts:36, 43), bỏ qua cột DB. DB hiện nhất quán
-  (SELECT `user_roles`: admin/bod/data-entry = true, viewer = false) và `setUserRole` cũng suy từ role
-  (`actions.ts:315`) nên chưa khai thác được; nhưng nếu thêm công tắc riêng, cờ sẽ bị lờ (fail-open).
-- Cách vá: dùng `row.canViewFinance` (fail-closed `?? false`).
-
-### F8 — Low — Oracle mã SAP qua import
-
-- Dòng khớp SAP của dự án không được gán trả `invalid/not_assigned` (actions.ts:474), mã không tồn tại trả
-  `queued` → data-entry biết mã nào có thật. Không lộ projectId (đã `null`), tốt.
-- Cách vá: gộp thành 1 lý do chung và không đẩy vào hàng đợi SAP, hoặc chấp nhận rủi ro (chủ dự án quyết).
-
-### F9 — Info (không chặn)
-
-- `/api/export` chỉ kiểm role, không kiểm `canViewFinance` dù xuất CPI/EAC/giá trị HĐ; hiện admin/bod luôn true
-  (F7). Nên bỏ cột tài chính khi `!user.canViewFinance`. Rate-limit theo `x-forwarded-for` giả mạo được (đã nằm
-  sau auth nên tác động nhỏ; đổi key theo email).
-- `isSameOrigin` tin `x-forwarded-host`: trình duyệt cross-site không đặt được header này nếu không qua preflight,
-  và cookie next-auth `SameSite=Lax`, nên CSRF đã chặn. Nếu deploy sau proxy, proxy phải ghi đè header này.
-- `/api/photos/*` chỉ kiểm đăng nhập, không kiểm quyền đọc dự án (BOLA); đường dẫn có uuid nên khó đoán. Nên tra
-  `project_photos` theo url rồi gọi `requireProjectRead`.
-- Middleware trả `Server misconfigured: NEXTAUTH_SECRET`: lộ tên biến, chấp nhận được.
-- `canWriteProject` (authz.ts) lặp logic `requireProject` (actions.ts:28); nên dùng chung 1 hàm để khỏi lệch.
-
-## Đã kiểm, đạt
-
-- `/api/export`: 401 khi chưa login, 403 khi role khác admin/bod, auth trước rate-limit. `/api/report/export`: 403.
-- `NEXTAUTH_SECRET`: không còn `ddc-local-dev-secret`/fallback nào trong `app/`, `src/`, `middleware.ts`;
-  `authOptions.secret` là getter throw; middleware 500; `getCurrentUser` không nuốt lỗi thành user giả.
-- `canViewFinance ?? false` ở `auth.ts:144`, `session.ts:23`, `overview/page.tsx:65`, `projects/[id]/page.tsx:64`;
-  không còn `?? true` liên quan quyền (3 chỗ còn lại là `stageApplicable`).
-- Upload: same-origin (thiếu Origin → 403), 401, 403 cho người không phải admin/PIC/Backup; tên file qua
-  `sanitizePhotoName` + uuid, `yearMonth` qua `isValidYearMonth`, `projectId` int dương → không path traversal;
-  lưu ở `data/uploads/` ngoài `public/`.
-- `saveMonthlyData`: `requireProject` (IDOR) trước, guard field tài chính theo role, kiểm dự án tồn tại; lỗi trả mã
-  chuẩn (`Forbidden`/`locked`/`Not found`), không lộ stack. `commitImportAction` lọc theo assignment.
-- Không SQL raw mới (template string chỉ dùng cho note audit, ghi qua Prisma tham số hoá).
-- Migration: chỉ DDL, backfill từ dữ liệu có sẵn, seed tĩnh `dim_shift`/`dim_date`; không dữ liệu nhạy cảm.
-  Rollback bọc `BEGIN/COMMIT`, gộp ca giữ nguyên tổng nhân lực (bảng không có cột nào khác bị mất); mất dữ liệu
-  `project_equipment_plan`/`factoryId`/`contractValueOriginal` khi rollback là chủ ý.
-
-## Việc cần làm trước khi merge
-
-1. Vá F1: kiểm magic bytes, bỏ SVG, thêm header an toàn ở `/api/photos`.
-2. Vá F2: guard role + ẩn `financial` theo `canViewFinance` ở `nhap-lieu`; nâng Next ≥ 14.2.25.
-3. F3 nên vá cùng (kiểm Content-Length + rate-limit). F4–F8 có thể mở ticket.
+## Việc trước merge
+1. Không có gì bắt buộc cho P1A.
+2. Chủ dự án quyết F10: tối thiểu `-H 127.0.0.1` cho script dev; mở task nâng Next ≥ 15.5.24 + next-intl 4 + next-auth 4.24.15 trước go-live.
