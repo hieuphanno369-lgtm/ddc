@@ -95,8 +95,8 @@ Không có. Task 1–11 đã xong, cổng kiểm cuối phase xanh, không còn 
 ## Vòng sửa 1 (theo danh-gia.md)
 
 Sửa đúng 6 mục ở "4. Danh sách PHẢI SỬA" của `.bangiao/danh-gia.md` (phần "5. Ghi nợ" không đụng vào).
-5/6 mục XONG; mục 3 BỊ CHẶN bởi lỗi mạng (xem chi tiết bên dưới). Cổng kiểm sau mỗi mục: `tsc --noEmit`
-sạch, `npm test` xanh (828/828 sau mục 6, không tính mục 3 chưa cài được).
+6/6 mục XONG (mục 3 lúc đầu bị chặn bởi lỗi mạng, đã gỡ ở vòng sửa tiếp theo — xem chi tiết bên dưới).
+Cổng kiểm sau mỗi mục: `tsc --noEmit` sạch, `npm test` xanh (828/828).
 
 1. **F1 — chặn SVG/HTML giả mạo ảnh (stored XSS)** — commit `4c22bce`.
    - File: `src/lib/uploads.ts` (thêm `detectImageKind` đọc magic-byte JPEG/PNG/GIF/WebP, `savePhotoFile`
@@ -125,26 +125,29 @@ sạch, `npm test` xanh (828/828 sau mục 6, không tính mục 3 chưa cài đ
      xác nhận guard này hoạt động độc lập với middleware (test dùng `renderToStaticMarkup` gọi thẳng
      component, không qua middleware).
 
-3. **F2b — nâng Next.js lên bản đã vá CVE-2025-29927 — BỊ CHẶN, CHƯA LÀM XONG.**
-   - Đã thử `npm install` với `"next": "14.2.35"` trong `package.json` **4 lần** (khoảng 10:10–10:48), lần
-     nào cũng lỗi `npm error code SELF_SIGNED_CERT_IN_CHAIN` khi tải tarball thật
-     (`registry.npmjs.org/@next/env/-/env-14.2.35.tgz`, `.../next/-/next-14.2.35.tgz`) — khác lỗi Google
-     Font đã biết (font-mock không áp dụng được ở đây vì đây là npm registry, không phải font API).
-     `npm view next@14.2.35 version` (chỉ gọi API metadata, không tải file) vẫn chạy bình thường, chứng tỏ
-     đây là lỗi khi tải file .tgz thật, không phải do gõ sai version.
-   - Đã thử workaround `NODE_TLS_REJECT_UNAUTHORIZED=0 npm install` — bị permission-classifier của Claude
-     Code chặn (lý do: làm yếu xác thực TLS) — đúng, không tự ý bypass.
-   - Đã **revert `package.json`** về lại `"next": "14.2.15"` (sạch, không để diff dang dở của một bản nâng
-     cấp chưa cài/chưa kiểm được). `tsc`/`npm test` (828/828) vẫn xanh với 5 mục còn lại đã sửa.
+3. **F2b — nâng Next.js lên bản đã vá CVE-2025-29927** — commit `<xem git log>` (vòng sửa 1, đợt 2).
+   - Vòng trước bị chặn bởi `SELF_SIGNED_CERT_IN_CHAIN` (mạng công ty chèn CA riêng khi tải tarball thật
+     từ registry.npmjs.org). Đã xử lý bằng cách xuất PEM chứa các CA gốc Windows đang tin, rồi đặt
+     `NODE_EXTRA_CA_CERTS` trỏ tới file đó **chỉ cho tiến trình `npm install`** — không tắt kiểm TLS
+     (không dùng `NODE_TLS_REJECT_UNAUTHORIZED=0`, không sửa `strict-ssl`/cấu hình npm toàn cục).
+   - File: `package.json` (`"next": "14.2.15"` → `"next": "14.2.35"`, giữ nguyên kiểu ghi version chính
+     xác không caret như các dependency Next.js liên quan khác trong file — `next-auth`, `next-intl`,
+     `react`), `package-lock.json` (đồng bộ lại qua `npm install`).
+   - Sau install: `npx prisma generate` chạy lại bình thường (dùng engine local đã trỏ sẵn qua
+     `PRISMA_QUERY_ENGINE_LIBRARY`/`PRISMA_SCHEMA_ENGINE_BINARY` trong `.env`, không cần tải engine mới
+     qua mạng).
+   - Cổng kiểm đã chạy và đạt: `node_modules/next/package.json` version = `14.2.35`; `npx tsc --noEmit`
+     sạch; `npm test` → 65 file / 828 test xanh; `npm run build` (với
+     `NEXT_FONT_GOOGLE_MOCKED_RESPONSES` trỏ `D:\_project\DDC_dieu-phoi\tools\font-mock.js`) compile
+     xanh, sinh đủ route; smoke dev cổng 3000 (`npm run dev`, cấu hình `ddc-control-tower` trong
+     `.claude/launch.json`): đăng nhập `admin@daidung.com.vn` qua `/api/auth/callback/credentials` (lấy
+     CSRF token trước), `/vi/overview` trả 200 kèm nội dung thật ("Tổng quan"), `/vi/nhap-lieu` trả 200;
+     đã tắt dev server sau khi kiểm xong.
    - **Tester/reviewer/chủ dự án cần biết**: CVE-2025-29927 (bypass middleware qua header
-     `x-middleware-subrequest`) **CHƯA được vá** ở P1A. F2a (mục 2) đã giảm nhẹ rủi ro cho riêng
-     `/nhap-lieu` bằng guard server-side độc lập với middleware, nhưng các trang khác (`/overview`,
-     `/import`, ...) vẫn chỉ dựa vào middleware (đã ghi nợ P5B từ trước, xem mục 5 `danh-gia.md`) — nếu
-     Next.js chưa nâng được, rủi ro đó rộng hơn dự kiến ban đầu.
-   - **Bước kế tiếp khi mạng thông**: sửa `package.json` → `"next": "14.2.35"`, `npm install`, xác nhận
-     `node_modules/next/package.json` = 14.2.35, `tsc`+`npm test` xanh, `npm run build` compile được với
-     `NEXT_FONT_GOOGLE_MOCKED_RESPONSES` trỏ tới `D:\_project\DDC_dieu-phoi\tools\font-mock.js`, smoke dev
-     cổng 3000 (đăng nhập admin, mở `/vi/overview` và `/vi/nhap-lieu`), rồi mới commit.
+     `x-middleware-subrequest`) nay đã được vá bởi bản Next.js 14.2.35. F2a (mục 2, đã xong ở vòng trước)
+     vẫn giữ nguyên là lớp phòng thủ độc lập bổ sung cho riêng `/nhap-lieu`; các trang khác (`/overview`,
+     `/import`, ...) chỉ dựa vào middleware vẫn còn ghi nợ P5B theo `danh-gia.md` mục 5 (nay rủi ro đã
+     giảm đáng kể nhờ bản vá CVE, không còn "rộng hơn dự kiến" như ghi chú vòng trước).
 
 4. **F3 — giới hạn Content-Length trước khi đọc body upload** — commit `aeb22d2`.
    - File: `app/api/photo-upload/route.ts` — đọc header `content-length` trước `req.formData()` (sau kiểm
