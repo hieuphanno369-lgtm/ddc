@@ -76,13 +76,14 @@ Số test cuối: **1060/1060 xanh** (mốc đầu phiên: 928/928). `npx tsc --
    thật trên Postgres, `SUM`/`AVG` của DB và `reduce()` của JS cộng cùng tập giá trị `float64` theo **thứ tự khác
    nhau** nên lệch nhau cỡ 1e-10 — không phải lỗi đọc sai dữ liệu. Đã thêm bước làm tròn 6 chữ số thập phân trước
    khi so sánh JSON (xem code trong file), giữ nguyên việc so sánh giá trị ngày/chuỗi/số nguyên chính xác tuyệt đối.
-3. **Bước 7 (đo hiệu năng): 1 trong 12 request đo được 1635 ms, vượt mốc 1500 ms.** Đã điều tra kỹ (xem
-   `.bangiao/hieu-nang.md` mục 4-5) — đây là **request đầu tiên sau khi `next start`** (cold-start tiến trình:
-   nạp module route + khởi tạo pool kết nối Prisma lần đầu), không phải do thiếu index. Đo lại các request tiếp
-   theo (kể cả cache-miss thật, tháng/dự án mới hoàn toàn, tiến trình đã ấm) đều dưới 1500 ms (tối đa quan sát
-   987 ms). EXPLAIN (ANALYZE, BUFFERS) của 3 truy vấn nền tảng nhánh chậm nhất đều dưới 18 ms trên 10 triệu dòng.
-   **Không tạo migration/index để "vá" con số này** — đúng chỉ định của nhiệm vụ; đã ghi rõ số đo + nguyên nhân +
-   đề xuất (không phải index) vào `.bangiao/hieu-nang.md` mục 6.
+3. **Bước 7 (đo hiệu năng): 1 trong 12 request đo được 1635 ms, vượt mốc 1500 ms — CHƯA KẾT LUẬN đạt hay
+   không đạt.** "Cold-start tiến trình `next start`" (nạp module route + khởi tạo pool kết nối Prisma lần đầu)
+   mới là **giả thuyết chưa kiểm chứng**, không có lượt đo đối chứng tách riêng; bench tầng dữ liệu (không qua
+   cache) cho kịch bản `month='all'` cũng cho median 1789 ms / max 2384 ms, vượt 1500 ms, mà **chưa rõ nút cổ
+   chai nằm ở đâu** (EXPLAIN mục 5 cho 3 câu SQL nền tảng chỉ 4–18 ms nên gần như chắc chắn không phải đó, nhưng
+   chưa đo được phần còn lại). Chi tiết + quy trình đo lại có kiểm soát cho Bước 11: xem
+   `.bangiao/hieu-nang.md` mục 4/4b/6 (mục "Chưa kết luận, chờ đo lại ở Bước 11"). **Không tạo migration/index để
+   "vá" con số này** — đúng chỉ định của nhiệm vụ; quyết định index (nếu cần) để lại cho lần đo lại ở Bước 11.
 4. **Giữ nguyên key i18n `detail.manpowerTrend` trong `vi.json`/`en.json` dù không còn nơi nào dùng** (Bước 3, sau
    khi xoá `ManpowerDailyChart.tsx`). Kế hoạch không yêu cầu dọn key i18n cũ; xoá thêm coi là việc ngoài phạm vi
    (mục 0 của kế hoạch: "Không thêm tính năng ngoài danh sách"). Không ảnh hưởng test (`i18n: vi/en phủ key như

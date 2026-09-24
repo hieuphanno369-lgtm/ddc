@@ -92,16 +92,27 @@ tiến trình đã ấm (loại trừ cold-start tiến trình, vẫn là cache-
 MAX = **987 ms** — dưới 1500 ms. Kết luận: khi tiến trình `next start` đã ấm (đã phục vụ ≥ 1
 request), **mọi trang Tổng quan/Chi tiết đều dưới 1500 ms kể cả cache-miss thật**.
 
-## 4. Nguyên nhân request đầu tiên (1635 ms) — KHÔNG phải thiếu index
+## 4. Nguyên nhân request đầu tiên (1635 ms) — CHƯA THUYẾT PHỤC, chưa có đối chứng
+
+**1/12 request vượt tiêu chí ≤ 1500 ms** (request đầu `/vi/overview?month=2026-09`, 1635 ms).
+"Cold-start tiến trình `next start`" mới là **giả thuyết chưa kiểm chứng** — chưa có lượt đo đối
+chứng tách riêng chi phí khởi động tiến trình khỏi chi phí cache-miss của chính request đó; bench
+tầng dữ liệu (mục 2) cho kịch bản `month='all'` cũng cho **median 1789 ms / max 2384 ms**, vượt
+1500 ms, mà nguyên nhân/nút cổ chai cụ thể **chưa xác định được** (EXPLAIN mục 5 cho 3 câu SQL nền
+tảng chỉ 4–18 ms nên gần như chắc chắn không phải chỗ chậm, nhưng chưa đo được phần còn lại tiêu
+tốn thời gian ở đâu).
 
 EXPLAIN (mục 5) cho thấy 3 truy vấn nền tảng của nhánh `'all'`/nhiều-tháng đều chạy dưới **18 ms**
 kể cả trên 10 triệu dòng (bảng `fact_progress_monthly`/`fact_financial`/`fact_volume` chỉ có
-~18.000 dòng mỗi bảng — số tháng cố định 36, không phình theo `fact_daily_*`). Vậy 1635 ms **không
-đến từ 1 câu SQL chậm cần thêm index**, mà từ:
+~18.000 dòng mỗi bảng — số tháng cố định 36, không phình theo `fact_daily_*`). Vậy 1635 ms/1789 ms
+gần như chắc chắn **không đến từ 1 câu SQL chậm cần thêm index**; các giả thuyết còn lại (chưa
+kiểm chứng đầy đủ):
 
 1. **Cold start tiến trình `next start`**: request đầu tiên sau khi khởi động phải nạp module
-   route + khởi tạo pool kết nối Prisma/Postgres lần đầu. Đây là chi phí **một lần cho cả tiến
-   trình**, không lặp lại ở các request sau (dù khác tháng/dự án — xem Lượt 3).
+   route + khởi tạo pool kết nối Prisma/Postgres lần đầu — về lý thuyết là chi phí **một lần cho cả
+   tiến trình**, nhưng quy trình đo ở Bước 7 không có lượt "gọi 1 URL bất kỳ để làm nóng tiến trình
+   trước rồi mới đo `overview?month=2026-09`" để tách bạch, nên **chưa chứng minh được** đây là
+   nguyên nhân chính thay vì trùng hợp với cache-miss của chính tháng đó.
 2. **`getProjectSummaries(month, filters)` bị gọi LẶP LẠI nhiều lần trên CÙNG 1 lượt render trang
    `/overview`** — không phải lỗi mới của P2B, đã có từ trước P2B (`OverviewWidgets.tsx` dùng
    `unstable_cache` riêng cho từng widget, không dedupe theo request):
@@ -114,11 +125,29 @@ kể cả trên 10 triệu dòng (bảng `fact_progress_monthly`/`fact_financial
    - Ở 10 triệu dòng, mỗi đợt vẫn nhanh (readFactSnapshots ~5-18 ms — xem mục 5) nhưng cộng dồn
      6-8 đợt × round-trip Prisma/pool contention (đặc biệt lúc pool còn nguội) đủ tạo ra vài trăm ms
      tới hơn 1 giây khi xếp hàng chờ connection.
+3. **`loadSpiCpiTrend`/`loadSCurve` (`src/server/cache.ts`) khoá cache CHỈ theo `filters`, KHÔNG
+   theo `month`** — khác với `loadPortfolioKpis`/`loadStatusBreakdown`/`loadTonnageByGroup`/
+   `loadCapacity`/`loadWatchlist`/`loadProjectList` (khoá có `month`). Nghĩa là ngay khi request đầu
+   tiên (tháng bất kỳ) chạy xong, 2 widget này đã ấm cache cho **mọi tháng sau** — các request "Lượt
+   1" từ tháng thứ 2 trở đi (2026-08, 2026-07, …) **không còn là cache-miss toàn phần** như đầu đề
+   ngầm giả định khi so sánh với request đầu 1635 ms. Đây là một phần lý do khiến các tháng sau đo
+   thấp hơn hẳn, không hẳn (chỉ) vì "tiến trình đã ấm".
 
-**Kết luận:** tiêu chí nghiệm thu T1 (≤ 1500 ms) đạt ở trạng thái ổn định (steady state, tiến
-trình đã phục vụ ≥ 1 request) — MAX quan sát được 987 ms cho cache-miss thật, 278 ms cho cache-hit.
-Riêng request đầu tiên sau `next start` là chi phí khởi động một lần, không phải vấn đề kiến trúc
-truy vấn dữ liệu.
+## 4b. Chưa kết luận, chờ đo lại ở Bước 11
+
+Vì lý do (1) và (3) ở trên, **chưa đủ căn cứ để kết luận T1 (≤ 1500 ms) đạt hay không đạt** ở lần đo
+này. Quy trình đo lại có kiểm soát cho Bước 11 (khi mở khoá `schema.prisma` sau P2A merge):
+
+- Restart `next start` (tiến trình mới, pool Prisma nguội).
+- Gọi 1 URL làm nóng **không thuộc `/overview`** trước tiên (ví dụ `/vi/projects/1`) để tách chi phí
+  cold-start tiến trình (nạp module, mở pool) ra khỏi lần đo `/overview` đầu tiên.
+- Sau đó mới đo `/vi/overview?month=all` **trước tiên** (khoá cache `loadSpiCpiTrend`/`loadSCurve`
+  chưa ấm cho tháng nào), rồi mới đo lần lượt các tháng khác — để mỗi tháng đo đúng 1 lần cache-miss
+  thật, không bị "ăn theo" cache của tháng trước qua 2 widget khoá theo `filters`.
+- Trong `npm run perf:bench`, đo riêng từng hàm ở nhánh `'all'` (`readFactSnapshots('all')`,
+  `readVolumeSnapshots('all')`, `readMonthlyEvm(...)`, và các hàm phục vụ `loadSpiCpiTrend`/
+  `loadSCurve`) thay vì chỉ đo tổng, để xác định hàm nào chiếm phần lớn trong median 1789 ms/max
+  2384 ms của kịch bản `month='all'`.
 
 ## 5. EXPLAIN (ANALYZE, BUFFERS) — 3 truy vấn của kịch bản chậm nhất trong bench (`month='all'`)
 
@@ -182,11 +211,14 @@ index `(projectId, workDate)` từ P1A) và đo được rất nhanh (168–342 
 
 ## 6. Đề xuất cho Bước 11 (T1-migration — hiện TREO, không tạo ở P2B)
 
-**Không cần thêm index** — 3 truy vấn chậm nhất trong bench đã dùng đúng index hiện có và chạy
-dưới 20 ms trên 10 triệu dòng. Ứng viên trong kế hoạch (`@@index([isLatest, projectId,
-yearMonth(sort: Desc)])` cho `fact_progress_monthly`/`fact_financial`...) **KHÔNG có bằng chứng
-cần thiết** ở lần đo này — để lại việc quyết định index cho lần đo lại sau khi P2A merge (dữ liệu
-thật có thể khác), theo đúng nguyên tắc "chỉ chọn cái EXPLAIN chứng minh cần" của kế hoạch.
+Riêng câu hỏi "cần thêm index không" tách biệt với câu hỏi "T1 đạt hay chưa" ở mục 4b (mục 4b vẫn
+CHƯA kết luận, chờ đo lại có kiểm soát): **không cần thêm index** — 3 truy vấn chậm nhất trong bench
+đã dùng đúng index hiện có và chạy dưới 20 ms trên 10 triệu dòng. Ứng viên trong kế hoạch
+(`@@index([isLatest, projectId, yearMonth(sort: Desc)])` cho `fact_progress_monthly`/
+`fact_financial`...) **KHÔNG có bằng chứng cần thiết** ở lần đo này — để lại việc quyết định index
+cho lần đo lại sau khi P2A merge (dữ liệu thật có thể khác), theo đúng nguyên tắc "chỉ chọn cái
+EXPLAIN chứng minh cần" của kế hoạch. Lần đo lại ở Bước 11 nên chạy theo đúng quy trình (mục 4b) để
+đồng thời trả lời được câu hỏi T1 đạt/không đạt.
 
 Ghi chú ngoài phạm vi Bước 11 (không phải index, không làm ở P2B — để tham khảo cho người sau):
 trang `/overview` gọi `getProjectSummaries` lặp lại 6-8 lần trong 1 lượt render (mục 4) — nếu
