@@ -19,6 +19,10 @@ export async function GET(_req: NextRequest, { params }: { params: { path: strin
     headers: {
       'Content-Type': photo.contentType,
       'Cache-Control': 'private, max-age=3600',
+      // F1 (danh-gia.md): trình duyệt không được tự suy content-type khác Content-Type header,
+      // và nếu lỡ có file cũ định dạng lạ lọt qua thì cũng không được thực thi script khi mở trực tiếp.
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'; sandbox",
     },
   });
 }

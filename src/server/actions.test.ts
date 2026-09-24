@@ -45,7 +45,7 @@ function uploadForm(projectId: number, file: File | null, over: Record<string, s
 
 /** Tạo 1 ảnh có file thật trên disk + record trong repo. */
 async function seedPhoto(projectId: number, uploadedBy: string) {
-  const rel = await savePhotoFile(projectId, YM, png());
+  const rel = await savePhotoFile(projectId, YM, png(), 'png');
   const photo = repo.addPhoto(projectId, YM, rel, 'Ảnh kiểm thử', uploadedBy);
   return { photo, abs: path.join(UPLOAD_ROOT, rel) };
 }

@@ -40,7 +40,7 @@ describe('GET /api/photos/[...path] (Mục 6)', () => {
   });
 
   it('đã đăng nhập + file tồn tại → 200, đúng content-type, cache private', async () => {
-    const rel = await savePhotoFile(PID, YM, png('hien-truong.png'));
+    const rel = await savePhotoFile(PID, YM, png('hien-truong.png'), 'png');
     login(USER);
 
     const res = await GET(req(), ctx(rel.split('/')));
@@ -76,5 +76,15 @@ describe('GET /api/photos/[...path] (Mục 6)', () => {
       const res = await GET(req(), ctx(segments));
       expect(res.status, `đường dẫn ${segments.join('/')} phải bị chặn`).toBe(404);
     }
+  });
+
+  it('F1 (danh-gia.md): trả header chặn trình duyệt tự suy diễn/thực thi nội dung file', async () => {
+    const rel = await savePhotoFile(PID, YM, png('an-toan.png'), 'png');
+    login(USER);
+
+    const res = await GET(req(), ctx(rel.split('/')));
+
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(res.headers.get('content-security-policy')).toContain("default-src 'none'");
   });
 });

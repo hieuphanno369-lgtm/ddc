@@ -14,9 +14,29 @@ const CONTENT_TYPE_BY_EXT: Record<string, string> = {
   '.png': 'image/png',
   '.gif': 'image/gif',
   '.webp': 'image/webp',
-  '.bmp': 'image/bmp',
-  '.svg': 'image/svg+xml',
 };
+
+/** Định dạng ảnh nhận diện được từ byte đầu file thật (magic number), không tin content-type/tên do client gửi. */
+export type ImageKind = 'jpg' | 'png' | 'gif' | 'webp';
+
+const EXT_BY_KIND: Record<ImageKind, string> = {
+  jpg: '.jpg',
+  png: '.png',
+  gif: '.gif',
+  webp: '.webp',
+};
+
+/**
+ * F1 (danh-gia.md): chặn SVG/HTML giả mạo ảnh (stored XSS) bằng cách đọc byte đầu file thật,
+ * thay vì tin `file.type`/đuôi tên file do client tự khai. Trả null nếu không nhận ra định dạng.
+ */
+export function detectImageKind(header: Buffer): ImageKind | null {
+  if (header.length >= 3 && header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff) return 'jpg';
+  if (header.length >= 4 && header[0] === 0x89 && header[1] === 0x50 && header[2] === 0x4e && header[3] === 0x47) return 'png';
+  if (header.length >= 4 && header[0] === 0x47 && header[1] === 0x49 && header[2] === 0x46 && header[3] === 0x38) return 'gif';
+  if (header.length >= 12 && header.toString('ascii', 0, 4) === 'RIFF' && header.toString('ascii', 8, 12) === 'WEBP') return 'webp';
+  return null;
+}
 
 /** Segment hợp lệ - chặn path traversal (`..`) và ký tự lạ khi ghép đường dẫn. */
 const SAFE_SEGMENT = /^[A-Za-z0-9._-]+$/;
@@ -40,10 +60,14 @@ function resolvePhotoPath(relPath: string): string | null {
   return abs;
 }
 
-/** Ghi file ảnh vào `data/uploads/<projectId>/<yearMonth>/`; trả path tương đối để lưu DB. */
-export async function savePhotoFile(projectId: number, yearMonth: string, file: File): Promise<string> {
-  const ext = path.extname(file.name).toLowerCase();
-  const base = sanitizePhotoName(path.basename(file.name, ext)) || 'photo';
+/**
+ * Ghi file ảnh vào `data/uploads/<projectId>/<yearMonth>/`; trả path tương đối để lưu DB.
+ * `kind` là định dạng đã nhận diện từ byte đầu file thật (xem `detectImageKind`) - đuôi file
+ * lưu trên đĩa LUÔN theo `kind`, không theo đuôi tên gốc do client gửi lên (F1, danh-gia.md).
+ */
+export async function savePhotoFile(projectId: number, yearMonth: string, file: File, kind: ImageKind): Promise<string> {
+  const ext = EXT_BY_KIND[kind];
+  const base = sanitizePhotoName(path.basename(file.name, path.extname(file.name))) || 'photo';
   // Date.now() một mình có thể trùng khi 2 lời gọi trong cùng 1 ms → ghi đè nhau.
   // Thêm uuid để tên LUÔN unique (kể cả cùng ms / khác process).
   const fileName = `${Date.now()}-${crypto.randomUUID()}-${base}${ext}`;

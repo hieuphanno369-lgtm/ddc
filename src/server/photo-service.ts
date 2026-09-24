@@ -1,6 +1,6 @@
 import type { CurrentUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
-import { savePhotoFile } from '@/lib/uploads';
+import { savePhotoFile, detectImageKind } from '@/lib/uploads';
 import { revalidateTag } from 'next/cache';
 import { profileTag } from './cache';
 import { canWriteProject } from './authz';
@@ -29,7 +29,13 @@ export async function addPhotoForUser(user: CurrentUser, formData: FormData): Pr
   const fileParsed = photoFileSchema.safeParse({ type: file.type, size: file.size });
   if (!fileParsed.success) return { ok: false, error: fileParsed.error.issues[0]?.message ?? 'Invalid file', status: 400 };
 
-  const url = await savePhotoFile(parsed.data.projectId, parsed.data.yearMonth, file);
+  // F1 (danh-gia.md): không tin `file.type` client khai - đọc byte đầu file thật để chặn
+  // SVG/HTML giả mạo ảnh (stored XSS khi stream lại qua /api/photos).
+  const header = Buffer.from(await file.slice(0, 12).arrayBuffer());
+  const kind = detectImageKind(header);
+  if (!kind) return { ok: false, error: 'Chỉ chấp nhận ảnh JPG/PNG/GIF/WebP', status: 400 };
+
+  const url = await savePhotoFile(parsed.data.projectId, parsed.data.yearMonth, file, kind);
   const photo = await repo.addPhoto(parsed.data.projectId, parsed.data.yearMonth, url, parsed.data.caption, user.email);
   await logActivity(user, 'add_photo', `project ${parsed.data.projectId} · ${parsed.data.yearMonth}`);
   revalidateTag(profileTag);

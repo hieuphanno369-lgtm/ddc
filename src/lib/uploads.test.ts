@@ -22,7 +22,7 @@ afterAll(() => {
 
 describe('savePhotoFile - ghi vào data/uploads/<projectId>/<YYYY-MM>/ (Mục 6)', () => {
   it('ghi file đúng thư mục và trả path tương đối để lưu vào ProjectPhoto.url', async () => {
-    const rel = await savePhotoFile(PID, YM, img('anh.png'));
+    const rel = await savePhotoFile(PID, YM, img('anh.png'), 'png');
 
     expect(UPLOAD_ROOT.endsWith(path.join('data', 'uploads'))).toBe(true);
     expect(rel).toMatch(new RegExp(`^${PID}/${YM}/\\d+-[A-Za-z0-9._-]+\\.png$`));
@@ -30,7 +30,7 @@ describe('savePhotoFile - ghi vào data/uploads/<projectId>/<YYYY-MM>/ (Mục 6)
   });
 
   it('tên file có dấu tiếng Việt / ký tự lạ được sanitize', async () => {
-    const rel = await savePhotoFile(PID, YM, img('Ảnh hiện trường (số 1)!.png'));
+    const rel = await savePhotoFile(PID, YM, img('Ảnh hiện trường (số 1)!.png'), 'png');
     const base = path.basename(rel);
 
     expect(base).toMatch(/^[0-9]+-[A-Za-z0-9._-]+\.png$/);
@@ -38,8 +38,8 @@ describe('savePhotoFile - ghi vào data/uploads/<projectId>/<YYYY-MM>/ (Mục 6)
   });
 
   it('2 ảnh cùng tên không ghi đè nhau (tên có timestamp)', async () => {
-    const a = await savePhotoFile(PID, YM, img('trung.png'));
-    const b = await savePhotoFile(PID, YM, img('trung.png'));
+    const a = await savePhotoFile(PID, YM, img('trung.png'), 'png');
+    const b = await savePhotoFile(PID, YM, img('trung.png'), 'png');
     expect(a).not.toBe(b);
     expect(existsSync(path.join(UPLOAD_ROOT, a))).toBe(true);
     expect(existsSync(path.join(UPLOAD_ROOT, b))).toBe(true);
@@ -58,7 +58,7 @@ describe('sanitizePhotoName', () => {
 
 describe('readPhotoFile - content-type + chặn path traversal (Mục 6)', () => {
   it('đọc đúng nội dung + content-type image/png', async () => {
-    const rel = await savePhotoFile(PID, YM, img('doc.png'));
+    const rel = await savePhotoFile(PID, YM, img('doc.png'), 'png');
     const got = await readPhotoFile(rel);
 
     expect(got?.contentType).toBe('image/png');
@@ -66,13 +66,13 @@ describe('readPhotoFile - content-type + chặn path traversal (Mục 6)', () =>
   });
 
   it.each([
-    ['a.jpg', 'image/jpeg'],
-    ['a.jpeg', 'image/jpeg'],
-    ['a.webp', 'image/webp'],
-    ['a.gif', 'image/gif'],
-    ['a.svg', 'image/svg+xml'],
-  ])('suy content-type cho %s', async (name, contentType) => {
-    const rel = await savePhotoFile(PID, YM, new File([Buffer.from('x')], name, { type: 'image/x' }));
+    ['jpg', '.jpg', 'image/jpeg'],
+    ['png', '.png', 'image/png'],
+    ['webp', '.webp', 'image/webp'],
+    ['gif', '.gif', 'image/gif'],
+  ] as const)('suy content-type theo dinh dang da nhan dien (kind=%s)', async (kind, ext, contentType) => {
+    const rel = await savePhotoFile(PID, YM, new File([Buffer.from('x')], `a${ext}`, { type: 'image/x' }), kind);
+    expect(rel.endsWith(ext)).toBe(true);
     expect((await readPhotoFile(rel))?.contentType).toBe(contentType);
   });
 
@@ -94,7 +94,7 @@ describe('readPhotoFile - content-type + chặn path traversal (Mục 6)', () =>
 
 describe('deletePhotoFile (Mục 6)', () => {
   it('xóa file thật khỏi disk', async () => {
-    const rel = await savePhotoFile(PID, YM, img('xoa.png'));
+    const rel = await savePhotoFile(PID, YM, img('xoa.png'), 'png');
     const abs = path.join(UPLOAD_ROOT, rel);
     expect(existsSync(abs)).toBe(true);
 
