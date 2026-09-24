@@ -140,3 +140,122 @@ không còn dữ liệu `PERF-*`. `npm test` chạy trên mock-repo nên xanh b�
 
 Không có — mọi câu hỏi nghiệp vụ (Q1–Q6) đã được chốt sẵn trong `ke-hoach.md` trước khi coder bắt đầu, coder làm
 đúng theo đề xuất đã chốt, không phát sinh câu hỏi mới trong quá trình triển khai.
+
+## Vòng sửa 1 (sau đánh giá reviewer, `.bangiao/danh-gia.md`)
+
+4 mục "CẦN SỬA TRƯỚC MERGE" (3 của reviewer + 1 yêu cầu chủ dự án 2026-09-24 về thẻ "Chuỗi giá trị"), mỗi mục 1
+commit riêng, `npx tsc --noEmit` sạch + `npm test` xanh trước mỗi commit. Không làm phần "Để sau" (checklist merge
+P2A↔P2B, bảo mật script dev, việc nhỏ khác) — đúng chỉ định chỉ sửa "CẦN SỬA TRƯỚC MERGE".
+
+### Mục 1 — Chart tuần nhân lực mất số liệu nhà thầu đã tắt
+
+- **Commit:** `710abab` fix(p2b): chart tuan nhan luc giu du lieu nha thau da tat
+- **File:** `src/server/manpower-queries.ts` (`getWeeklyChartData`), `src/server/manpower-queries.test.ts`
+- **Sửa:** danh sách `contractors` dựng từ `contractorId` thực có trong `totalActual` (tổng hợp từ
+  `readManpowerWeekly`) thay vì lọc theo `repo.getContractors()` (chỉ trả `isActive:true`); tên lấy từ
+  `getContractors()`, không có thì `#<id>`; giữ sort theo tổng actual giảm dần.
+- **Test thêm:** spy `repo.getContractors` trả thiếu đúng 1 nhà thầu có dòng dữ liệu (id lấy động từ dữ liệu dự án
+  1, không hard-code) → assert nhà thầu đó vẫn có mặt trong `contractors`, tên đúng `#<id>`.
+
+### Mục 2 — Gantt thiết bị đọc usage bị cắt theo khoảng plan, dòng chú thích đếm thiếu
+
+- **Commit:** `f794113` fix(p2b): Gantt thiet bi doc usage toan bo ngay du an, khong cat theo plan
+- **File:** `src/server/equipment-gantt-queries.ts` (`getEquipmentGantt`), `src/server/equipment-gantt-queries.test.ts`
+- **Sửa:** bỏ `minStart`/`maxFinish` tính từ plans để bound query; `readEquipmentUsageDays` gọi với khoảng ngày rộng
+  hết mức (`ALL_TIME_FROM`/`ALL_TIME_TO` = `'0001-01-01'`/`'9999-12-31'`) thay vì `[minStart, maxFinish]`. `buildGantt`
+  giữ nguyên — trục Gantt (`planFrom`/`planTo`/`ticks`) vẫn dựng từ plan như cũ, chỉ có `unplannedUsage` (đếm ở
+  `assignUsage`) là được tính đủ.
+- **Test thêm:** spy `readEquipmentPlans` trả 1 plan hẹp + `mockImplementationOnce` cho `readEquipmentUsageDays` mô
+  phỏng đúng hành vi lọc `from`/`to` thật của repo (không mock cứng kết quả, để bài test thật sự phân biệt được
+  code cũ/mới) — 1 ngày dùng trước `plannedStart` 5 ngày → `unplannedUsage=2`, `planFrom`/`planTo` không đổi, và
+  assert `readEquipmentUsageDays` được gọi với khoảng ngày bao trùm cả ngày đó (không còn bị bó hẹp theo plan).
+
+### Mục 3 — Kết luận hiệu năng T1 khẳng định quá bằng chứng (chỉ sửa câu chữ, không sửa code/script đo)
+
+- **Commit:** `c59716f` docs(p2b): sua ket luan hieu nang T1 qua bang chung, chua ket luan dat/khong dat
+- **File:** `.bangiao/hieu-nang.md` (mục 4, mục 4b mới, mục 6), `.bangiao/thay-doi.md` (mục "Lệch kế hoạch" số 3 —
+  bản gốc, đã ghi đè bởi bản dưới đây khi coder ghi lại toàn văn file này qua vòng sửa)
+- **Sửa:** bỏ câu "tiêu chí nghiệm thu T1 đạt ở steady state"; nêu rõ 1/12 request vượt 1500 ms, cold-start tiến
+  trình là **giả thuyết chưa kiểm chứng** (không có lượt đo đối chứng tách bạch), bench `month='all'` median
+  1789 ms / max 2384 ms cũng vượt mốc mà chưa rõ nút cổ chai; thêm lý do thứ 3 trước đó bị bỏ sót:
+  `loadSpiCpiTrend`/`loadSCurve` (`src/server/cache.ts`) khoá cache chỉ theo `filters`, không theo `month`, nên các
+  tháng đo sau ở "Lượt 1" không còn là cache-miss toàn phần như ngầm giả định khi so sánh với request đầu. Thêm
+  mục "4b. Chưa kết luận, chờ đo lại ở Bước 11" nêu quy trình đo lại có kiểm soát: warm-up 1 URL ngoài `/overview`
+  trước, đo `month=all` trước tiên, đo riêng từng hàm nhánh `'all'` trong `perf:bench`.
+
+### Mục 4 — Thẻ "Chuỗi giá trị" theo mock-up (yêu cầu chủ dự án 2026-09-24)
+
+- **Commit:** `cdd5733` fix(p2b): the Chuoi gia tri rong het hang, 2 cot theo mock-up, bo the EVM
+- **File sửa:**
+  - `app/[locale]/(app)/projects/[id]/page.tsx` — bỏ hẳn thẻ "Chỉ số EVM" (và hàm nội bộ `EvmRow`); thẻ "Chuỗi giá
+    trị" thành `<Card>` rộng hết hàng (không còn `<div className="g2">` ghép với EVM); thêm hàm nội bộ `StageRow`
+    (thay `EvmRow`) render 1 hàng giai đoạn; bọc thẻ + `<StageExplorer>` trong `<StageSelectionProvider>` mới.
+  - `src/lib/value-chain-view.ts` — thêm `stagePctLabel` (1 chữ số thập phân cố định, khác `formatPct`),
+    `VALUE_CHAIN_COLUMNS` (thứ tự 2 cột đúng mock-up), `chainFooterSummary`/`chainWeightTotalLabel` (dòng chân Σ
+    trọng số + %TT, tái dùng `calcChainPctActual`/`validateStageWeights` của `src/lib/stages.ts` để nhất quán công
+    thức với wizard nhập liệu `DataEntryForm.tsx`).
+  - `src/components/project/StageSelectionContext.tsx` (mới) — Context chia sẻ `{selected, toggle}` giữa chip góc
+    và `StageExplorer`; ngoài Provider tự tạo state cục bộ (không phá `StageExplorer.test.ts` gọi độc lập).
+  - `src/components/project/ValueChainModeChip.tsx` (mới) — chip góc, nhận nhãn đã dịch sẵn qua props (tránh gọi
+    `useTranslations` trong client component không có `NextIntlClientProvider` khi test bằng
+    `renderToStaticMarkup`), đổi tên theo `selected` từ context.
+  - `src/components/project/StageExplorer.tsx` — đổi `useState` nội bộ sang `useStageSelection()` (context dùng
+    chung), hành vi bên ngoài (props, DOM) không đổi.
+  - `app/globals.css` — thêm `.stagecol` (flex column, xếp dọc từng cột) + `.stage .stagesub` (dòng tấn nhỏ màu
+    xám dưới thanh); **không sửa** `.stagegrid`/`.stage` gốc (giữ nguyên để không ảnh hưởng `DataEntryForm.tsx`
+    đang dùng chung 2 class này).
+  - `src/i18n/messages/vi.json`, `en.json` — nhóm mới `valueChainCard` (`allStages`, `footerWeight`,
+    `footerFormula`) thêm ở cuối file, không chèn giữa key có sẵn.
+- **Quyết định theo yêu cầu chủ dự án (a)-(d):**
+  - (a) Bỏ hẳn thẻ EVM; 2 cột **không** dùng `grid-auto-flow` (dễ vỡ thứ tự khi 1 giai đoạn "không áp dụng" bị ẩn
+    — số item mỗi cột thay đổi); thay vào đó `VALUE_CHAIN_COLUMNS` định nghĩa rõ 2 mảng cố định
+    (`[design,procurement,transport,handover]` / `[shop,fabrication,erection]`), mỗi mảng render vào 1
+    `.stagecol` riêng (flex dọc) — luôn đúng cột dù ẩn bớt hàng. `.stagegrid` gốc (2 cột `1fr 1fr`, xuống 1 cột ở
+    ≤1180px) không đổi, giờ chỉ có 2 con trực tiếp (2 `.stagecol`) thay vì 7 `.stage` phẳng.
+  - (b) Số tấn TT/KH chuyển xuống `<span className="stagesub" style={{gridColumn:3}}>` — dòng riêng dưới thanh
+    (`.stage` vẫn 4 cột `116px 38px 1fr auto`, dòng phụ ghim cột 3 = cột thanh).
+  - (c) `chainFooterSummary(chain, weights)`: `weightTotal`/`weightOk` từ `validateStageWeights` (tổng trọng số
+    applicable thật, không ghi cứng 100; `weightOk=false` khi lệch → tô `var(--warn)`); `pctTotal` từ
+    `calcChainPctActual` trên đủ 7 giai đoạn (thiếu dòng chain → mặc định applicable=true/pct=0, khớp cách mỗi
+    hàng hiển thị tự suy khi không có dòng).
+  - (d) **Đã nối được** chip góc với state chọn giai đoạn của `StageExplorer`, không viết lại `StageExplorer` (chỉ
+    đổi nguồn `useState` sang Context dùng chung `StageSelectionContext`) — khi bấm chọn giai đoạn ở thẻ "Timeline
+    của 7 giai đoạn", chip đổi từ "Toàn bộ 7 giai đoạn" sang tên giai đoạn đang chọn; bấm lại bỏ chọn → chip trở về
+    mặc định. Chip đỏ "Khâu nghẽn: …" giữ nguyên logic cũ (Badge tone="danger", cùng điều kiện `bottleneck`), hiện
+    cạnh chip góc. Thanh giai đoạn nghẽn tô cam qua `.stage.bt .fill` (CSS có sẵn, không đổi) — `isBottleneck`
+    truyền y nguyên logic gốc `stage === latest?.bottleneckStage`.
+- **Test thêm:**
+  - `src/lib/value-chain-view.test.ts`: `stagePctLabel` (vi/en/làm tròn 1 chữ số), `VALUE_CHAIN_COLUMNS` (đúng thứ
+    tự + gộp lại = STAGE_ORDER không thiếu không trùng), `chainFooterSummary` (4 ca: trọng số đủ 100 + 1 giai đoạn
+    "không áp dụng" ở chain dù có trọng số vẫn không tính — khớp `effectiveWeight` của `stages.ts`; trọng số lệch
+    100 → `weightOk=false`; thiếu hẳn 1 dòng chain → mặc định pct=0; khớp `calcChainPctActual` khi truyền đủ 7 giai
+    đoạn), `chainWeightTotalLabel`.
+  - `src/server/projects-detail-page-render.test.ts`: không còn `detail.evmMetrics`/`metric.pv`/`metric.sv`/
+    `metric.cv`/`metric.eac`; chip `valueChainCard.allStages` luôn hiện; `class="chainfoot"` có đủ
+    `footerWeight`/`footerFormula`; đúng 2 `class="stagecol"`, thứ tự trái/phải đúng theo `VALUE_CHAIN_COLUMNS`
+    (không xen kẽ như `STAGE_ORDER` gốc).
+  - `src/components/project/ValueChainModeChip.test.ts` (mới, 3 test): ngoài Provider → mặc định; trong Provider
+    chưa chọn → mặc định; bơm `StageSelectionContext.Provider` với `selected:'shop'` → chip đổi tên đúng.
+- **Ảnh trước/sau** (`.bangiao/anh-test/`, chụp bằng `playwright-core` + Edge hệ thống, đăng nhập
+  `admin@daidung.com.vn`, trang `/vi/projects/1`): `before-desktop-chuoi-gia-tri.png`/`before-mobile-*.png` (lấy
+  bằng cách `git stash` tạm 7 file code mục 4, chụp, rồi `git stash apply`+`drop` khôi phục — xác nhận đúng bug đã
+  báo: thẻ ghép nửa hàng với EVM, cột phải Shop Drawing/Gia công/Lắp dựng mất hẳn thanh+%, Vật tư/Vận chuyển chữ
+  tấn đẩy mất thanh) vs `after-desktop-chuoi-gia-tri.png`/`after-mobile-*.png` (thẻ rộng hết hàng, 2 cột đúng thứ
+  tự, thanh+% hiện đủ mọi giai đoạn, dòng tấn xuống dưới thanh, dòng chân Σ trọng số 100%/%TT 79,0%); kèm
+  `*-full.png` (toàn trang) để đối chiếu bối cảnh.
+- **Lệch/rủi ro Tester nên soi kỹ:**
+  1. **(d) đã làm được** dù kế hoạch cho phép bỏ qua nếu "viết lại lớn" — không viết lại `StageExplorer`, chỉ đổi
+     nguồn state; nhưng đây là thay đổi lan giữa 2 component (context mới) nên Tester nên bấm thử chọn/bỏ chọn giai
+     đoạn ở thẻ "Timeline của 7 giai đoạn" trên trình duyệt thật, xác nhận chip góc đổi tên đúng và không vỡ hành vi
+     click cũ của `StageExplorer` (mở/đóng chi tiết mốc, đổi `cmpStage` biểu đồ so sánh).
+  2. Trong lúc chụp ảnh, `npm install --no-save playwright-core` (chỉ để chụp ảnh, không lưu vào package.json) đã
+     vô tình làm lệch resolve của `node_modules` khiến 1 lượt `npm test` đỏ giả (lỗi `NextIntlClientProvider not
+     found` không liên quan code) — đã chạy `npm ci` (khôi phục đúng `package-lock.json` đã commit, gỡ
+     `playwright-core`) + `npx prisma generate` (client Prisma bị `npm ci` sinh thiếu `Prisma.sql`) rồi xác nhận lại
+     `tsc`/`npm test` xanh. `package.json`/`package-lock.json` **không đổi** (đã kiểm `git diff` rỗng). Tester nên tự
+     chạy lại `npm ci && npx prisma generate && npx tsc --noEmit && npm test` một lượt độc lập trên máy mình để chắc
+     chắn `node_modules` sạch, không phụ thuộc trạng thái tạm trong phiên coder.
+  3. Dòng tấn (`stagesub`) chỉ set `gridColumn:3` — nếu sau này đổi `gridTemplateColumns` của `.stage` (hiện
+     `116px 38px 1fr auto`, 4 cột) mà không cập nhật số cột, dòng tấn có thể lệch khỏi cột thanh.
+  4. Không đổi `detail.evmMetrics` (key i18n) dù không còn nơi dùng — giữ nguyên theo tiền lệ đã có ở mục "Lệch kế
+     hoạch" số 4 (giữ `detail.manpowerTrend`), không dọn dẹp ngoài phạm vi.
