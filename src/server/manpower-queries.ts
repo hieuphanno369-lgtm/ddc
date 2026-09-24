@@ -45,10 +45,10 @@ export async function getWeeklyChartData(projectId: number, project: ProjectDate
 
   const totalActual = new Map<number, number>();
   for (const r of rows) totalActual.set(r.contractorId, (totalActual.get(r.contractorId) ?? 0) + r.actual);
-  const contractors: ContractorInfo[] = contractorRows
-    .filter((c) => totalActual.has(c.id))
-    .sort((a, b) => (totalActual.get(b.id) ?? 0) - (totalActual.get(a.id) ?? 0))
-    .map((c) => ({ id: c.id, name: c.name }));
+  const nameById = new Map(contractorRows.map((c) => [c.id, c.name]));
+  const contractors: ContractorInfo[] = [...totalActual.keys()]
+    .sort((a, b) => (totalActual.get(b) ?? 0) - (totalActual.get(a) ?? 0))
+    .map((id) => ({ id, name: nameById.get(id) ?? `#${id}` }));
 
   return { contractors, weeks, range };
 }

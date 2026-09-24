@@ -51,4 +51,19 @@ describe('getWeeklyChartData', () => {
     const data = await getWeeklyChartData(17, project);
     expect(data).toBeNull();
   });
+
+  it('nha thau co so lieu nhung getContractors thieu (vd bi tat) -> van hien, ten fallback #<id>', async () => {
+    const project = (await repo.getProject(1))!;
+    const rows = await repo.readManpowerWeekly(1);
+    const contractorIds = [...new Set(rows.map((r) => r.contractorId))];
+    expect(contractorIds.length).toBeGreaterThan(0);
+    const missingId = contractorIds[0];
+    const allContractors = await repo.getContractors();
+    vi.spyOn(repo, 'getContractors').mockResolvedValueOnce(allContractors.filter((c) => c.id !== missingId));
+
+    const data = await getWeeklyChartData(1, project);
+    expect(data).not.toBeNull();
+    expect(new Set(data!.contractors.map((c) => c.id))).toEqual(new Set(contractorIds));
+    expect(data!.contractors.find((c) => c.id === missingId)?.name).toBe(`#${missingId}`);
+  });
 });
