@@ -127,6 +127,15 @@ describe('P2B Buoc 2 - T12b(a) chart nhan luc theo ca x nha thau', () => {
   });
 });
 
+describe('P2B Buoc 3 - T12b(b) chart cot chong nhan luc theo tuan', () => {
+  it('co the id="res-weekly" + tieu de manpowerCharts.weeklyTitle, khong con detail.manpowerTrend', async () => {
+    const out = await render();
+    expect(out).toContain('id="res-weekly"');
+    expect(out).toContain('manpowerCharts.weeklyTitle');
+    expect(out).not.toContain('detail.manpowerTrend');
+  });
+});
+
 describe('Task 6 - the "Cac moc chinh" + nut "Sua moc" theo vai tro', () => {
   it('admin thay the + link toi dung buoc Ho so', async () => {
     const out = await render();

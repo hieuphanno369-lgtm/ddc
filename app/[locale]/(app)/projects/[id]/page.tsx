@@ -29,16 +29,16 @@ const WeeklyTrackingCard = dynamic(() => import('@/components/project/WeeklyTrac
 const KeyMilestoneChart = dynamic(() => import('@/components/project/KeyMilestoneChart').then((m) => m.KeyMilestoneChart), { ssr: false, loading: () => <div className="sk h-60" /> });
 const StageExplorer = dynamic(() => import('@/components/project/StageExplorer').then((m) => m.StageExplorer), { ssr: false, loading: () => <div className="sk h-60" /> });
 const SpiCpiLine = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SpiCpiLine), { ssr: false, loading: () => <div className="sk h-60" /> });
-const ManpowerDailyChart = dynamic(
-  () => import('@/components/project/ManpowerDailyChart').then((m) => m.ManpowerDailyChart),
-  { ssr: false, loading: () => <div className="sk h-60" /> },
-);
 const ShiftManpowerChart = dynamic(
   () => import('@/components/project/ShiftManpowerChart').then((m) => m.ShiftManpowerChart),
   { ssr: false, loading: () => <div className="sk h-60" /> },
 );
-import { getManpowerDaily, getResourceBreakdown, getResourceSnapshot, getWeeklyTracking, getWorkItemComparison } from '@/server/project-queries';
-import { getShiftChartData } from '@/server/manpower-queries';
+const WeeklyManpowerStackChart = dynamic(
+  () => import('@/components/project/WeeklyManpowerStackChart').then((m) => m.WeeklyManpowerStackChart),
+  { ssr: false, loading: () => <div className="sk h-60" /> },
+);
+import { getResourceBreakdown, getResourceSnapshot, getWeeklyTracking, getWorkItemComparison } from '@/server/project-queries';
+import { getShiftChartData, getWeeklyChartData } from '@/server/manpower-queries';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { WhatIf } from '@/components/project/WhatIf';
 import { ProjectSwitcher } from '@/components/project/ProjectSwitcher';
@@ -94,10 +94,10 @@ export default async function ProjectDetailPage({
   const photos = await repo.getPhotos(id);
   const dims = await repo.getDims();
   const resources = await getResourceSnapshot(id, month);
-  const manpowerDaily = await getManpowerDaily(id, month);
   const breakdown = await getResourceBreakdown(id, month);
   const tracking = await getWeeklyTracking(id, month);
   const shiftChart = await getShiftChartData(id, locale);
+  const weekly = await getWeeklyChartData(id, project);
   const keyMilestones = await repo.getKeyMilestones(id);
   const canEditMs = user?.role === 'admin' || user?.role === 'data-entry';
   const stageWeights = await repo.getStageWeights(id);
@@ -490,11 +490,14 @@ export default async function ProjectDetailPage({
         <CardBody><ShiftManpowerChart data={shiftChart} initialMonth={month} /></CardBody>
       </Card>
 
-      {/* Biểu đồ nhân lực KH vs TT - đặt cuối trang theo yêu cầu */}
-      <Card>
-        <CardHeader title={t('detail.manpowerTrend')} />
+      {/* T12b(b) - chart cot chong nhan luc theo tuan x nha thau, dat cuoi trang theo yeu cau */}
+      <Card id="res-weekly" style={{ scrollMarginTop: 72 }}>
+        <CardHeader
+          title={t('manpowerCharts.weeklyTitle')}
+          titleExtra={<HelpTip text={t('manpowerCharts.weeklyHelp')} label={t('common.explain')} />}
+        />
         <CardBody>
-          <ManpowerDailyChart data={manpowerDaily} />
+          {weekly ? <WeeklyManpowerStackChart data={weekly} initialMonth={month} /> : <p className="empty">{t('manpowerCharts.noData')}</p>}
         </CardBody>
       </Card>
     </>

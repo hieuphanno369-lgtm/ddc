@@ -630,6 +630,15 @@
     "shiftHelp": "Mỗi nhà thầu 1 nhóm cột, mỗi ca 1 cột. Chiều cao = nhân lực thực tế trung bình mỗi ngày có số liệu của ca đó trong tháng.",
     "month": "Tháng",
     "noDataMonth": "Chưa có số liệu nhân lực tháng {month}",
-    "tipLine": "TT {actual} · KH {planned} ({pct}) · {days} ngày"
+    "tipLine": "TT {actual} · KH {planned} ({pct}) · {days} ngày",
+    "weeklyTitle": "Nhân lực theo tuần · theo nhà thầu",
+    "weeklyHelp": "Cột = nhân lực thực tế trung bình mỗi ngày trong tuần, chồng theo nhà thầu. Tuần đầu/cuối dự án không đủ 7 ngày thì chia cho số ngày thực có. Ngày không nhập số liệu tính là 0.",
+    "allMonths": "Toàn dự án",
+    "plannedLine": "KH (TB/ngày)",
+    "weekOf": "Tuần {from} - {to}",
+    "days": "{n} ngày",
+    "scrollHint": "Kéo ngang hoặc dùng phím ← → để xem toàn bộ timeline",
+    "noData": "Chưa có số liệu nhân lực theo ngày",
+    "total": "Tổng TT"
   }
 }

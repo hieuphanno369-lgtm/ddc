@@ -630,6 +630,15 @@
     "shiftHelp": "One column group per contractor, one column per shift. Height = average actual headcount per recorded day of that shift in the month.",
     "month": "Month",
     "noDataMonth": "No manpower data for {month}",
-    "tipLine": "Actual {actual} · Plan {planned} ({pct}) · {days} days"
+    "tipLine": "Actual {actual} · Plan {planned} ({pct}) · {days} days",
+    "weeklyTitle": "Weekly manpower · by contractor",
+    "weeklyHelp": "Bars = average actual headcount per day of the week, stacked by contractor. The first/last project week is divided by its actual number of days. Days without data count as 0.",
+    "allMonths": "Whole project",
+    "plannedLine": "Plan (avg/day)",
+    "weekOf": "Week {from} - {to}",
+    "days": "{n} days",
+    "scrollHint": "Drag or use ← → keys to see the whole timeline",
+    "noData": "No daily manpower data yet",
+    "total": "Total actual"
   }
 }
