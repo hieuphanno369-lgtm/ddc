@@ -201,7 +201,7 @@ describe('/audit - render nội dung', () => {
   it('nhật ký rỗng: hiện common.noData (seed auditLog = [])', async () => {
     (getCurrentUser as Mock).mockResolvedValue(ADMIN);
 
-    const out = await render(AuditPage);
+    const out = await render(() => AuditPage({}));
 
     expect(out).toContain('audit.title');
     expect(out).toContain('common.noData');
@@ -212,7 +212,7 @@ describe('/audit - render nội dung', () => {
     repo.logAudit('fact_progress_monthly', '42', 'pctActual', '30', '45', 'admin@daidung.com.vn');
     (getCurrentUser as Mock).mockResolvedValue(ADMIN);
 
-    const out = await render(AuditPage);
+    const out = await render(() => AuditPage({}));
 
     expect(out).toContain('<table');
     expect(out).toContain('fact_progress_monthly');
@@ -227,7 +227,7 @@ describe('/audit - render nội dung', () => {
     repo.logAudit('alert_log', '7', 'action', '', 'Đã xử lý', 'admin@daidung.com.vn');
     (getCurrentUser as Mock).mockResolvedValue(ADMIN);
 
-    const out = await render(AuditPage);
+    const out = await render(() => AuditPage({}));
 
     expect(out).toContain('Đã xử lý');
     expect(out).toMatch(/>-</);
@@ -239,7 +239,7 @@ describe('/audit - render nội dung', () => {
     }
     (getCurrentUser as Mock).mockResolvedValue(ADMIN);
 
-    const out = await render(AuditPage);
+    const out = await render(() => AuditPage({}));
     const rowCount = (out.match(/<tr>/g) ?? []).length - 1; // trừ dòng <thead><tr> header
 
     expect(rowCount).toBe(20);

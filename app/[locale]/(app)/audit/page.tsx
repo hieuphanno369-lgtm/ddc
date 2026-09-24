@@ -12,7 +12,7 @@ export default async function AuditPage({
   searchParams = {},
 }: {
   searchParams?: Record<string, string | string[] | undefined>;
-} = {}) {
+}) {
   // RBAC server-side: nhật ký thay đổi chỉ dành cho admin (không phó mặc middleware).
   const user = await getCurrentUser();
   const locale = await getLocale();

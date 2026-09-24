@@ -209,4 +209,35 @@ KHÔNG dùng chung `page` với ô tìm kiếm toàn cục (`/overview`, `/proje
 `page` mỗi khi tìm kiếm, đúng ý đồ). Sửa ở `SearchBox` thay vì ở `/audit` vì gốc rễ nằm ở hành vi
 effect chạy vô điều kiện của `SearchBox`, không phải ở Task 6.
 
+## Sửa theo review vòng 1
+
+Theo `.bangiao/danh-gia.md` mục CẦN SỬA TRƯỚC MERGE #1 (TB-1, kiểu tham số `/audit` làm hỏng
+`next build`). Chỉ sửa đúng phạm vi này, không đụng mục 2 (archive — thủ tục lúc merge, chủ dự án
+tự làm) và không làm các mục "Để sau".
+
+- `app/[locale]/(app)/audit/page.tsx`: bỏ giá trị mặc định `= {}` ở ngoài cùng của tham số hàm
+  `AuditPage` (dòng `} = {}) {` → `}) {`), giữ `searchParams = {}` trong destructuring nên tham số
+  vẫn tuỳ chọn khi gọi trực tiếp. Nguyên nhân gốc: giá trị mặc định ngoài cùng khiến kiểu suy ra có
+  `| undefined`, không khớp `PageProps` mà `next build` kiểm ở `.next/types`.
+- `src/server/operation-pages-render.test.ts` (dòng 204, 215, 230, 242): `render(AuditPage)` →
+  `render(() => AuditPage({}))` vì tham số giờ bắt buộc khi gọi trực tiếp hàm.
+- `src/server/pages-role-guard.test.ts` (dòng 128, 133, 138, 143, 148): `visit(AuditPage)` →
+  `visit(() => AuditPage({}))`, cùng lý do.
+
+**Kết quả kiểm:**
+- Khởi động `npm run dev -- -p 3001`, mở `/vi/login` và `/vi/audit` (chưa đăng nhập, redirect 307 —
+  đủ để Next compile route và sinh `.next/types/app/[locale]/(app)/audit/page.ts`), không xoá
+  `.next` trước đó. Tắt dev server (port 3001) trước khi kiểm kiểu/build để tránh khoá file
+  `.next/trace`.
+- `npx tsc --noEmit`: **exit code 0** (có `.next/types` khi chạy, không xoá `.next`).
+- `npm test`: **802/802 pass** (chạy cả trước và sau `next build`, cùng kết quả).
+- `npx next build` (env `NEXT_FONT_GOOGLE_MOCKED_RESPONSES` trỏ tới
+  `D:\_project\DDC_dieu-phoi\tools\font-mock.js`): **exit code 0**, "Compiled successfully", có
+  route `ƒ /[locale]/audit` trong bảng kết quả — không còn lỗi `TS2344` ở `.next/types` như review
+  vòng 1 đã bắt được.
+
+**Tester nên soi:** không cần chạy lại toàn bộ, nhưng nên xác nhận lại đúng phép kiểm review vòng 1
+đã yêu cầu — `.next/types` phải được sinh bởi `next dev`/`next build` thật (không xoá `.next` giữa
+chừng) trước khi chạy `tsc --noEmit`, nếu không sẽ không bắt được lớp lỗi kiểu này.
+
 Cổng kiểm sau sửa: `npx tsc --noEmit` sạch; `npm test` **802/802 PASS** (796 cũ + 6 test mới).
