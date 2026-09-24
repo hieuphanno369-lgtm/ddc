@@ -37,6 +37,7 @@ import type {
   ProjectWorkItem,
   Role,
   SapQueueItem,
+  SaveFactResult,
   Stage,
   StageCalcMode,
   StageCode,
@@ -745,26 +746,79 @@ export const repo = {
     patch: Partial<Pick<FactProgressMonthly,
       'pctPlan' | 'pctActual' | 'ac' | 'equipmentActual' | 'manpowerActual' | 'bottleneckStage'>>,
     changedBy = 'system',
-  ) {
-    const prev = await this.getLatestFact(projectId, yearMonth);
-    if (!prev) return;
+  ): Promise<SaveFactResult> {
     const proj = await prisma.project.findUnique({ where: { id: projectId } });
-    if (!proj) return;
+    if (!proj) return 'not_found';
+    const prev = await this.getLatestFact(projectId, yearMonth);
 
-    const fields = Object.keys(patch) as (keyof typeof patch)[];
-    const note = fields.map((k) => `${k}: ${String(prev[k])} → ${String(patch[k])}`).join('; ');
     const bac = proj.contractValue;                 // snapshot BAC tại thời điểm ghi
-    const pctPlan = patch.pctPlan ?? prev.pctPlan;  // số nhập tay - chỉ lưu để audit (Q2)
-    const pctActual = patch.pctActual ?? prev.pctActual;
-    const ac = patch.ac ?? prev.ac;
     // % KH = thời gian đã trôi tới CUỐI THÁNG đang lưu, không phải số nhập tay, không phải "hôm nay".
     const at = new Date(`${endOfMonth(yearMonth)}T00:00:00Z`);
     const pctPlanDuration = calcDurationPctComplete(proj.plannedStartDate, proj.plannedFinishDate, at) ?? 0;
     const pv = calcPv(pctPlanDuration, bac);
+
+    if (prev) {
+      const fields = Object.keys(patch) as (keyof typeof patch)[];
+      const note = fields.map((k) => `${k}: ${String(prev[k])} → ${String(patch[k])}`).join('; ');
+      const pctPlan = patch.pctPlan ?? prev.pctPlan;  // số nhập tay - chỉ lưu để audit (Q2)
+      const pctActual = patch.pctActual ?? prev.pctActual;
+      const ac = patch.ac ?? prev.ac;
+      const ev = calcEv(pctActual, bac);
+
+      // Append-only: hạ cờ bản cũ rồi INSERT bản mới, trong CÙNG 1 transaction.
+      // Partial unique index ux_fact_progress_latest chặn 2 dòng isLatest cùng lúc.
+      await prisma.$transaction([
+        prisma.factProgressMonthly.updateMany({
+          where: { projectId, yearMonth, isLatest: true },
+          data: { isLatest: false },
+        }),
+        prisma.factProgressMonthly.create({
+          data: {
+            projectId, yearMonth,
+            version: prev.version + 1,
+            isLatest: true,
+            pctPlan, pctActual, ac, pv, ev,
+            spi: calcSpi(ev, pv),
+            cpi: calcCpi(ev, ac),
+            bac,
+            actualStartDate: d8(prev.actualStartDate),
+            actualFinishDate: d8(prev.actualFinishDate),
+            bottleneckStage: patch.bottleneckStage !== undefined ? patch.bottleneckStage : prev.bottleneckStage,
+            manpowerPlanned: prev.manpowerPlanned,
+            manpowerActual: patch.manpowerActual ?? prev.manpowerActual,
+            equipmentPlanned: prev.equipmentPlanned,     // KHÔNG hardcode 0 nữa - đó là lý do
+            equipmentActual: patch.equipmentActual ?? prev.equipmentActual, // isEquipmentWarning không bao giờ chạy
+            snapshotLockedAt: d8(prev.snapshotLockedAt),
+            lockedBy: prev.lockedBy,
+            changedBy, changedAt: new Date(), changeNote: note,
+          },
+        }),
+        prisma.project.update({ where: { id: projectId }, data: { updatedAt: new Date() } }),
+      ]);
+      await this.logAudit('fact_progress_monthly', `${projectId}/${yearMonth}`, fields.join(','), '', note, changedBy);
+      return 'updated';
+    }
+
+    // Chưa có dòng nào của tháng này - dựng "baseline" từ tháng gần nhất TRƯỚC đó cùng dự án.
+    const baseline = await prisma.factProgressMonthly.findFirst({
+      where: { projectId, isLatest: true, yearMonth: { lt: yearMonth } },
+      orderBy: { yearMonth: 'desc' },
+    });
+    const baselineVal = {
+      pctPlan: baseline?.pctPlan ?? 0,
+      pctActual: baseline?.pctActual ?? 0,
+      ac: baseline?.ac ?? 0,
+      bottleneckStage: baseline?.bottleneckStage ?? null,
+      manpowerActual: baseline?.manpowerActual ?? 0,
+      equipmentActual: baseline?.equipmentActual ?? 0,
+    };
+    const fields = Object.keys(patch) as (keyof typeof patch)[];
+    const note = `create; ${fields.map((k) => `${k}: ${String(baselineVal[k as keyof typeof baselineVal])} → ${String(patch[k])}`).join('; ')}`;
+    const pctPlan = patch.pctPlan ?? baselineVal.pctPlan;
+    const pctActual = patch.pctActual ?? baselineVal.pctActual;
+    const ac = patch.ac ?? baselineVal.ac;
     const ev = calcEv(pctActual, bac);
 
-    // Append-only: hạ cờ bản cũ rồi INSERT bản mới, trong CÙNG 1 transaction.
-    // Partial unique index ux_fact_progress_latest chặn 2 dòng isLatest cùng lúc.
     await prisma.$transaction([
       prisma.factProgressMonthly.updateMany({
         where: { projectId, yearMonth, isLatest: true },
@@ -773,27 +827,28 @@ export const repo = {
       prisma.factProgressMonthly.create({
         data: {
           projectId, yearMonth,
-          version: prev.version + 1,
+          version: 1,
           isLatest: true,
           pctPlan, pctActual, ac, pv, ev,
           spi: calcSpi(ev, pv),
           cpi: calcCpi(ev, ac),
           bac,
-          actualStartDate: d8(prev.actualStartDate),
-          actualFinishDate: d8(prev.actualFinishDate),
-          bottleneckStage: patch.bottleneckStage !== undefined ? patch.bottleneckStage : prev.bottleneckStage,
-          manpowerPlanned: prev.manpowerPlanned,
-          manpowerActual: patch.manpowerActual ?? prev.manpowerActual,
-          equipmentPlanned: prev.equipmentPlanned,     // KHÔNG hardcode 0 nữa - đó là lý do
-          equipmentActual: patch.equipmentActual ?? prev.equipmentActual, // isEquipmentWarning không bao giờ chạy
-          snapshotLockedAt: d8(prev.snapshotLockedAt),
-          lockedBy: prev.lockedBy,
+          actualStartDate: baseline ? baseline.actualStartDate : proj.actualStartDate,
+          actualFinishDate: baseline ? baseline.actualFinishDate : proj.actualFinishDate,
+          bottleneckStage: patch.bottleneckStage !== undefined ? patch.bottleneckStage : baselineVal.bottleneckStage,
+          manpowerPlanned: baseline?.manpowerPlanned ?? 0,
+          manpowerActual: patch.manpowerActual ?? baselineVal.manpowerActual,
+          equipmentPlanned: baseline?.equipmentPlanned ?? 0,
+          equipmentActual: patch.equipmentActual ?? baselineVal.equipmentActual,
+          snapshotLockedAt: null,
+          lockedBy: null,
           changedBy, changedAt: new Date(), changeNote: note,
         },
       }),
       prisma.project.update({ where: { id: projectId }, data: { updatedAt: new Date() } }),
     ]);
     await this.logAudit('fact_progress_monthly', `${projectId}/${yearMonth}`, fields.join(','), '', note, changedBy);
+    return 'created';
   },
 
   async saveValueChain(
@@ -833,24 +888,72 @@ export const repo = {
     yearMonth: string,
     patch: Partial<Pick<FactFinancial, 'revenueCumulative' | 'costActualCumulative' | 'arCollected' | 'arOutstanding' | 'arOverdue'>>,
     changedBy = 'system',
-  ) {
+  ): Promise<SaveFactResult> {
+    const proj = await prisma.project.findUnique({ where: { id: projectId } });
+    if (!proj) return 'not_found';
     const prev = await prisma.factFinancial.findFirst({
       where: { projectId, yearMonth, isLatest: true },
     });
-    if (!prev) return;
+    const contractValue = proj.contractValue;
+
+    if (prev) {
+      const fields = Object.keys(patch) as (keyof typeof patch)[];
+      const note = fields.map((k) => `${k}: ${String(prev[k])} → ${String(patch[k])}`).join('; ');
+      const collected = patch.arCollected ?? prev.arCollected;
+      const overdue = patch.arOverdue ?? prev.arOverdue;
+      const revenueCumulative = patch.revenueCumulative ?? prev.revenueCumulative;
+      const costActualCumulative = patch.costActualCumulative ?? prev.costActualCumulative;
+      const arOutstanding = Math.round((contractValue - collected - overdue) * 10) / 10;
+      const grossProfit = Math.round((revenueCumulative - costActualCumulative) * 10) / 10;
+      const grossMarginPct = revenueCumulative ? (revenueCumulative - costActualCumulative) / revenueCumulative : 0;
+
+      // Append-only: hạ cờ bản cũ rồi INSERT bản mới, trong CÙNG 1 transaction (giống saveMonthlyFact).
+      await prisma.$transaction([
+        prisma.factFinancial.updateMany({
+          where: { projectId, yearMonth, isLatest: true },
+          data: { isLatest: false },
+        }),
+        prisma.factFinancial.create({
+          data: {
+            projectId, yearMonth,
+            version: prev.version + 1,
+            isLatest: true,
+            revenuePeriod: prev.revenuePeriod, revenueCumulative,
+            costActualPeriod: prev.costActualPeriod, costActualCumulative,
+            grossProfit, grossMarginPct, backlog: prev.backlog,
+            arCollected: collected, arOutstanding, arOverdue: overdue,
+            changedBy, changedAt: new Date(), changeNote: note,
+          },
+        }),
+      ]);
+      await this.logAudit('fact_financial', `${projectId}/${yearMonth}`, fields.join(','), '', note, changedBy);
+      return 'updated';
+    }
+
+    // Chưa có dòng nào của tháng này - dựng "baseline" từ tháng gần nhất TRƯỚC đó cùng dự án.
+    const baseline = await prisma.factFinancial.findFirst({
+      where: { projectId, isLatest: true, yearMonth: { lt: yearMonth } },
+      orderBy: { yearMonth: 'desc' },
+    });
+    const baselineVal = {
+      revenueCumulative: baseline?.revenueCumulative ?? 0,
+      costActualCumulative: baseline?.costActualCumulative ?? 0,
+      arCollected: baseline?.arCollected ?? 0,
+      arOverdue: baseline?.arOverdue ?? 0,
+    };
     const fields = Object.keys(patch) as (keyof typeof patch)[];
-    const note = fields.map((k) => `${k}: ${String(prev[k])} → ${String(patch[k])}`).join('; ');
-    const proj = await prisma.project.findUnique({ where: { id: projectId } });
-    const contractValue = proj?.contractValue ?? 0;
-    const collected = patch.arCollected ?? prev.arCollected;
-    const overdue = patch.arOverdue ?? prev.arOverdue;
-    const revenueCumulative = patch.revenueCumulative ?? prev.revenueCumulative;
-    const costActualCumulative = patch.costActualCumulative ?? prev.costActualCumulative;
+    const note = `create; ${fields.map((k) => `${k}: ${String(baselineVal[k as keyof typeof baselineVal] ?? 0)} → ${String(patch[k])}`).join('; ')}`;
+    const collected = patch.arCollected ?? baselineVal.arCollected;
+    const overdue = patch.arOverdue ?? baselineVal.arOverdue;
+    const revenueCumulative = patch.revenueCumulative ?? baselineVal.revenueCumulative;
+    const costActualCumulative = patch.costActualCumulative ?? baselineVal.costActualCumulative;
+    const revenuePeriod = revenueCumulative - baselineVal.revenueCumulative;
+    const costActualPeriod = costActualCumulative - baselineVal.costActualCumulative;
     const arOutstanding = Math.round((contractValue - collected - overdue) * 10) / 10;
     const grossProfit = Math.round((revenueCumulative - costActualCumulative) * 10) / 10;
     const grossMarginPct = revenueCumulative ? (revenueCumulative - costActualCumulative) / revenueCumulative : 0;
+    const backlog = baseline?.backlog ?? 0;
 
-    // Append-only: hạ cờ bản cũ rồi INSERT bản mới, trong CÙNG 1 transaction (giống saveMonthlyFact).
     await prisma.$transaction([
       prisma.factFinancial.updateMany({
         where: { projectId, yearMonth, isLatest: true },
@@ -859,17 +962,18 @@ export const repo = {
       prisma.factFinancial.create({
         data: {
           projectId, yearMonth,
-          version: prev.version + 1,
+          version: 1,
           isLatest: true,
-          revenuePeriod: prev.revenuePeriod, revenueCumulative,
-          costActualPeriod: prev.costActualPeriod, costActualCumulative,
-          grossProfit, grossMarginPct, backlog: prev.backlog,
+          revenuePeriod, revenueCumulative,
+          costActualPeriod, costActualCumulative,
+          grossProfit, grossMarginPct, backlog,
           arCollected: collected, arOutstanding, arOverdue: overdue,
           changedBy, changedAt: new Date(), changeNote: note,
         },
       }),
     ]);
     await this.logAudit('fact_financial', `${projectId}/${yearMonth}`, fields.join(','), '', note, changedBy);
+    return 'created';
   },
 
   async saveProjectProfile(projectId: number, patch: Partial<Project>, changedBy = 'system') {

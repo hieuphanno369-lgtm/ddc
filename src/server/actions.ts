@@ -72,6 +72,7 @@ export async function saveMonthlyData(
   if (!['admin', 'bod'].includes(user.role) && FINANCE_FIELDS.some((f) => patch[f] != null)) {
     return { ok: false, error: 'Forbidden' };
   }
+  if (!(await repo.getProject(projectId))) return { ok: false, error: 'Not found' };
   const by = user.email;
   const parsed = saveMonthlyDataSchema.safeParse({ projectId, month, patch });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
@@ -138,7 +139,7 @@ export async function saveMonthlyData(
     bottleneckStage = findCurrentStage(chain);
   }
   if (pctPlan != null || derivedPctActual != null || ac != null || equipmentActual != null || bottleneckStage !== undefined) {
-    await repo.saveMonthlyFact(
+    const r = await repo.saveMonthlyFact(
       projectId,
       month,
       {
@@ -150,6 +151,7 @@ export async function saveMonthlyData(
       },
       by,
     );
+    if (r === 'not_found') return { ok: false, error: 'Not found' };
   }
 
   // Tài chính đã bị chặn ở guard role phía trên (chỉ Admin/BOD tới được đây).
@@ -160,7 +162,7 @@ export async function saveMonthlyData(
     arOutstanding != null ||
     arOverdue != null
   ) {
-    await repo.saveFinancial(
+    const r = await repo.saveFinancial(
       projectId,
       month,
       {
@@ -172,6 +174,7 @@ export async function saveMonthlyData(
       },
       by,
     );
+    if (r === 'not_found') return { ok: false, error: 'Not found' };
   }
 
   await logActivity(user, 'save_data', `project ${projectId} · ${month}`);

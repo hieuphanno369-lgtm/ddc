@@ -18,7 +18,7 @@ vi.mock('@/server/repo', async () => {
 vi.mock('@/lib/session', () => ({ getCurrentUser: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/session';
-import { addPhotoAction, deletePhotoAction } from '@/server/actions';
+import { addPhotoAction, deletePhotoAction, saveMonthlyData } from '@/server/actions';
 
 const YM = '2026-09';
 const PID_PIC = 1; // pm@daidung.com.vn là PIC
@@ -224,5 +224,25 @@ describe('deletePhotoAction - ma trận quyền', () => {
 
     expect(res).toEqual({ ok: true });
     expect(repo.getPhotoById(seed.id)).toBeNull();
+  });
+});
+
+describe('saveMonthlyData - luu tao moi khi chua co dong fact/tai chinh', () => {
+  it('du an moi chua co thang nao - luu duoc ca fact lan tai chinh', async () => {
+    login(ADMIN);
+    const created = repo.createProject({
+      projectName: 'Du an test P1A', customerId: 1, teamKdId: 1, marketCode: 'TN',
+      projectType: 'EPC', priority: 'P1', contractValue: 100,
+    });
+    const res = await saveMonthlyData(created.id, '2026-09', { pctPlan: 0.1, revenueCumulative: 3 });
+    expect(res).toEqual({ ok: true });
+    expect(repo.getLatestFact(created.id, '2026-09')).toBeDefined();
+    expect(repo.getFinancial(created.id).find((f) => f.yearMonth === '2026-09')).toBeDefined();
+  });
+
+  it('du an khong ton tai -> Not found', async () => {
+    login(ADMIN);
+    const res = await saveMonthlyData(999999, '2026-09', { pctPlan: 0.1 });
+    expect(res).toEqual({ ok: false, error: 'Not found' });
   });
 });

@@ -36,6 +36,7 @@ import type {
   ProjectWorkItem,
   Role,
   SapQueueItem,
+  SaveFactResult,
   Stage,
   StageCode,
   StageMilestoneView,
@@ -594,45 +595,100 @@ export const repo = {
     yearMonth: string,
     patch: Partial<Pick<FactProgressMonthly, 'pctPlan' | 'pctActual' | 'ac' | 'equipmentActual' | 'bottleneckStage'>>,
     changedBy = 'system',
-  ) {
+  ): SaveFactResult {
     const d = getData();
+    const proj = d.projects.find((p) => p.id === projectId);
+    if (!proj) return 'not_found';
     const prev = this.getLatestFact(projectId, yearMonth);
-    if (!prev) return;
-    const proj = d.projects.find((p) => p.id === projectId)!;
-    const fields = Object.keys(patch) as (keyof typeof patch)[];
-    const note = fields.map((k) => `${k}: ${String(prev[k])} → ${String(patch[k])}`).join('; ');
     const bac = proj.contractValue; // snapshot BAC tại thời điểm ghi
-    const pctPlan = patch.pctPlan ?? prev.pctPlan;          // số nhập tay, chỉ lưu để audit
-    const pctActual = patch.pctActual ?? prev.pctActual;
-    const ac = patch.ac ?? prev.ac;
     // Mốc là ngày CUỐI THÁNG đang lưu - sửa lại tháng cũ phải ra đúng PV của tháng đó.
     const at = new Date(`${endOfMonth(yearMonth)}T00:00:00Z`);
     const pctPlanDuration = calcDurationPctComplete(proj.plannedStartDate, proj.plannedFinishDate, at) ?? 0;
     const pv = pctPlanDuration * bac;
+
+    if (prev) {
+      const fields = Object.keys(patch) as (keyof typeof patch)[];
+      const note = fields.map((k) => `${k}: ${String(prev[k])} → ${String(patch[k])}`).join('; ');
+      const pctPlan = patch.pctPlan ?? prev.pctPlan;          // số nhập tay, chỉ lưu để audit
+      const pctActual = patch.pctActual ?? prev.pctActual;
+      const ac = patch.ac ?? prev.ac;
+      const ev = pctActual * bac;
+      const spi = calcSpi(ev, pv);
+      const cpi = ac ? ev / ac : null;
+      // Append-only: hạ cờ bản cũ rồi thêm bản mới - chỉ 1 dòng isLatest = true mỗi (projectId, yearMonth).
+      for (const f of d.facts) if (f.projectId === projectId && f.yearMonth === yearMonth) f.isLatest = false;
+      d.facts.push({
+        ...prev,
+        ...patch,
+        pctPlan,
+        pctActual,
+        ac,
+        bac,
+        pv,
+        ev,
+        spi,
+        cpi,
+        isLatest: true,
+        version: prev.version + 1,
+        changedBy,
+        changedAt: new Date().toISOString(),
+        changeNote: note,
+      });
+      proj.updatedAt = new Date().toISOString();
+      this.logAudit('fact_progress_monthly', `${projectId}/${yearMonth}`, fields.join(','), '', note, changedBy);
+      return 'updated';
+    }
+
+    // Chưa có dòng nào của tháng này - dựng "baseline" từ tháng gần nhất TRƯỚC đó cùng dự án.
+    const baseline = this._latestFacts()
+      .filter((f) => f.projectId === projectId && f.yearMonth < yearMonth)
+      .sort((a, b) => b.yearMonth.localeCompare(a.yearMonth))[0];
+    const baselineVal = {
+      pctPlan: baseline?.pctPlan ?? 0,
+      pctActual: baseline?.pctActual ?? 0,
+      ac: baseline?.ac ?? 0,
+      bottleneckStage: baseline?.bottleneckStage ?? null,
+      manpowerActual: baseline?.manpowerActual ?? 0,
+      equipmentActual: baseline?.equipmentActual ?? 0,
+    };
+    const fields = Object.keys(patch) as (keyof typeof patch)[];
+    const note = `create; ${fields.map((k) => `${k}: ${String(baselineVal[k as keyof typeof baselineVal])} → ${String(patch[k])}`).join('; ')}`;
+    const pctPlan = patch.pctPlan ?? baselineVal.pctPlan;
+    const pctActual = patch.pctActual ?? baselineVal.pctActual;
+    const ac = patch.ac ?? baselineVal.ac;
     const ev = pctActual * bac;
     const spi = calcSpi(ev, pv);
     const cpi = ac ? ev / ac : null;
-    // Append-only: hạ cờ bản cũ rồi thêm bản mới - chỉ 1 dòng isLatest = true mỗi (projectId, yearMonth).
     for (const f of d.facts) if (f.projectId === projectId && f.yearMonth === yearMonth) f.isLatest = false;
     d.facts.push({
-      ...prev,
-      ...patch,
+      projectId,
+      yearMonth,
       pctPlan,
       pctActual,
-      ac,
+      actualStartDate: baseline?.actualStartDate ?? proj.actualStartDate,
+      actualFinishDate: baseline?.actualFinishDate ?? proj.actualFinishDate,
       bac,
       pv,
       ev,
+      ac,
       spi,
       cpi,
+      bottleneckStage: patch.bottleneckStage !== undefined ? patch.bottleneckStage : baselineVal.bottleneckStage,
+      equipmentPlanned: baseline?.equipmentPlanned ?? 0,
+      equipmentActual: patch.equipmentActual ?? baselineVal.equipmentActual,
       isLatest: true,
-      version: prev.version + 1,
+      manpowerPlanned: baseline?.manpowerPlanned ?? 0,
+      manpowerActual: baselineVal.manpowerActual,
+      snapshotLockedAt: null,
+      lockedBy: null,
+      version: 1,
       changedBy,
       changedAt: new Date().toISOString(),
       changeNote: note,
     });
     proj.updatedAt = new Date().toISOString();
     this.logAudit('fact_progress_monthly', `${projectId}/${yearMonth}`, fields.join(','), '', note, changedBy);
+    return 'created';
   },
 
   /** Ghi 7 giai đoạn chuỗi giá trị của 1 tháng (upsert theo projectId/stageCode/yearMonth). */
@@ -676,35 +732,85 @@ export const repo = {
       >
     >,
     changedBy = 'system',
-  ) {
+  ): SaveFactResult {
     const d = getData();
-    const prev = this._latestFinancial().find((x) => x.projectId === projectId && x.yearMonth === yearMonth);
-    if (!prev) return;
-    const fields = Object.keys(patch) as (keyof typeof patch)[];
-    const note = fields.map((k) => `${k}: ${String(prev[k])} → ${String(patch[k])}`).join('; ');
-    // arOutstanding tự tính = Giá trị HĐ − Đã thu − Quá hạn (không nhận từ client).
     const proj = d.projects.find((x) => x.id === projectId);
-    const contractValue = proj?.contractValue ?? 0;
-    const collected = patch.arCollected ?? prev.arCollected;
-    const overdue = patch.arOverdue ?? prev.arOverdue;
+    if (!proj) return 'not_found';
+    const contractValue = proj.contractValue;
+    const prev = this._latestFinancial().find((x) => x.projectId === projectId && x.yearMonth === yearMonth);
+
+    if (prev) {
+      const fields = Object.keys(patch) as (keyof typeof patch)[];
+      const note = fields.map((k) => `${k}: ${String(prev[k])} → ${String(patch[k])}`).join('; ');
+      // arOutstanding tự tính = Giá trị HĐ − Đã thu − Quá hạn (không nhận từ client).
+      const collected = patch.arCollected ?? prev.arCollected;
+      const overdue = patch.arOverdue ?? prev.arOverdue;
+      const next: FactFinancial = {
+        ...prev,
+        ...patch,
+        arOutstanding: Math.round((contractValue - collected - overdue) * 10) / 10,
+        isLatest: true,
+        version: prev.version + 1,
+        changedBy,
+        changedAt: new Date().toISOString(),
+        changeNote: note,
+      };
+      next.grossProfit = Math.round((next.revenueCumulative - next.costActualCumulative) * 10) / 10;
+      next.grossMarginPct = next.revenueCumulative
+        ? (next.revenueCumulative - next.costActualCumulative) / next.revenueCumulative
+        : 0;
+      // Append-only: hạ cờ bản cũ rồi thêm bản mới - chỉ 1 dòng isLatest = true mỗi (projectId, yearMonth).
+      for (const f of d.financial) if (f.projectId === projectId && f.yearMonth === yearMonth) f.isLatest = false;
+      d.financial.push(next);
+      this.logAudit('fact_financial', `${projectId}/${yearMonth}`, fields.join(','), '', note, changedBy);
+      return 'updated';
+    }
+
+    // Chưa có dòng nào của tháng này - dựng "baseline" từ tháng gần nhất TRƯỚC đó cùng dự án.
+    const baseline = this._latestFinancial()
+      .filter((f) => f.projectId === projectId && f.yearMonth < yearMonth)
+      .sort((a, b) => b.yearMonth.localeCompare(a.yearMonth))[0];
+    const baselineVal = {
+      revenueCumulative: baseline?.revenueCumulative ?? 0,
+      costActualCumulative: baseline?.costActualCumulative ?? 0,
+      arCollected: baseline?.arCollected ?? 0,
+      arOverdue: baseline?.arOverdue ?? 0,
+    };
+    const fields = Object.keys(patch) as (keyof typeof patch)[];
+    const note = `create; ${fields.map((k) => `${k}: ${String(baselineVal[k as keyof typeof baselineVal] ?? 0)} → ${String(patch[k])}`).join('; ')}`;
+    const collected = patch.arCollected ?? baselineVal.arCollected;
+    const overdue = patch.arOverdue ?? baselineVal.arOverdue;
+    const revenueCumulative = patch.revenueCumulative ?? baselineVal.revenueCumulative;
+    const costActualCumulative = patch.costActualCumulative ?? baselineVal.costActualCumulative;
+    const revenuePeriod = revenueCumulative - baselineVal.revenueCumulative;
+    const costActualPeriod = costActualCumulative - baselineVal.costActualCumulative;
+    const arOutstanding = Math.round((contractValue - collected - overdue) * 10) / 10;
+    const grossProfit = Math.round((revenueCumulative - costActualCumulative) * 10) / 10;
+    const grossMarginPct = revenueCumulative ? (revenueCumulative - costActualCumulative) / revenueCumulative : 0;
+    const backlog = baseline?.backlog ?? 0;
     const next: FactFinancial = {
-      ...prev,
-      ...patch,
-      arOutstanding: Math.round((contractValue - collected - overdue) * 10) / 10,
+      projectId,
+      yearMonth,
+      revenuePeriod,
+      revenueCumulative,
+      costActualPeriod,
+      costActualCumulative,
+      grossProfit,
+      grossMarginPct,
+      backlog,
+      arCollected: collected,
+      arOutstanding,
+      arOverdue: overdue,
+      version: 1,
       isLatest: true,
-      version: prev.version + 1,
       changedBy,
       changedAt: new Date().toISOString(),
       changeNote: note,
     };
-    next.grossProfit = Math.round((next.revenueCumulative - next.costActualCumulative) * 10) / 10;
-    next.grossMarginPct = next.revenueCumulative
-      ? (next.revenueCumulative - next.costActualCumulative) / next.revenueCumulative
-      : 0;
-    // Append-only: hạ cờ bản cũ rồi thêm bản mới - chỉ 1 dòng isLatest = true mỗi (projectId, yearMonth).
     for (const f of d.financial) if (f.projectId === projectId && f.yearMonth === yearMonth) f.isLatest = false;
     d.financial.push(next);
     this.logAudit('fact_financial', `${projectId}/${yearMonth}`, fields.join(','), '', note, changedBy);
+    return 'created';
   },
 
   saveProjectProfile(projectId: number, patch: Partial<Project>, changedBy = 'system') {

@@ -48,6 +48,40 @@ describe('append-only facts (latest-wins)', () => {
     expect(after.revenueCumulative).toBe(999);
     expect(after.changeNote).toContain('revenueCumulative');
   });
+
+  it('saveMonthlyFact/saveFinancial: du an moi chua co dong nao -> created, version 1', () => {
+    const created = repo.createProject({
+      projectName: 'Du an moi', customerId: 1, teamKdId: 1, marketCode: 'TN',
+      projectType: 'EPC', priority: 'P1', contractValue: 100,
+    });
+    const r = repo.saveMonthlyFact(created.id, '2026-09', { pctPlan: 0.2, ac: 5 }, 'admin@daidung.com.vn');
+    expect(r).toBe('created');
+    const f = repo.getLatestFact(created.id, '2026-09')!;
+    expect(f.version).toBe(1);
+    expect(f.pctActual).toBe(0);
+
+    const r2 = repo.saveMonthlyFact(created.id, '2026-09', { pctActual: 0.3 }, 'admin@daidung.com.vn');
+    expect(r2).toBe('updated');
+    expect(repo.getLatestFact(created.id, '2026-09')!.version).toBe(2);
+
+    const rf = repo.saveFinancial(created.id, '2026-09', { revenueCumulative: 10 }, 'admin@daidung.com.vn');
+    expect(rf).toBe('created');
+    const fin = repo.getFinancial(created.id).find((x) => x.yearMonth === '2026-09')!;
+    expect(fin.revenuePeriod).toBe(fin.revenueCumulative);
+  });
+
+  it('saveMonthlyFact: du an co san, thang chua co dong -> carry-forward tu thang gan nhat truoc do', () => {
+    const p = repo.listProjects()[0];
+    const prevFact = repo.getLatestFact(p.id, '2026-09')!;
+    repo.saveMonthlyFact(p.id, '2026-10', { ac: 1 }, 'admin@daidung.com.vn');
+    const f = repo.getLatestFact(p.id, '2026-10')!;
+    expect(f.pctActual).toBe(prevFact.pctActual);
+  });
+
+  it('saveMonthlyFact/saveFinancial: du an khong ton tai -> not_found', () => {
+    expect(repo.saveMonthlyFact(999999, '2026-09', { ac: 1 })).toBe('not_found');
+    expect(repo.saveFinancial(999999, '2026-09', { revenueCumulative: 1 })).toBe('not_found');
+  });
 });
 
 describe('dim chuẩn hóa (customer/team)', () => {
