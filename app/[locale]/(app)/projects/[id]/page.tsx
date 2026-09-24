@@ -320,6 +320,72 @@ export default async function ProjectDetailPage({
         <StageExplorer rows={stageRows} compare={compare} today={today} locale={locale} />
       </StageSelectionProvider>
 
+      {/* Tang 4 - Huy dong nguon luc (mock-up dong 759-767) */}
+      <div className="g2">
+        <Card id="res-manpower" style={{ scrollMarginTop: 72 }}>
+          <CardHeader
+            title={t('detail.res.manTitle')}
+            titleExtra={<span className="chip c-plain">{t('detail.res.manual')}</span>}
+            action={<Legend items={[{ label: t('detail.planned'), color: 'var(--s-plan)' }, { label: t('detail.actual'), color: 'var(--s-third)' }]} />}
+          />
+          <CardBody><ResourceBreakdownChart rows={breakdown.manpower} kind="manpower" /></CardBody>
+        </Card>
+        <Card id="res-equipment" style={{ scrollMarginTop: 72 }}>
+          <CardHeader
+            title={t('detail.res.eqpTitle')}
+            titleExtra={<span className="chip c-plain">{t('detail.res.manual')}</span>}
+            action={<Legend items={[{ label: t('detail.planned'), color: 'var(--s-plan)' }, { label: t('detail.actual'), color: 'var(--s-cost)' }]} />}
+          />
+          <CardBody><ResourceBreakdownChart rows={breakdown.equipment} kind="equipment" /></CardBody>
+        </Card>
+      </div>
+
+      {tracking ? (
+        <WeeklyTrackingCard data={tracking} locale={locale} />
+      ) : (
+        <Card>
+          <CardHeader title={t('detail.track.title')} />
+          <CardBody><p className="empty">{t('detail.noDailyData')}</p></CardBody>
+        </Card>
+      )}
+
+      {/* T12b(a) - chart nhan luc theo ca x nha thau */}
+      <Card id="res-shift" style={{ scrollMarginTop: 72 }}>
+        <CardHeader
+          title={t('manpowerCharts.shiftTitle')}
+          titleExtra={<HelpTip text={t('manpowerCharts.shiftHelp')} label={t('common.explain')} />}
+        />
+        <CardBody><ShiftManpowerChart data={shiftChart} initialMonth={month} /></CardBody>
+      </Card>
+
+      {/* T12b(b) - chart cot chong nhan luc theo tuan x nha thau, dat cuoi trang theo yeu cau */}
+      <Card id="res-weekly" style={{ scrollMarginTop: 72 }}>
+        <CardHeader
+          title={t('manpowerCharts.weeklyTitle')}
+          titleExtra={<HelpTip text={t('manpowerCharts.weeklyHelp')} label={t('common.explain')} />}
+        />
+        <CardBody>
+          {weekly ? <WeeklyManpowerStackChart data={weekly} initialMonth={month} /> : <p className="empty">{t('manpowerCharts.noData')}</p>}
+        </CardBody>
+      </Card>
+
+      {/* T14 - Gantt thiet bi theo tung chiec */}
+      <Card id="eq-gantt" style={{ scrollMarginTop: 72 }} className="overflow-visible">
+        <CardHeader
+          title={t('equipmentGantt.title')}
+          subtitle={gantt ? `${formatDate(gantt.planFrom, locale)} - ${formatDate(gantt.planTo, locale)}` : undefined}
+          titleExtra={<HelpTip text={t('equipmentGantt.help')} label={t('common.explain')} />}
+          action={gantt ? (
+            <Legend items={[
+              ...gantt.legend.map((l) => ({ label: l.name, color: l.color })),
+              { label: t('equipmentGantt.legendUsed'), color: 'var(--label2)' },
+            ]} />
+          ) : undefined}
+        />
+        <CardBody>{gantt ? <EquipmentGantt model={gantt} /> : <p className="empty">{t('equipmentGantt.noPlan')}</p>}</CardBody>
+      </Card>
+
+      {/* Cum xu huong + ho so dat cuoi trang theo yeu cau chu du an 2026-09-24 */}
       {/* Charts */}
       <div className="g2">
         <Card>
@@ -471,71 +537,6 @@ export default async function ProjectDetailPage({
             </div>
           )}
         </CardBody>
-      </Card>
-
-      {/* Tang 4 - Huy dong nguon luc (mock-up dong 759-767) */}
-      <div className="g2">
-        <Card id="res-manpower" style={{ scrollMarginTop: 72 }}>
-          <CardHeader
-            title={t('detail.res.manTitle')}
-            titleExtra={<span className="chip c-plain">{t('detail.res.manual')}</span>}
-            action={<Legend items={[{ label: t('detail.planned'), color: 'var(--s-plan)' }, { label: t('detail.actual'), color: 'var(--s-third)' }]} />}
-          />
-          <CardBody><ResourceBreakdownChart rows={breakdown.manpower} kind="manpower" /></CardBody>
-        </Card>
-        <Card id="res-equipment" style={{ scrollMarginTop: 72 }}>
-          <CardHeader
-            title={t('detail.res.eqpTitle')}
-            titleExtra={<span className="chip c-plain">{t('detail.res.manual')}</span>}
-            action={<Legend items={[{ label: t('detail.planned'), color: 'var(--s-plan)' }, { label: t('detail.actual'), color: 'var(--s-cost)' }]} />}
-          />
-          <CardBody><ResourceBreakdownChart rows={breakdown.equipment} kind="equipment" /></CardBody>
-        </Card>
-      </div>
-
-      {tracking ? (
-        <WeeklyTrackingCard data={tracking} locale={locale} />
-      ) : (
-        <Card>
-          <CardHeader title={t('detail.track.title')} />
-          <CardBody><p className="empty">{t('detail.noDailyData')}</p></CardBody>
-        </Card>
-      )}
-
-      {/* T12b(a) - chart nhan luc theo ca x nha thau */}
-      <Card id="res-shift" style={{ scrollMarginTop: 72 }}>
-        <CardHeader
-          title={t('manpowerCharts.shiftTitle')}
-          titleExtra={<HelpTip text={t('manpowerCharts.shiftHelp')} label={t('common.explain')} />}
-        />
-        <CardBody><ShiftManpowerChart data={shiftChart} initialMonth={month} /></CardBody>
-      </Card>
-
-      {/* T12b(b) - chart cot chong nhan luc theo tuan x nha thau, dat cuoi trang theo yeu cau */}
-      <Card id="res-weekly" style={{ scrollMarginTop: 72 }}>
-        <CardHeader
-          title={t('manpowerCharts.weeklyTitle')}
-          titleExtra={<HelpTip text={t('manpowerCharts.weeklyHelp')} label={t('common.explain')} />}
-        />
-        <CardBody>
-          {weekly ? <WeeklyManpowerStackChart data={weekly} initialMonth={month} /> : <p className="empty">{t('manpowerCharts.noData')}</p>}
-        </CardBody>
-      </Card>
-
-      {/* T14 - Gantt thiet bi theo tung chiec */}
-      <Card id="eq-gantt" style={{ scrollMarginTop: 72 }} className="overflow-visible">
-        <CardHeader
-          title={t('equipmentGantt.title')}
-          subtitle={gantt ? `${formatDate(gantt.planFrom, locale)} - ${formatDate(gantt.planTo, locale)}` : undefined}
-          titleExtra={<HelpTip text={t('equipmentGantt.help')} label={t('common.explain')} />}
-          action={gantt ? (
-            <Legend items={[
-              ...gantt.legend.map((l) => ({ label: l.name, color: l.color })),
-              { label: t('equipmentGantt.legendUsed'), color: 'var(--label2)' },
-            ]} />
-          ) : undefined}
-        />
-        <CardBody>{gantt ? <EquipmentGantt model={gantt} /> : <p className="empty">{t('equipmentGantt.noPlan')}</p>}</CardBody>
       </Card>
     </>
   );
