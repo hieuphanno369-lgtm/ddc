@@ -95,4 +95,28 @@ describe('prisma-repo.saveFinancial - Task 3 (carry-forward khi chua co dong)', 
     expect(r).toBe('not_found');
     expect(transactionCalls).toHaveLength(0);
   });
+
+  it('Muc 6 (danh-gia.md, vong sua 1) - thang hien tai chua co dong, dung baseline thang truoc de tinh period/backlog', async () => {
+    const baselineFinancial = {
+      revenueCumulative: 10, costActualCumulative: 6, arCollected: 0, arOverdue: 0, backlog: 3,
+    };
+    financialFindFirst.mockImplementation(async (args: { where: { yearMonth?: string | { lt: string } } }) => {
+      if (args.where.yearMonth === CURRENT_YM) return null;
+      if (typeof args.where.yearMonth === 'object' && 'lt' in args.where.yearMonth) return baselineFinancial;
+      return null;
+    });
+
+    const r = await repo.saveFinancial(1, CURRENT_YM, { revenueCumulative: 15 });
+
+    expect(r).toBe('created');
+    expect(financialCreate).toHaveBeenCalledTimes(1);
+    const createArgs = financialCreate.mock.calls[0][0] as {
+      data: { version: number; revenuePeriod: number; costActualPeriod: number; backlog: number; revenueCumulative: number };
+    };
+    expect(createArgs.data.version).toBe(1);
+    expect(createArgs.data.revenuePeriod).toBe(5);
+    expect(createArgs.data.costActualPeriod).toBe(0);
+    expect(createArgs.data.backlog).toBe(3);
+    expect(createArgs.data.revenueCumulative).toBe(15);
+  });
 });
