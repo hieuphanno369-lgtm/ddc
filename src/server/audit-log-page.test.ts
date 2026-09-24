@@ -72,4 +72,26 @@ describe('getAuditLogPage', () => {
     expect(auditLogCount).toHaveBeenCalledWith({ where: {} });
     expect(auditLogFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
   });
+
+  // Tester (P1B): goi truc tiep voi page ngoai bien (0/am), BO QUA lop guard parsePage() o
+  // tang page.tsx - kiem chinh ham getAuditLogPage() tu phong ve, khong chi dua vao caller.
+  it('page=0 truyen truc tiep (khong qua parsePage) -> tu kep ve page 1, skip 0', async () => {
+    auditLogCount.mockResolvedValueOnce(45);
+    auditLogFindMany.mockResolvedValueOnce([]);
+
+    const r = await getAuditLogPage({ page: 0, range: '14d', now: NOW });
+
+    expect(r.page).toBe(1);
+    expect(auditLogFindMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 0 }));
+  });
+
+  it('page=-5 truyen truc tiep -> van kep ve page 1, khong ra skip am', async () => {
+    auditLogCount.mockResolvedValueOnce(45);
+    auditLogFindMany.mockResolvedValueOnce([]);
+
+    const r = await getAuditLogPage({ page: -5, range: '14d', now: NOW });
+
+    expect(r.page).toBe(1);
+    expect(auditLogFindMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 0 }));
+  });
 });

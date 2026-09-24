@@ -253,4 +253,33 @@ describe('/audit - render nội dung', () => {
 
     expect(out).toContain('href="/audit"');
   });
+
+  // Tester (P1B, Task 6): tham số rác trên URL thật (?page=..., không chỉ đơn vị parsePage())
+  // phải không làm trang crash - render ở mức trang, đi qua đúng parsePage() bên trong AuditPage.
+  it('?page=rac (chuoi khong phai so): khong throw, ve trang 1 nhu khong co page', async () => {
+    for (let i = 0; i < 25; i++) {
+      repo.logAudit('fact_progress_monthly', String(i), 'pctActual', '1', '2', 'admin@daidung.com.vn');
+    }
+    (getCurrentUser as Mock).mockResolvedValue(ADMIN);
+
+    const out = await render(() => AuditPage({ searchParams: { page: 'rac' } }));
+    const rowCount = (out.match(/<tr>/g) ?? []).length - 1;
+
+    expect(rowCount).toBe(20);
+    expect(out).toContain('href="/audit?page=2"');
+  });
+
+  // Next.js cho phép ?page=2&page=3 -> searchParams.page thanh mang string[].
+  it('?page bi lap lai thanh mang (Next.js searchParams) -> khong throw, fallback trang 1', async () => {
+    for (let i = 0; i < 25; i++) {
+      repo.logAudit('fact_progress_monthly', String(i), 'pctActual', '1', '2', 'admin@daidung.com.vn');
+    }
+    (getCurrentUser as Mock).mockResolvedValue(ADMIN);
+
+    const out = await render(() => AuditPage({ searchParams: { page: ['2', '3'] } }));
+    const rowCount = (out.match(/<tr>/g) ?? []).length - 1;
+
+    expect(rowCount).toBe(20);
+    expect(out).toContain('href="/audit?page=2"');
+  });
 });
