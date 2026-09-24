@@ -23,6 +23,7 @@ import type {
   ProjectKeyMilestone,
   ProjectSapCode,
   ProjectPhoto,
+  ProjectEquipmentPlan,
   ProjectHistoryEntry,
   ProjectStageWeight,
   ProjectWorkItem,
@@ -35,7 +36,7 @@ import type {
 import { splitHeadcount } from '@/lib/shifts';
 import { customers, exchangeRates, factories, teams, currencies } from './dims';
 import {
-  DAY_FACTORS, ERP_DETAIL_PROJECT_ID, contractors, equipmentLastDay, equipments,
+  DAY_FACTORS, ERP_DETAIL_PROJECT_ID, contractors, equipmentLastDay, equipmentPlanSeed, equipments,
   keyMilestoneSeed, manpowerLastDay, shifts, stages, workItemNames,
 } from './erp';
 import { seedProjects, type SeedProject } from './projects';
@@ -501,6 +502,7 @@ export interface RepoData {
   shifts: Shift[];
   dailyManpowerShifts: FactDailyManpowerShift[];
   dailyEquipment: FactDailyEquipmentUsage[];
+  equipmentPlans: ProjectEquipmentPlan[];
 }
 
 export function buildRepoData(): RepoData {
@@ -645,5 +647,6 @@ export function buildRepoData(): RepoData {
     shifts,
     dailyManpowerShifts: res.manpowerShifts,
     dailyEquipment: res.equipmentUsage,
+    equipmentPlans: equipmentPlanSeed,
   };
 }

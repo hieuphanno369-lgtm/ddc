@@ -133,4 +133,20 @@ describe('Seed ERP v2', () => {
     const emails = new Set(data.userRoles.map((u) => u.email));
     for (const a of data.assignments) expect(emails.has(a.userEmail)).toBe(true);
   });
+
+  it('ke hoach thiet bi Gantt: 6 dong, plannedFinish >= plannedStart, unitNo >= 1, workItemId ton tai o du an 1', () => {
+    expect(data.equipmentPlans).toHaveLength(6);
+    const workItemIds = new Set(
+      data.workItems.filter((w) => w.projectId === ERP_DETAIL_PROJECT_ID).map((w) => w.id),
+    );
+    for (const p of data.equipmentPlans) {
+      expect(p.plannedFinish >= p.plannedStart).toBe(true);
+      expect(p.unitNo).toBeGreaterThanOrEqual(1);
+      if (p.workItemId != null) expect(workItemIds.has(p.workItemId)).toBe(true);
+    }
+    const unitNosOfEquipment1 = new Set(
+      data.equipmentPlans.filter((p) => p.equipmentId === 1).map((p) => p.unitNo),
+    );
+    expect([...unitNosOfEquipment1].sort()).toEqual([1, 2, 3]);
+  });
 });

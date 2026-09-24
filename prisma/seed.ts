@@ -134,6 +134,16 @@ async function main() {
     data: data.dailyEquipment.map((e) => ({ ...e, workDate: new Date(`${e.workDate}T00:00:00Z`) })),
   });
 
+  await prisma.projectEquipmentPlan.deleteMany();
+  await prisma.projectEquipmentPlan.createMany({
+    data: data.equipmentPlans.map((p) => ({
+      ...p,
+      plannedStart: new Date(`${p.plannedStart}T00:00:00Z`),
+      plannedFinish: new Date(`${p.plannedFinish}T00:00:00Z`),
+      updatedAt: new Date(p.updatedAt),
+    })),
+  });
+
   // ---- Logs / phụ ----
   await prisma.alertLog.deleteMany();
   await prisma.alertLog.createMany({
@@ -192,6 +202,7 @@ async function syncSequences() {
     'project_key_milestone',
     'dim_contractor',
     'dim_equipment',
+    'project_equipment_plan',
   ];
   for (const t of tables) {
     await prisma.$executeRawUnsafe(

@@ -584,6 +584,7 @@ export const repo = {
     d.projectContractors = [];
     d.dailyManpowerShifts = [];
     d.dailyEquipment = [];
+    d.equipmentPlans = [];
     // giữ nguyên: stages, contractors, equipments - là dim, không phải data nghiệp vụ.
   },
 
