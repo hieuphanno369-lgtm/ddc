@@ -429,6 +429,40 @@ export interface JobRunEntry {
   startedBy: string;
 }
 
+// ---- Nền thông báo P3B (kênh/người nhận) - P2A chưa có hàm repo/UI, chỉ chuẩn bị type ----
+export type NotifyKind = 'webhook' | 'email';
+export type AlertSeverity = 'Red' | 'Amber';
+
+export interface NotifyChannelSettings {
+  webhookFormat?: 'generic' | 'slack' | 'teams'; // kind = webhook
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpSecure?: boolean;
+  smtpUser?: string;
+  fromAddress?: string; // kind = email
+}
+
+export interface NotifyChannel {
+  id: number;
+  kind: NotifyKind;
+  name: string;
+  isEnabled: boolean;
+  minSeverity: AlertSeverity;
+  settings: NotifyChannelSettings;
+  secretHint: string;
+  hasSecret: boolean; // KHÔNG bao giờ trả secretEnc ra UI
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export interface NotifyRecipient {
+  id: number;
+  channelId: number;
+  email: string;
+  minSeverity: AlertSeverity;
+  isEnabled: boolean;
+}
+
 export interface SapQueueItem {
   id: number;
   sapCode: string;
