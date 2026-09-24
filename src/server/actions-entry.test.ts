@@ -273,4 +273,27 @@ describe('previewDailyImportAction / commitDailyImportAction (Task 5)', () => {
     ]);
     expect(res).toEqual({ ok: true, days: 1, created: 0, updated: 1, unchanged: 0 });
   });
+
+  it('import doi so ngay hom qua da co san, khong ly do -> reason_required + workDate, khong ghi gi', async () => {
+    login(ADMIN);
+    const before = repo.getDailyManpowerByShift(1, '2026-09-15', '2026-09-15');
+
+    const res = await commitDailyImportAction(1, [
+      { workDate: '2026-09-15', manpower: [{ contractorId: 1, shiftCode: 'morning', plannedHeadcount: 1000, actualHeadcount: 1000 }], equipment: [] },
+    ]);
+
+    expect(res).toEqual({ ok: false, error: 'reason_required', workDate: '2026-09-15' });
+    expect(repo.getDailyManpowerByShift(1, '2026-09-15', '2026-09-15')).toEqual(before);
+  });
+
+  it('import doi so ngay hom qua kem ly do (>=5 ky tu) -> ok, audit ghi dung note', async () => {
+    login(ADMIN);
+    const res = await commitDailyImportAction(1, [
+      { workDate: '2026-09-15', manpower: [{ contractorId: 1, shiftCode: 'morning', plannedHeadcount: 1000, actualHeadcount: 1000 }], equipment: [] },
+    ], 'sửa từ file import');
+
+    expect(res).toEqual({ ok: true, days: 1, created: 0, updated: 1, unchanged: 0 });
+    const last = repo.getAuditLog().find((a) => a.tableName === 'fact_daily_manpower')!;
+    expect(last.note).toBe('sửa từ file import');
+  });
 });

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { repo } from './mock-repo';
+import type { NewEngineAlert } from './types';
 
 /** Task 1 (P2A) - getShifts/getDailyManpowerByShift + logAudit/closeAlert nhận thêm note. */
 describe('entry repo (mock)', () => {
@@ -123,5 +124,63 @@ describe('entry repo (mock)', () => {
 
   it('setFactoryActive: id khong co -> false', () => {
     expect(repo.setFactoryActive(999999, false, 'u@x')).toBe(false);
+  });
+
+  /** T11 (Task 8, P2A): insertEngineAlerts - test truc tiep tren repo, khong qua engine. */
+  describe('insertEngineAlerts (K6 - chong trung)', () => {
+    function candidate(over: Partial<NewEngineAlert> = {}): NewEngineAlert {
+      return {
+        projectId: 4, ruleCode: 'spi_low', alertType: 'Amber', ruleTriggered: 'SPI < 0.9',
+        message: 'SPI = 0.80 - trễ tiến độ theo giá trị', dedupeKey: 'spi_low:2026-09',
+        owner: 'pm@daidung.com.vn', deadline: '2026-09-30', openedAt: '2026-09-16T00:00:00.000Z',
+        ...over,
+      };
+    }
+
+    it('duong chay thuan loi: du an chua co alert cung dedupeKey -> tao moi, tra ve 1', () => {
+      const before = repo.getAlerts().length;
+      const created = repo.insertEngineAlerts([candidate()]);
+      expect(created).toBe(1);
+      expect(repo.getAlerts()).toHaveLength(before + 1);
+      const row = repo.getAlerts().find((a) => a.projectId === 4 && a.ruleCode === 'spi_low');
+      expect(row).toMatchObject({ dedupeKey: 'spi_low:2026-09', closedAt: null, action: '', closedBy: null, closeNote: '' });
+    });
+
+    it('bien: cung (projectId, dedupeKey) da co (du da dong) -> khong tao lai, tra ve 0', () => {
+      repo.insertEngineAlerts([candidate()]);
+      repo.closeAlert(repo.getAlerts().find((a) => a.projectId === 4 && a.ruleCode === 'spi_low')!.id, 'Đã xử lý', 'admin@daidung.com.vn', '');
+      const before = repo.getAlerts().length;
+
+      const created = repo.insertEngineAlerts([candidate()]);
+
+      expect(created).toBe(0);
+      expect(repo.getAlerts()).toHaveLength(before);
+    });
+
+    it('bien: dedupeKey khac nhung con alert MO cung ruleCode -> khong tao (chan trung luat dang mo)', () => {
+      repo.insertEngineAlerts([candidate()]); // mo alert spi_low:2026-09, van dang mo
+      const before = repo.getAlerts().length;
+
+      const created = repo.insertEngineAlerts([candidate({ dedupeKey: 'spi_low:2026-10' })]);
+
+      expect(created).toBe(0);
+      expect(repo.getAlerts()).toHaveLength(before);
+    });
+
+    it('dedupeKey khac VA alert cu cung ruleCode DA DONG -> duoc tao (Q10: khong tu mo lai nhung ky moi van tao)', () => {
+      repo.insertEngineAlerts([candidate()]);
+      repo.closeAlert(repo.getAlerts().find((a) => a.projectId === 4 && a.ruleCode === 'spi_low')!.id, 'Đã xử lý', 'admin@daidung.com.vn', '');
+
+      const created = repo.insertEngineAlerts([candidate({ dedupeKey: 'spi_low:2026-10' })]);
+
+      expect(created).toBe(1);
+      expect(repo.getAlerts().filter((a) => a.projectId === 4 && a.ruleCode === 'spi_low')).toHaveLength(2);
+    });
+
+    it('mang rong -> tra ve 0, khong doi gi', () => {
+      const before = repo.getAlerts().length;
+      expect(repo.insertEngineAlerts([])).toBe(0);
+      expect(repo.getAlerts()).toHaveLength(before);
+    });
   });
 });
