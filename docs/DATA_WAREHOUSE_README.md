@@ -1,120 +1,382 @@
 # Data Warehouse — DDC Control Tower
 
+> **Nguồn sự thật:** trang `/data-schema` và `/data-dictionary` (sinh từ `prisma/schema.prisma`). Mục 1 (ERD) sinh tự động; các mục khác viết tay ngày 2026-09 trở về trước, **có thể đã cũ** — khi lệch, tin trang web.
+
 Tài liệu cho Data Engineer/Analyst hiểu lại hệ thống mà không cần đọc toàn bộ code.
-**Trạng thái hiện tại:** mock in-memory (`src/server/repo/mock-repo.ts`) mô phỏng đúng schema dưới đây. Khi lên Supabase/Prisma, schema này trở thành `schema.prisma`, các công thức dưới đây chuyển vào `v_project_metrics` (DB view).
+**Trạng thái hiện tại:** Runtime dùng Prisma + PostgreSQL (`src/server/repo/prisma-repo.ts`); mock chỉ dùng cho test.
 
 ---
 
 ## 1. ERD (Star Schema)
 
+<!-- ERD:BEGIN (sinh tu dong: npm run docs:erd) -->
 ```mermaid
 erDiagram
-    dim_project ||--o{ dim_project_alias : "SCD2"
-    dim_project ||--o{ project_sap_codes : "many SAP"
-    dim_project }o--|| dim_customer : customer_id
-    dim_project }o--|| dim_team_kd : team_kd_id
-    dim_project ||--o{ project_assignments : "PIC"
-    dim_project ||--o{ fact_progress_monthly : ""
-    dim_project ||--o{ fact_value_chain_progress : ""
-    dim_project ||--o{ fact_financial : ""
-    dim_project ||--o{ fact_volume : ""
-    dim_project ||--o{ alert_log : ""
-    dim_project ||--o{ project_photos : ""
+    dim_project ||--o{ alert_log : "projectId"
+    dim_contractor |o--o{ dim_contractor : "mergedIntoId"
+    dim_customer |o--o{ dim_customer : "mergedIntoId"
+    dim_currency ||--o{ dim_exchange_rate : "currencyCode"
+    dim_currency ||--o{ dim_project : "currencyCode"
+    dim_customer ||--o{ dim_project : "customerId"
+    dim_factory |o--o{ dim_project : "factoryId"
+    dim_team_kd ||--o{ dim_project : "teamKdId"
+    dim_project ||--o{ dim_project_alias : "projectId"
+    dim_team_kd |o--o{ dim_team_kd : "mergedIntoId"
+    dim_contractor ||--o{ fact_daily_equipment_usage : "contractorId"
+    dim_equipment ||--o{ fact_daily_equipment_usage : "equipmentId"
+    dim_project ||--o{ fact_daily_equipment_usage : "projectId"
+    dim_contractor ||--o{ fact_daily_manpower : "contractorId"
+    dim_project ||--o{ fact_daily_manpower : "projectId"
+    dim_shift ||--o{ fact_daily_manpower : "shiftCode"
+    dim_project ||--o{ fact_financial : "projectId"
+    dim_stage |o--o{ fact_progress_monthly : "bottleneckStage"
+    dim_project ||--o{ fact_progress_monthly : "projectId"
+    dim_project ||--o{ fact_stage_milestone : "projectId"
+    dim_stage ||--o{ fact_stage_milestone : "stageCode"
+    dim_project ||--o{ fact_stage_work_item : "projectId"
+    dim_stage ||--o{ fact_stage_work_item : "stageCode"
+    project_work_item ||--o{ fact_stage_work_item : "workItemId"
+    dim_project ||--o{ fact_value_chain_progress : "projectId"
+    dim_stage ||--o{ fact_value_chain_progress : "stageCode"
+    dim_factory ||--o{ fact_volume : "factoryId"
+    dim_project ||--o{ fact_volume : "projectId"
+    dim_project ||--o{ project_assignments : "projectId"
+    dim_contractor ||--o{ project_contractor : "contractorId"
+    dim_project ||--o{ project_contractor : "projectId"
+    dim_equipment ||--o{ project_equipment_plan : "equipmentId"
+    dim_project ||--o{ project_equipment_plan : "projectId"
+    project_work_item |o--o{ project_equipment_plan : "workItemId"
+    dim_project ||--o{ project_history : "projectId"
+    dim_project ||--o{ project_key_milestone : "projectId"
+    dim_project ||--o{ project_photos : "projectId"
+    dim_project ||--o{ project_sap_codes : "projectId"
+    dim_project ||--o{ project_stage_weight : "projectId"
+    dim_stage ||--o{ project_stage_weight : "stageCode"
+    dim_project ||--o{ project_work_item : "projectId"
+    dim_project |o--o{ sap_queue : "projectId"
 
-    dim_currency ||--o{ dim_exchange_rate : ""
-    dim_factory ||--o{ fact_volume : factory_id
-
-    dim_project {
-      int project_id PK
-      string master_code UK
-      string current_alias_code
-      string project_name
-      int customer_id FK
-      int team_kd_id FK
-      string market_code "TN/XK/NoiBo"
-      string project_type
-      string priority "P0..P3"
-      numeric contract_value
-      string currency_code FK
-      date contract_date
-      date planned_start_date
-      date planned_finish_date
-      date committed_handover_date
-      bool penalized
-      bool is_active
+    activity_log {
+      Int id PK
+      String userEmail
+      String userName
+      String action
+      String detail
+      String ip
+      String userAgent
+      DateTime createdAt
     }
-
-    dim_project_alias {
-      int id PK
-      int project_id FK
-      string alias_code
-      string alias_type "Ma_CT/Ma_noi_bo"
-      date effective_from
-      date effective_to
-      string reason
-    }
-
-    project_sap_codes {
-      int id PK
-      int project_id FK
-      string sap_code UK
-      string source_doc_type
-    }
-
-    fact_progress_monthly {
-      int project_id PK
-      string year_month PK
-      numeric pct_plan
-      numeric pct_actual
-      numeric pv
-      numeric ev
-      numeric ac
-      numeric spi
-      numeric cpi
-      string bottleneck_stage
-      string snapshot_locked_at
-      int row_version
-    }
-
-    fact_financial {
-      int project_id PK
-      string year_month PK
-      numeric revenue_cumulative
-      numeric cost_actual_cumulative
-      numeric gross_profit
-      numeric ar_collected
-      numeric ar_outstanding
-      numeric ar_overdue
-    }
-
-    fact_volume {
-      int project_id PK
-      string year_month PK
-      int factory_id FK
-      numeric tonnage_processed
-    }
-
     alert_log {
-      int id PK
-      int project_id FK
-      string alert_type "Red/Amber"
-      string rule_triggered
-      string message
-      string opened_at
-      string closed_at
+      Int id PK
+      Int projectId FK
+      AlertType alertType
+      String ruleTriggered
+      String message
+      DateTime openedAt
+      DateTime closedAt
+      String owner
+      String action
+      String deadline
     }
-
     audit_log {
-      int id PK
-      string table_name
-      string record_id
-      string field
-      string old_value
-      string new_value
-      string changed_by
-      string changed_at
+      Int id PK
+      String tableName
+      String recordId
+      String field
+      String oldValue
+      String newValue
+      String changedBy
+      DateTime changedAt
+    }
+    dim_contractor {
+      Int id PK
+      String name
+      String scopeOfWork
+      Boolean isActive
+      Int mergedIntoId FK
+    }
+    dim_currency {
+      String code PK
+      String name
+    }
+    dim_customer {
+      Int id PK
+      String name
+      String group
+      StringArray aliases
+      Boolean isActive
+      Int mergedIntoId FK
+    }
+    dim_date {
+      Date date PK
+      String yearMonth
+      Int isoYear
+      Int isoWeek
+      Date weekStart
+      Int dayOfWeek
+    }
+    dim_equipment {
+      Int id PK
+      String name
+      String unit
+      Boolean isActive
+    }
+    dim_exchange_rate {
+      String currencyCode PK,FK
+      String yearMonth PK
+      Float rateToVnd
+      String updatedBy
+      DateTime updatedAt
+    }
+    dim_factory {
+      Int id PK
+      String name
+      String region
+      Float capacityTonPerYear
+    }
+    dim_project {
+      Int id PK
+      String masterCode
+      String currentAliasCode
+      String projectName
+      Int customerId FK
+      Int teamKdId FK
+      MarketCode marketCode
+      ProjectTypeCode projectType
+      PriorityCode priority
+      Float contractValue
+      Float tonnage
+      String currencyCode FK
+      DateTime contractDate
+      DateTime plannedStartDate
+      DateTime plannedFinishDate
+      DateTime committedHandoverDate
+      DateTime actualStartDate
+      DateTime actualFinishDate
+      Float penaltyValue
+      Boolean penalized
+      Boolean isActive
+      Int factoryId FK
+      Float contractValueOriginal
+      DateTime createdAt
+      DateTime updatedAt
+      String createdBy
+      String updatedBy
+    }
+    dim_project_alias {
+      Int id PK
+      Int projectId FK
+      String aliasCode
+      String aliasType
+      DateTime effectiveFrom
+      DateTime effectiveTo
+      String reason
+      String approvedBy
+    }
+    dim_shift {
+      String code PK
+      String nameVi
+      String nameEn
+      Int sortOrder
+      Boolean isActive
+    }
+    dim_stage {
+      String code PK
+      String nameVi
+      String nameEn
+      Int sortOrder
+      StageCalcMode calcMode
+    }
+    dim_team_kd {
+      Int id PK
+      String name
+      String picName
+      StringArray aliases
+      Boolean isActive
+      Int mergedIntoId FK
+    }
+    fact_daily_equipment_usage {
+      Int projectId PK,FK
+      Int contractorId PK,FK
+      Int equipmentId PK,FK
+      Date workDate PK
+      Int qtyPlanned
+      Int qtyActual
+    }
+    fact_daily_manpower {
+      Int projectId PK,FK
+      Int contractorId PK,FK
+      Date workDate PK
+      String shiftCode PK,FK
+      Int plannedHeadcount
+      Int actualHeadcount
+    }
+    fact_financial {
+      Int projectId PK,FK
+      String yearMonth PK
+      Int version PK
+      Boolean isLatest
+      Float revenuePeriod
+      Float revenueCumulative
+      Float costActualPeriod
+      Float costActualCumulative
+      Float grossProfit
+      Float grossMarginPct
+      Float backlog
+      Float arCollected
+      Float arOutstanding
+      Float arOverdue
+      String changedBy
+      DateTime changedAt
+      String changeNote
+    }
+    fact_progress_monthly {
+      Int projectId PK,FK
+      String yearMonth PK
+      Int version PK
+      Boolean isLatest
+      Float pctPlan
+      Float pctActual
+      DateTime actualStartDate
+      DateTime actualFinishDate
+      Float bac
+      Float pv
+      Float ev
+      Float ac
+      Float spi
+      Float cpi
+      String bottleneckStage FK
+      Int manpowerPlanned
+      Int manpowerActual
+      Int equipmentPlanned
+      Int equipmentActual
+      DateTime snapshotLockedAt
+      String lockedBy
+      String changedBy
+      DateTime changedAt
+      String changeNote
+    }
+    fact_stage_milestone {
+      Int projectId PK,FK
+      String stageCode PK,FK
+      DateTime plannedStart
+      DateTime plannedFinish
+      DateTime actualStart
+      DateTime actualFinish
+      DateTime forecastDate
+      DateTime updatedAt
+      String updatedBy
+    }
+    fact_stage_work_item {
+      Int projectId PK,FK
+      String stageCode PK,FK
+      Int workItemId PK,FK
+      String yearMonth PK
+      Float qtyPlan
+      Float qtyActual
+    }
+    fact_value_chain_progress {
+      Int projectId PK,FK
+      String stageCode PK,FK
+      String yearMonth PK
+      Float pctComplete
+      Boolean applicable
+    }
+    fact_volume {
+      Int projectId PK,FK
+      String yearMonth PK
+      Int factoryId PK,FK
+      Float tonnageProcessed
+    }
+    project_assignments {
+      Int projectId PK,FK
+      String userEmail PK
+      RoleInProject roleInProject
+      String assignedBy
+      DateTime assignedAt
+    }
+    project_contractor {
+      Int projectId PK,FK
+      Int contractorId PK,FK
+    }
+    project_equipment_plan {
+      Int id PK
+      Int projectId FK
+      Int equipmentId FK
+      Int unitNo
+      Int workItemId FK
+      Date plannedStart
+      Date plannedFinish
+      String note
+      DateTime updatedAt
+      String updatedBy
+    }
+    project_history {
+      Int id PK
+      Int projectId FK
+      DateTime at
+      String by
+      String note
+      Json snapshot
+    }
+    project_key_milestone {
+      Int id PK
+      Int projectId FK
+      String name
+      Int sortOrder
+      DateTime plannedDate
+      DateTime actualDate
+    }
+    project_photos {
+      Int id PK
+      Int projectId FK
+      String yearMonth
+      String url
+      String caption
+      String uploadedBy
+      DateTime uploadedAt
+    }
+    project_sap_codes {
+      Int id PK
+      Int projectId FK
+      String sapCode
+      String sourceDocType
+      DateTime linkedAt
+      String linkedBy
+      String note
+    }
+    project_stage_weight {
+      Int projectId PK,FK
+      String stageCode PK,FK
+      Float weightPct
+      Boolean applicable
+    }
+    project_work_item {
+      Int id PK
+      Int projectId FK
+      String name
+      Int sortOrder
+    }
+    sap_queue {
+      Int id PK
+      String sapCode
+      String sourceDocType
+      String projectNameHint
+      SapQueueStatus status
+      Int projectId FK
+      DateTime detectedAt
+    }
+    user_roles {
+      String email PK
+      String name
+      String passwordHash
+      String role
+      Boolean canViewFinance
+      Boolean isActive
+      DateTime createdAt
+      DateTime lastLoginAt
     }
 ```
+<!-- ERD:END -->
 
 **Nguyên tắc khóa:** mọi fact JOIN qua `project_id` (surrogate int), KHÔNG qua mã dự án text — vì mã đổi qua các kỳ (`dim_project_alias`) gây gãy trend.
 
