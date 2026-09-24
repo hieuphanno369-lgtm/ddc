@@ -1,6 +1,9 @@
 import type { RepoData } from '@/data/seed/history';
 import type { EquipmentCellInput, ManpowerCellInput } from '@/lib/daily-entry';
-import type { AuditLogEntry, Contractor, FactDailyManpowerShift, FactVolume, Factory, Shift } from './types';
+import type {
+  AuditLogEntry, Contractor, CurrencyCode, ExchangeRate, FactDailyManpowerShift, FactVolume, Factory, FxSource,
+  JobName, JobRunEntry, JobTrigger, Shift,
+} from './types';
 
 export interface EntryMockDeps {
   getData: () => RepoData;
@@ -241,6 +244,67 @@ export function makeEntryMockRepo({ getData, persist }: EntryMockDeps) {
       auditMock(d, 'fact_volume', `${projectId}/${yearMonth}/${factoryId}`, 'tonnageProcessed', old, String(tonnageProcessed), by);
       persist();
       return 'updated';
+    },
+
+    /** T6 (Task 7): tỷ giá theo tháng - mọi dòng, yearMonth desc. */
+    getExchangeRates(): ExchangeRate[] {
+      return [...getData().exchangeRates].sort((a, b) => b.yearMonth.localeCompare(a.yearMonth));
+    },
+
+    upsertExchangeRate(row: { currencyCode: CurrencyCode; yearMonth: string; rateToVnd: number; source: FxSource }, by: string): void {
+      const d = getData();
+      const prev = d.exchangeRates.find((r) => r.currencyCode === row.currencyCode && r.yearMonth === row.yearMonth);
+      const now = new Date().toISOString();
+      if (!prev) {
+        d.exchangeRates.push({ ...row, updatedBy: by, updatedAt: now });
+        auditMock(d, 'dim_exchange_rate', `${row.currencyCode}/${row.yearMonth}`, 'rateToVnd,source', '', `${row.rateToVnd}/${row.source}`, by);
+        persist();
+        return;
+      }
+      const old = `${prev.rateToVnd}/${prev.source}`;
+      prev.rateToVnd = row.rateToVnd;
+      prev.source = row.source;
+      prev.updatedBy = by;
+      prev.updatedAt = now;
+      auditMock(d, 'dim_exchange_rate', `${row.currencyCode}/${row.yearMonth}`, 'rateToVnd,source', old, `${row.rateToVnd}/${row.source}`, by);
+      persist();
+    },
+
+    deleteExchangeRate(currencyCode: CurrencyCode, yearMonth: string, by: string): boolean {
+      const d = getData();
+      const idx = d.exchangeRates.findIndex((r) => r.currencyCode === currencyCode && r.yearMonth === yearMonth);
+      if (idx < 0) return false;
+      const prev = d.exchangeRates[idx];
+      d.exchangeRates.splice(idx, 1);
+      auditMock(d, 'dim_exchange_rate', `${currencyCode}/${yearMonth}`, 'delete', `${prev.rateToVnd}/${prev.source}`, '', by);
+      persist();
+      return true;
+    },
+
+    /** K4 (ke-hoach.md P2A): nhật ký chạy job định kỳ. */
+    startJobRun(jobName: JobName, trigger: JobTrigger, by: string): number {
+      const d = getData();
+      const id = d.jobRuns.reduce((m, r) => Math.max(m, r.id), 0) + 1;
+      d.jobRuns.push({ id, jobName, trigger, status: 'running', detail: '', startedAt: new Date().toISOString(), finishedAt: null, startedBy: by });
+      persist();
+      return id;
+    },
+
+    finishJobRun(id: number, status: 'ok' | 'error', detail: string): void {
+      const d = getData();
+      const row = d.jobRuns.find((r) => r.id === id);
+      if (!row) return;
+      row.status = status;
+      row.detail = detail.slice(0, 1000);
+      row.finishedAt = new Date().toISOString();
+      persist();
+    },
+
+    getRecentJobRuns(jobName: JobName, limit: number): JobRunEntry[] {
+      return getData()
+        .jobRuns.filter((r) => r.jobName === jobName)
+        .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+        .slice(0, limit);
     },
   };
 }

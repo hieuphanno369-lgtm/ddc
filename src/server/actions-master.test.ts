@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { repo } from '@/server/repo/mock-repo';
 import type { CurrentUser } from '@/lib/session';
 
@@ -10,7 +10,9 @@ vi.mock('@/server/repo', async () => {
 vi.mock('@/lib/session', () => ({ getCurrentUser: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/session';
-import { saveFactoryAction, setFactoryActiveAction } from '@/server/actions-master';
+import {
+  deleteExchangeRateAction, fetchRatesNowAction, saveExchangeRateAction, saveFactoryAction, setFactoryActiveAction,
+} from '@/server/actions-master';
 
 const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.com.vn', role: 'admin', canViewFinance: true };
 const dataEntry = (email: string): CurrentUser => ({ name: email, email, role: 'data-entry', canViewFinance: false });
@@ -84,5 +86,75 @@ describe('setFactoryActiveAction', () => {
     login(dataEntry('pm@daidung.com.vn'));
     const res = await setFactoryActiveAction(1, false);
     expect(res).toEqual({ ok: false, error: 'Forbidden' });
+  });
+});
+
+describe('saveExchangeRateAction / deleteExchangeRateAction', () => {
+  it('admin luu ty gia -> ok, source manual', async () => {
+    login(ADMIN);
+    const res = await saveExchangeRateAction('USD', '2026-09', 25500);
+    expect(res).toEqual({ ok: true });
+    const row = repo.getExchangeRates().find((r) => r.currencyCode === 'USD' && r.yearMonth === '2026-09');
+    expect(row).toMatchObject({ rateToVnd: 25500, source: 'manual' });
+  });
+
+  it('admin xoa ty gia -> ok', async () => {
+    login(ADMIN);
+    await saveExchangeRateAction('EUR', '2026-09', 27000);
+    const res = await deleteExchangeRateAction('EUR', '2026-09');
+    expect(res).toEqual({ ok: true });
+    expect(repo.getExchangeRates().find((r) => r.currencyCode === 'EUR' && r.yearMonth === '2026-09')).toBeUndefined();
+  });
+
+  it("thang '2026-10' (tuong lai so voi 2026-09-16) -> Invalid input", async () => {
+    login(ADMIN);
+    const res = await saveExchangeRateAction('USD', '2026-10', 25000);
+    expect(res).toEqual({ ok: false, error: 'Invalid input' });
+  });
+
+  it('rate 0 -> Invalid input', async () => {
+    login(ADMIN);
+    const res = await saveExchangeRateAction('USD', '2026-09', 0);
+    expect(res).toEqual({ ok: false, error: 'Invalid input' });
+  });
+
+  it('data-entry -> Forbidden', async () => {
+    login(dataEntry('pm@daidung.com.vn'));
+    expect(await saveExchangeRateAction('USD', '2026-09', 25000)).toEqual({ ok: false, error: 'Forbidden' });
+    expect(await deleteExchangeRateAction('USD', '2026-09')).toEqual({ ok: false, error: 'Forbidden' });
+  });
+
+  it('xoa thang khong co du lieu -> Not found', async () => {
+    login(ADMIN);
+    const res = await deleteExchangeRateAction('EUR', '2020-01');
+    expect(res).toEqual({ ok: false, error: 'Not found' });
+  });
+});
+
+describe('fetchRatesNowAction', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('admin bam Lay ngay - fetch ok -> status ok', async () => {
+    login(ADMIN);
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true, status: 200,
+      text: async () => '<ExrateList><Exrate CurrencyCode="USD" Transfer="25,140.00"/><Exrate CurrencyCode="EUR" Transfer="27,500.00"/></ExrateList>',
+    }) as Response));
+    const res = await fetchRatesNowAction();
+    expect(res).toEqual({ ok: true, status: 'ok', detail: expect.any(String) });
+  });
+
+  it('admin bam Lay ngay - fetch loi mang -> status error', async () => {
+    login(ADMIN);
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('ECONNRESET'); }));
+    const res = await fetchRatesNowAction();
+    expect(res).toEqual({ ok: true, status: 'error', detail: expect.stringContaining('ECONNRESET') });
+  });
+
+  it('data-entry -> Forbidden', async () => {
+    login(dataEntry('pm@daidung.com.vn'));
+    expect(await fetchRatesNowAction()).toEqual({ ok: false, error: 'Forbidden' });
   });
 });

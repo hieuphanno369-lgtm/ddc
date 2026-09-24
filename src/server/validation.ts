@@ -3,6 +3,8 @@ import { THRESHOLDS } from '@/lib/thresholds';
 import { isValidIsoDate, isValidYearMonth } from '@/lib/clock';
 import { KEY_MS_MAX_ROWS, KEY_MS_NAME_MAX } from '@/lib/key-milestones';
 import { DAILY_VALUE_MAX } from '@/lib/daily-entry';
+import { FX_CURRENCIES } from '@/lib/fx';
+import { currentMonth } from '@/lib/clock';
 
 /**
  * Zod schema validate input mọi server action (spec §7.5 - không tin client).
@@ -248,6 +250,18 @@ export const factorySchema = z.object({
   name: z.string().trim().min(1).max(120),
   region: z.string().trim().max(60),
   capacityTonPerYear: z.number().positive().max(10_000_000),
+});
+
+/** T6 (Task 7, P2A): tỷ giá tháng - chỉ USD/EUR, tháng không được ở tương lai. */
+export const saveExchangeRateSchema = z.object({
+  currencyCode: z.enum(FX_CURRENCIES),
+  yearMonth: yearMonth.refine((ym) => ym <= currentMonth(), 'Tháng không được ở tương lai'),
+  rateToVnd: z.number().positive().max(1_000_000),
+});
+
+export const deleteExchangeRateSchema = z.object({
+  currencyCode: z.enum(FX_CURRENCIES),
+  yearMonth,
 });
 
 /** Task 5 (P2A): commit các ngày đã xem trước từ import Excel. */

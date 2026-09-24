@@ -725,5 +725,33 @@
     "hint": "Ghi vào khu vực sản xuất của dự án (bước Hồ sơ).",
     "noFactory": "Chọn khu vực sản xuất ở bước Hồ sơ trước khi nhập sản lượng.",
     "invalidFactory": "Khu vực không hợp lệ hoặc đã ngừng dùng."
+  },
+  "fxRates": {
+    "title": "Tỷ giá theo tháng",
+    "hint": "Tự lấy tỷ giá mua chuyển khoản Vietcombank mỗi tháng; chỉ sửa tay khi lỗi. Số nhập tay không bị ghi đè.",
+    "month": "Tháng",
+    "source": {
+      "vcb": "VCB",
+      "manual": "Nhập tay"
+    },
+    "fetchNow": "Lấy ngay từ Vietcombank",
+    "lastRun": "Lần lấy gần nhất: {time} · {status}",
+    "never": "Chưa lấy lần nào",
+    "status": {
+      "ok": "thành công",
+      "error": "lỗi",
+      "running": "đang chạy"
+    },
+    "edit": "Sửa",
+    "save": "Lưu",
+    "delete": "Xoá",
+    "confirmDelete": "Xoá tỷ giá {cur} tháng {month}?",
+    "fetchOk": "Đã lấy: {detail}",
+    "fetchErr": "Không lấy được tỷ giá: {detail}",
+    "missing": "Thiếu tỷ giá {currencies} tháng {month}.",
+    "missingLink": "Cập nhật",
+    "err": {
+      "invalid": "Tỷ giá phải là số > 0, tháng không ở tương lai."
+    }
   }
 }

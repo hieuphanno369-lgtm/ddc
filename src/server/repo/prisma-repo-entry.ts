@@ -1,12 +1,17 @@
 import { prisma } from '@/server/db';
 import type { Prisma, PrismaClient } from '@prisma/client';
 import type { EquipmentCellInput, ManpowerCellInput } from '@/lib/daily-entry';
-import type { Contractor, FactDailyManpowerShift, FactVolume, Factory, Shift } from './types';
+import type {
+  Contractor, CurrencyCode, ExchangeRate, FactDailyManpowerShift, FactVolume, Factory, FxSource,
+  JobName, JobRunEntry, JobTrigger, Shift,
+} from './types';
 
 /** 'YYYY-MM-DD' → Date tại 00:00:00Z, để so sánh với cột @db.Date (khớp prisma-repo.ts). */
 const dayStart = (s: string): Date => new Date(`${s}T00:00:00Z`);
 /** Date → 'YYYY-MM-DD' (cột @db.Date). */
 const day = (d: Date | null | undefined): string | null => (d ? d.toISOString().slice(0, 10) : null);
+/** Date | null → ISO string | null (khớp prisma-repo.ts). */
+const iso = (d: Date | null | undefined): string | null => (d ? d.toISOString() : null);
 
 type Tx = Prisma.TransactionClient | PrismaClient;
 
@@ -246,5 +251,59 @@ export const entryPrismaRepo = {
     });
     await audit(prisma, 'fact_volume', `${projectId}/${yearMonth}/${factoryId}`, 'tonnageProcessed', String(prev.tonnageProcessed), String(tonnageProcessed), by);
     return 'updated';
+  },
+
+  /** T6 (Task 7): tỷ giá theo tháng - mọi dòng, yearMonth desc. */
+  async getExchangeRates(): Promise<ExchangeRate[]> {
+    const rows = await prisma.exchangeRate.findMany({ orderBy: { yearMonth: 'desc' } });
+    return rows.map((e) => ({
+      currencyCode: e.currencyCode as CurrencyCode, yearMonth: e.yearMonth, rateToVnd: e.rateToVnd,
+      source: e.source as FxSource, updatedBy: e.updatedBy, updatedAt: iso(e.updatedAt),
+    }));
+  },
+
+  async upsertExchangeRate(
+    row: { currencyCode: CurrencyCode; yearMonth: string; rateToVnd: number; source: FxSource },
+    by: string,
+  ): Promise<void> {
+    const prev = await prisma.exchangeRate.findUnique({
+      where: { currencyCode_yearMonth: { currencyCode: row.currencyCode, yearMonth: row.yearMonth } },
+    });
+    await prisma.exchangeRate.upsert({
+      where: { currencyCode_yearMonth: { currencyCode: row.currencyCode, yearMonth: row.yearMonth } },
+      create: { ...row, updatedBy: by },
+      update: { rateToVnd: row.rateToVnd, source: row.source, updatedBy: by },
+    });
+    await audit(
+      prisma, 'dim_exchange_rate', `${row.currencyCode}/${row.yearMonth}`, 'rateToVnd,source',
+      prev ? `${prev.rateToVnd}/${prev.source}` : '', `${row.rateToVnd}/${row.source}`, by,
+    );
+  },
+
+  async deleteExchangeRate(currencyCode: CurrencyCode, yearMonth: string, by: string): Promise<boolean> {
+    const prev = await prisma.exchangeRate.findUnique({ where: { currencyCode_yearMonth: { currencyCode, yearMonth } } });
+    if (!prev) return false;
+    await prisma.exchangeRate.delete({ where: { currencyCode_yearMonth: { currencyCode, yearMonth } } });
+    await audit(prisma, 'dim_exchange_rate', `${currencyCode}/${yearMonth}`, 'delete', `${prev.rateToVnd}/${prev.source}`, '', by);
+    return true;
+  },
+
+  /** K4 (ke-hoach.md P2A): nhật ký chạy job định kỳ. */
+  async startJobRun(jobName: JobName, trigger: JobTrigger, by: string): Promise<number> {
+    const row = await prisma.jobRun.create({ data: { jobName, trigger, status: 'running', startedBy: by } });
+    return row.id;
+  },
+
+  async finishJobRun(id: number, status: 'ok' | 'error', detail: string): Promise<void> {
+    await prisma.jobRun.update({ where: { id }, data: { status, detail: detail.slice(0, 1000), finishedAt: new Date() } });
+  },
+
+  async getRecentJobRuns(jobName: JobName, limit: number): Promise<JobRunEntry[]> {
+    const rows = await prisma.jobRun.findMany({ where: { jobName }, orderBy: { startedAt: 'desc' }, take: limit });
+    return rows.map((r) => ({
+      id: r.id, jobName: r.jobName as JobName, trigger: r.trigger as JobTrigger,
+      status: r.status as JobRunEntry['status'], detail: r.detail,
+      startedAt: r.startedAt.toISOString(), finishedAt: iso(r.finishedAt), startedBy: r.startedBy,
+    }));
   },
 };

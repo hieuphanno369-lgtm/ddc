@@ -725,5 +725,33 @@
     "hint": "Recorded against the project's production area (Profile step).",
     "noFactory": "Choose a production area in the Profile step before entering tonnage.",
     "invalidFactory": "Invalid or inactive production area."
+  },
+  "fxRates": {
+    "title": "Monthly exchange rates",
+    "hint": "Vietcombank transfer-buy rate is fetched monthly; edit manually only on failure. Manual values are never overwritten.",
+    "month": "Month",
+    "source": {
+      "vcb": "VCB",
+      "manual": "Manual"
+    },
+    "fetchNow": "Fetch from Vietcombank now",
+    "lastRun": "Last fetch: {time} · {status}",
+    "never": "Never fetched",
+    "status": {
+      "ok": "success",
+      "error": "failed",
+      "running": "running"
+    },
+    "edit": "Edit",
+    "save": "Save",
+    "delete": "Delete",
+    "confirmDelete": "Delete {cur} rate for {month}?",
+    "fetchOk": "Fetched: {detail}",
+    "fetchErr": "Could not fetch rates: {detail}",
+    "missing": "Missing {currencies} rate for {month}.",
+    "missingLink": "Update",
+    "err": {
+      "invalid": "Rate must be > 0 and month not in the future."
+    }
   }
 }

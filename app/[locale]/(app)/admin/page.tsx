@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { getCurrentUser, homeForRole } from '@/lib/session';
 import { repo } from '@/server/repo';
-import { formatTon } from '@/lib/format';
+import { historyMonths } from '@/lib/clock';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { IconFactory, IconMoney, IconUser } from '@/components/icons';
 import { ResetDataButton } from '@/components/admin/ResetDataButton';
@@ -12,6 +12,7 @@ import { FieldEditor } from '@/components/admin/FieldEditor';
 import { DeleteProject } from '@/components/admin/DeleteProject';
 import { AuditMiniTable } from '@/components/admin/AuditMiniTable';
 import { FactoryEditor } from '@/components/admin/FactoryEditor';
+import { ExchangeRateEditor } from '@/components/admin/ExchangeRateEditor';
 import { logSince } from '@/lib/log-paging';
 import { getAuditLogPage } from '@/server/audit-log-page';
 
@@ -103,6 +104,17 @@ export default async function AdminPage() {
         </CardBody>
       </Card>
 
+      <Card className="overflow-visible">
+        <CardHeader title={t('fxRates.title')} action={<IconMoney size={18} />} />
+        <CardBody>
+          <ExchangeRateEditor
+            months={[...historyMonths(12)].reverse()}
+            rates={await repo.getExchangeRates()}
+            lastRun={(await repo.getRecentJobRuns('rates_monthly', 1))[0] ?? null}
+          />
+        </CardBody>
+      </Card>
+
       <div className="g2">
         <Card>
           <CardHeader title={t('admin.customers')} action={<IconUser size={18} />} />
@@ -120,19 +132,6 @@ export default async function AdminPage() {
             <DimTable
               head={[t('admin.name'), t('admin.picName')]}
               rows={dims.teams.map((x) => [x.name, x.picName])}
-            />
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader title={t('admin.currencies')} action={<IconMoney size={18} />} />
-          <CardBody>
-            <DimTable
-              head={[t('admin.code'), t('admin.name'), t('admin.rate')]}
-              rows={dims.currencies.map((c) => {
-                const rate = dims.exchangeRates.find((r) => r.currencyCode === c.code);
-                return [c.code, c.name, rate ? formatTon(rate.rateToVnd, locale) : '-'];
-              })}
             />
           </CardBody>
         </Card>
