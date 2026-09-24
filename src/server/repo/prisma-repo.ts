@@ -872,15 +872,22 @@ export const repo = {
     );
   },
 
-  async importMonthlyFacts(yearMonth: string, rows: { projectId: number; pctActual: number }[], changedBy = 'system') {
-    let n = 0;
+  async importMonthlyFacts(
+    yearMonth: string,
+    rows: { projectId: number; pctActual: number }[],
+    changedBy = 'system',
+  ): Promise<{ imported: number; failed: { projectId: number; reason: 'not_found' }[] }> {
+    let imported = 0;
+    const failed: { projectId: number; reason: 'not_found' }[] = [];
     for (const r of rows) {
-      const exists = await this.getLatestFact(r.projectId, yearMonth);
-      if (!exists) continue;
-      await this.saveMonthlyFact(r.projectId, yearMonth, { pctActual: r.pctActual }, changedBy);
-      n++;
+      const result = await this.saveMonthlyFact(r.projectId, yearMonth, { pctActual: r.pctActual }, changedBy);
+      if (result === 'not_found') {
+        failed.push({ projectId: r.projectId, reason: 'not_found' });
+        continue;
+      }
+      imported++;
     }
-    return n;
+    return { imported, failed };
   },
 
   async saveFinancial(

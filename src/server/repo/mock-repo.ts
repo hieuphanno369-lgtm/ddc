@@ -710,16 +710,23 @@ export const repo = {
     persist();
   },
 
-  /** Import hàng loạt % TT (pctActual) cho 1 tháng - chỉ update fact đã tồn tại. */
-  importMonthlyFacts(yearMonth: string, rows: { projectId: number; pctActual: number }[], changedBy = 'system') {
-    let n = 0;
+  /** Import hàng loạt % TT (pctActual) cho 1 tháng - tự tạo dòng mới nếu dự án chưa có fact tháng này. */
+  importMonthlyFacts(
+    yearMonth: string,
+    rows: { projectId: number; pctActual: number }[],
+    changedBy = 'system',
+  ): { imported: number; failed: { projectId: number; reason: 'not_found' }[] } {
+    let imported = 0;
+    const failed: { projectId: number; reason: 'not_found' }[] = [];
     for (const r of rows) {
-      const exists = getData().facts.some((f) => f.projectId === r.projectId && f.yearMonth === yearMonth);
-      if (!exists) continue;
-      this.saveMonthlyFact(r.projectId, yearMonth, { pctActual: r.pctActual }, changedBy);
-      n++;
+      const result = this.saveMonthlyFact(r.projectId, yearMonth, { pctActual: r.pctActual }, changedBy);
+      if (result === 'not_found') {
+        failed.push({ projectId: r.projectId, reason: 'not_found' });
+        continue;
+      }
+      imported++;
     }
-    return n;
+    return { imported, failed };
   },
 
   saveFinancial(

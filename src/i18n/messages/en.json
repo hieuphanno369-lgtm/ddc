@@ -573,5 +573,19 @@
     "unlock_account": "Unlock account",
     "add_photo": "Add site photo",
     "delete_photo": "Delete site photo"
+  },
+  "dataGuard": {
+    "import": {
+      "invalid": "Errors",
+      "rowNo": "Row",
+      "failed": "{n} rows not saved",
+      "reason": {
+        "no_sap": "Missing SAP code",
+        "no_pct": "Missing % complete",
+        "bad_pct": "Unreadable % complete",
+        "not_assigned": "You are not assigned to this project",
+        "not_found": "Project not found"
+      }
+    }
   }
 }

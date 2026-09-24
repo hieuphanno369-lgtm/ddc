@@ -9,13 +9,23 @@ import { Badge } from '@/components/ui/Badge';
 import { CardHeader } from '@/components/ui/Card';
 import { IconUpload } from '@/components/icons';
 
+type ImportRowReason = 'no_sap' | 'no_pct' | 'bad_pct' | 'not_assigned';
 interface ImportResult {
   ok: boolean;
   error?: string;
   total?: number;
   mapped?: number;
   queued?: number;
-  preview?: { sapCode: string; projectName: string; pctActual: number | null; status: 'mapped' | 'queued'; projectId: number | null }[];
+  invalid?: number;
+  preview?: {
+    rowNo: number;
+    sapCode: string;
+    projectName: string;
+    pctActual: number | null;
+    status: 'mapped' | 'queued' | 'invalid';
+    reason: ImportRowReason | null;
+    projectId: number | null;
+  }[];
 }
 
 export function ImportPanel({
@@ -35,7 +45,7 @@ export function ImportPanel({
   const [result, setResult] = useState<ImportResult | null>(null);
   const [resolveSel, setResolveSel] = useState<Record<number, number>>({});
   const [month, setMonth] = useState(currentMonth);
-  const [committed, setCommitted] = useState<{ imported: number; skipped: number } | null>(null);
+  const [committed, setCommitted] = useState<{ imported: number; failed: { projectId: number; reason: 'not_assigned' | 'not_found' }[] } | null>(null);
 
   async function onFile(files: FileList | null) {
     const file = files?.[0];
@@ -65,8 +75,8 @@ export function ImportPanel({
     const res = (await commitImportAction(
       month,
       mapped.map((r) => ({ projectId: r.projectId as number, pctActual: r.pctActual as number })),
-    )) as { ok: boolean; imported?: number; skipped?: number };
-    setCommitted(res.ok ? { imported: res.imported ?? 0, skipped: res.skipped ?? 0 } : null);
+    )) as { ok: boolean; imported?: number; failed?: { projectId: number; reason: 'not_assigned' | 'not_found' }[] };
+    setCommitted(res.ok ? { imported: res.imported ?? 0, failed: res.failed ?? [] } : null);
     setBusy(false);
     router.refresh();
   }
@@ -106,6 +116,7 @@ export function ImportPanel({
             <Badge tone="neutral">{t('import.total')}: {result.total}</Badge>
             <Badge tone="ok">{t('import.mapped')}: {result.mapped}</Badge>
             <Badge tone="warn">{t('import.queued')}: {result.queued}</Badge>
+            <Badge tone="danger">{t('dataGuard.import.invalid')}: {result.invalid}</Badge>
           </div>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <select
@@ -131,15 +142,22 @@ export function ImportPanel({
             {committed && (
               <span className="chip c-ok">
                 {t('import.committed', { n: committed.imported })}
-                {committed.skipped > 0 ? ` · ${t('import.skipped', { n: committed.skipped })}` : ''}
               </span>
             )}
           </div>
+          {committed && committed.failed.length > 0 && (
+            <p className="sumbar bad">
+              {t('dataGuard.import.failed', { n: committed.failed.length })}
+              {': '}
+              {committed.failed.map((f) => `${f.projectId} · ${t(`dataGuard.import.reason.${f.reason}`)}`).join(', ')}
+            </p>
+          )}
           {result.preview && result.preview.length > 0 && (
             <div className="scroll">
               <table className="tbl">
                 <thead>
                   <tr>
+                    <th>{t('dataGuard.import.rowNo')}</th>
                     <th>SAP</th>
                     <th>{t('form.projectName')}</th>
                     <th>% TT</th>
@@ -149,13 +167,18 @@ export function ImportPanel({
                 <tbody>
                   {result.preview.map((r, i) => (
                     <tr key={i}>
+                      <td className="mono">{r.rowNo}</td>
                       <td className="mono">{r.sapCode}</td>
                       <td>{r.projectName}</td>
                       <td>{r.pctActual ?? '-'}</td>
                       <td>
-                        <Badge tone={r.status === 'mapped' ? 'ok' : 'warn'}>
-                          {r.status === 'mapped' ? t('import.mapped') : t('import.queued')}
-                        </Badge>
+                        {r.status === 'invalid' ? (
+                          <Badge tone="danger">{r.reason ? t(`dataGuard.import.reason.${r.reason}`) : t('dataGuard.import.invalid')}</Badge>
+                        ) : (
+                          <Badge tone={r.status === 'mapped' ? 'ok' : 'warn'}>
+                            {r.status === 'mapped' ? t('import.mapped') : t('import.queued')}
+                          </Badge>
+                        )}
                       </td>
                     </tr>
                   ))}

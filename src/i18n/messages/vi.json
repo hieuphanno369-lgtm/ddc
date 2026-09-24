@@ -573,5 +573,19 @@
     "unlock_account": "Mở khóa tài khoản",
     "add_photo": "Thêm ảnh hiện trường",
     "delete_photo": "Xóa ảnh hiện trường"
+  },
+  "dataGuard": {
+    "import": {
+      "invalid": "Lỗi",
+      "rowNo": "Dòng",
+      "failed": "{n} dòng không lưu được",
+      "reason": {
+        "no_sap": "Thiếu mã SAP",
+        "no_pct": "Thiếu % hoàn thành",
+        "bad_pct": "% hoàn thành không đọc được",
+        "not_assigned": "Bạn không được gán dự án này",
+        "not_found": "Không tìm thấy dự án"
+      }
+    }
   }
 }

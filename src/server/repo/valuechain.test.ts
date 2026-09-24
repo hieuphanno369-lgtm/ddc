@@ -109,11 +109,24 @@ describe('Excel import GIỮ NGUYÊN - không đụng 7 giai đoạn', () => {
     const p = repo.listProjects()[0];
     const before = repo.getValueChain(p.id, '2026-09').map((v) => ({ ...v }));
 
-    const n = repo.importMonthlyFacts('2026-09', [{ projectId: p.id, pctActual: 0.42 }]);
+    const r = repo.importMonthlyFacts('2026-09', [{ projectId: p.id, pctActual: 0.42 }]);
 
-    expect(n).toBe(1);
+    expect(r.imported).toBe(1);
     expect(repo.getLatestFact(p.id, '2026-09')!.pctActual).toBe(0.42);
     // 7 giai đoạn giữ nguyên y hệt trước import (số dòng lẫn giá trị)
     expect(repo.getValueChain(p.id, '2026-09')).toEqual(before);
+  });
+
+  it('du an moi chua co fact nao - importMonthlyFacts tu tao dong moi', () => {
+    const created = repo.createProject({
+      projectName: 'Du an import moi', customerId: 1, teamKdId: 1, marketCode: 'TN',
+      projectType: 'EPC', priority: 'P1', contractValue: 50,
+    });
+
+    const r = repo.importMonthlyFacts('2026-09', [{ projectId: created.id, pctActual: 0.55 }]);
+
+    expect(r.imported).toBe(1);
+    expect(r.failed).toEqual([]);
+    expect(repo.getLatestFact(created.id, '2026-09')!.pctActual).toBe(0.55);
   });
 });

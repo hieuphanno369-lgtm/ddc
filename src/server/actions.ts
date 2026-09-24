@@ -422,11 +422,14 @@ export async function lockMonthAction(yearMonth: string) {
   return { ok: true };
 }
 
+export type ImportRowReason = 'no_sap' | 'no_pct' | 'bad_pct' | 'not_assigned';
 export interface ImportRow {
+  rowNo: number; // số dòng Excel (header = dòng 1)
   sapCode: string;
   projectName: string;
   pctActual: number | null;
-  status: 'mapped' | 'queued';
+  status: 'mapped' | 'queued' | 'invalid';
+  reason: ImportRowReason | null; // chỉ khác null khi status = 'invalid'
   projectId: number | null;
 }
 
@@ -452,31 +455,56 @@ export async function importExcelAction(formData: FormData) {
   const preview: ImportRow[] = [];
   let mapped = 0;
   let queued = 0;
+  let invalid = 0;
 
-  for (const r of raw) {
+  for (let i = 0; i < raw.length; i++) {
+    const r = raw[i];
     const sapCode = pick(r, ['mã sap', 'ma sap', 'sap code', 'sap', 'mã dự án', 'ma du an', 'code']);
     const projectName = pick(r, ['tên dự án', 'ten du an', 'project name', 'name', 'dự án', 'du an']);
     const pctRaw = pick(r, ['% tt', '% hoàn thành', '% hoan thanh', '%ht', 'pctactual', '% actual', 'actual']);
+    const rowNo = ((r as { __rowNum__?: number }).__rowNum__ ?? i + 1) + 1;
 
-    if (!sapCode) continue;
+    // Dòng hoàn toàn trống - không tính, không hiện trong preview.
+    if (!sapCode && !projectName && !pctRaw) continue;
+
+    if (!sapCode) {
+      invalid++;
+      preview.push({ rowNo, sapCode: '', projectName: String(projectName), pctActual: null, status: 'invalid', reason: 'no_sap', projectId: null });
+      continue;
+    }
 
     // Dùng đúng hàm chuẩn hoá của lớp tính toán, không viết lại quy ước /100 (Task 1)
     const norm = pctRaw ? normPct(String(pctRaw).replace('%', '').replace(',', '.')) : null;
-
     const match = known.find((s) => s.sapCode.toLowerCase() === String(sapCode).toLowerCase());
-    if (match) {
-      if (owned && !owned.has(match.projectId)) continue;
-      mapped++;
-      preview.push({ sapCode: String(sapCode), projectName: String(projectName), pctActual: norm, status: 'mapped', projectId: match.projectId });
-    } else {
+
+    if (!match) {
       queued++;
       await repo.addSapQueueItem(String(sapCode), 'Import Excel', String(projectName));
-      preview.push({ sapCode: String(sapCode), projectName: String(projectName), pctActual: norm, status: 'queued', projectId: null });
+      preview.push({ rowNo, sapCode: String(sapCode), projectName: String(projectName), pctActual: norm, status: 'queued', reason: null, projectId: null });
+      continue;
     }
+
+    if (owned && !owned.has(match.projectId)) {
+      invalid++;
+      preview.push({ rowNo, sapCode: String(sapCode), projectName: String(projectName), pctActual: null, status: 'invalid', reason: 'not_assigned', projectId: null });
+      continue;
+    }
+    if (!pctRaw) {
+      invalid++;
+      preview.push({ rowNo, sapCode: String(sapCode), projectName: String(projectName), pctActual: null, status: 'invalid', reason: 'no_pct', projectId: match.projectId });
+      continue;
+    }
+    if (norm == null) {
+      invalid++;
+      preview.push({ rowNo, sapCode: String(sapCode), projectName: String(projectName), pctActual: null, status: 'invalid', reason: 'bad_pct', projectId: match.projectId });
+      continue;
+    }
+    mapped++;
+    preview.push({ rowNo, sapCode: String(sapCode), projectName: String(projectName), pctActual: norm, status: 'mapped', reason: null, projectId: match.projectId });
   }
 
   await logActivity(user, 'import_excel', `${preview.length} rows`);
-  return { ok: true, total: preview.length, mapped, queued, preview };
+  return { ok: true, total: preview.length, mapped, queued, invalid, preview };
 }
 
 /** Commit các dòng đã map (SAP→project) vào fact_progress_monthly cho tháng chọn. */
@@ -487,18 +515,23 @@ export async function commitImportAction(month: string, rows: { projectId: numbe
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
 
   let target = parsed.data.rows;
+  const failed: { projectId: number; reason: 'not_assigned' | 'not_found' }[] = [];
   if (user.role === 'data-entry') {
     const owned = new Set(await repo.getAssignmentsForUser(user.email));
-    target = target.filter((r) => owned.has(r.projectId));
+    target = target.filter((r) => {
+      if (owned.has(r.projectId)) return true;
+      failed.push({ projectId: r.projectId, reason: 'not_assigned' });
+      return false;
+    });
   }
   if (await repo.isMonthLocked(month)) return { ok: false, error: 'locked' };
-  const imported = await repo.importMonthlyFacts(month, target, user.email);
+  const result = await repo.importMonthlyFacts(month, target, user.email);
 
-  await logActivity(user, 'commit_import', `${imported} rows`);
+  await logActivity(user, 'commit_import', `${result.imported} rows`);
   revalidateTag(overviewTag(month));
   revalidateTag(trendTag);
   revalidateTag(listTag(month));
-  return { ok: true, imported, skipped: parsed.data.rows.length - target.length };
+  return { ok: true, imported: result.imported, failed: [...failed, ...result.failed] };
 }
 
 export async function resolveSapQueueAction(id: number, projectId: number) {
