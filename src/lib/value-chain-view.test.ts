@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import type { ProjectStageWeight } from '@/server/repo/types';
+import type { ProjectStageWeight, StageCode } from '@/server/repo/types';
 import type { WorkItemCompare, WorkItemCompareRow } from '@/lib/stage-timeline';
-import { stageTonnage, stageWeightLabel } from './value-chain-view';
+import { STAGE_ORDER, calcChainPctActual } from '@/lib/stages';
+import {
+  VALUE_CHAIN_COLUMNS,
+  chainFooterSummary,
+  chainWeightTotalLabel,
+  stagePctLabel,
+  stageTonnage,
+  stageWeightLabel,
+} from './value-chain-view';
 
 const W = (stageCode: ProjectStageWeight['stageCode'], weightPct: number, applicable = true): ProjectStageWeight => ({
   projectId: 1,
@@ -48,5 +56,77 @@ describe('stageTonnage', () => {
   it('mang rong -> null', () => {
     const compare: WorkItemCompare = { fabrication: [] };
     expect(stageTonnage(compare, 'fabrication')).toBeNull();
+  });
+});
+
+describe('stagePctLabel (vong sua 1 muc 4a - luon 1 chu so thap phan, khac formatPct)', () => {
+  it('vi: "40,0%" (co ,0 du la so tron)', () => {
+    expect(stagePctLabel(0.4, 'vi')).toBe('40,0%');
+  });
+  it('en: "100.0%"', () => {
+    expect(stagePctLabel(1, 'en')).toBe('100.0%');
+  });
+  it('lam tron dung 1 chu so: 0,535 -> "53,5%"', () => {
+    expect(stagePctLabel(0.535, 'vi')).toBe('53,5%');
+  });
+});
+
+describe('VALUE_CHAIN_COLUMNS (vong sua 1 muc 4a - 2 cot theo mock-up, khong xen ke STAGE_ORDER)', () => {
+  it('cot trai: design/procurement/transport/handover; cot phai: shop/fabrication/erection', () => {
+    expect(VALUE_CHAIN_COLUMNS[0]).toEqual(['design', 'procurement', 'transport', 'handover']);
+    expect(VALUE_CHAIN_COLUMNS[1]).toEqual(['shop', 'fabrication', 'erection']);
+  });
+
+  it('gop 2 cot = dung 7 giai doan cua STAGE_ORDER, khong thieu khong trung', () => {
+    const all = [...VALUE_CHAIN_COLUMNS[0], ...VALUE_CHAIN_COLUMNS[1]];
+    expect(new Set(all).size).toBe(all.length);
+    expect([...all].sort()).toEqual([...STAGE_ORDER].sort());
+  });
+});
+
+const CHAIN_ROW = (stageCode: StageCode, pctComplete: number, applicable = true) => ({ stageCode, pctComplete, applicable });
+
+describe('chainFooterSummary (vong sua 1 muc 4c - dong chan Sigma trong so + %TT)', () => {
+  it('trong so du 100 -> weightOk=true, %TT tinh nhat quan voi calcChainPctActual + xu ly "khong ap dung" o CHAIN (khong phai o weights) giong stages.ts', () => {
+    const weights: ProjectStageWeight[] = [W('design', 50), W('fabrication', 30), W('shop', 20)];
+    // shop co trong so nhung chain danh dau khong ap dung -> khong duoc tinh (dung effectiveWeight cua stages.ts).
+    const chain = [CHAIN_ROW('design', 0.5), CHAIN_ROW('fabrication', 0.25), CHAIN_ROW('shop', 0.9, false)];
+    const out = chainFooterSummary(chain, weights);
+    expect(out.weightTotal).toBe(100);
+    expect(out.weightOk).toBe(true);
+    expect(out.pctTotal).toBeCloseTo((50 * 0.5 + 30 * 0.25) / (50 + 30), 10);
+  });
+
+  it('trong so lech 100 -> weightOk=false, weightTotal = tong that (khong ghi cung 100)', () => {
+    const weights: ProjectStageWeight[] = [W('design', 50), W('fabrication', 30)];
+    const chain = [CHAIN_ROW('design', 0.5), CHAIN_ROW('fabrication', 0.25)];
+    const out = chainFooterSummary(chain, weights);
+    expect(out.weightTotal).toBe(80);
+    expect(out.weightOk).toBe(false);
+  });
+
+  it('thieu han dong chain cho 1 giai doan co trong so -> mac dinh applicable=true/pct=0 (khop STAGE_ORDER day du)', () => {
+    const weights: ProjectStageWeight[] = [W('design', 50), W('fabrication', 50)];
+    const chain = [CHAIN_ROW('design', 1)]; // thieu dong 'fabrication'
+    const out = chainFooterSummary(chain, weights);
+    expect(out.pctTotal).toBeCloseTo(0.5, 10);
+  });
+
+  it('khop voi calcChainPctActual khi truyen du 7 giai doan tuong tu (nhat quan cong thuc)', () => {
+    const weights: ProjectStageWeight[] = STAGE_ORDER.map((s) => W(s, 100 / STAGE_ORDER.length));
+    const chain = STAGE_ORDER.map((s) => CHAIN_ROW(s, 0.6));
+    const out = chainFooterSummary(chain, weights);
+    const expected = calcChainPctActual(
+      STAGE_ORDER.map((s) => ({ stageCode: s, pctComplete: 0.6, applicable: true })),
+      weights,
+    );
+    expect(out.pctTotal).toBeCloseTo(expected, 10);
+  });
+});
+
+describe('chainWeightTotalLabel', () => {
+  it('vi: "100%" khi tron; "95,5%" khi le', () => {
+    expect(chainWeightTotalLabel(100, 'vi')).toBe('100%');
+    expect(chainWeightTotalLabel(95.5, 'vi')).toBe('95,5%');
   });
 });

@@ -652,5 +652,10 @@
     "tipPlanDays": "Planned days",
     "tipUsedDays": "Days used",
     "unplanned": "{n} equipment-days used outside the plan (not drawn)"
+  },
+  "valueChainCard": {
+    "allStages": "All 7 stages",
+    "footerWeight": "Σ weight",
+    "footerFormula": "Actual % = Σ(weight × stage actual %)"
   }
 }

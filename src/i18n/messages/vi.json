@@ -652,5 +652,10 @@
     "tipPlanDays": "Số ngày KH",
     "tipUsedDays": "Ngày có dùng",
     "unplanned": "{n} lượt thiết bị-ngày có dùng nhưng nằm ngoài kế hoạch (không vẽ)"
+  },
+  "valueChainCard": {
+    "allStages": "Toàn bộ 7 giai đoạn",
+    "footerWeight": "Σ trọng số",
+    "footerFormula": "%TT = Σ(trọng số × %HT giai đoạn)"
   }
 }

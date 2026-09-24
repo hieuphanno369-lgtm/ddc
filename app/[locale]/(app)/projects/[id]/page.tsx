@@ -8,12 +8,12 @@ import { currentMonth, isValidYearMonth, todayIso } from '@/lib/clock';
 import { getCurrentUser } from '@/lib/session';
 import { requireProjectRead } from '@/server/authz';
 import { stageKey } from '@/lib/labels';
-import { STAGE_ORDER } from '@/lib/stages';
+import type { StageCode } from '@/server/repo/types';
 import { THRESHOLDS } from '@/lib/thresholds';
 import { calcScheduleGap } from '@/lib/evm';
 import { buildPlanActualTimeline } from '@/lib/timeline';
 import { buildStageTimelineRows } from '@/lib/stage-timeline';
-import { stageTonnage, stageWeightLabel } from '@/lib/value-chain-view';
+import { VALUE_CHAIN_COLUMNS, chainFooterSummary, chainWeightTotalLabel, stagePctLabel, stageTonnage, stageWeightLabel } from '@/lib/value-chain-view';
 import { formatDate, formatDateTime, formatDayMonth, formatPct, formatRatio, formatTon as formatQty, formatTyd } from '@/lib/format';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Rise } from '@/components/ui/Rise';
@@ -22,6 +22,8 @@ import { MarketLabel, PriorityBadge, StatusBadge, TypeLabel } from '@/components
 import { Badge } from '@/components/ui/Badge';
 import { HelpTip } from '@/components/ui/HelpTip';
 import { PlanActualTimeline } from '@/components/project/PlanActualTimeline';
+import { StageSelectionProvider } from '@/components/project/StageSelectionContext';
+import { ValueChainModeChip } from '@/components/project/ValueChainModeChip';
 const SCurve = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SCurve), { ssr: false, loading: () => <div className="sk h-60" /> });
 const CountdownPanel = dynamic(() => import('@/components/project/CountdownPanel').then((m) => m.CountdownPanel), { ssr: false, loading: () => <div className="sk" style={{ width: 240, height: 88 }} /> });
 const ResourceBreakdownChart = dynamic(() => import('@/components/project/ResourceBreakdownChart').then((m) => m.ResourceBreakdownChart), { ssr: false, loading: () => <div className="sk h-60" /> });
@@ -127,6 +129,12 @@ export default async function ProjectDetailPage({
   const sCurve = facts.map((f) => ({ month: f.yearMonth, pv: Math.round(f.pv), ev: Math.round(f.ev), ac: Math.round(f.ac) }));
   const trend = facts.map((f) => ({ month: f.yearMonth, spi: f.spi, cpi: f.cpi }));
   const bottleneck = chain.find((c) => c.stageCode === latest?.bottleneckStage);
+  const chainFooter = chainFooterSummary(chain, stageWeights);
+  // Dich san ten 7 giai doan cho ValueChainModeChip (client component, muc 4d) - tranh goi
+  // useTranslations phia client khi khong co NextIntlClientProvider (renderToStaticMarkup trong test).
+  const stageLabels = Object.fromEntries(
+    [...VALUE_CHAIN_COLUMNS[0], ...VALUE_CHAIN_COLUMNS[1]].map((s) => [s, t(stageKey[s])]),
+  ) as Record<StageCode, string>;
 
   return (
     <>
@@ -255,67 +263,62 @@ export default async function ProjectDetailPage({
         <CardBody><KeyMilestoneChart milestones={keyMilestones} today={today} /></CardBody>
       </Card>
 
-      {/* Value chain + EVM */}
-      <div className="g2">
-        <Card>
+      {/* Chuoi gia tri (mock-up dong 701-707): the rong het hang, khong con ghep EVM (chu du an
+          chot 2026-09-24, xem .bangiao/danh-gia.md muc 4) - EVM da hien o KPI/StageExplorer noi khac.
+          Bao trong StageSelectionProvider (muc 4d) de chip goc noi voi giai doan dang chon o
+          StageExplorer ben duoi, khong phai viet lai StageExplorer. */}
+      <StageSelectionProvider>
+        <Card className="valueChainCard">
           <CardHeader
             title={t('detail.valueChain')}
             action={
-              bottleneck ? (
-                <Badge tone="danger">
-                  {t('detail.bottleneck')}: {t(stageKey[bottleneck.stageCode])}
-                </Badge>
-              ) : undefined
+              <div className="flex flex-wrap items-center gap-2">
+                <ValueChainModeChip allStagesLabel={t('valueChainCard.allStages')} stageLabels={stageLabels} />
+                {bottleneck && (
+                  <Badge tone="danger">
+                    {t('detail.bottleneck')}: {t(stageKey[bottleneck.stageCode])}
+                  </Badge>
+                )}
+              </div>
             }
           />
           <CardBody>
             <div className="stagegrid">
-              {STAGE_ORDER.map((stage) => {
-                const v = chain.find((c) => c.stageCode === stage);
-                if (v && !v.applicable) return null;
-                const pct = v?.pctComplete ?? 0;
-                const isBottleneck = stage === latest?.bottleneckStage;
-                const tonnage = stageTonnage(compare, stage);
-                return (
-                  <div key={stage} className={`stage${isBottleneck ? ' bt' : ''}`} style={{ gridTemplateColumns: '116px 38px 1fr auto' }}>
-                    <span className="nm">{t(stageKey[stage])}</span>
-                    <span className="w">{stageWeightLabel(stageWeights, stage, locale)}</span>
-                    <div className="bar"><i className="fill" style={{ width: `${Math.round(pct * 100)}%` }} /></div>
-                    <span className="pc">
-                      {formatPct(pct, locale)}
-                      {tonnage && (
-                        <span className="text-label3" style={{ fontWeight: 500, marginLeft: 6, whiteSpace: 'nowrap' }}>
-                          {t('valueChainAbs.ton', { actual: formatQty(tonnage.actual, locale), planned: formatQty(tonnage.planned, locale) })}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                );
-              })}
+              {VALUE_CHAIN_COLUMNS.map((column, i) => (
+                <div key={i} className="stagecol">
+                  {column.map((stage) => {
+                    const v = chain.find((c) => c.stageCode === stage);
+                    if (v && !v.applicable) return null;
+                    const pct = v?.pctComplete ?? 0;
+                    const tonnage = stageTonnage(compare, stage);
+                    return (
+                      <StageRow
+                        key={stage}
+                        name={t(stageKey[stage])}
+                        weightLabel={stageWeightLabel(stageWeights, stage, locale)}
+                        pct={pct}
+                        pctLabel={stagePctLabel(pct, locale)}
+                        isBottleneck={stage === latest?.bottleneckStage}
+                        tonnageLabel={tonnage ? t('valueChainAbs.ton', { actual: formatQty(tonnage.actual, locale), planned: formatQty(tonnage.planned, locale) }) : null}
+                      />
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+            <div className="chainfoot">
+              <span>
+                {t('valueChainCard.footerWeight')}{' '}
+                <b style={{ color: chainFooter.weightOk ? 'var(--label)' : 'var(--warn)' }}>{chainWeightTotalLabel(chainFooter.weightTotal, locale)}</b>
+                {' · '}{t('valueChainCard.footerFormula')}
+              </span>
+              <span style={{ fontWeight: 750, color: 'var(--label)', fontSize: 'var(--t-footnote)' }}>{stagePctLabel(chainFooter.pctTotal, locale)}</span>
             </div>
           </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader title={t('detail.evmMetrics')} />
-          <CardBody>
-            <table className="tbl">
-              <tbody>
-                <EvmRow label={t('metric.pv')} value={formatTyd(latest?.pv, locale)} />
-                <EvmRow label={t('metric.ev')} value={formatTyd(latest?.ev, locale)} />
-                <EvmRow label={t('metric.ac')} value={formatTyd(latest?.ac, locale)} />
-                <EvmRow label={t('metric.sv')} value={formatTyd(latest ? latest.ev - latest.pv : null, locale)} />
-                <EvmRow label={t('metric.cv')} value={formatTyd(latest ? latest.ev - latest.ac : null, locale)} />
-                <EvmRow label={t('metric.spi')} value={formatRatio(summary.spi)} />
-                <EvmRow label={t('metric.cpi')} value={formatRatio(summary.cpi)} />
-                <EvmRow label={t('metric.eac')} value={formatTyd(summary.eac, locale)} />
-              </tbody>
-            </table>
-          </CardBody>
-        </Card>
-      </div>
-
-      <StageExplorer rows={stageRows} compare={compare} today={today} locale={locale} />
+        <StageExplorer rows={stageRows} compare={compare} today={today} locale={locale} />
+      </StageSelectionProvider>
 
       {/* Charts */}
       <div className="g2">
@@ -561,12 +564,21 @@ function TimelineItem({
   );
 }
 
-function EvmRow({ label, value }: { label: string; value: string }) {
+/** 1 hàng giai đoạn trong thẻ "Chuỗi giá trị" (mock-up dòng 701-707): tên · chip trọng số · thanh
+ * · %HT; `tonnageLabel` (nếu có) là dòng chữ nhỏ màu xám ngay dưới thanh, ghim vào cột thanh (cột 3). */
+function StageRow({
+  name, weightLabel, pct, pctLabel, isBottleneck, tonnageLabel,
+}: {
+  name: string; weightLabel: string; pct: number; pctLabel: string; isBottleneck: boolean; tonnageLabel: string | null;
+}) {
   return (
-    <tr>
-      <td>{label}</td>
-      <td className="num" style={{ fontWeight: 600 }}>{value}</td>
-    </tr>
+    <div className={`stage${isBottleneck ? ' bt' : ''}`} style={{ gridTemplateColumns: '116px 38px 1fr auto' }}>
+      <span className="nm">{name}</span>
+      <span className="w">{weightLabel}</span>
+      <div className="bar"><i className="fill" style={{ width: `${Math.round(pct * 100)}%` }} /></div>
+      <span className="pc">{pctLabel}</span>
+      {tonnageLabel && <span className="stagesub" style={{ gridColumn: 3 }}>{tonnageLabel}</span>}
+    </div>
   );
 }
 

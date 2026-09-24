@@ -149,6 +149,42 @@ describe('P2B Buoc 4 - T14 Gantt thiet bi', () => {
   });
 });
 
+describe('Vong sua 1 muc 4 - the "Chuoi gia tri" rong het hang, bo the EVM (danh-gia.md)', () => {
+  it('khong con tieu de detail.evmMetrics va cac chi so pv/sv/cv/eac rieng', async () => {
+    const out = await render();
+    expect(out).not.toContain('detail.evmMetrics');
+    expect(out).not.toContain('metric.pv');
+    expect(out).not.toContain('metric.sv');
+    expect(out).not.toContain('metric.cv');
+    expect(out).not.toContain('metric.eac');
+  });
+
+  it('chip "Toan bo 7 giai doan" luon hien canh chip khau nghen (neu co)', async () => {
+    const out = await render();
+    expect(out).toContain('valueChainCard.allStages');
+  });
+
+  it('dong chan co Sigma trong so + cong thuc %TT trong class="chainfoot"', async () => {
+    const out = await render();
+    expect(out).toContain('class="chainfoot"');
+    expect(out).toContain('valueChainCard.footerWeight');
+    expect(out).toContain('valueChainCard.footerFormula');
+  });
+
+  it('2 cot rieng (stagecol): trai design/procurement/transport/handover, phai shop/fabrication/erection dung thu tu', async () => {
+    const out = await render();
+    expect([...out.matchAll(/class="stagecol"/g)]).toHaveLength(2);
+    const left = ['stage.design', 'stage.procurement', 'stage.transport', 'stage.handover'].map((k) => out.indexOf(`>${k}<`));
+    const right = ['stage.shop', 'stage.fabrication', 'stage.erection'].map((k) => out.indexOf(`>${k}<`));
+    expect(left.every((p) => p >= 0)).toBe(true);
+    expect(right.every((p) => p >= 0)).toBe(true);
+    expect([...left].sort((a, b) => a - b)).toEqual(left);
+    expect([...right].sort((a, b) => a - b)).toEqual(right);
+    // Cot phai bat dau ngay sau khi cot trai da liet ke xong (khong xen ke nhu STAGE_ORDER goc).
+    expect(Math.min(...right)).toBeGreaterThan(Math.max(...left));
+  });
+});
+
 describe('Task 6 - the "Cac moc chinh" + nut "Sua moc" theo vai tro', () => {
   it('admin thay the + link toi dung buoc Ho so', async () => {
     const out = await render();
