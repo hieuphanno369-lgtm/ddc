@@ -365,3 +365,144 @@ className="fill" ...>` bên trong `<div className="stage">`).
 
 **Commit (bổ sung, không đổi code sản phẩm):** `test(p2b): xac nhan sua thanh tien do bang Playwright
 that vong 2 - anh chup desktop+mobile`.
+
+## Vòng bổ sung — KPI (2026-09-24, yêu cầu trực tiếp chủ dự án, không qua planner)
+
+3 việc độc lập trên thẻ KPI (`.kpi`/`.kpi.key` — dùng chung ở trang Chi tiết `projects/[id]` và trang
+Tổng quan `overview`/`report`). Đọc `phien-A.md` trước khi sửa `globals.css`/`vi.json`/`en.json` — A
+không đụng 3 file này trong P2A, đã ghi "Đang giữ" vào `phien-B.md` lúc bắt đầu, bỏ ra sau khi commit
+xong. `npx tsc --noEmit` sạch + `npm test` xanh (chạy qua PowerShell, ổ đĩa chữ hoa) trước MỖI commit.
+
+### 1. Bỏ tag "Trọng tâm" khỏi thẻ KPI hero — commit `a09b56e`
+
+- **File:** `src/components/dashboard/KpiCard.tsx` (bỏ prop `heroTagLabel` + span `.tag`; hero không
+  còn tag/icon nên bỏ nhánh `!hero` khi render icon), `app/[locale]/(app)/projects/[id]/page.tsx`
+  (3 thẻ %TT/SPI/CPI), `app/[locale]/(app)/report/page.tsx`, `src/components/dashboard/OverviewWidgets.tsx`
+  (thẻ "Trễ tiến độ" ở Tổng quan/Vận hành) — cả 5 chỗ gọi `heroTagLabel={t('kpi.focusTag')}` bị xoá.
+  `app/globals.css`: bỏ rule `.kpi.key .tag` và khối `@container` riêng cho `.tag` (chết theo, không
+  còn ai render `.tag`), `.kpi.key .lb` thêm `padding-right:0` (trước đó 30px chừa chỗ cho tag/icon,
+  giờ không còn gì ở góc trên phải the hero → xoá padding tránh khoảng trắng thừa phía trên nhãn).
+  Nền gradient navy của thẻ hero **giữ nguyên** — chỉ bỏ chữ tag.
+- **Quyết định:** KHÔNG xoá key i18n `kpi.focusTag` (vi "Trọng tâm"/en "Focus") — theo đúng chỉ định
+  "để sau, tránh sửa file nóng thừa". Key này hiện không còn nơi nào gọi tới nữa; dọn ở phase khác.
+  Cũng KHÔNG xoá prop `heroTagLabel` khỏi `KpiCardProps` interface theo nghĩa "giữ lại" — đã xoá hẳn
+  (không còn ai truyền), đúng gợi ý "có thể bỏ prop nếu không còn ai dùng" trong yêu cầu.
+- **Test:** `src/components/dashboard/KpiCard.test.ts` — sửa test hero cũ (bỏ `heroTagLabel`, assert
+  `not.toContain('class="tag"')`), xoá test khoá hành vi `.tag` rỗng (không còn ý nghĩa vì prop đã
+  mất). `src/server/projects-detail-page-render.test.ts` — regex Task 1 (dòng ~58-63) đổi từ khớp
+  `<span class="tag">kpi.focusTag</span>` sang khớp thẳng `<div class="lb">`, thêm assert
+  `not.toContain('class="tag"')`/`not.toContain('kpi.focusTag')`.
+- **Tester nên soi:** ảnh `.bangiao/anh-test/kpi-before-desktop-chi-tiet-row.png` so với
+  `kpi-after-desktop-chi-tiet-row.png` (và bản `tong-quan-row`) — tag vàng "TRỌNG TÂM" biến mất, nền
+  gradient navy của 3 thẻ %TT/SPI/CPI (và "Trễ tiến độ" ở Tổng quan) không đổi, không có khoảng trắng
+  thừa phía trên nhãn.
+
+### 2. Thẻ %TT thêm dòng "Chậm/Nhanh N ngày · ±x,x%" — commit `7a28268`
+
+- **Công thức** (điều phối viên chọn theo yêu cầu chủ dự án, xem `src/lib/schedule-gap.ts`):
+  `gapPct = pctActual − pctPlan` (phân số 0-1, cùng đơn vị `pctPlan`/`pctActual` ở
+  `src/server/queries.ts`/`src/lib/evm.ts`), `gapDays = Math.round(gapPct × số ngày kế hoạch)` (số
+  ngày kế hoạch = `plannedFinishDate − plannedStartDate`). `direction` quyết định theo **gapDays**
+  (không phải gapPct): `< 0` → `behind`, `> 0` → `ahead`, `= 0` → `onTrack`. Thiếu `pctPlan`/
+  `pctActual`, thiếu ngày kế hoạch, hoặc số ngày kế hoạch `<= 0` (kể cả kế hoạch 0 ngày, hoặc
+  `plannedFinishDate < plannedStartDate`) → trả `null`, tầng hiển thị ẩn hẳn dòng này (không đoán).
+  Dự án đã qua ngày kết thúc kế hoạch (`pctPlan` kẹp ở 1) hoặc đã hoàn thành vẫn tính đúng theo công
+  thức (có thể ra "nhanh"), không bịa thêm điều kiện đặc biệt.
+- **File mới:** `src/lib/schedule-gap.ts` (hàm thuần `calcScheduleGap`, không tự dịch/format chuỗi) +
+  `src/lib/schedule-gap.test.ts` (13 test: chậm/nhanh/đúng tiến độ, làm tròn 0/0.5, dự án đã hoàn
+  thành/vượt kế hoạch, trước ngày bắt đầu, thiếu pctPlan/pctActual, thiếu ngày kế hoạch, ngày rác, 0
+  ngày kế hoạch, kế hoạch lỗi finish < start, nhận cả `Date` lẫn ISO string).
+- **`app/[locale]/(app)/projects/[id]/page.tsx`:** import `calcScheduleGap` từ `@/lib/schedule-gap`
+  với alias `calcKpiScheduleGap` (trang đã có sẵn `calcScheduleGap` khác từ `@/lib/evm` dùng cho dòng
+  chân timeline — 2 hàm cùng tên khác file, alias để khỏi đụng). Tính `kpiScheduleGap` rồi dịch qua
+  `t('kpiSchedule.${direction}', {days, pct})`; `pct` tự format 1 chữ số thập phân theo locale bằng
+  `Intl.NumberFormat` (không dùng `formatPct` có sẵn vì nó lấy 2 chữ số thập phân + tự thêm dấu %).
+  Gắn `scheduleGap={scheduleGapNote}` cho đúng 1 thẻ `metric.pctActual` (không gắn SPI/CPI — chủ dự
+  án chỉ yêu cầu thẻ %TT). Trang Tổng quan không có thẻ %TT dự án đơn lẻ nên không đụng.
+- **`src/components/dashboard/KpiCard.tsx`:** prop mới `scheduleGap?: KpiScheduleGapNote` (`text` đã
+  dịch sẵn + `direction`) — theo đúng quy ước cũ của `heroTagLabel`/`note`: KpiCard không tự gọi
+  `useTranslations` (phải ở lại dạng sync để `renderToStaticMarkup` render được khi lồng trong Server
+  Component). Render 1 dòng `.sb` mới, class `sb gap` (xem CSS bên dưới), màu theo `direction`:
+  `behind` → `var(--gold)`, `ahead` → `var(--mint)` (token mới), `onTrack` → không màu riêng (kế thừa
+  màu `.sb` trắng mờ có sẵn của thẻ hero).
+- **Màu sắc & tương phản:** thẻ hero nền gradient navy (`--accent-2` → `--accent` → `--accent-deep`).
+  Không dùng thẳng `--danger`/`--ok` mặc định vì ở theme sáng 2 token đó là màu tối (`#c30d0d`/
+  `#248a3d`), đọc kém trên nền navy — đúng lý do `heroAlert` (code cũ) đã đổi `--warn`/`--danger` sang
+  `--gold` cho tone cảnh báo trên thẻ hero. "Chậm" dùng lại `--gold` (nhất quán với `heroAlert`).
+  "Nhanh" cần 1 màu xanh riêng đủ sáng trên navy ở CẢ HAI theme — thêm token mới `--mint:#30d158`
+  (`app/tokens.css`, không đổi theo theme, cùng kiểu với `--gold`) thay vì hardcode hex trong `.tsx`
+  vì `src/ui/legacy-style-guard.test.ts` chặn hex thô trong mọi file `app/`+`src/components/` (kể cả
+  trong comment — phát hiện lần đầu khi để hex trong lời giải thích, phải viết lại comment không nhúng
+  mã hex và đẩy màu thật vào `tokens.css`).
+- **Xuống dòng thay vì cắt "...":** `.kpi .sb` mặc định `white-space:nowrap` + `text-overflow:ellipsis`
+  (dùng chung cho `delta`/`sub`/`note`) sẽ cắt mất phần `%` ở cuối dòng khi thẻ hẹp (2 cột mobile) —
+  số `%` là thông tin quan trọng, không được cắt. Thêm class phụ `.gap` chỉ cho dòng này
+  (`.kpi .sb.gap{white-space:normal;overflow:visible;text-overflow:clip}`), không đổi hành vi `.sb`
+  mặc định ở nơi khác.
+- **i18n:** nhóm mới `kpiSchedule` (`behind`/`ahead`/`onTrack`, tham số `{days}`/`{pct}`) thêm ở
+  **cuối** `vi.json`/`en.json`, sau `valueChainCard` — không chèn giữa key có sẵn.
+- **Test:** `src/components/dashboard/KpiCard.test.ts` thêm describe `scheduleGap` (4 test: behind ra
+  màu gold, ahead ra màu mint, onTrack không có style riêng, không truyền prop thì không render dòng).
+- **Tester nên soi:** `src/lib/schedule-gap.ts` (biên số ngày kế hoạch = 0, `pctPlan`/`pctActual` null,
+  dấu gapDays/gapPct, làm tròn 0.5). Ảnh `kpi-after-desktop-chi-tiet-row.png`/`kpi-after-mobile-chi-tiet-row.png`
+  — dòng "▼ Chậm 56 ngày · −19,3%" màu vàng gold, đọc rõ trên nền navy, ở mobile xuống đúng 2 dòng
+  không bị cắt "...". Dữ liệu dự án 1 (SVD PVF) trên dev thật đang %TT chậm hơn %KH nên chỉ xác nhận
+  trực quan được nhánh "behind" — nhánh "ahead"/"onTrack" chỉ có bằng chứng qua unit test
+  `schedule-gap.test.ts` + `KpiCard.test.ts`, chưa có ảnh chụp dữ liệu thật (không có dự án mẫu nào
+  đang nhanh hơn KH trong seed hiện tại để chụp).
+
+### 3. Nhãn scorecard hiện đủ chữ, xuống tối đa 2 dòng — commit `3d24821`
+
+- **File:** `app/globals.css`, rule `.kpi .lb` (dùng chung mọi thẻ `.kpi` ở cả trang Chi tiết lẫn
+  Tổng quan). Trước: `white-space:nowrap;overflow:hidden;text-overflow:ellipsis` → nhãn dài như "TỔNG
+  SỐ NHÂN LỰC"/"TỔNG SỐ THIẾT BỊ" bị cắt còn "TỔNG SỐ NHÂN ..." ở lưới 2 cột (`<=680px`, xác nhận thấy
+  ở 390px). Sau: `white-space:normal;word-break:break-word;line-height:1.3`, không còn `overflow`/
+  `text-overflow` nên không cắt "..." nữa — nhãn tự xuống dòng khi cần (dài nhất trong sản phẩm hiện
+  tại xuống đúng 2 dòng, không có nhãn nào cần dòng 3+).
+- **Thẳng hàng số chính giữa các thẻ cùng hàng:** thêm `min-height:calc(var(--t-caption2) * 2.6)` (≈
+  chiều cao 2 dòng ở `line-height:1.3`) cho `.lb` — thẻ có nhãn ngắn (1 dòng) vẫn chừa đúng chiều cao
+  như thẻ nhãn dài (2 dòng), nên `.vl` (số chính, `margin-top:6px` ngay sau `.lb`) bắt đầu ở cùng 1
+  khoảng cách từ đỉnh thẻ bất kể nhãn dài/ngắn.
+- **Chừa chỗ cho icon:** giữ nguyên `padding-right:30px` sẵn có (đủ cho `.ic` 26px góc trên phải ở
+  thẻ thường) — áp dụng đều cho cả 2 dòng khi nhãn xuống dòng (padding là thuộc tính khối, không phải
+  riêng dòng đầu) nên chữ không bao giờ chui dưới icon. Thẻ hero (`.kpi.key`) đã bỏ `padding-right`
+  riêng ở việc 1 (không còn icon/tag).
+- **Không cần media query riêng theo breakpoint** — CSS áp dụng chung cho mọi độ rộng thẻ (`.kpis`
+  6 cột ≥1180px / 3 cột / 2 cột ≤680px, đã có sẵn breakpoint không đổi), chỉ đổi cách chữ tràn, không
+  đổi layout lưới.
+- **Tester nên soi:** ảnh `kpi-before-mobile-chi-tiet-row.png` (cắt "TỔNG SỐ NHÂN ...") so với
+  `kpi-after-mobile-chi-tiet-row.png` (hiện đủ "TỔNG SỐ NHÂN LỰC" 2 dòng, số `486`/`63` thẳng hàng với
+  2 thẻ %TT/SPI cạnh bên dù nhãn khác độ dài). Đã xem cả 4 breakpoint qua ảnh full-page
+  desktop (1440, 6 cột)/mobile (390, 2 cột) ở cả trang Chi tiết lẫn Tổng quan — không thấy thẻ nào vỡ
+  layout; chưa chụp riêng breakpoint 3 cột (680-1180px) và cột k5/k4 (`BacklogOverdueCard`/`KpiGrid`
+  không `canViewFinance`) — rủi ro thấp vì rule CSS không phân biệt biến thể cột, nhưng tester có thể
+  soi thêm nếu muốn chắc chắn tuyệt đối.
+
+### Ảnh chụp (Playwright thật, KHÔNG cài vào `node_modules` dự án)
+
+Dùng bản Playwright cài global trên máy (`npx --no-install playwright --version` → 1.63.0, qua
+`NODE_PATH` trỏ `node_modules` global) để đăng nhập thật `admin@daidung.com.vn`/`Admin@123`, dev
+server `npx next dev -p 3001` (PID 33488, đã dừng đúng PID này sau khi chụp xong — không `taskkill
+/IM node.exe`). Trang `/vi/projects/1` + `/vi/overview`, viewport 1440×1000 và 390×900. Mỗi trang/độ
+rộng có 2 ảnh: full page (`kpi-{before,after}-{desktop,mobile}-{chi-tiet,tong-quan}.png`) và crop
+riêng khối `.kpis` (`...-row.png`, dễ soi chữ/màu hơn full page). Toàn bộ 16 file ở
+`.bangiao/anh-test/kpi-*.png`. Ảnh "before" chụp TRƯỚC khi sửa code (không dùng `git stash`).
+
+### Kiểm tra cổng
+
+- `npx tsc --noEmit`: sạch, chạy lại sau **mỗi** commit trong 3 (đều qua PowerShell, ổ đĩa `D:` chữ hoa).
+- `npm test` (`npx vitest run` qua PowerShell): xanh sau mỗi commit —
+  commit 1 (bỏ tag): **97/97 file · 1122/1122 test**; commit 2 (dòng chậm/nhanh, cộng 13 test
+  `schedule-gap.test.ts` + 4 test `scheduleGap` trong `KpiCard.test.ts` so với gói trước, trừ 1 test
+  khoá hành vi `.tag` rỗng đã xoá ở commit 1): **97/97 file · 1126/1126 test**; commit 3 (nhãn 2 dòng,
+  không thêm/bớt test): **97/97 file · 1126/1126 test**. Mốc trước vòng bổ sung (theo `phien-B.md`):
+  96/96 file · 1110/1110.
+
+### Việc để sau (không tự làm, ngoài phạm vi 3 việc)
+
+- Key i18n `kpi.focusTag` (vi "Trọng tâm"/en "Focus") hiện không còn nơi nào gọi — để dọn ở phase khác
+  (không đụng theo đúng chỉ định).
+- Chưa chụp ảnh xác nhận trực quan nhánh "ahead"/"onTrack" của dòng chậm/nhanh (không có dự án mẫu
+  nào đang nhanh hơn KH trong seed hiện tại) — chỉ có unit test.
+- Chưa chụp riêng breakpoint 3 cột (680–1180px) và lưới `k4`/`k5` (thẻ Tổng quan ẩn cột Backlog khi
+  `canViewFinance=false`) cho việc 3 — rủi ro thấp (CSS không phân biệt số cột) nhưng chưa có ảnh.
