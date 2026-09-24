@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { CurrentUser } from '@/lib/session';
 
 /**
@@ -182,6 +184,27 @@ describe('Vong sua 1 muc 4 - the "Chuoi gia tri" rong het hang, bo the EVM (danh
     expect([...right].sort((a, b) => a - b)).toEqual(right);
     // Cot phai bat dau ngay sau khi cot trai da liet ke xong (khong xen ke nhu STAGE_ORDER goc).
     expect(Math.min(...right)).toBeGreaterThan(Math.max(...left));
+  });
+
+  it('thanh tien do (.stage .fill) phai la the block hoac co display ro rang trong CSS, khong duoc la the inline-mac-dinh (vd <i>) khi rule CSS khong khai bao display - neu khong thanh se luon rong 0x0 va khong bao gio hien mau/rong theo %, ke ca hang "khau nghen" (.stage.bt .fill) khong tô cam duoc nhu mock-up doi (danh-gia.md muc 4(a)/(d)). Xac nhan bang Playwright that tren http://localhost:3001/vi/projects/1: moi hang .bar chi thay nen xam var(--fill-2), khong co gradient --accent/--accent-2 hay cam #ffb340, bat ke pct = 33% hay 100%. Mock-up mockup-apple-glass.html dong 1364 dung <div class="fill">, khong phai <i>.', async () => {
+    const out = await render();
+    const fillTagMatch = out.match(/<(\w+) class="fill"/);
+    expect(fillTagMatch, 'khong tim thay phan tu class="fill" trong HTML render (StageRow)').not.toBeNull();
+    const tag = fillTagMatch![1];
+
+    const cssSrc = readFileSync(join(process.cwd(), 'app/globals.css'), 'utf-8');
+    const ruleMatch = cssSrc.match(/\.stage \.fill\{([^}]*)\}/);
+    expect(ruleMatch, 'khong tim thay rule ".stage .fill{...}" trong app/globals.css').not.toBeNull();
+    const hasExplicitDisplay = /display\s*:\s*(block|inline-block|flex|grid)/.test(ruleMatch![1]);
+
+    // The mac dinh la display:inline (khong ap dung width/height qua CSS) - phai doi the hoac
+    // CSS phai tu khai bao display khac inline thi width:NN% moi co tac dung.
+    const INLINE_DEFAULT_TAGS = new Set(['i', 'span', 'em', 'b', 'strong', 'a', 'u', 'small']);
+    const ok = !INLINE_DEFAULT_TAGS.has(tag) || hasExplicitDisplay;
+    expect(
+      ok,
+      `the="<${tag} class=\"fill\">" mac dinh display:inline nhung ".stage .fill" trong app/globals.css khong khai bao "display:" -> width:${'{'}pct${'}'}% vo tac dung, thanh tien do luon rong 0x0. Sua 1 trong 2: (1) doi <i> thanh <div> o app/[locale]/(app)/projects/[id]/page.tsx (ham StageRow, dong ~579), hoac (2) them "display:block" (hoac inline-block/flex) vao rule ".stage .fill" o app/globals.css (dong ~469). KHONG sua ca 2 file nay trong test - day la ghi nhan loi cho Reviewer, khong phai cho Tester.`,
+    ).toBe(true);
   });
 });
 
