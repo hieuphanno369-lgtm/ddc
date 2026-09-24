@@ -13,6 +13,7 @@ import { THRESHOLDS } from '@/lib/thresholds';
 import { calcScheduleGap } from '@/lib/evm';
 import { buildPlanActualTimeline } from '@/lib/timeline';
 import { buildStageTimelineRows } from '@/lib/stage-timeline';
+import { stageWeightLabel } from '@/lib/value-chain-view';
 import { formatDate, formatDateTime, formatDayMonth, formatPct, formatRatio, formatTon as formatQty, formatTyd } from '@/lib/format';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Rise } from '@/components/ui/Rise';
@@ -93,7 +94,8 @@ export default async function ProjectDetailPage({
   const tracking = await getWeeklyTracking(id, month);
   const keyMilestones = await repo.getKeyMilestones(id);
   const canEditMs = user?.role === 'admin' || user?.role === 'data-entry';
-  const stageRows = buildStageTimelineRows(await repo.getStageMilestones(id), await repo.getStageWeights(id));
+  const stageWeights = await repo.getStageWeights(id);
+  const stageRows = buildStageTimelineRows(await repo.getStageMilestones(id), stageWeights);
   const compare = await getWorkItemComparison(id, month);
   const customer = dims.customers.find((c) => c.id === project.customerId);
   const team = dims.teams.find((x) => x.id === project.teamKdId);
@@ -252,7 +254,7 @@ export default async function ProjectDetailPage({
                 return (
                   <div key={stage} className={`stage${isBottleneck ? ' bt' : ''}`}>
                     <span className="nm">{t(stageKey[stage])}</span>
-                    <span className="w">-</span>
+                    <span className="w">{stageWeightLabel(stageWeights, stage, locale)}</span>
                     <div className="bar"><i className="fill" style={{ width: `${Math.round(pct * 100)}%` }} /></div>
                     <span className="pc">{formatPct(pct, locale)}</span>
                   </div>

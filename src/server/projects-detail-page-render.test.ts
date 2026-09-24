@@ -101,6 +101,15 @@ describe('Task 2 - Timeline KH/TT dang thanh', () => {
   });
 });
 
+describe('T13a - cot trong so chuoi gia tri lay that tu project_stage_weight (P1B Task 2)', () => {
+  it('du an 1: trong so mac dinh 5/10/10/40/5/27/3 -> co "40%" (fabrication) va "5%" (design), khong con dau "-" cung', async () => {
+    const out = await render();
+    expect(out).toContain('class="w">40%</span>');
+    expect(out).toContain('class="w">5%</span>');
+    expect(out).not.toContain('class="w">-</span>');
+  });
+});
+
 describe('Task 6 - the "Cac moc chinh" + nut "Sua moc" theo vai tro', () => {
   it('admin thay the + link toi dung buoc Ho so', async () => {
     const out = await render();
