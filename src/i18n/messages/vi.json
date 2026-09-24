@@ -600,6 +600,14 @@
       "notFound": "Không tìm thấy dự án.",
       "generic": "Lưu thất bại: {msg}",
       "financeReadonly": "Chỉ Admin/BOD được sửa số tài chính — các ô dưới đây chỉ để xem."
+    },
+    "photo": {
+      "dropTitle": "Kéo thả ảnh vào đây hoặc bấm để chọn",
+      "dropHint": "Ảnh JPG/PNG/WebP, tối đa {mb}MB mỗi ảnh, chọn được nhiều ảnh",
+      "uploading": "Đang tải {i}/{n} · {pct}%",
+      "notImage": "{name}: không phải file ảnh",
+      "tooBig": "{name}: rỗng hoặc vượt quá {mb}MB",
+      "failed": "{name}: {msg}"
     }
   }
 }

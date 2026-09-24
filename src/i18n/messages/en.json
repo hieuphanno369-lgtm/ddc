@@ -600,6 +600,14 @@
       "notFound": "Project not found.",
       "generic": "Save failed: {msg}",
       "financeReadonly": "Only Admin/BOD can edit financials — fields below are read-only."
+    },
+    "photo": {
+      "dropTitle": "Drag photos here or click to choose",
+      "dropHint": "JPG/PNG/WebP, up to {mb}MB each, multiple allowed",
+      "uploading": "Uploading {i}/{n} · {pct}%",
+      "notImage": "{name}: not an image",
+      "tooBig": "{name}: empty or larger than {mb}MB",
+      "failed": "{name}: {msg}"
     }
   }
 }

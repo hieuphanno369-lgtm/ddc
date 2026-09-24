@@ -27,7 +27,7 @@ import { STAGE_ORDER, calcChainPctActual, findCurrentStage, normPct } from '@/li
 import { THRESHOLDS } from '@/lib/thresholds';
 import { fmtNum, formatDateTime, formatPct, formatRatio, toTitleCase } from '@/lib/format';
 import { normalizeKeyMilestones, toKeyMilestoneDraft, validateKeyMilestones, type KeyMilestoneDraft, type KeyMsErrors } from '@/lib/key-milestones';
-import { addPhotoAction, addSapCodeAction, closeAlertAction, createDimValueAction, deletePhotoAction, lockMonthAction, saveKeyMilestonesAction, saveMonthlyData } from '@/server/actions';
+import { addSapCodeAction, closeAlertAction, createDimValueAction, deletePhotoAction, lockMonthAction, saveKeyMilestonesAction, saveMonthlyData } from '@/server/actions';
 import {
   buildBaseForm,
   buildSavePatch,
@@ -43,6 +43,7 @@ import {
 } from './dataEntryState';
 import { Combobox } from './Combobox';
 import { KeyMilestoneEditor } from './KeyMilestoneEditor';
+import { PhotoDropzone } from './PhotoDropzone';
 import { Badge, Dot } from '@/components/ui/Badge';
 import { StatusBadge } from '@/components/ui/Badges';
 import { IconProject } from '@/components/icons';
@@ -127,10 +128,6 @@ export function DataEntryForm({
   const [sapCode, setSapCode] = useState('');
   const [sapDoc, setSapDoc] = useState('Hợp đồng con');
   const [sapMsg, setSapMsg] = useState<string | null>(null);
-
-  // Photos (upload lên server, lưu file vào data/uploads)
-  const [photoBusy, setPhotoBusy] = useState(false);
-  const [photoErr, setPhotoErr] = useState<string | null>(null);
 
   // Chạy 1 lần khi mount: dọn bản nháp v1 cũ (không bao giờ áp), rồi soi bản nháp v2 hiện có.
   useEffect(() => {
@@ -253,30 +250,6 @@ export function DataEntryForm({
     if (res.ok) {
       setSapCode('');
       router.refresh();
-    }
-  }
-
-  async function uploadPhotos(files: FileList | null) {
-    const list = Array.from(files ?? []);
-    if (list.length === 0) return;
-    setPhotoBusy(true);
-    setPhotoErr(null);
-    try {
-      for (const file of list) {
-        const fd = new FormData();
-        fd.append('projectId', String(projectId));
-        fd.append('yearMonth', month);
-        fd.append('caption', '');
-        fd.append('file', file);
-        const res = await addPhotoAction(fd);
-        if (!res.ok) {
-          setPhotoErr(res.error ?? t('form.photoUploadError'));
-          return;
-        }
-      }
-      router.refresh();
-    } finally {
-      setPhotoBusy(false);
     }
   }
 
@@ -663,23 +636,12 @@ export function DataEntryForm({
 
         {step === 'extras' && (
           <div className="mt-5 space-y-3">
-            <label
-              className={`flex cursor-pointer items-center gap-2 px-4 py-3 text-footnote transition-colors duration-fast hover:bg-fill ${photoBusy ? 'pointer-events-none opacity-60' : ''}`}
-              style={{ border: '1px dashed var(--sep-2)', borderRadius: 'var(--r-md)' }}
-            >
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  uploadPhotos(e.target.files);
-                  e.target.value = '';
-                }}
-              />
-              {t('detail.photos')} - {t('common.add')}
-            </label>
-            {photoErr && <p className="hintline" style={{ color: 'var(--danger)' }}>{photoErr}</p>}
+            <PhotoDropzone
+              projectId={projectId}
+              yearMonth={month}
+              disabled={locked}
+              onUploaded={() => router.refresh()}
+            />
             {photos.length === 0 ? (
               <p className="empty">{t('common.noData')}</p>
             ) : (
