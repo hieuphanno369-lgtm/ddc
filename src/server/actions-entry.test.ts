@@ -239,6 +239,17 @@ describe('previewDailyImportAction / commitDailyImportAction (Task 5)', () => {
     expect(res.rows.map((r) => r.rowNo)).toEqual([2, 3, 4]);
   });
 
+  it('H-1c: 5002 dong du lieu -> too_many_rows (chan truoc khi parse tung dong)', async () => {
+    login(ADMIN);
+    const rows: (string | number)[][] = [];
+    for (let i = 0; i < 5002; i++) rows.push(['2026-09-16', 'Nhà thầu Lắp dựng A', 1, 1, 1, 1]);
+    const file = await buildFile(rows);
+
+    const res = await previewDailyImportAction(form(1, file));
+
+    expect(res).toEqual({ ok: false, error: 'too_many_rows' });
+  });
+
   it("file .xls -> Invalid input", async () => {
     login(ADMIN);
     const file = await buildFile([], 'import.xls');

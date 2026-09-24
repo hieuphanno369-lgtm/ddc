@@ -188,7 +188,7 @@ export async function previewDailyImportAction(
 
   const buf = Buffer.from(await file.arrayBuffer());
   const wb = await readDailyWorkbook(buf);
-  if (!wb.ok) return { ok: false, error: 'bad_file' };
+  if (!wb.ok) return { ok: false, error: wb.error };
 
   const [members, shifts, equipments] = await Promise.all([
     repo.getContractors(projectId),

@@ -118,6 +118,27 @@ describe('importExcelAction - bao loi tung dong (khong con continue im lang)', (
   });
 });
 
+describe('importExcelAction - chan file doc hai (H-1c)', () => {
+  it('sheet co XFD1 + A1048576 -> ok:false, khong treo, xong duoi 2s', async () => {
+    login(ADMIN);
+    const ExcelJS = (await import('exceljs')).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Sheet1');
+    ws.getCell('XFD1').value = 'x';
+    ws.getCell('A1048576').value = 'x';
+    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+    const fd = new FormData();
+    fd.set('file', new File([buf], 'evil.xlsx'));
+
+    const start = Date.now();
+    const res = (await importExcelAction(fd)) as { ok: boolean; error?: string };
+    const elapsed = Date.now() - start;
+
+    expect(res.ok).toBe(false);
+    expect(elapsed).toBeLessThan(2000);
+  });
+});
+
 describe('commitImportAction - failed[] cho dong khong thuoc assignment', () => {
   it('data-entry gui projectId khong duoc gan -> failed[0].reason === not_assigned', async () => {
     login(dataEntry('pm@daidung.com.vn'));

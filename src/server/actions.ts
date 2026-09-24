@@ -8,9 +8,10 @@ import { logActivity } from '@/lib/activity';
 import { hashPassword, verifyPassword } from '@/lib/password';
 import { calcChainPctActual, findCurrentStage, normPct } from '@/lib/stages';
 import { cellText, type CellValue } from '@/lib/daily-import';
+import { assertXlsxInflatedSize, readBoundedSheet } from './daily-import';
 import type { CurrencyCode, KeyMilestoneInput, Market, Priority, Project, ProjectType, Role, StageCode } from './repo/types';
 import { listTag, overviewTag, profileTag, trendTag } from './cache';
-import { addSapCodeSchema, changePasswordSchema, closeAlertSchema, commitImportSchema, createAccountSchema, createDimSchema, createProjectSchema, deletePhotoSchema, importFileSchema, lockMonthSchema, mergeDimSchema, renameDimSchema, resetPasswordSchema, saveKeyMilestonesSchema, saveMonthlyDataSchema, userRoleSchema } from './validation';
+import { addSapCodeSchema, changePasswordSchema, closeAlertSchema, commitImportSchema, createAccountSchema, createDimSchema, createProjectSchema, deletePhotoSchema, importFileSchema, IMPORT_LEGACY_MAX_ROWS, lockMonthSchema, mergeDimSchema, renameDimSchema, resetPasswordSchema, saveKeyMilestonesSchema, saveMonthlyDataSchema, userRoleSchema } from './validation';
 import { repo } from './repo';
 import { deletePhotoFile } from '@/lib/uploads';
 import { addPhotoForUser } from './photo-service';
@@ -456,9 +457,12 @@ export async function importExcelAction(formData: FormData) {
 
   // Nợ F4 (reviewer P1A): đọc bằng exceljs thay vì `xlsx` 0.18.5 (có lỗ hổng) - chỉ nhận .xlsx/.csv.
   const buf = Buffer.from(await file.arrayBuffer());
+  const isCsv = /\.csv$/i.test(file.name);
+  // H-1b: CSV không phải zip, không cần chặn zip bomb; readBoundedSheet vẫn chặn dòng/cột cho cả 2.
+  if (!isCsv && !(await assertXlsxInflatedSize(buf))) return { ok: false, error: 'Invalid file' };
   const wb = new ExcelJS.Workbook();
   try {
-    if (/\.csv$/i.test(file.name)) {
+    if (isCsv) {
       await wb.csv.read(Readable.from(buf));
     } else {
       await wb.xlsx.load(buf as unknown as ArrayBuffer);
@@ -466,20 +470,20 @@ export async function importExcelAction(formData: FormData) {
   } catch {
     return { ok: false, error: 'Invalid file' };
   }
-  const ws = wb.worksheets[0];
-  if (!ws || ws.rowCount === 0) return { ok: false, error: 'Invalid file' };
-  const colCount = Math.max(ws.columnCount, ws.getRow(1).cellCount);
-  const header: string[] = [];
-  for (let c = 1; c <= colCount; c++) header.push(cellText(ws.getRow(1).getCell(c).value as CellValue));
+  // H-1a: đọc có giới hạn dòng/cột TRƯỚC mọi vòng lặp - không dùng ws.rowCount/ws.columnCount trực tiếp.
+  const bounded = readBoundedSheet(wb.worksheets[0], IMPORT_LEGACY_MAX_ROWS);
+  if (!bounded.ok) return { ok: false, error: 'File quá 5000 dòng hoặc quá 64 cột' };
+  if (bounded.header.length === 0) return { ok: false, error: 'Invalid file' };
+  const header: string[] = bounded.header.map((c) => cellText(c));
   const raw: Record<string, unknown>[] = [];
   const rowNos: number[] = [];
-  for (let r = 2; r <= ws.rowCount; r++) {
+  for (const row of bounded.rows) {
     const record: Record<string, unknown> = {};
-    for (let c = 1; c <= colCount; c++) {
-      record[header[c - 1] || `col${c}`] = cellText(ws.getRow(r).getCell(c).value as CellValue);
+    for (let c = 0; c < row.cells.length; c++) {
+      record[header[c] || `col${c + 1}`] = cellText(row.cells[c]);
     }
     raw.push(record);
-    rowNos.push(r);
+    rowNos.push(row.rowNo);
   }
 
   const known = await repo.getSapCodes();

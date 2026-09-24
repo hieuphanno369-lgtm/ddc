@@ -23,6 +23,7 @@ export function ExchangeRateEditor({ months, rates, lastRun }: ExchangeRateEdito
   const [draft, setDraft] = useState('');
   const [fetching, setFetching] = useState(false);
   const [fetchMsg, setFetchMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [rowErr, setRowErr] = useState<string | null>(null);
 
   function find(cur: FxCurrency, month: string): ExchangeRate | undefined {
     return rates.find((r) => r.currencyCode === cur && r.yearMonth === month);
@@ -46,18 +47,29 @@ export function ExchangeRateEditor({ months, rates, lastRun }: ExchangeRateEdito
 
   async function save(cur: FxCurrency, month: string) {
     const rate = Number(draft);
-    if (!Number.isFinite(rate) || rate <= 0) return;
+    if (!Number.isFinite(rate) || rate <= 0) {
+      setRowErr(t('fxRates.err.invalid'));
+      return;
+    }
     const res = await saveExchangeRateAction(cur, month, rate);
     if (res.ok) {
       setEditing(null);
+      setRowErr(null);
       router.refresh();
+    } else {
+      setRowErr(res.error === 'Forbidden' ? t('dailyEntry.err.forbidden') : t('fxRates.err.invalid'));
     }
   }
 
   async function del(cur: FxCurrency, month: string) {
     if (!window.confirm(t('fxRates.confirmDelete', { cur, month }))) return;
     const res = await deleteExchangeRateAction(cur, month);
-    if (res.ok) router.refresh();
+    if (res.ok) {
+      setRowErr(null);
+      router.refresh();
+    } else {
+      setRowErr(res.error === 'Forbidden' ? t('dailyEntry.err.forbidden') : t('dailyEntry.err.generic', { msg: res.error }));
+    }
   }
 
   return (
@@ -74,6 +86,7 @@ export function ExchangeRateEditor({ months, rates, lastRun }: ExchangeRateEdito
         </span>
       </div>
       {fetchMsg && <p className={fetchMsg.ok ? 'hintline' : 'sumbar bad'}>{fetchMsg.text}</p>}
+      {rowErr && <p className="sumbar bad">{rowErr}</p>}
 
       <div className="scroll" style={{ maxHeight: 320 }}>
         <table className="tbl sticky">
@@ -118,7 +131,7 @@ export function ExchangeRateEditor({ months, rates, lastRun }: ExchangeRateEdito
                         )}
                         <button
                           type="button" className="btn ghost"
-                          onClick={() => { setEditing(key); setDraft(row ? String(row.rateToVnd) : ''); }}
+                          onClick={() => { setEditing(key); setDraft(row ? String(row.rateToVnd) : ''); setRowErr(null); }}
                         >
                           {t('fxRates.edit')}
                         </button>

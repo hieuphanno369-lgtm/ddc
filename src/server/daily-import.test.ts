@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildDailyTemplate, readDailyWorkbook } from './daily-import';
+import ExcelJS from 'exceljs';
+import { assertXlsxInflatedSize, buildDailyTemplate, readDailyWorkbook } from './daily-import';
 import { manpowerHeaders, EQUIPMENT_HEADERS, cellText } from '@/lib/daily-import';
 import { repo } from '@/server/repo/mock-repo';
 
@@ -60,5 +61,53 @@ describe('buildDailyTemplate + readDailyWorkbook', () => {
     const buf = Buffer.from(await wb.xlsx.writeBuffer());
     const res = await readDailyWorkbook(buf);
     expect(res).toEqual({ ok: true, manpower: { header: [], rows: [] }, equipment: { header: [], rows: [] } });
+  });
+});
+
+/** H-1c (danh-gia.md vòng 1): test hồi quy cho H-1a/H-1b - file ô XFD1/A1048576 không được làm treo/OOM. */
+describe('readDailyWorkbook - chan file doc hai (H-1c)', () => {
+  it("sheet NhanLuc co XFD1 + A1048576 -> ok:false, xong duoi 2s (khong dung ws.rowCount/columnCount de lap)", async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('NhanLuc');
+    ws.getCell('XFD1').value = 'x';
+    ws.getCell('A1048576').value = 'x';
+    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+
+    const start = Date.now();
+    const res = await readDailyWorkbook(buf);
+    const elapsed = Date.now() - start;
+
+    expect(res.ok).toBe(false);
+    expect(elapsed).toBeLessThan(2000);
+  });
+
+  it('chi 1 o o XFD1 (rowCount trong han, colCount 16384 > 64) -> bad_file', async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('NhanLuc');
+    ws.getCell('XFD1').value = 'x';
+    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+
+    const res = await readDailyWorkbook(buf);
+    expect(res).toEqual({ ok: false, error: 'bad_file' });
+  });
+});
+
+describe('assertXlsxInflatedSize (H-1b, chong zip bomb)', () => {
+  it("1 o chua chuoi 200_000 ky tu, tran 64KB -> false", async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('NhanLuc');
+    ws.getCell('A1').value = 'a'.repeat(200_000);
+    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+
+    expect(await assertXlsxInflatedSize(buf, 64 * 1024)).toBe(false);
+  });
+
+  it('file mau buildDailyTemplate (nho) -> true', async () => {
+    const buf = await buildDailyTemplate({
+      members: repo.getContractors(1),
+      shifts: repo.getShifts(),
+      equipments: repo.getEquipments(),
+    });
+    expect(await assertXlsxInflatedSize(buf)).toBe(true);
   });
 });

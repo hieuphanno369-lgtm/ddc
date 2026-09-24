@@ -1,7 +1,30 @@
 import ExcelJS from 'exceljs';
+import JSZip from 'jszip';
 import { safeCell } from '@/lib/excel-safe';
-import { EQUIPMENT_HEADERS, manpowerHeaders, SHEET_EQUIPMENT, SHEET_MANPOWER, type CellValue } from '@/lib/daily-import';
+import { DAILY_IMPORT_MAX_ROWS, EQUIPMENT_HEADERS, manpowerHeaders, SHEET_EQUIPMENT, SHEET_MANPOWER, type CellValue } from '@/lib/daily-import';
 import type { Contractor, Equipment, Shift } from '@/server/repo/types';
+
+/** H-1a (danh-gia.md vòng 1): trần số cột đọc từ 1 sheet - chặn file gài ô ở cột XFD (16384) làm nổ RAM. */
+export const SHEET_MAX_COLS = 64;
+
+/** Sheet đã đọc có giới hạn dòng/cột, dùng chung cho mọi nơi đọc Excel bằng exceljs (H-1a). */
+export type BoundedSheet =
+  | { ok: true; header: CellValue[]; rows: { rowNo: number; cells: CellValue[] }[] }
+  | { ok: false; error: 'too_many_rows' | 'too_many_cols' };
+
+/**
+ * `internalStream` (jszip 3.10.2, `lib/zipObject.js`) không có trong `@types/jszip` (chỉ `async`/
+ * `nodeStream` - cả 2 đều dồn hết dữ liệu trước khi trả). Khai kiểu tối thiểu để dùng đúng API
+ * stream-có-thể-dừng-sớm mà không tắt kiểm kiểu toàn file.
+ */
+interface JSZipInternalStream {
+  on(evt: 'data', fn: (chunk: Uint8Array) => void): JSZipInternalStream;
+  on(evt: 'error', fn: (err: Error) => void): JSZipInternalStream;
+  on(evt: 'end', fn: () => void): JSZipInternalStream;
+  resume(): JSZipInternalStream;
+  pause(): JSZipInternalStream;
+}
+type JSZipObjectWithInternalStream = JSZip.JSZipObject & { internalStream(type: 'uint8array'): JSZipInternalStream };
 
 function rowToCells(row: ExcelJS.Row, colCount: number): CellValue[] {
   const cells: CellValue[] = [];
@@ -9,14 +32,86 @@ function rowToCells(row: ExcelJS.Row, colCount: number): CellValue[] {
   return cells;
 }
 
-function readSheet(wb: ExcelJS.Workbook, name: string): { header: CellValue[]; rows: CellValue[][] } {
-  const ws = wb.getWorksheet(name);
-  if (!ws || ws.rowCount === 0) return { header: [], rows: [] };
-  const colCount = Math.max(ws.columnCount, ws.getRow(1).cellCount);
+/**
+ * H-1a: đọc 1 sheet với trần dòng/cột kiểm TRƯỚC khi lặp - không dùng `ws.rowCount`/`ws.columnCount`
+ * để dựng vòng lặp (1 ô ở XFD1 + A1048576 đủ làm exceljs dựng hàng tỷ Cell). `eachRow` chỉ ghé
+ * dòng có dữ liệu; `getCell` chỉ tới `colCount` đã chặn.
+ */
+export function readBoundedSheet(ws: ExcelJS.Worksheet | undefined, maxRows: number): BoundedSheet {
+  if (!ws || ws.rowCount === 0) return { ok: true, header: [], rows: [] };
+  if (ws.rowCount > maxRows + 1) return { ok: false, error: 'too_many_rows' };
+
+  const colCount = ws.getRow(1).cellCount;
+  if (colCount > SHEET_MAX_COLS) return { ok: false, error: 'too_many_cols' };
+
   const header = rowToCells(ws.getRow(1), colCount);
+  const rows: { rowNo: number; cells: CellValue[] }[] = [];
+  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    if (rowNumber === 1) return;
+    rows.push({ rowNo: rowNumber, cells: rowToCells(row, colCount) });
+  });
+  return { ok: true, header, rows };
+}
+
+/**
+ * H-1b: chống zip bomb - trước khi `wb.xlsx.load` giải nén toàn bộ, đo tổng dung lượng SAU giải
+ * nén của các entry XML mang dữ liệu (sheet + shared strings) bằng stream có thể dừng sớm; KHÔNG
+ * dùng `entry.async(...)` (dồn hết vào bộ nhớ trước khi trả) và KHÔNG tin `_data.uncompressedSize`
+ * (siêu dữ liệu zip có thể bị làm giả).
+ */
+export async function assertXlsxInflatedSize(buf: Buffer, limitBytes = 20 * 1024 * 1024): Promise<boolean> {
+  let zip: JSZip;
+  try {
+    zip = await JSZip.loadAsync(buf);
+  } catch {
+    return false;
+  }
+
+  const dataEntries = Object.values(zip.files).filter(
+    (f) => !f.dir && /^xl\/(worksheets\/[^/]+\.xml|sharedStrings\.xml)$/.test(f.name),
+  );
+
+  for (const entry of dataEntries) {
+    const ok = await new Promise<boolean>((resolve) => {
+      let total = 0;
+      let settled = false;
+      const stream = (entry as JSZipObjectWithInternalStream).internalStream('uint8array');
+      const finish = (result: boolean) => {
+        if (settled) return;
+        settled = true;
+        resolve(result);
+      };
+      stream
+        .on('data', (chunk: Uint8Array) => {
+          if (settled) return;
+          total += chunk.length;
+          if (total > limitBytes) {
+            stream.pause();
+            finish(false);
+          }
+        })
+        .on('error', () => finish(false))
+        .on('end', () => finish(true))
+        .resume();
+    });
+    if (!ok) return false;
+  }
+
+  return true;
+}
+
+function readSheet(
+  wb: ExcelJS.Workbook,
+  name: string,
+): { header: CellValue[]; rows: CellValue[][] } | { error: 'too_many_rows' | 'too_many_cols' } {
+  const bounded = readBoundedSheet(wb.getWorksheet(name), DAILY_IMPORT_MAX_ROWS);
+  if (!bounded.ok) return { error: bounded.error };
+  // Dựng lại mảng CellValue[][] đúng vị trí (rowNo - 2) để rowNo suy từ index (dùng ở lib/daily-import.ts)
+  // vẫn đúng dù `eachRow` bỏ qua dòng trắng - mảng bị chặn bởi maxRows nên an toàn bộ nhớ.
   const rows: CellValue[][] = [];
-  for (let r = 2; r <= ws.rowCount; r++) rows.push(rowToCells(ws.getRow(r), colCount));
-  return { header, rows };
+  for (const r of bounded.rows) rows[r.rowNo - 2] = r.cells;
+  for (let i = 0; i < rows.length; i++) if (!rows[i]) rows[i] = [];
+  return { header: bounded.header, rows };
 }
 
 /** Đọc buffer .xlsx; thiếu sheet nào thì sheet đó coi như rỗng. */
@@ -24,15 +119,23 @@ export async function readDailyWorkbook(
   buf: Buffer,
 ): Promise<
   | { ok: true; manpower: { header: CellValue[]; rows: CellValue[][] }; equipment: { header: CellValue[]; rows: CellValue[][] } }
-  | { ok: false; error: 'bad_file' }
+  | { ok: false; error: 'bad_file' | 'too_many_rows' }
 > {
+  if (!(await assertXlsxInflatedSize(buf))) return { ok: false, error: 'bad_file' };
+
   const wb = new ExcelJS.Workbook();
   try {
     await wb.xlsx.load(buf as unknown as ArrayBuffer);
   } catch {
     return { ok: false, error: 'bad_file' };
   }
-  return { ok: true, manpower: readSheet(wb, SHEET_MANPOWER), equipment: readSheet(wb, SHEET_EQUIPMENT) };
+
+  const manpower = readSheet(wb, SHEET_MANPOWER);
+  if ('error' in manpower) return { ok: false, error: manpower.error === 'too_many_rows' ? 'too_many_rows' : 'bad_file' };
+  const equipment = readSheet(wb, SHEET_EQUIPMENT);
+  if ('error' in equipment) return { ok: false, error: equipment.error === 'too_many_rows' ? 'too_many_rows' : 'bad_file' };
+
+  return { ok: true, manpower, equipment };
 }
 
 const HEADER_FONT = { bold: true, color: { argb: 'FFFFFFFF' } } as const;

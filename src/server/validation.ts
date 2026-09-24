@@ -3,6 +3,7 @@ import { THRESHOLDS } from '@/lib/thresholds';
 import { isValidIsoDate, isValidYearMonth } from '@/lib/clock';
 import { KEY_MS_MAX_ROWS, KEY_MS_NAME_MAX } from '@/lib/key-milestones';
 import { DAILY_VALUE_MAX } from '@/lib/daily-entry';
+import { DAILY_IMPORT_MAX_DAYS } from '@/lib/daily-import';
 import { FX_CURRENCIES } from '@/lib/fx';
 import { currentMonth } from '@/lib/clock';
 
@@ -155,6 +156,9 @@ export const commitImportSchema = z.object({
 /** Giới hạn dung lượng 1 file import (10MB) - chặn ở action trước khi parse (chống DoS). */
 export const IMPORT_MAX_BYTES = 10 * 1024 * 1024;
 
+/** H-1a (danh-gia.md vòng 1): giới hạn số dòng đọc ở `importExcelAction` (import SAP legacy) - chặn TRƯỚC khi dựng preview. */
+export const IMPORT_LEGACY_MAX_ROWS = 5000;
+
 /** Nợ F4 (P2A, Task 9): đọc bằng exceljs - không còn nhận .xls (chỉ .xlsx/.csv). */
 export const importFileSchema = z.object({
   name: z.string().regex(/\.(xlsx|csv)$/i, 'Chỉ chấp nhận file .xlsx/.csv'),
@@ -275,7 +279,8 @@ export const commitDailyImportSchema = z.object({
         equipment: z.array(equipmentCellSchema).max(500),
       }),
     )
-    .min(1),
+    .min(1)
+    .max(DAILY_IMPORT_MAX_DAYS),
   reason: z.string().trim().max(500).optional(),
 });
 
