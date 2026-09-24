@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check:read": "tsx scripts/check-read-parity.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
