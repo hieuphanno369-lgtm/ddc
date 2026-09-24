@@ -1,4 +1,105 @@
-# ĐỎ
+# XANH
+
+P2B — Vòng 3, kiểm lại sau khi debugger sửa lỗi thanh tiến độ (commit `4024dd2`: thêm
+`display:block;` vào rule `.stage .fill` ở `app/globals.css:469`; `0b5c74d`: debugger vòng 2 bổ
+sung ảnh chụp Playwright xác nhận độc lập). Commit kiểm: `102a467`..`0b5c74d` (xem `git log` đầy
+đủ ở cuối mục này). Đối chiếu `.bangiao/ket-qua-test.md` mục "Vòng 2" (ĐỎ, lỗi mục 4) +
+`.bangiao/thay-doi.md` mục "Debugger vòng 1"/"Debugger vòng 2". Kiểm thử độc lập, không sửa file
+sản phẩm. Skill dùng: `ddc-tower:test-driven-development`, `ddc-tower:verification-before-completion`
+(chạy tay xác nhận trước khi kết luận, evidence trước khi tuyên bố). Đụng UI → smoke-test bằng
+`mcp__playwright` trên dev server cổng 3001, đăng nhập thật `admin@daidung.com.vn`.
+
+## Sự cố môi trường tự phát hiện, không liên quan code (ghi lại để tránh nhầm ĐỎ giả)
+
+`npm test` (và cả `npx vitest run <1 file>`) gọi qua **Git Bash** (cwd `/d/_project/...`) làm
+**MỌI** 96 file test rớt đồng loạt với lỗi `Vitest failed to find the current suite`/`No test
+suite found in file d:/_project/...` — kể cả file đơn giản nhất không hề đổi (`src/lib/stages.test.ts`,
+36 test, không diff so với `git log`). Đã tự cô lập nguyên nhân: Git Bash dịch đường dẫn ổ đĩa
+`D:\` thành **chữ thường** `d:/...` khi chạy `npx`/`node`, khiến Vitest (v2.1.1, bug đã biết liên
+quan case-sensitivity đường dẫn trên Windows) không khớp được URL module đang thu thập với URL
+file test → báo "không tìm thấy suite" cho toàn bộ, dù nội dung file hoàn toàn đúng. Xác nhận bằng
+thực nghiệm: chạy đúng `npx vitest run src/lib/stages.test.ts` qua **PowerShell** với đường dẫn
+`D:\_project\DDC_Control_Tower-B` (chữ hoa) → **36/36 pass** ngay lập tức, không đổi gì khác.
+Từ đó về sau, mọi lệnh `npm test`/`npx vitest`/`npx tsc` trong phiên này đều chạy qua PowerShell
+(`Set-Location "D:\_project\DDC_Control_Tower-B"`) để tránh sự cố giả này. Không phải lỗi code,
+không phải lỗi node_modules (đã kiểm `npm ls vite/vitest/@vitest/runner --all`: không có bản trùng
+lặp). Ghi lại để phiên sau (hoặc Reviewer chạy lại) không hoảng vì thấy 96 file rớt hàng loạt —
+đó là do cách gọi shell, hãy chạy qua PowerShell với ổ đĩa chữ hoa `D:\`.
+
+## Cổng kiểm
+
+- `npx tsc --noEmit` (PowerShell): sạch, không lỗi.
+- `npm test` (PowerShell, `Set-Location "D:\_project\DDC_Control_Tower-B"`): **96/96 file, 1110/1110
+  test PASS**, exit code `0` (xác nhận bằng `$LASTEXITCODE` sau khi `Tee-Object` lưu log đầy đủ ra
+  file, `Select-String -Pattern "FAIL|failed|Error"` không khớp dòng nào ngoài 1 cảnh báo deprecation
+  CJS của Vite vô hại). Chạy lại `src/server/report-export-route.test.ts` riêng độc lập: **12/12 PASS
+  trong 2,34 s**, không timeout (xác nhận không còn flaky như debugger vòng 2 từng ghi nhận do tải
+  CPU song song với Playwright — lần này chạy tách biệt, không đồng thời).
+- Test hồi quy **"Vong sua 1 muc 4 - the "Chuoi gia tri" ..."** trong
+  `src/server/projects-detail-page-render.test.ts` (chạy riêng bằng `--reporter=verbose`): cả 5 test
+  trong describe này **PASS**, gồm đúng test từng RED ở vòng 2 ("thanh tien do (.stage .fill) phai
+  la the block hoac co display ro rang trong CSS...").
+
+## Kiểm bằng Playwright thật (dev server tự khởi động `npx next dev -p 3001`, PID cmd.exe 38100,
+tự dừng đúng PID này bằng `taskkill /PID 38100 /T /F` sau khi xong — không đụng process khác)
+
+Đăng nhập sẵn có `admin@daidung.com.vn` (xác nhận qua `/api/auth/session`:
+`{"user":{"name":"Admin","email":"admin@daidung.com.vn","role":"admin","canViewFinance":true}}`).
+
+- **Thanh tiến độ có màu đúng %** — đọc trực tiếp `getComputedStyle`/`getBoundingClientRect()` của
+  MỌI `.stage .fill` trên `/vi/projects/1` (desktop 1440×1000): `display:"block"` (đã đổi từ
+  `"inline"`), độ rộng tỉ lệ đúng `style.width` (6 hàng 100% → 298px, hàng 0% "Nghiệm thu" → 0px,
+  hàng "Lắp dựng" 33,3% → 101px ≈ 298×0,333), nền `linear-gradient(90deg, rgb(42,109,180),
+  rgb(29,90,158))` (xanh, `--accent-2`→`--accent`) cho 6 hàng thường; **hàng "khâu nghẽn" "Lắp
+  dựng" tô cam** `linear-gradient(90deg, rgb(255,179,64), rgb(178,80,0))` — đúng yêu cầu mục 4(a)/(d).
+- **Ảnh chụp xác nhận bằng mắt**: `.bangiao/anh-test/v3-desktop-chuoi-gia-tri.png` (crop
+  `.valueChainCard`, 1440px), `v3-mobile-chuoi-gia-tri.png` (390px), `v3-desktop-full.png` (toàn
+  trang 1440px) — nhìn thấy trực tiếp 6 thanh xanh dài theo đúng %, 1 thanh cam ngắn hơn hẳn (Lắp
+  dựng), dòng chân "Σ trọng số 100% · %TT = Σ(...)" = 79,0%.
+- **Desktop 1440 / mobile 390 đều đúng bố cục 2 cột → 1 cột**: ở 390px, `.stagecol` vẫn 2 phần tử
+  DOM nhưng `getBoundingClientRect()` cho thấy cùng `x=37`, khác `y` (233 và 458) → xếp dọc, không
+  đè lên nhau, không vỡ layout. Thẻ mobile crop hiện đúng như ảnh chụp.
+- **Chip giai đoạn đổi khi chọn ở Timeline 7 giai đoạn**: bấm đúng phần tử `<rect>` overlay trong
+  suốt cuối cùng của hàng "Gia công" (không phải rect trang trí đầu tiên trong `<g>` — dispatch
+  click sai chỗ ban đầu không kích hoạt, đã tự sửa cách bấm và xác nhận lại) → chip đổi từ "Toàn bộ
+  7 giai đoạn" sang "Gia công", tiêu đề "Biểu đồ so sánh - Gia công" (mất chữ "(mặc định)"); bấm lại
+  cùng hàng → chip trở về "Toàn bộ 7 giai đoạn". Badge đỏ "Khâu nghẽn: Lắp dựng" giữ nguyên không đổi
+  theo lựa chọn (đúng thiết kế — 2 khái niệm độc lập).
+- **Cụm S-curve/What-if/Lịch sử mã/SAP/Alert/Tài chính/Ảnh nằm cuối trang**: lấy toàn bộ
+  `main h2, main h3` theo đúng thứ tự DOM — khớp chính xác: Header → KPI(Timeline KH/TT) → Các mốc
+  chính → **Chuỗi giá trị + Timeline 7 giai đoạn + Biểu đồ so sánh** → Nhân lực/Thiết bị (nhập tay)
+  → Tracking tuần → Nhân lực ca → Nhân lực tuần → Gantt thiết bị → **S-curve PV/EV/AC → SPI/CPI
+  trend → What-if → Lịch sử mã dự án → Mã SAP → Alert/Action → Tài chính chi tiết → Ảnh hiện
+  trường** (cuối cùng).
+- **Hồi quy CSS dùng chung — wizard nhập liệu** (`/vi/nhap-lieu`, dự án `10626-008 - SVĐ PVF`,
+  bước "1 Tiến độ tháng" → khối "Tiến độ theo 7 giai đoạn"): `.stage .fill` cũng
+  `display:"block"`, độ rộng tỉ lệ đúng trong `.bar` (233px = 100%, 77px ≈ 233×0,3326 cho "Lắp dựng"
+  0,33, 0px cho "Nghiệm thu" 0), nền gradient xanh đúng. Bố cục **không vỡ** (2 cột cố định, mỗi ô
+  gồm nhãn + input + thanh %, không tràn/đè) — xác nhận bằng ảnh chụp toàn trang
+  `.bangiao/anh-test/v3-wizard-stage-fill.png`. Đúng như dự đoán của debugger ("wizard trước đó
+  cũng bị lỗi này, giờ cũng được sửa theo, không có rủi ro vỡ vì trước đó vốn đã không hiện đúng").
+- Console: chỉ có cảnh báo `defaultProps` của thư viện `recharts` (deprecation warning React 18/19,
+  không liên quan P2B, đã biết từ trước) — không có `MISSING_MESSAGE`, không có lỗi ứng dụng.
+
+## `git status`
+
+Không có thay đổi ở `package.json`/`package-lock.json`/bất kỳ file sản phẩm nào. 2 ảnh
+`.bangiao/anh-test/v3-desktop-*.png` ghi trong yêu cầu đã có sẵn từ phiên trước khi tôi vào (không
+phải do tôi) — đã ghi đè lại bằng ảnh của chính tôi (`v3-desktop-chuoi-gia-tri.png`,
+`v3-desktop-full.png`) cộng thêm `v3-mobile-chuoi-gia-tri.png`, `v3-wizard-stage-fill.png`.
+
+## Kết luận vòng 3
+
+**XANH.** Lỗi thanh tiến độ (mục 4(a)/(d) danh-gia.md) đã được sửa đúng gốc rễ (1 dòng CSS
+`display:block;`), xác nhận độc lập bằng: (1) test tự động chuyển từ RED sang PASS, (2)
+`getComputedStyle`/`getBoundingClientRect()` thật trên trình duyệt cho cả 2 nơi dùng chung CSS
+(`page.tsx` và `DataEntryForm.tsx`), (3) ảnh chụp mắt thường ở cả desktop/mobile. Không phát hiện
+hồi quy nào khác. `npx tsc --noEmit` sạch, `npm test` 1110/1110 xanh. Bước kế tiếp: security-reviewer
+vòng 2.
+
+---
+
+# Vòng 2 (trước) — ĐỎ, giữ nguyên để tham khảo
 
 P2B — Vòng sửa 1, kiểm thử lại (vòng 2). Commit kiểm: `710abab`, `f794113`, `c59716f`, `cdd5733`,
 `84b6760`, `c61fa61` (`git log fa2b261..HEAD`). Đối chiếu `.bangiao/danh-gia.md` mục CẦN SỬA 1-4 +
