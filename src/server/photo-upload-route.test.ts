@@ -29,6 +29,11 @@ const dataEntry = (email: string) => ({ name: email, email, role: 'data-entry' a
 const ADMIN = { name: 'Admin', email: 'admin@daidung.com.vn', role: 'admin' as const, canViewFinance: true };
 
 const png = (name = 'hien-truong.png') => new File([Buffer.from([0x89, 0x50, 0x4e, 0x47])], name, { type: 'image/png' });
+// danh-gia.md vong 2, muc 3: anh chup dien thoai thuong la JPEG - moi test upload truoc gio chi dung byte PNG.
+const jpeg = (name = 'hien-truong.jpg') =>
+  new File([Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01])], name, {
+    type: 'image/jpeg',
+  });
 const pdf = (name = 'ho-so.pdf') => new File([Buffer.from('%PDF-1.4')], name, { type: 'application/pdf' });
 // F1 (danh-gia.md): nội dung SVG thật, khai type image/svg+xml - phải bị chặn dù qua được zod (regex /^image\//).
 const svg = (name = 'anh.svg') =>
@@ -164,7 +169,8 @@ describe('POST /api/photo-upload', () => {
     const res = await POST(req(PID_PIC, png('x.svg')));
 
     expect(res.status).toBe(200);
-    const photo = repo.getPhotos(PID_PIC).at(-1);
+    const body = (await res.json()) as { ok: boolean; id: number };
+    const photo = repo.getPhotoById(body.id);
     expect(photo?.url.endsWith('.png')).toBe(true);
   });
 
@@ -174,5 +180,16 @@ describe('POST /api/photo-upload', () => {
     const res = await POST(req(PID_PIC, htmlDisguisedAsPng()));
 
     expect(res.status).toBe(400);
+  });
+
+  it('danh-gia.md vong 2, muc 3 - JPEG that (anh chup dien thoai) -> 200, url luu ket thuc .jpg', async () => {
+    login(ADMIN);
+
+    const res = await POST(req(PID_PIC, jpeg()));
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; id: number };
+    const photo = repo.getPhotoById(body.id);
+    expect(photo?.url.endsWith('.jpg')).toBe(true);
   });
 });

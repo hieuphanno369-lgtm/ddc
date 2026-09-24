@@ -4,6 +4,7 @@ import path from 'node:path';
 import {
   UPLOAD_ROOT,
   deletePhotoFile,
+  detectImageKind,
   readPhotoFile,
   sanitizePhotoName,
   savePhotoFile,
@@ -18,6 +19,27 @@ const img = (name: string) => new File([Buffer.from([0x89, 0x50, 0x4e, 0x47])], 
 
 afterAll(() => {
   rmSync(TEST_DIR, { recursive: true, force: true });
+});
+
+describe('detectImageKind (danh-gia.md vong 2, muc 3 - JPEG/GIF/WebP that, khong chi PNG)', () => {
+  it.each([
+    ['jpg', Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]), 'jpg'],
+    ['png', Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), 'png'],
+    ['gif', Buffer.from('GIF89a', 'ascii'), 'gif'],
+    ['webp', Buffer.concat([Buffer.from('RIFF', 'ascii'), Buffer.from([0, 0, 0, 0]), Buffer.from('WEBP', 'ascii')]), 'webp'],
+  ] as const)('%s that -> %s', (_label, header, kind) => {
+    expect(detectImageKind(header)).toBe(kind);
+  });
+
+  it.each([
+    ['svg', Buffer.from('<svg', 'ascii')],
+    ['html', Buffer.from('<!DOCTYPE html>', 'ascii')],
+    ['rong', Buffer.alloc(0)],
+    ['jpeg cut ngan (2 byte)', Buffer.from([0xff, 0xd8])],
+    ['RIFF nhung khong phai webp (WAVE)', Buffer.concat([Buffer.from('RIFF', 'ascii'), Buffer.from([0, 0, 0, 0]), Buffer.from('WAVE', 'ascii')])],
+  ] as const)('%s -> null', (_label, header) => {
+    expect(detectImageKind(header)).toBeNull();
+  });
 });
 
 describe('savePhotoFile - ghi vào data/uploads/<projectId>/<YYYY-MM>/ (Mục 6)', () => {
