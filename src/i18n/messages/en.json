@@ -624,5 +624,12 @@
     "rangeAll": "All",
     "prev": "Previous page",
     "next": "Next page"
+  },
+  "manpowerCharts": {
+    "shiftTitle": "Manpower by shift · by contractor",
+    "shiftHelp": "One column group per contractor, one column per shift. Height = average actual headcount per recorded day of that shift in the month.",
+    "month": "Month",
+    "noDataMonth": "No manpower data for {month}",
+    "tipLine": "Actual {actual} · Plan {planned} ({pct}) · {days} days"
   }
 }

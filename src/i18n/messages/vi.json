@@ -624,5 +624,12 @@
     "rangeAll": "Tất cả",
     "prev": "Trang trước",
     "next": "Trang sau"
+  },
+  "manpowerCharts": {
+    "shiftTitle": "Nhân lực theo ca · theo nhà thầu",
+    "shiftHelp": "Mỗi nhà thầu 1 nhóm cột, mỗi ca 1 cột. Chiều cao = nhân lực thực tế trung bình mỗi ngày có số liệu của ca đó trong tháng.",
+    "month": "Tháng",
+    "noDataMonth": "Chưa có số liệu nhân lực tháng {month}",
+    "tipLine": "TT {actual} · KH {planned} ({pct}) · {days} ngày"
   }
 }

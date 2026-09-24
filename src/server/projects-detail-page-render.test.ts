@@ -117,6 +117,16 @@ describe('T13b - so tuyet doi (tan) canh % o chuoi gia tri (P1B Task 3, nhanh T)
   });
 });
 
+describe('P2B Buoc 2 - T12b(a) chart nhan luc theo ca x nha thau', () => {
+  it('co the id="res-shift" + tieu de manpowerCharts.shiftTitle, van con anchor res-manpower', async () => {
+    const out = await render();
+    expect(out).toContain('id="res-shift"');
+    expect(out).toContain('manpowerCharts.shiftTitle');
+    expect(out).toContain('href="#res-manpower"');
+    expect(out).toContain('id="res-manpower"');
+  });
+});
+
 describe('Task 6 - the "Cac moc chinh" + nut "Sua moc" theo vai tro', () => {
   it('admin thay the + link toi dung buoc Ho so', async () => {
     const out = await render();
