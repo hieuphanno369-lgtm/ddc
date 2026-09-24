@@ -639,6 +639,34 @@
     }
   },
   "dailyEntry": {
-    "step": "Manpower & Equipment"
+    "step": "Manpower & Equipment",
+    "date": "Date",
+    "manpower": "Manpower by shift",
+    "equipment": "Equipment",
+    "contractor": "Contractor",
+    "planned": "Plan",
+    "actual": "Actual",
+    "dayTotal": "Day total",
+    "total": "Total",
+    "addEquipment": "+ Add equipment row",
+    "reason": "Reason for editing a past day",
+    "reasonHint": "Required (≥ 5 chars) when changing existing figures of a past day — stored in the audit log.",
+    "save": "Save {date}",
+    "saved": "Saved: {created} new · {updated} changed · {unchanged} unchanged",
+    "locked": "Month {month} is locked — read only.",
+    "outOfWindow": "This date is outside the allowed entry window.",
+    "err": {
+      "bad_number": "Invalid cell — whole numbers ≥ 0 only.",
+      "duplicate_equipment": "Duplicate equipment row (same contractor + equipment).",
+      "reason_required": "Enter a reason (at least 5 chars) to edit a past day.",
+      "actual_future": "Actual figures cannot be entered for a future date.",
+      "out_of_window": "Date outside the allowed window.",
+      "locked": "Month {month} is locked.",
+      "invalid_contractor": "A contractor is not in this project — reload the page.",
+      "invalid_shift": "Invalid shift — reload the page.",
+      "invalid_equipment": "Invalid equipment — reload the page.",
+      "forbidden": "You are not allowed to edit this project.",
+      "generic": "Save failed: {msg}"
+    }
   }
 }

@@ -639,6 +639,34 @@
     }
   },
   "dailyEntry": {
-    "step": "Nhân lực & Thiết bị"
+    "step": "Nhân lực & Thiết bị",
+    "date": "Ngày",
+    "manpower": "Nhân lực theo ca",
+    "equipment": "Thiết bị",
+    "contractor": "Nhà thầu",
+    "planned": "KH",
+    "actual": "TT",
+    "dayTotal": "Tổng ngày",
+    "total": "Tổng",
+    "addEquipment": "+ Thêm dòng thiết bị",
+    "reason": "Lý do sửa số ngày cũ",
+    "reasonHint": "Bắt buộc (≥ 5 ký tự) khi sửa số đã có của ngày trước hôm nay — ghi vào nhật ký thay đổi.",
+    "save": "Lưu ngày {date}",
+    "saved": "Đã lưu: {created} mới · {updated} sửa · {unchanged} không đổi",
+    "locked": "Tháng {month} đã khoá số liệu — không sửa được.",
+    "outOfWindow": "Ngày này ngoài khoảng được phép nhập/sửa.",
+    "err": {
+      "bad_number": "Có ô không hợp lệ — chỉ nhận số nguyên ≥ 0.",
+      "duplicate_equipment": "Trùng dòng thiết bị (cùng nhà thầu + thiết bị).",
+      "reason_required": "Nhập lý do (ít nhất 5 ký tự) khi sửa số của ngày cũ.",
+      "actual_future": "Không nhập số thực tế cho ngày trong tương lai.",
+      "out_of_window": "Ngày ngoài khoảng được phép nhập/sửa.",
+      "locked": "Tháng {month} đã khoá số liệu.",
+      "invalid_contractor": "Có nhà thầu không thuộc dự án — tải lại trang.",
+      "invalid_shift": "Ca làm việc không hợp lệ — tải lại trang.",
+      "invalid_equipment": "Thiết bị không hợp lệ — tải lại trang.",
+      "forbidden": "Bạn không có quyền sửa dự án này.",
+      "generic": "Lưu thất bại: {msg}"
+    }
   }
 }

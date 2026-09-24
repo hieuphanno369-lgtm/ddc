@@ -1,9 +1,12 @@
 'use server';
 
 import { logActivity } from '@/lib/activity';
+import { todayIso } from '@/lib/clock';
+import { dailyDateWindow, isInWindow, needsReason, hasFutureActual, DAILY_REASON_MIN, type EquipmentCellInput, type ManpowerCellInput } from '@/lib/daily-entry';
 import { requireWriteProject } from './action-guards';
 import { repo } from './repo';
-import { createContractorSchema, projectContractorSchema } from './validation';
+import type { Role } from './repo/types';
+import { createContractorSchema, projectContractorSchema, saveDailyResourcesSchema } from './validation';
 
 /** G-18: gán 1 nhà thầu (đã có trong danh mục) vào dự án. */
 export async function addProjectContractorAction(
@@ -33,6 +36,98 @@ export async function removeProjectContractorAction(
   if (result === 'has_data' || result === 'not_member') return { ok: false, error: result };
   await logActivity(user, 'project_contractor_remove', `project ${projectId} · contractor ${contractorId}`);
   return { ok: true };
+}
+
+export type DailySaveError =
+  | 'Forbidden'
+  | 'Invalid input'
+  | 'Not found'
+  | 'out_of_window'
+  | 'locked'
+  | 'invalid_contractor'
+  | 'invalid_shift'
+  | 'invalid_equipment'
+  | 'actual_future'
+  | 'reason_required';
+
+interface DailyPayload {
+  manpower: ManpowerCellInput[];
+  equipment: EquipmentCellInput[];
+}
+
+/**
+ * Chuỗi kiểm dùng chung cho `saveDailyResourcesAction` và `commitDailyImportAction` (Task 5).
+ * Dừng ở lỗi đầu tiên - KHÔNG ghi gì khi có lỗi.
+ */
+async function checkDailyPayload(
+  user: { email: string; role: Role },
+  projectId: number,
+  workDate: string,
+  payload: DailyPayload,
+  reason: string | undefined,
+): Promise<{ ok: true } | { ok: false; error: DailySaveError; month?: string }> {
+  const project = await repo.getProject(projectId);
+  if (!project) return { ok: false, error: 'Not found' };
+
+  const window = dailyDateWindow(user.role, todayIso());
+  if (!isInWindow(workDate, window)) return { ok: false, error: 'out_of_window' };
+
+  const month = workDate.slice(0, 7);
+  if (await repo.isMonthLocked(month)) return { ok: false, error: 'locked', month };
+
+  const members = new Set((await repo.getContractors(projectId)).map((c) => c.id));
+  if (payload.manpower.some((m) => !members.has(m.contractorId)) || payload.equipment.some((e) => !members.has(e.contractorId))) {
+    return { ok: false, error: 'invalid_contractor' };
+  }
+
+  const shiftCodes = new Set((await repo.getShifts()).map((s) => s.code));
+  if (payload.manpower.some((m) => !shiftCodes.has(m.shiftCode))) return { ok: false, error: 'invalid_shift' };
+
+  const equipmentIds = new Set((await repo.getEquipments()).map((e) => e.id));
+  if (payload.equipment.some((e) => !equipmentIds.has(e.equipmentId))) return { ok: false, error: 'invalid_equipment' };
+
+  const today = todayIso();
+  if (hasFutureActual(workDate, today, payload.manpower, payload.equipment)) return { ok: false, error: 'actual_future' };
+
+  const [existingMp, existingEq] = await Promise.all([
+    repo.getDailyManpowerByShift(projectId, workDate, workDate),
+    repo.getDailyEquipment(projectId, workDate, workDate),
+  ]);
+  if (
+    needsReason(workDate, today, payload.manpower, payload.equipment, existingMp, existingEq) &&
+    (reason ?? '').trim().length < DAILY_REASON_MIN
+  ) {
+    return { ok: false, error: 'reason_required' };
+  }
+
+  return { ok: true };
+}
+
+/** B (Task 4, P2A): nhập/sửa nhân lực theo ca + thiết bị theo ngày; sửa số ngày cũ phải có lý do. */
+export async function saveDailyResourcesAction(
+  projectId: number,
+  workDate: string,
+  payload: DailyPayload,
+  reason?: string,
+): Promise<{ ok: true; created: number; updated: number; unchanged: number } | { ok: false; error: DailySaveError; month?: string }> {
+  const user = await requireWriteProject(projectId);
+  if (!user) return { ok: false, error: 'Forbidden' };
+
+  const parsed = saveDailyResourcesSchema.safeParse({ projectId, workDate, manpower: payload.manpower, equipment: payload.equipment, reason });
+  if (!parsed.success) return { ok: false, error: 'Invalid input' };
+
+  const check = await checkDailyPayload(user, projectId, workDate, { manpower: parsed.data.manpower, equipment: parsed.data.equipment }, parsed.data.reason);
+  if (!check.ok) return check;
+
+  const result = await repo.saveDailyResources(
+    projectId,
+    workDate,
+    { manpower: parsed.data.manpower, equipment: parsed.data.equipment },
+    user.email,
+    parsed.data.reason?.trim() ?? '',
+  );
+  await logActivity(user, 'save_daily_resources', `project ${projectId} · ${workDate}`);
+  return { ok: true, ...result };
 }
 
 /** Q4=a: admin + data-entry tạo nhà thầu mới ngay trong bước nhập, rồi gắn luôn vào dự án. */

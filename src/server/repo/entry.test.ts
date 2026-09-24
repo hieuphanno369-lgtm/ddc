@@ -55,4 +55,52 @@ describe('entry repo (mock)', () => {
     expect(afterRemove.length).toBe(before + 2);
     expect(afterRemove[0].tableName).toBe('project_contractor');
   });
+
+  it('saveDailyResources: o moi 0/0 khong tao dong', () => {
+    const res = repo.saveDailyResources(2, '2026-09-16', {
+      manpower: [{ contractorId: 1, shiftCode: 'morning', plannedHeadcount: 0, actualHeadcount: 0 }],
+      equipment: [],
+    }, 'u@x', '');
+    expect(res).toEqual({ created: 0, updated: 0, unchanged: 1 });
+    expect(repo.getDailyManpowerByShift(2, '2026-09-16', '2026-09-16')).toHaveLength(0);
+  });
+
+  it('saveDailyResources: o moi 5/4 tao', () => {
+    const res = repo.saveDailyResources(2, '2026-09-16', {
+      manpower: [{ contractorId: 1, shiftCode: 'morning', plannedHeadcount: 5, actualHeadcount: 4 }],
+      equipment: [],
+    }, 'u@x', '');
+    expect(res).toEqual({ created: 1, updated: 0, unchanged: 0 });
+  });
+
+  it('saveDailyResources: doi o co san -> 1 audit co note; gui y het -> unchanged khong audit', () => {
+    const before = repo.getAuditLog().length;
+    const res1 = repo.saveDailyResources(1, '2026-09-16', {
+      manpower: [{ contractorId: 1, shiftCode: 'morning', plannedHeadcount: 999, actualHeadcount: 999 }],
+      equipment: [],
+    }, 'u@x', 'ly do sua');
+    expect(res1).toEqual({ created: 0, updated: 1, unchanged: 0 });
+    const afterFirst = repo.getAuditLog();
+    expect(afterFirst.length).toBe(before + 1);
+    expect(afterFirst[0].note).toBe('ly do sua');
+
+    const res2 = repo.saveDailyResources(1, '2026-09-16', {
+      manpower: [{ contractorId: 1, shiftCode: 'morning', plannedHeadcount: 999, actualHeadcount: 999 }],
+      equipment: [],
+    }, 'u@x', '');
+    expect(res2).toEqual({ created: 0, updated: 0, unchanged: 1 });
+    expect(repo.getAuditLog().length).toBe(before + 1);
+  });
+
+  it('tong qua getDailyManpower = tong cac ca', () => {
+    repo.saveDailyResources(2, '2026-09-16', {
+      manpower: [
+        { contractorId: 1, shiftCode: 'morning', plannedHeadcount: 5, actualHeadcount: 4 },
+        { contractorId: 1, shiftCode: 'evening', plannedHeadcount: 3, actualHeadcount: 2 },
+      ],
+      equipment: [],
+    }, 'u@x', '');
+    const totals = repo.getDailyManpower(2, '2026-09-16', '2026-09-16');
+    expect(totals).toEqual([{ projectId: 2, contractorId: 1, workDate: '2026-09-16', plannedHeadcount: 8, actualHeadcount: 6 }]);
+  });
 });

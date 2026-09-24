@@ -1,4 +1,5 @@
 import type { RepoData } from '@/data/seed/history';
+import type { EquipmentCellInput, ManpowerCellInput } from '@/lib/daily-entry';
 import type { AuditLogEntry, Contractor, FactDailyManpowerShift, Shift } from './types';
 
 export interface EntryMockDeps {
@@ -98,6 +99,83 @@ export function makeEntryMockRepo({ getData, persist }: EntryMockDeps) {
       auditMock(d, 'dim_contractor', String(id), 'create', '', created.name, by);
       persist();
       return created;
+    },
+
+    /** Ghi nhan luc theo ca + thiet bi theo ngay cua 1 (projectId, workDate). Khong bao gio xoa dong. */
+    saveDailyResources(
+      projectId: number,
+      workDate: string,
+      input: { manpower: ManpowerCellInput[]; equipment: EquipmentCellInput[] },
+      by: string,
+      note: string,
+    ): { created: number; updated: number; unchanged: number } {
+      const d = getData();
+      let created = 0;
+      let updated = 0;
+      let unchanged = 0;
+
+      for (const m of input.manpower) {
+        const prev = d.dailyManpowerShifts.find(
+          (e) => e.projectId === projectId && e.workDate === workDate && e.contractorId === m.contractorId && e.shiftCode === m.shiftCode,
+        );
+        if (!prev) {
+          if (m.plannedHeadcount === 0 && m.actualHeadcount === 0) {
+            unchanged++;
+            continue;
+          }
+          d.dailyManpowerShifts.push({
+            projectId, contractorId: m.contractorId, workDate, shiftCode: m.shiftCode,
+            plannedHeadcount: m.plannedHeadcount, actualHeadcount: m.actualHeadcount,
+          });
+          created++;
+          continue;
+        }
+        if (prev.plannedHeadcount === m.plannedHeadcount && prev.actualHeadcount === m.actualHeadcount) {
+          unchanged++;
+          continue;
+        }
+        const old = `${prev.plannedHeadcount}/${prev.actualHeadcount}`;
+        prev.plannedHeadcount = m.plannedHeadcount;
+        prev.actualHeadcount = m.actualHeadcount;
+        auditMock(
+          d, 'fact_daily_manpower', `${projectId}/${m.contractorId}/${workDate}/${m.shiftCode}`,
+          'plannedHeadcount,actualHeadcount', old, `${m.plannedHeadcount}/${m.actualHeadcount}`, by, note,
+        );
+        updated++;
+      }
+
+      for (const e of input.equipment) {
+        const prev = d.dailyEquipment.find(
+          (x) => x.projectId === projectId && x.workDate === workDate && x.contractorId === e.contractorId && x.equipmentId === e.equipmentId,
+        );
+        if (!prev) {
+          if (e.qtyPlanned === 0 && e.qtyActual === 0) {
+            unchanged++;
+            continue;
+          }
+          d.dailyEquipment.push({
+            projectId, contractorId: e.contractorId, equipmentId: e.equipmentId, workDate,
+            qtyPlanned: e.qtyPlanned, qtyActual: e.qtyActual,
+          });
+          created++;
+          continue;
+        }
+        if (prev.qtyPlanned === e.qtyPlanned && prev.qtyActual === e.qtyActual) {
+          unchanged++;
+          continue;
+        }
+        const old = `${prev.qtyPlanned}/${prev.qtyActual}`;
+        prev.qtyPlanned = e.qtyPlanned;
+        prev.qtyActual = e.qtyActual;
+        auditMock(
+          d, 'fact_daily_equipment_usage', `${projectId}/${e.contractorId}/${e.equipmentId}/${workDate}`,
+          'qtyPlanned,qtyActual', old, `${e.qtyPlanned}/${e.qtyActual}`, by, note,
+        );
+        updated++;
+      }
+
+      persist();
+      return { created, updated, unchanged };
     },
   };
 }

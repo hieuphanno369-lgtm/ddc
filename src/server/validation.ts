@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { THRESHOLDS } from '@/lib/thresholds';
 import { isValidIsoDate, isValidYearMonth } from '@/lib/clock';
 import { KEY_MS_MAX_ROWS, KEY_MS_NAME_MAX } from '@/lib/key-milestones';
+import { DAILY_VALUE_MAX } from '@/lib/daily-entry';
 
 /**
  * Zod schema validate input mọi server action (spec §7.5 - không tin client).
@@ -209,4 +210,32 @@ export const createContractorSchema = z.object({
   projectId: z.number().int().positive(),
   name: z.string().trim().min(1).max(120),
   scopeOfWork: z.string().trim().max(200),
+});
+
+/** Task 4 (P2A): nhân lực theo ca + thiết bị theo ngày. */
+const dailyValue = z.number().int().min(0).max(DAILY_VALUE_MAX);
+export const saveDailyResourcesSchema = z.object({
+  projectId: z.number().int().positive(),
+  workDate: z.string().refine(isValidIsoDate, 'Ngày phải dạng YYYY-MM-DD hợp lệ'),
+  manpower: z
+    .array(
+      z.object({
+        contractorId: z.number().int().positive(),
+        shiftCode: z.string().trim().min(1).max(20),
+        plannedHeadcount: dailyValue,
+        actualHeadcount: dailyValue,
+      }),
+    )
+    .max(500),
+  equipment: z
+    .array(
+      z.object({
+        contractorId: z.number().int().positive(),
+        equipmentId: z.number().int().positive(),
+        qtyPlanned: dailyValue,
+        qtyActual: dailyValue,
+      }),
+    )
+    .max(500),
+  reason: z.string().trim().max(500).optional(),
 });
