@@ -1,74 +1,72 @@
-KET LUAN BAO MAT: KHONG DAT
+KET LUAN BAO MAT: DAT
 
-# Đánh giá bảo mật — P2A VÒNG 2 (`feature/p2a-nhap-lieu`, `git diff e693f8b..HEAD`, HEAD `4872877`)
+# Đánh giá bảo mật P2A — VÒNG 3 (`feature/p2a-nhap-lieu`, `git diff 4872877..HEAD`, HEAD `b3d1445`)
 
-> Điều phối viên lưu hộ từ báo cáo security-reviewer (vai chỉ đọc). Bản vòng 1 xem git `e267569`.
-> Điều phối viên đã tự đối chiếu `src/server/daily-import.ts:61-100` và `node_modules/exceljs/lib/xlsx/xlsx.js:278-312`:
-> H-1b-1 và H-1b-2 đúng như mô tả.
+> Điều phối viên lưu hộ từ báo cáo security-reviewer (vai chỉ đọc). Vòng 1 xem git `e267569`, vòng 2 (KHONG DAT) xem `fd3557e`.
+> Skill: `ddc-tower:security-review`, `ddc-tower:security-audit` (guidance, rà có trọng tâm). Chỉ đọc source + `node_modules`,
+> không chạy PoC; kết quả chạy lấy từ `.bangiao/ket-qua-test.md` (vòng 3: 1177/1177; red-green 6/9 test độc lập rớt với code cũ).
 
-Skill: `ddc-tower:security-review`, `ddc-tower:security-audit`. Chỉ đọc code, không chạy PoC. Điểm chưa xác minh xong
-đánh dấu "cần xác minh".
+## 1. H-1b (chống zip bomb): ĐÃ ĐÓNG
+Code: `src/server/daily-import.ts:67-105` (`assertXlsxInflatedSize`, `60aedc1`).
 
-## Trạng thái H-1
+- **H-1b-1 lọc theo tên — ĐÓNG:** `:75` `Object.values(zip.files).filter((f) => !f.dir)`, khớp đúng tập exceljs giải nén
+  (`exceljs/lib/xlsx/xlsx.js:279-283`). Tên `/` đầu không còn là khe (hàm đo không xét tên).
+- **H-1b-2 không cộng dồn — ĐÓNG:** `:78` `let total = 0` ngoài vòng `for`; `:91-92` cộng mọi chunk, so `limitBytes` (20MB). JSDoc khớp.
+- **H-1b-3 không trần số entry — ĐÓNG:** `:76` `entries.length > XLSX_MAX_ENTRIES` (200) → `false`, trước khi inflate.
 
-### H-1a (chặn dòng/cột): ĐÃ ĐÓNG
-- `readBoundedSheet` (`src/server/daily-import.ts` ~43-55) chặn `rowCount > maxRows+1` và `getRow(1).cellCount > 64` trước
-  mọi vòng lặp, duyệt `eachRow({includeEmpty:false})`; dùng ở cả `readDailyWorkbook` và `importExcelAction` (`actions.ts` ~474).
-- `rowCount` = `_lastRowNumber` (`exceljs/lib/doc/worksheet.js:374`), không lấy từ `<dimension>` → `<dimension>` giả vô hại.
-- `readSheet` dựng lại `rows[r.rowNo-2]` bị chặn bởi `maxRows` → an toàn.
-- Giới hạn: lớp này chỉ tác dụng SAU `wb.xlsx.load`; bộ nhớ lúc load chỉ được chặn nhờ H-1b.
+### 1.1 `stream.pause()` dừng thật: CÓ
+`StreamHelper.pause` (`stream/StreamHelper.js:188`) → `GenericWorker.pause` (`:168-178`) lan về `DataWorker`; `_tickAndRepeat`/`_tick`
+kiểm `isPaused` trước mỗi khối 16KB. Vượt tối đa sau pause ≈ inflate 1 khối 16KB (~16MB lý thuyết), pako đẩy chunk 16KB không tích
+luỹ, handler bỏ chunk sau `settled` → GC thu được. Worker pause không resume, GC khi hàm return. Đo thực ~600ms (3 × 15MB).
 
-### H-1b (chống zip bomb): CHƯA ĐÓNG — mức Cao
+### 1.2 Tập entry lúc đo = tập exceljs giải nén: KHỚP
+Chỉ 1 bản jszip 3.10.2; cả hai `JSZip.loadAsync(buf)` cùng buffer, options mặc định → `zip.files` tất định giống nhau.
+`Object.create(null)` nên `__proto__` vô hại. Entry dir / `uncompressedSize === 0` → data `""` ở cả hai lần. Đếm byte stream thật,
+không tin header; header lệch → lỗi → `finish(false)`.
 
-**H-1b-1. Chỉ đo một phần các entry mà exceljs giải nén.**
-- `src/server/daily-import.ts` ~71-73: regex `/^xl\/(worksheets\/[^/]+\.xml|sharedStrings\.xml)$/`.
-- `exceljs/lib/xlsx/xlsx.js:280-310` giải nén trọn vào RAM MỌI entry không phải thư mục (`entry.async('string'|'nodebuffer')`),
-  kể cả `xl/styles.xml`, `docProps/*`, `xl/theme/*`, `xl/media/*`, tên bất kỳ; bỏ `/` đầu tên (`:284`) nên
-  `/xl/worksheets/sheetN.xml` vẫn đọc như worksheet dù không khớp regex.
-- Hậu quả: cùng loại DoS như H-1 vòng 1. Khai thác qua `importExcelAction` (`actions.ts:462-468`, admin/data-entry) và
-  `previewDailyImportAction` → `readDailyWorkbook` (`daily-import.ts:124-128`). Không rate-limit.
+### 1.3 Chi phí `JSZip.loadAsync` mục lục lớn (body ≤ 1MB): CHẤP NHẬN
+≤ ~22 nghìn bản ghi CD (46 byte/bản), parse O(n), `slice` không copy, `createFolders:false` → không khuếch đại. Trần 200 chặn trước inflate.
 
-**H-1b-2. Ngưỡng tính riêng từng entry, không cộng dồn.**
-- `daily-import.ts` ~76: `let total = 0` nằm trong promise từng entry → mỗi entry 20MB, tổng không trần. JSDoc (~57) ghi
-  "đo tổng dung lượng" — không khớp code.
+### 1.4 Entry trùng vùng dữ liệu: KHÔNG VƯỢT `total`
+Mỗi entry inflate riêng và cộng vào `total` → tổng vẫn ≤ 20MB (+ phần vượt 1 khối).
 
-**H-1b-3. Không giới hạn số entry.**
-- `JSZip.loadAsync` (`:65`) không trần số entry; không kiểm entry dùng chung vùng dữ liệu.
+### 1.5 Đường gọi
+`src/server/actions.ts:462` (`importExcelAction`, `requireRole(['admin','data-entry'])` `:449`) và `src/server/daily-import.ts:128`
+(`readDailyWorkbook`) đều gọi `assertXlsxInflatedSize` trước `wb.xlsx.load`. Test phủ: `xl/styles.xml`, `docProps/core.xml`,
+`xl/media/image1.png`, `[Content_Types].xml`, `abc/def.bin`, 2 biến thể tên `/` đầu, cộng dồn, biên 200/201, file thật không chặn nhầm.
 
-**Cách vá (giữ trong `assertXlsxInflatedSize`):**
-1. Đo MỌI entry không phải thư mục, không lọc theo tên (chuẩn hoá bỏ `/` đầu nếu còn kiểm theo tên ở đâu đó).
-2. MỘT biến `total` cộng dồn toàn bộ entry; trần tổng ~20MB (cân nhắc 10MB vì exceljs phình bộ nhớ vài chục lần so với XML).
-3. Chặn số entry (vd `Object.keys(zip.files).length > 200` → từ chối).
-4. (Tuỳ chọn) tránh giải nén 2 lần: dùng `ExcelJS.stream.xlsx.WorkbookReader` có dừng sớm, hoặc tái dùng zip đã kiểm.
-5. Test hồi quy: (a) nội dung lớn ở entry ngoài regex cũ, vd `xl/styles.xml`; (b) tên có `/` đầu; (c) nhiều entry mỗi cái
-   dưới ngưỡng nhưng tổng vượt; (d) số entry vượt trần. Cả 4 bị từ chối nhanh, trước `wb.xlsx.load`.
+## 2. Thay đổi i18n (`ff8bafe`): KHÔNG MỞ LỖ
+14 chuỗi tĩnh cuối object `activity`, không placeholder/HTML/ICU. `ActivityViewer.tsx:56` render qua React trong `<Badge>`, không
+`dangerouslySetInnerHTML`; `action` là literal server ghi. `messages.test.ts` chỉ chạy lúc test.
 
-**Cần xác minh:** sau `stream.pause()` (~86) worker giải nén JSZip có dừng thật không (thêm assert thời gian trong test (c));
-chi phí `JSZip.loadAsync` theo số entry (trần ở bước 3 bao luôn).
+## 3. Rủi ro còn lại (không chặn merge)
 
-### CSV path: ĐẠT (với giới hạn hiện tại)
-- `next.config.mjs` không đặt `serverActions.bodySizeLimit` → body 1MB; CSV không nén; `readBoundedSheet` chặn sau đó.
-- Comment `IMPORT_MAX_BYTES = 10MB` (`validation.ts:~157`) không phản ánh giới hạn thực 1MB; nếu nâng `bodySizeLimit` phải xem lại.
+### N-2 (MỚI, trung-thấp, cần xác minh): khuếch đại bộ nhớ exceljs trong trần 20MB
+- `daily-import.ts:67` (`limitBytes = 20MB`) + `readBoundedSheet` (`:43-57`) chỉ chạy SAU `wb.xlsx.load`.
+- File ≤ 1MB, sheet XML ~20MB (~1 triệu ô) → exceljs dựng toàn bộ Row/Cell trước khi chặn `rowCount > 5000` — ước vài trăm MB heap
+  mỗi request (chưa đo); không rate-limit, vài request đồng thời có thể chạm trần heap. Cần vai admin/data-entry; khuếch đại có trần (~20× body).
+- Vá: hạ `limitBytes` mặc định ~5MB (đo file mẫu lớn nhất 5000 dòng × ≤64 cột trước khi chốt); hoặc trần riêng cho `xl/worksheets/*`
+  và `sharedStrings`; lâu dài dùng `ExcelJS.stream.xlsx.WorkbookReader` dừng ở 5001 dòng.
 
-### Đường đọc Excel khác
-- Chỉ 2 đường đọc: `actions.ts:463-468`, `daily-import.ts:126-128` — cả hai gọi `assertXlsxInflatedSize` (CSV bỏ qua).
-- `app/api/export/route.ts:44`, `app/api/report/export/route.ts:17` chỉ ghi. Không còn code production import `xlsx`.
+### N-1 (thông tin, còn nguyên)
+`ExchangeRateEditor.tsx:~71` hiển thị `res.error` qua `t('dailyEntry.err.generic', { msg })` — không XSS; reviewer v2 xác nhận
+`res.error` là union mã cố định nên thực tế vô hại.
 
-## Trạng thái L-1…L-7 (không chặn merge)
-- L-1 (`fx-rates.ts:21,63`): còn nguyên.
-- L-2: ĐÃ VÁ (`validation.ts:~282` `.min(1).max(DAILY_IMPORT_MAX_DAYS)`).
-- L-3 (`app/api/cron/[job]/route.ts:25-31`): còn nguyên.
-- L-4 (`src/lib/secret-box.ts`): còn nguyên.
-- L-5 (`app/api/templates/daily-resources/route.ts:35`): còn nguyên.
-- L-6 (migration xoá AUD/SAR): còn nguyên.
-- L-7 (`xlsx` trong `dependencies`): còn nguyên; diff chỉ thêm `jszip ^3.10.2`.
+### L-1…L-7
 
-## Phát hiện mới
-- N-1 (thông tin, không chặn): `ExchangeRateEditor.tsx:~71` hiển thị `res.error` thô qua `t('dailyEntry.err.generic', { msg })`.
-  Qua React nên không XSS, nhưng lỗi nội bộ (Prisma) có thể lộ ra UI admin. Vá: action trả mã lỗi cố định, UI map sang i18n.
-- `previewDailyImportAction` trả `wb.error` (mã cố định) — ĐẠT.
-- Không có SQL thô mới; RBAC action import không đổi.
+| Mục | Vị trí | Trạng thái |
+|---|---|---|
+| L-1 | `src/server/fx-rates.ts:21,63` | còn nguyên |
+| L-2 | `validation.ts:~282` | ĐÃ VÁ (vòng 2) |
+| L-3 | `app/api/cron/[job]/route.ts:25-31` | còn nguyên |
+| L-4 | `src/lib/secret-box.ts` | còn nguyên |
+| L-5 | `app/api/templates/daily-resources/route.ts:35` | còn nguyên |
+| L-6 | migration xoá AUD/SAR | còn nguyên |
+| L-7 | `xlsx` trong `dependencies` | còn nguyên |
 
-## Kết luận
-KHONG DAT. H-1a đóng. H-1b đóng một phần: bỏ sót entry exceljs vẫn giải nén (lọc theo tên, tên có `/` đầu), ngưỡng không
-cộng dồn, không trần số entry. Vá 3 điểm ở `assertXlsxInflatedSize` + 4 test hồi quy là đủ chuyển DAT.
+Ghi chú: `IMPORT_MAX_BYTES = 10MB` (`validation.ts:~157`) không phản ánh trần thực 1MB; nếu nâng `serverActions.bodySizeLimit` phải
+xem lại N-2 và trần 20MB.
+
+## 4. Kết luận
+**DAT (vòng 3).** H-1a đóng từ vòng 2; H-1b đóng đủ 3 điểm; `pause()` dừng thật; tập entry đo = tập exceljs giải nén; overlapping
+không vượt `total`; i18n an toàn. Còn N-2 (nên hạ trần ~5MB ở phase sau), N-1, L-1, L-3…L-7 — không chặn merge.

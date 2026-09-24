@@ -1,81 +1,37 @@
-PHAN QUYET: CAN SUA
+PHAN QUYET: CHOT
 
-# P2A — Nhập liệu mới — Đánh giá reviewer (chặng cuối, VÒNG 2)
+# P2A — Nhập liệu mới — Đánh giá reviewer (chặng cuối, VÒNG 3)
 
-> Điều phối viên lưu hộ từ báo cáo reviewer (vai chỉ đọc). Bản vòng 1 xem git `4872877:.bangiao/danh-gia.md`.
+> Điều phối viên lưu hộ từ báo cáo reviewer (vai chỉ đọc). Vòng 1 xem git `4872877:.bangiao/danh-gia.md`; vòng 2 (CAN SUA) xem
+> `b3d1445:.bangiao/danh-gia.md`.
 
-Nhánh `feature/p2a-nhap-lieu`, HEAD `4872877`, diff `e693f8b..HEAD` (`e267569` sửa, `4872877` test v2). Skill: `ddc-tower:code-review`.
+Nhánh `feature/p2a-nhap-lieu`, HEAD `b3d1445`, diff `4872877..HEAD` (`60aedc1` H-1b, `ff8bafe` i18n, `fd3557e` thay-doi,
+`b3d1445` test v3). Skill: `ddc-tower:code-review`.
 
 ## Tự kiểm lại
-- `npx tsc --noEmit` sạch; `npm test` 97/97 file, 1157/1157 xanh.
-- `package.json`: chỉ thêm `jszip ^3.10.2`. Không đụng `PROGRESS.md`, `.serena/memories/`, schema, migration.
-- Đối chiếu `node_modules/exceljs/lib/xlsx/xlsx.js:279-312`: exceljs `entry.async('string'|'nodebuffer')` MỌI entry không phải
-  thư mục, bỏ `/` đầu tên → security H-1b-1/2/3 ĐÚNG.
+- `npx tsc --noEmit` sạch; `npm test` 98/98 file, 1177/1177 xanh (58s).
+- Diff `src/` chỉ đụng đúng 2 mục phải sửa (`daily-import.ts`, `vi.json`/`en.json` +14 key) + test. Không đụng `PROGRESS.md`,
+  `.serena/memories/`, schema, migration, `package.json`.
 
-## Đối chiếu 4 mục phải sửa vòng 1
+## Đối chiếu 2 mục phải sửa vòng 2
 
 | Mục | Trạng thái | Ghi chú |
 |---|---|---|
-| 1. H-1a `readBoundedSheet` | ĐÃ SỬA ĐÚNG | `daily-import.ts:40-54`; `readSheet` `:103-116`; `previewDailyImportAction` trả `wb.error` (`actions-entry.ts:191`); `importExcelAction` `actions.ts:473-484` (`IMPORT_LEGACY_MAX_ROWS=5000`). |
-| 2. H-1b zip bomb | CHỈ ĐÓNG MỘT PHẦN | Xem mục phải sửa 1. |
-| 3. H-1c test | ĐỦ theo đặc tả vòng 1 | Mọi test bom đều nhắm đúng tên entry mà regex lọc → không bắt được H-1b-1/2/3 (lỗi đặc tả vòng 1, không phải lỗi coder). |
-| 4. `ExchangeRateEditor` | ĐÃ SỬA ĐÚNG | N-1 security vô hại: `res.error` là union mã cố định (`actions-master.ts:65-79`). |
-| L-2 | ĐÃ LÀM | `validation.ts:282-283`. |
+| 1. H-1b đo MỌI entry / cộng dồn / trần entry | ĐÃ SỬA ĐÚNG | `daily-import.ts:75` `filter((f) => !f.dir)`; `:76` trần 200 trước inflate; `:78` `total` ngoài vòng; `:91-95` cộng mọi chunk, vượt → `pause()` + `finish(false)`; `:10-11` `XLSX_MAX_ENTRIES`; JSDoc `:59-66` khớp. 2 đường gọi (`actions.ts:462`, `daily-import.ts:128`) không đổi. |
+| 2. 14 key `activity.*` | ĐÃ SỬA ĐÚNG | `vi.json:575-589`, `en.json:575-589`; test quét `messages.test.ts:111-154`. Ngoài `src/server/` chỉ còn `src/lib/auth.ts:126` (`'login'`, có key). |
 
 ## Ba câu hỏi
-1. Khớp kế hoạch: có, trừ H-1b.
-2. Test có giá trị: có (biên maxRows/maxRows+1, 64/65 cột, thời gian trần, ca âm); thiếu ca bom ngoài tên entry được lọc.
-3. Bảo mật/hiệu năng/đúng đắn: H-1b Cao còn mở; thiếu key i18n cho action nhật ký P2A (mục 2); giải nén 2 lần chấp nhận được
-   (body ≤ 1MB, trần 20MB).
+1. Khớp kế hoạch: có, đúng từng gạch đầu dòng vòng 2.
+2. Test có giá trị: có — ca (a)–(e) có đối chứng; tester dùng payload khác, red-green 6/9 rớt với code cũ, file `.xlsx` thật qua cả 2
+   đường; test i18n bắt ternary + assert quét được ≥1 action. [nit] ngưỡng `< 2000ms` thời gian thực (~600ms đo được), theo dõi nếu CI chậm.
+3. Bảo mật/hiệu năng/đúng đắn: H-1b đóng (security v3 DAT); đọc zip 2 lần chấp nhận được với body ≤ 1MB; không lỗi đúng đắn mới.
 
----
-
-## CÁC MỤC PHẢI SỬA
-
-### 1. [H-1b] Đo MỌI entry, cộng dồn, trần số entry — `src/server/daily-import.ts:56-101`
-Giữ chữ ký `assertXlsxInflatedSize(buf: Buffer, limitBytes = 20 * 1024 * 1024): Promise<boolean>`:
-- Thêm hằng export `XLSX_MAX_ENTRIES = 200` cạnh `SHEET_MAX_COLS` (`:10`).
-- Sau `loadAsync` (`:65-68`): `const entries = Object.values(zip.files).filter((f) => !f.dir);`
-  `if (entries.length > XLSX_MAX_ENTRIES) return false;`
-- Xoá regex lọc `:70-72`; duyệt mọi `entries` (vấn đề `/` đầu tên tự hết).
-- Chuyển `let total = 0` (`:76`) ra NGOÀI vòng `for` → một biến cộng dồn qua mọi entry. `on('data')`:
-  `total += chunk.length; if (total > limitBytes) { stream.pause(); finish(false); }` (giữ `settled`, `error`→false, `end`→true).
-- Sửa JSDoc `:57-61`: "đo tổng dung lượng sau giải nén của MỌI entry (exceljs giải nén tất cả), cộng dồn, trần số entry".
-
-Test hồi quy trong `describe('assertXlsxInflatedSize (H-1b, chong zip bomb)')` ở `src/server/daily-import.test.ts`, dựng bằng
-JSZip tay, `compression: 'DEFLATE'`:
-- (a) Entry ngoài regex cũ: file mẫu `buildDailyTemplate` nạp lại bằng JSZip, thêm `xl/styles.xml` = `'A'.repeat(30*1024*1024)`
-  (hoặc `docProps/app.xml`) → `assertXlsxInflatedSize` `false`, `readDailyWorkbook` `{ok:false,error:'bad_file'}`, `elapsed < 2000`.
-- (b) Tên `/` đầu: `zip.file('/xl/worksheets/sheet1.xml', 'A'.repeat(30*1024*1024))` → `false`. Assert `Object.keys(zip.files)`
-  sau `loadAsync` còn `/` đầu; nếu JSZip tự chuẩn hoá thì ghi chú và bỏ assert đó.
-- (c) Cộng dồn: `limitBytes = 64*1024`, 5 entry `xl/worksheets/sheet{1..5}.xml` × `'A'.repeat(20*1024)` → `false` (code cũ trả
-  `true` — test phân biệt). Đối chứng: 2 entry × 20KB → `true`.
-- (d) Số entry: 201 entry nhỏ (`f${i}.txt` = `'x'`) → `false`; 50 entry → `true`.
-- (e) Thời gian: trần mặc định, 3 entry × 15MB → `elapsed < 2000` (xác minh `stream.pause()` dừng thật).
-- Tầng action trong `src/server/actions-import.test.ts`: file (a) qua `importExcelAction` → `{ ok:false, error:'Invalid file' }`, `< 2000ms`.
-- Test `file mau buildDailyTemplate -> true` và `XLSX.write that -> import dung` (`actions-import-v2.test.ts`) phải vẫn xanh.
-
-### 2. Thiếu key i18n cho action nhật ký hoạt động — `src/i18n/messages/vi.json:555-576`, `en.json:555-576`
-`ActivityViewer.tsx:56` render `t(\`activity.${a.action}\`)`. Thiếu key cho action P2A: `save_exchange_rate`, `delete_exchange_rate`,
-`save_factory`, `activate_factory`, `deactivate_factory` (`actions-master.ts`), `project_contractor_add`, `project_contractor_remove`,
-`save_daily_resources`, `contractor_create`, `commit_daily_import` (`actions-entry.ts`); và 4 action cũ: `create_dim`, `rename_dim`,
-`merge_dim`, `save_key_milestones`.
-- Thêm vào CUỐI object `activity` (sau `delete_photo`, cả vi/en) — ngoại lệ có lý do với luật nhóm riêng vì viewer tra
-  `activity.<action>`. Nhãn vi / en:
-  `save_exchange_rate` "Lưu tỷ giá"/"Save exchange rate"; `delete_exchange_rate` "Xoá tỷ giá"/"Delete exchange rate";
-  `save_factory` "Lưu khu vực sản xuất"/"Save factory"; `activate_factory` "Bật khu vực sản xuất"/"Activate factory";
-  `deactivate_factory` "Tắt khu vực sản xuất"/"Deactivate factory"; `project_contractor_add` "Thêm nhà thầu vào dự án"/"Add contractor to project";
-  `project_contractor_remove` "Gỡ nhà thầu khỏi dự án"/"Remove contractor from project"; `save_daily_resources` "Lưu nhân lực/thiết bị ngày"/"Save daily resources";
-  `contractor_create` "Tạo nhà thầu"/"Create contractor"; `commit_daily_import` "Import nhân lực/thiết bị ngày"/"Commit daily import";
-  `create_dim` "Tạo danh mục"/"Create dimension"; `rename_dim` "Đổi tên danh mục"/"Rename dimension";
-  `merge_dim` "Gộp danh mục"/"Merge dimensions"; `save_key_milestones` "Lưu mốc chính"/"Save key milestones".
-- Test hồi quy `src/i18n/messages.test.ts`: đọc đệ quy mọi `.ts` dưới `src/server/` (bỏ `*.test.ts`); mỗi match
-  `/logActivity\(\s*\w+\s*,\s*([^,)]+)[,)]/g`, lấy mọi literal `/'([a-z_]+)'/g` trong nhóm 1 (bắt cả ternary). Assert mỗi action có
-  `activity.<action>` trong CẢ vi và en. Assert tập thu được chứa `save_exchange_rate` và `activate_factory`.
-- `admin.delete`: không bắt buộc vòng này (Để sau 14).
-
-Cổng kiểm: `npx tsc --noEmit` sạch; `npm test` xanh (≥ 1157 + mới); build compile với `NEXT_FONT_GOOGLE_MOCKED_RESPONSES`.
-Sau đó chạy lại security-reviewer (bắt buộc cho H-1b) rồi reviewer vòng 3.
+## Đánh giá N-2 — KHÔNG chặn merge
+- Kịch bản: file ≤ 1MB, sheet XML ~20MB (~1 triệu ô) → `wb.xlsx.load` dựng toàn bộ Row/Cell trước khi `readBoundedSheet` chặn.
+- Không chặn vì: cần vai `admin`/`data-entry` (`actions.ts:449`); khuếch đại có trần (~20MB XML/request), không lộ/hỏng dữ liệu;
+  cần nhiều request đồng thời, để lại dấu phiên; giảm hẳn bậc so với H-1b trước vá; thiếu rate-limit là điểm yếu chung của app.
+- Hạ `limitBytes` không chỉ là đổi hằng: 5000 dòng × 64 cột × ~35–40 byte/ô ≈ 11–13MB XML → 5MB có thể chặn nhầm file legacy hợp
+  lệ ở mức trần. Phải đo file thật trước hoặc đặt trần riêng theo đường gọi. → Để sau 17.
 
 ---
 
@@ -87,26 +43,31 @@ Sau đó chạy lại security-reviewer (bắt buộc cho H-1b) rồi reviewer v
 5. Hiệu năng: `runAlertEngineSafe(projectId)` gọi `listProjects()`/`getAssignments()` toàn bảng (`alert-engine.ts:33-35`).
 6. `saveDailyResources` (`prisma-repo-entry.ts:108-190`): 2 ô trùng khoá → P2002 → 500; chặn ở `checkDailyPayload`.
 7. `closeAlertAction` alertId không tồn tại → P2025 (có từ trước P2A); thêm `Not found` + test.
-8. Test Prisma `insertEngineAlerts` nhánh P2002.
-9. L-7: `xlsx` sang `devDependencies` (chỉ còn `actions-import-v2.test.ts` dùng).
+8. Test Prisma nhánh P2002 của `insertEngineAlerts`.
+9. L-7: `xlsx` sang `devDependencies` (chỉ `actions-import-v2.test.ts` dùng).
 10. L-6: KHÔNG sửa `migration.sql`. Trước deploy DB thật: `SELECT COUNT(*) FROM dim_project WHERE "currencyCode" IN ('AUD','SAR')` = 0.
-11. `IMPORT_MAX_BYTES = 10MB` (`validation.ts:157`) lệch body 1MB thực tế; nếu nâng body thì xem lại trần H-1b.
+11. `IMPORT_MAX_BYTES = 10MB` (`validation.ts:157`) lệch body 1MB thực tế; nếu nâng `serverActions.bodySizeLimit` xem lại H-1b và N-2.
 12. L-4 (P3B): `secretHint` URL chỉ hiện host; `setAAD` theo id kênh.
 13. Thử tay `.xlsx` xuất từ Excel/LibreOffice thật, tiêu đề tiếng Việt.
-14. `admin.delete` (`DeleteProject.tsx:50`) thiếu từ trước P2A: bên merge sau thêm vào nhóm `admin`.
-15. `ExchangeRateEditor.save/del` (`:48-73`): action throw → UI im lặng; bọc `try/catch` → `setRowErr(t('fxRates.err.invalid'))`.
+14. `admin.delete` (`DeleteProject.tsx:50`) thiếu từ trước P2A (MISSING_MESSAGE trên `/vi/admin`, `/en/admin`): bên merge sau thêm vào nhóm `admin`.
+15. `ExchangeRateEditor.save/del` (`:48-73`): action throw → UI im lặng; `try/catch` → `setRowErr(t('fxRates.err.invalid'))`.
 16. `actions-entry.ts:230` `too_many_days` trùng `.max()` schema; giữ làm phòng thủ kép.
+17. **MỚI — N-2** (`src/server/daily-import.ts:67`, `limitBytes = 20MB`): (a) đo XML sau giải nén của file legacy lớn nhất hợp lệ và
+    file mẫu nhập ngày 5000 dòng; (b) trần riêng theo đường: `readDailyWorkbook` (`:128`) ~5MB nếu số đo cho phép, `importExcelAction`
+    (`actions.ts:462`) theo số đo, ≤ 20MB; (c) lâu dài `ExcelJS.stream.xlsx.WorkbookReader` dừng ở dòng 5001; (d) cân nhắc giới hạn
+    đồng thời / rate-limit cho action import.
+18. MỚI (nit): `messages.test.ts:111` chỉ quét `src/server/`; mở rộng nếu sau này gọi `logActivity` ở `src/lib/` hoặc `app/`.
 
 ## Checklist merge P2A↔P2B (bên merge sau làm)
-- `.bangiao/`: trước merge `main`, chuyển TOÀN BỘ file gốc `.bangiao/` (kể cả `ket-qua-test.md`, `test-screens/*.png` gồm `v2-*`)
-  vào `.bangiao/archive/p2a-nhap-lieu-2026-09-24/`.
+- `.bangiao/`: trước merge `main`, chuyển TOÀN BỘ file gốc `.bangiao/` (`ke-hoach.md`, `thay-doi.md`, `ket-qua-test.md`,
+  `danh-gia-bao-mat.md`, `danh-gia.md`, `test-screens/*.png` kể cả `v2-*`, `v3-*`) vào `.bangiao/archive/p2a-nhap-lieu-2026-09-24/`.
 - `src/server/repo/mock-repo.ts` (cuối): giữ `export const repo = { ...coreRepo, ...makeEntryMockRepo(...) };` của A, RỒI
   `Object.assign(repo, createReadMock(getData));` của B.
-- `src/server/audit-log-page.ts`: nhận bản B, bỏ `note: a.note` của A, thêm `note: a.note` vào mapper `readAuditLogPage` ở
+- `src/server/audit-log-page.ts`: nhận bản B, bỏ `note: a.note` của A; thêm `note: a.note` vào mapper `readAuditLogPage` ở
   `read-prisma.ts` và `read-mock.ts`.
 - `app/[locale]/(app)/admin/page.tsx`: gộp 2 hunk (B `readActivitySince`; A thay card factories/currencies).
-- `vi.json`/`en.json`: giữ đủ nhóm cả hai sau `logPaging`. MỚI: A nối 14 key vào cuối object `activity`; nếu B cũng nối thì giữ cả
-  hai; chạy `messages.test.ts` sau merge.
+- `vi.json`/`en.json`: giữ đủ nhóm cả hai sau `logPaging`; A nối 14 key cuối object `activity`, nếu B cũng nối thì giữ cả hai, không
+  trùng key. Chạy `messages.test.ts` sau merge (bắt action mới của B nếu thiếu key).
 - Seed: lấy seed của A (`erp.ts`, `dims.ts`, `history.ts`).
 - `schema-meta/docs.ts` (B): thêm `job_run`, `notify_channel`, `notify_recipient` + cột mới P2A, `npm run docs:erd`.
 - `package.json`/`package-lock.json`: A thêm `jszip`; gộp tay nếu B đổi dependency, rồi `npm install --offline`.
@@ -115,5 +76,10 @@ Sau đó chạy lại security-reviewer (bắt buộc cho H-1b) rồi reviewer v
 
 ## CÂU HỎI CHO CHỦ DỰ ÁN
 1. Form nhập `project_equipment_plan` (phien-B Q6): (a) mở Task 10 trong P2A, hay (b) để phase sau? Không chặn merge.
-2. `jszip` đã thêm làm dependency trực tiếp (3.10.2 có sẵn qua exceljs). Xác nhận đồng ý?
-3. Trần file Excel import: tổng sau giải nén 20MB, tối đa 200 entry. File có ảnh chèn nặng có thể bị từ chối. Đồng ý, hay hạ 10MB?
+2. `jszip` đã thêm làm dependency trực tiếp (3.10.2 có sẵn qua exceljs). Đồng ý?
+3. Trần import: tổng sau giải nén 20MB, tối đa 200 entry. Giữ, hay hạ (N-2 đề xuất ~5MB cho file nhập ngày sau khi đo)? Làm ở phase sau.
+4. MỚI: P2A đã CHỐT. Đồng ý merge `feature/p2a-nhap-lieu` vào `main` (CLAUDE.md mục 5)? Push chỉ khi được bảo.
+
+## Kết luận
+**CHỐT (vòng 3).** H-1b vá đúng cả 3 điểm, test có giá trị thật; 14 key `activity.*` đủ vi/en, có test hồi quy, đã kiểm UI thật;
+tsc sạch, 1177/1177 xanh; security v3 DAT. N-2 không đủ nặng để chặn → Để sau 17. Trước merge chờ chủ dự án đồng ý (câu hỏi 4).
