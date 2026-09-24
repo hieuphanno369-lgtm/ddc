@@ -87,6 +87,7 @@ export function KpiCard({
         {value}
       </div>
 
+      {(hasDelta || sub || !scheduleGap) && (
       <div className="sb">
         {hasDelta ? (
           <>
@@ -101,6 +102,7 @@ export function KpiCard({
         )}
         {sub && <span>{sub}</span>}
       </div>
+      )}
       {note && (
         <div className="sb">
           <span>{note}</span>
@@ -110,7 +112,11 @@ export function KpiCard({
         // class "gap" rieng: cho phep xuong dong o the hep (globals.css) thay vi cat "..." -
         // dong nay co so % quan trong, cat mat la sai yeu cau "doc ro tren nen navy".
         <div className="sb gap" style={SCHEDULE_GAP_COLOR[scheduleGap.direction]}>
-          <span>{scheduleGap.text}</span>
+          {/* 2 dong co dinh: "▼ Cham 56 ngay" / "−19,3%" (tach o " · " cua chuoi i18n), moi dong nowrap -
+              the 6 cot hep khong chua noi 1 dong, xuong dong o giua trong lech nen xep doc cho gon. */}
+          {scheduleGap.text.split(' · ').map((part, i) => (
+            <span key={i} style={{ whiteSpace: 'nowrap' }}>{part}</span>
+          ))}
         </div>
       )}
     </>

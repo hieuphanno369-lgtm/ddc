@@ -112,7 +112,8 @@ describe('KpiCard - scheduleGap (vong bo sung P2B: dong "Cham/Nhanh N ngay · ±
       })
     );
 
-    expect(out).toContain('▼ Chậm 5 ngày · −3,3%');
+    expect(out).toContain('▼ Chậm 5 ngày</span>');
+    expect(out).toContain('>−3,3%</span>');
     expect(out).toContain('style="color:var(--gold)"');
   });
 
@@ -125,7 +126,8 @@ describe('KpiCard - scheduleGap (vong bo sung P2B: dong "Cham/Nhanh N ngay · ±
       })
     );
 
-    expect(out).toContain('▲ Nhanh 5 ngày · +3,3%');
+    expect(out).toContain('▲ Nhanh 5 ngày</span>');
+    expect(out).toContain('>+3,3%</span>');
     expect(out).toContain('style="color:var(--mint)"');
   });
 
@@ -139,6 +141,35 @@ describe('KpiCard - scheduleGap (vong bo sung P2B: dong "Cham/Nhanh N ngay · ±
     );
 
     expect(out).toContain('Đúng tiến độ');
+    expect(out).not.toContain('style="color:');
+  });
+
+  it('co scheduleGap, khong sub/delta: khong con dong .sb "-" rong phia tren (chi 1 dong .sb gap)', () => {
+    const out = renderToStaticMarkup(
+      React.createElement(KpiCard, {
+        ...BASE,
+        hero: true,
+        scheduleGap: { text: '▼ Chậm 56 ngày · −19,3%', direction: 'behind' },
+      })
+    );
+
+    expect(out).not.toContain('<span>-</span>');
+    expect(out.match(/class="sb/g)?.length).toBe(1);
+    // moi doan nowrap de "−19,3%" khong bi tach khoi dau/don vi khi xuong dong
+    expect(out.match(/white-space:nowrap/g)?.length).toBe(2);
+  });
+
+  it('co scheduleGap + sub: van giu dong sub, them dong gap ben duoi', () => {
+    const out = renderToStaticMarkup(
+      React.createElement(KpiCard, {
+        ...BASE,
+        sub: 'Số liệu ngày 16/09',
+        scheduleGap: { text: 'Đúng tiến độ', direction: 'onTrack' },
+      })
+    );
+
+    expect(out).toContain('Số liệu ngày 16/09');
+    expect(out.match(/class="sb/g)?.length).toBe(2);
   });
 
   it('khong truyen scheduleGap: khong render dong nay', () => {

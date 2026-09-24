@@ -254,7 +254,7 @@
     display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   /* Vong bo sung P2B: dong "Cham/Nhanh N ngay · ±x,x%" - cho xuong dong thay vi cat "..."
      o the hep (2 cot mobile), vi so % o cuoi dong la thong tin quan trong khong duoc cat mat. */
-  .kpi .sb.gap{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.3}
+  .kpi .sb.gap{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.3;flex-direction:column;align-items:flex-start;gap:1px}
   .kpi .ic{position:absolute;right:13px;top:13px;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
     background:var(--fill);color:var(--label3);transition:all var(--dur-fast) var(--ease-std)}
   .kpi .ic svg{width:15px;height:15px}
