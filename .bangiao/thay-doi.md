@@ -276,3 +276,40 @@ P2A↔P2B, bảo mật script dev, việc nhỏ khác) — đúng chỉ định 
   (`.valueChainCard`). Ảnh mới xác nhận: thẻ rộng hết hàng, 2 cột đúng thứ tự, chip "Khâu nghẽn: Lắp dựng" +
   thanh Lắp dựng tô cam, dòng chân "Σ trọng số 100% · %TT = Σ(...)" / 79,0%, và ở 390px xuống đúng 1 cột không bị
   che — khớp bố cục trang đã sắp xếp lại theo `c61fa61`.
+
+## Debugger vòng 1 (sau `.bangiao/ket-qua-test.md` ĐỎ, commit `102a467`)
+
+**Lỗi:** thanh tiến độ `.stage .fill` trong thẻ "Chuỗi giá trị" (và mọi nơi khác dùng chung class,
+gồm wizard `DataEntryForm.tsx`) không bao giờ hiện chiều rộng/màu theo %, hàng "khâu nghẽn" không tô
+cam — vi phạm mục 4(a)/(d) của `danh-gia.md`.
+
+**Root cause (đã tự xác minh độc lập, không chỉ tin theo gợi ý của tester):**
+`app/[locale]/(app)/projects/[id]/page.tsx:579` (hàm `StageRow`) và
+`src/components/form/DataEntryForm.tsx:520` **cùng** render
+`<div className="bar"><i className="fill" style={{ width: ... }} /></div>` — dùng thẻ `<i>`, mặc
+định `display:inline` trong HTML. Rule CSS `app/globals.css:469-471` (`.stage .fill{height:100%;...}`,
+`.stage.bt .fill{background:linear-gradient(90deg,#ffb340,var(--warn))}`) không khai báo `display:`
+nào. Theo chuẩn CSS, `width`/`height` không có tác dụng trên phần tử `display:inline` (không phải bug
+trình duyệt) → `.fill` luôn `getBoundingClientRect()={width:0,height:0}` dù `style.width` đúng %, nên
+người dùng chỉ thấy nền xám cố định của `.bar`, không bao giờ thấy gradient xanh/cam.
+Mock-up gốc `mockup-apple-glass.html:1364` dùng đúng `<div class="fill" ...>` (mặc định `display:block`)
+— bản chuyển sang React đã đổi tag sang `<i>` mà không bù `display:block` trong CSS. Đây là 1 root
+cause dùng chung cho cả `page.tsx` và `DataEntryForm.tsx` (2 nơi cùng dùng class `.stage`/`.fill`), có
+từ trước Vòng sửa 1 (xem `git show cdd5733`, `.bangiao/anh-test/before-desktop-*.png`).
+
+**Cách sửa (tối thiểu, ở CSS — không đổi tag JSX để 1 lần sửa fix cả 2 nơi dùng chung class):**
+`app/globals.css`, rule `.stage .fill{...}` — thêm `display:block;` (dòng 469, ngay đầu khai báo).
+Không đụng `.stage .bar`, `.stage.bt .fill`, `.stagegrid`, `.stagecol`, không đổi `page.tsx` hay
+`DataEntryForm.tsx`. Vì `width` inline style trước đó cũng vô tác dụng do cùng lý do `display:inline`,
+`DataEntryForm.tsx` (wizard nhập liệu) trước đây bị đúng lỗi này và giờ cũng được sửa theo — không có
+rủi ro "vỡ" vì trước đó thanh của nó cũng không hiện đúng, kiểm bằng mắt xác nhận đây là cải thiện.
+
+**Kiểm chứng:**
+- `src/server/projects-detail-page-render.test.ts`, describe `Vong sua 1 muc 4 - the "Chuoi gia tri"
+  ...` (test cuối cùng, đọc thật `app/globals.css` + HTML render thật) — từ FAIL sang **PASS**.
+- `npx tsc --noEmit`: sạch.
+- `npm test`: chạy 2 lần độc lập, tổng số test pass đầy đủ cả 2 lần (1108/1108 rồi 1110/1110 khi loại
+  trừ 2 file "failed" khác nhau ở mỗi lần do timeout/`afterAll rmSync` — tải song song trên Windows,
+  không liên quan thay đổi CSS, không lặp lại cùng 1 file ở 2 lần chạy). Không nới hay sửa test nào.
+
+**Commit:** `fix(p2b): the Chuoi gia tri thanh tien do khong hien mau - .stage .fill thieu display`.
