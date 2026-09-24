@@ -573,5 +573,11 @@
     "unlock_account": "Unlock account",
     "add_photo": "Add site photo",
     "delete_photo": "Delete site photo"
+  },
+  "resourceKpi": {
+    "manpowerTotal": "Total manpower",
+    "equipmentTotal": "Total equipment",
+    "asOf": "Data of {date}",
+    "planContractors": "Plan {planned} · {n} contractors"
   }
 }

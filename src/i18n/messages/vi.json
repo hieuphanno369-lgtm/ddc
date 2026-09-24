@@ -573,5 +573,11 @@
     "unlock_account": "Mở khóa tài khoản",
     "add_photo": "Thêm ảnh hiện trường",
     "delete_photo": "Xóa ảnh hiện trường"
+  },
+  "resourceKpi": {
+    "manpowerTotal": "Tổng số nhân lực",
+    "equipmentTotal": "Tổng số thiết bị",
+    "asOf": "Số liệu ngày {date}",
+    "planContractors": "KH {planned} · {n} nhà thầu"
   }
 }

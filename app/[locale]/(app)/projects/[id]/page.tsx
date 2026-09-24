@@ -13,7 +13,7 @@ import { THRESHOLDS } from '@/lib/thresholds';
 import { calcScheduleGap } from '@/lib/evm';
 import { buildPlanActualTimeline } from '@/lib/timeline';
 import { buildStageTimelineRows } from '@/lib/stage-timeline';
-import { formatDate, formatDateTime, formatPct, formatRatio, formatTyd } from '@/lib/format';
+import { formatDate, formatDateTime, formatDayMonth, formatPct, formatRatio, formatTon as formatQty, formatTyd } from '@/lib/format';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Rise } from '@/components/ui/Rise';
 import { Legend } from '@/components/ui/Legend';
@@ -40,7 +40,6 @@ import {
   IconChevronRight,
   IconAlert,
   IconDataEntry,
-  IconFlag,
   IconGauge,
   IconMoney,
   IconProject,
@@ -96,11 +95,6 @@ export default async function ProjectDetailPage({
   const canEditMs = user?.role === 'admin' || user?.role === 'data-entry';
   const stageRows = buildStageTimelineRows(await repo.getStageMilestones(id), await repo.getStageWeights(id));
   const compare = await getWorkItemComparison(id, month);
-  // N-6 (danh-gia.md, vòng 2): nhân lực và thiết bị có thể nhập lệch ngày - MỖI card phải hiện
-  // đúng ngày CỦA CHÍNH NÓ, không dùng chung 1 nhãn (asOfDate cũ = ngày mới hơn trong 2 ngày,
-  // khiến card có dữ liệu cũ hơn hiện nhầm ngày của card kia).
-  const manpowerAsOf = resources.manpowerAsOfDate ? t('detail.asOfDate', { date: formatDate(resources.manpowerAsOfDate, locale) }) : t('detail.noDailyData');
-  const equipmentAsOf = resources.equipmentAsOfDate ? t('detail.asOfDate', { date: formatDate(resources.equipmentAsOfDate, locale) }) : t('detail.noDailyData');
   const customer = dims.customers.find((c) => c.id === project.customerId);
   const team = dims.teams.find((x) => x.id === project.teamKdId);
 
@@ -164,28 +158,16 @@ export default async function ProjectDetailPage({
         <KpiCard label={t('metric.pctActual')} value={formatPct(summary.pctActual, locale)} delta={null} tone="neutral" hero heroTagLabel={t('kpi.focusTag')} icon={IconAlert} />
         <KpiCard label={t('metric.spi')} value={formatRatio(summary.spi)} delta={null} tone={summary.spi != null && summary.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'} hero heroTagLabel={t('kpi.focusTag')} icon={IconTrend} />
         <KpiCard label={t('metric.cpi')} value={formatRatio(summary.cpi)} delta={null} tone={summary.cpi != null && summary.cpi < THRESHOLDS.cpiWarn ? 'warn' : 'ok'} hero heroTagLabel={t('kpi.focusTag')} icon={IconMoney} />
-        <KpiCard label={t('metric.eac')} value={formatTyd(summary.eac, locale)} delta={null} tone="neutral" icon={IconGauge} />
-        <KpiCard label={t('metric.vac')} value={formatTyd(summary.vac, locale)} delta={null} tone={summary.vac != null && summary.vac < 0 ? 'danger' : 'ok'} icon={IconFlag} />
-      </Rise>
-
-      {/* Nguồn lực: ảnh chụp NGÀY gần nhất có dữ liệu, không phải số theo tháng (Q3) */}
-      <Rise className="kpis k2">
-        <KpiCard
-          label={t('detail.manpower')}
-          value={resources.manpowerAsOfDate ? `${resources.manpowerActual}/${resources.manpowerPlanned}` : '-'}
-          sub={manpowerAsOf}
-          delta={null}
-          tone="neutral"
-          icon={IconProject}
-        />
-        <KpiCard
-          label={t('detail.equipment')}
-          value={resources.equipmentAsOfDate ? `${resources.equipmentActual}/${resources.equipmentPlanned}` : '-'}
-          sub={equipmentAsOf}
-          delta={null}
-          tone="neutral"
-          icon={IconGauge}
-        />
+        <KpiCard label={t('resourceKpi.manpowerTotal')}
+          value={resources.manpowerAsOfDate ? formatQty(resources.manpowerActual, locale) : '-'}
+          sub={resources.manpowerAsOfDate ? t('resourceKpi.asOf', { date: formatDayMonth(resources.manpowerAsOfDate) }) : t('detail.noDailyData')}
+          note={resources.manpowerAsOfDate ? t('resourceKpi.planContractors', { planned: formatQty(resources.manpowerPlanned, locale), n: resources.manpowerContractors }) : undefined}
+          href="#res-manpower" delta={null} tone="neutral" icon={IconProject} />
+        <KpiCard label={t('resourceKpi.equipmentTotal')}
+          value={resources.equipmentAsOfDate ? formatQty(resources.equipmentActual, locale) : '-'}
+          sub={resources.equipmentAsOfDate ? t('resourceKpi.asOf', { date: formatDayMonth(resources.equipmentAsOfDate) }) : t('detail.noDailyData')}
+          note={resources.equipmentAsOfDate ? t('resourceKpi.planContractors', { planned: formatQty(resources.equipmentPlanned, locale), n: resources.equipmentContractors }) : undefined}
+          href="#res-equipment" delta={null} tone="neutral" icon={IconGauge} />
       </Rise>
 
       {/* Timeline KH vs TT dang thanh (mock-up dong 655-676) */}
@@ -456,7 +438,7 @@ export default async function ProjectDetailPage({
 
       {/* Tang 4 - Huy dong nguon luc (mock-up dong 759-767) */}
       <div className="g2">
-        <Card>
+        <Card id="res-manpower" style={{ scrollMarginTop: 72 }}>
           <CardHeader
             title={t('detail.res.manTitle')}
             titleExtra={<span className="chip c-plain">{t('detail.res.manual')}</span>}
@@ -464,7 +446,7 @@ export default async function ProjectDetailPage({
           />
           <CardBody><ResourceBreakdownChart rows={breakdown.manpower} kind="manpower" /></CardBody>
         </Card>
-        <Card>
+        <Card id="res-equipment" style={{ scrollMarginTop: 72 }}>
           <CardHeader
             title={t('detail.res.eqpTitle')}
             titleExtra={<span className="chip c-plain">{t('detail.res.manual')}</span>}

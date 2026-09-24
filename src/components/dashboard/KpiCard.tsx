@@ -21,6 +21,10 @@ export interface KpiCardProps {
    */
   heroTagLabel?: string;
   icon: (p: IconProps) => React.ReactNode;
+  /** Dong phu thu 2, hien duoi `sub` (vd "KH 520 · 6 nha thau"). */
+  note?: string;
+  /** Co -> ca the la <a href> (anchor cuon toi chart), them class "tap" (da co CSS: globals.css:253). */
+  href?: string;
 }
 
 /** Mau chu so chinh theo sac thai. The hero luon chu trang (nen gradient). */
@@ -42,6 +46,8 @@ export function KpiCard({
   hero = false,
   heroTagLabel,
   icon: Icon,
+  note,
+  href,
 }: KpiCardProps) {
   const deltaUp = (delta ?? 0) > 0;
   const hasDelta = delta != null && delta !== 0;
@@ -51,8 +57,8 @@ export function KpiCard({
   // vi --warn ban sang khong du doi tren nen navy (B-3, danh-gia.md VONG 2).
   const heroAlert = hero && (tone === 'warn' || tone === 'danger');
 
-  return (
-    <div className={`kpi rise${hero ? ' key' : ''}`}>
+  const body = (
+    <>
       {hero ? (
         <span className="tag">{heroTagLabel}</span>
       ) : (
@@ -80,6 +86,21 @@ export function KpiCard({
         )}
         {sub && <span>{sub}</span>}
       </div>
-    </div>
+      {note && (
+        <div className="sb">
+          <span>{note}</span>
+        </div>
+      )}
+    </>
+  );
+
+  const cls = `kpi rise${hero ? ' key' : ''}${href ? ' tap' : ''}`;
+
+  return href ? (
+    <a href={href} className={cls} style={{ color: 'inherit', textDecoration: 'none' }}>
+      {body}
+    </a>
+  ) : (
+    <div className={cls}>{body}</div>
   );
 }
