@@ -259,3 +259,20 @@ P2A↔P2B, bảo mật script dev, việc nhỏ khác) — đúng chỉ định 
      `116px 38px 1fr auto`, 4 cột) mà không cập nhật số cột, dòng tấn có thể lệch khỏi cột thanh.
   4. Không đổi `detail.evmMetrics` (key i18n) dù không còn nơi dùng — giữ nguyên theo tiền lệ đã có ở mục "Lệch kế
      hoạch" số 4 (giữ `detail.manpowerTrend`), không dọn dẹp ngoài phạm vi.
+
+## Vòng sửa 1 — bổ sung (điều phối viên, theo yêu cầu chủ dự án 2026-09-24)
+
+- Commit `c61fa61`: trang Chi tiết dự án — dời nguyên cụm **S-curve PV/EV/AC + SPI/CPI trend + What-if** và cụm
+  **Lịch sử mã + Mã SAP + Alert/Action + Tài chính chi tiết + Ảnh hiện trường** xuống **cuối trang** (sau Gantt thiết bị),
+  giữ nguyên thứ tự nội bộ. Chỉ đổi vị trí JSX trong `app/[locale]/(app)/projects/[id]/page.tsx`, không đổi logic/quyền.
+  Thứ tự mới: Header → KPI → Timeline KH/TT → Các mốc chính → Chuỗi giá trị + Timeline 7 giai đoạn → Nguồn lực → Theo dõi
+  tuần → Chart ca → Chart tuần → Gantt → S-curve/SPI-CPI → What-if → Lịch sử mã/SAP → Alert/Tài chính → Ảnh.
+  tsc sạch, npm test 1109/1109.
+- **Ảnh `after-*.png` được chụp lại** (không đổi code) sau commit `c61fa61` ở trên: 4 ảnh cũ trong `84b6760` chụp
+  trước khi trang đổi thứ tự nên không còn khớp bố cục hiện tại. Quy trình chụp lại: `npm install`/`npm ci` +
+  `npx prisma generate` (khôi phục `node_modules`/Prisma client sạch sau sự cố nêu ở "Lệch/rủi ro" #2) → khởi động
+  lại `npm run dev -- -p 3001` → đăng nhập `admin@daidung.com.vn` qua form (không có bypass auth cho Playwright) →
+  chụp `/vi/projects/1` ở `1440×1000` và `390×900`, cả full page lẫn crop riêng thẻ "Chuỗi giá trị"
+  (`.valueChainCard`). Ảnh mới xác nhận: thẻ rộng hết hàng, 2 cột đúng thứ tự, chip "Khâu nghẽn: Lắp dựng" +
+  thanh Lắp dựng tô cam, dòng chân "Σ trọng số 100% · %TT = Σ(...)" / 79,0%, và ở 390px xuống đúng 1 cột không bị
+  che — khớp bố cục trang đã sắp xếp lại theo `c61fa61`.
