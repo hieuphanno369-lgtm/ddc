@@ -1,4 +1,4 @@
-import type { Contractor, Equipment, Stage } from '@/server/repo/types';
+import type { Contractor, Equipment, Shift, Stage } from '@/server/repo/types';
 import { DEFAULT_STAGE_WEIGHTS, STAGE_CALC_MODE, STAGE_ORDER } from '@/lib/stages';
 
 /** 7 giai đoạn thành dimension thật. Tên song ngữ khớp i18n key stage.* trong src/lib/labels.ts. */
@@ -20,6 +20,12 @@ export const contractors: Contractor[] = [
   { id: 4, name: 'Nhà thầu Sơn D', scopeOfWork: 'Sơn hoàn thiện', isActive: true, mergedIntoId: null },
   { id: 5, name: 'Nhà thầu Vận chuyển E', scopeOfWork: 'Vận chuyển & tập kết', isActive: true, mergedIntoId: null },
   { id: 6, name: 'Nhà thầu An toàn F', scopeOfWork: 'Giàn giáo & an toàn', isActive: true, mergedIntoId: null },
+];
+
+/** Ca làm việc - bảng mở rộng được (thêm ca = INSERT, không migration). */
+export const shifts: Shift[] = [
+  { code: 'morning', nameVi: 'Ca sáng', nameEn: 'Morning', sortOrder: 1, isActive: true },
+  { code: 'afternoon', nameVi: 'Ca chiều', nameEn: 'Afternoon', sortOrder: 2, isActive: true },
 ];
 
 /** 7 nhóm thiết bị đã chốt (Q8). */

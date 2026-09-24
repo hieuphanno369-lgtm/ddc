@@ -5,6 +5,7 @@ import { DEFAULT_STAGE_WEIGHTS, type StageInput } from '@/lib/stages';
 import { calcDayVariance, calcDurationPctComplete, calcSpi } from '@/lib/evm';
 import { endOfMonth } from '@/lib/clock';
 import { keyMsAuditText } from '@/lib/key-milestones';
+import { sumManpowerShifts } from '@/lib/shifts';
 import type {
   ActivityLogEntry,
   AlertLog,
@@ -206,9 +207,9 @@ export const repo = {
 
   /** from/to là 'YYYY-MM-DD', bao gồm cả hai đầu. */
   getDailyManpower(projectId: number, from: string, to: string): FactDailyManpower[] {
-    return getData().dailyManpower
-      .filter((m) => m.projectId === projectId && m.workDate >= from && m.workDate <= to)
-      .sort((a, b) => a.workDate.localeCompare(b.workDate));
+    const rows = getData().dailyManpowerShifts
+      .filter((m) => m.projectId === projectId && m.workDate >= from && m.workDate <= to);
+    return sumManpowerShifts(rows);
   },
 
   getDailyEquipment(projectId: number, from: string, to: string): FactDailyEquipmentUsage[] {
@@ -450,7 +451,7 @@ export const repo = {
     d.stageMilestones = d.stageMilestones.filter((x) => x.projectId !== id);
     d.keyMilestones = d.keyMilestones.filter((x) => x.projectId !== id);
     d.projectContractors = d.projectContractors.filter((x) => x.projectId !== id);
-    d.dailyManpower = d.dailyManpower.filter((x) => x.projectId !== id);
+    d.dailyManpowerShifts = d.dailyManpowerShifts.filter((x) => x.projectId !== id);
     d.dailyEquipment = d.dailyEquipment.filter((x) => x.projectId !== id);
     // dim cleanup: xóa customer/team khi không còn project nào dùng
     if (!d.projects.some((x) => x.customerId === proj.customerId)) {
@@ -581,7 +582,7 @@ export const repo = {
     d.stageMilestones = [];
     d.keyMilestones = [];
     d.projectContractors = [];
-    d.dailyManpower = [];
+    d.dailyManpowerShifts = [];
     d.dailyEquipment = [];
     // giữ nguyên: stages, contractors, equipments - là dim, không phải data nghiệp vụ.
   },
@@ -765,6 +766,8 @@ export const repo = {
       penaltyValue: input.penaltyValue ?? null,
       penalized: false,
       isActive: true,
+      factoryId: null,
+      contractValueOriginal: null,
       createdAt: now,
       updatedAt: now,
       createdBy: changedBy,

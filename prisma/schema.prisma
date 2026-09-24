@@ -95,7 +95,8 @@ model Factory {
   region             String
   capacityTonPerYear Float
 
-  volumes FactVolume[]
+  volumes  FactVolume[]
+  projects Project[]
 
   @@map("dim_factory")
 }
@@ -145,6 +146,8 @@ model Project {
   penaltyValue          Float?
   penalized             Boolean         @default(false)
   isActive              Boolean         @default(true)
+  factoryId             Int?
+  contractValueOriginal Float?
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
   createdBy             String
@@ -153,6 +156,7 @@ model Project {
   customer        Customer                  @relation(fields: [customerId], references: [id])
   team            TeamKd                    @relation(fields: [teamKdId], references: [id])
   currency        Currency                  @relation(fields: [currencyCode], references: [code])
+  factory         Factory?                  @relation(fields: [factoryId], references: [id], onDelete: Restrict)
   aliases         ProjectAlias[]
   sapCodes        ProjectSapCode[]
   assignments     ProjectAssignment[]
@@ -172,10 +176,12 @@ model Project {
   contractors     ProjectContractor[]
   dailyManpower   FactDailyManpower[]
   dailyEquipment  FactDailyEquipmentUsage[]
+  equipmentPlans  ProjectEquipmentPlan[]
 
   @@index([teamKdId])
   @@index([marketCode])
   @@index([priority])
+  @@index([factoryId])
   @@map("dim_project")
 }
 
@@ -362,6 +368,7 @@ model AlertLog {
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
+  @@index([openedAt])
   @@map("alert_log")
 }
 
@@ -375,6 +382,8 @@ model AuditLog {
   changedBy String
   changedAt DateTime @default(now())
 
+  @@index([changedAt])
+  @@index([tableName, recordId])
   @@map("audit_log")
 }
 
@@ -468,8 +477,9 @@ model ProjectWorkItem {
   name      String
   sortOrder Int    @default(0)
 
-  project Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  facts   FactStageWorkItem[]
+  project        Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  facts          FactStageWorkItem[]
+  equipmentPlans ProjectEquipmentPlan[]
 
   @@unique([projectId, name])
   @@index([projectId, sortOrder])
@@ -580,17 +590,19 @@ model Equipment {
   isActive Boolean @default(true)
 
   usages FactDailyEquipmentUsage[]
+  plans  ProjectEquipmentPlan[]
 
   @@map("dim_equipment")
 }
 
 /**
- * Nhân lực theo NGÀY × nhà thầu.
+ * Nhân lực theo NGÀY × nhà thầu × CA. Tổng ngày = cộng các ca (app tự cộng).
  */
 model FactDailyManpower {
   projectId        Int
   contractorId     Int
   workDate         DateTime @db.Date
+  shiftCode        String
   plannedHeadcount Int      @default(0)
   actualHeadcount  Int      @default(0)
 
@@ -598,10 +610,61 @@ model FactDailyManpower {
   // B-5: xem ghi chú ở ProjectContractor.contractor - Restrict thay Cascade để bảo vệ lịch sử
   // nhân lực của TOÀN BỘ dự án khác khỏi bị xoá dây chuyền khi 1 nhà thầu bị xoá.
   contractor Contractor @relation(fields: [contractorId], references: [id], onDelete: Restrict)
+  shift      Shift      @relation(fields: [shiftCode], references: [code], onDelete: Restrict)
 
-  @@id([projectId, contractorId, workDate])
+  @@id([projectId, contractorId, workDate, shiftCode])
   @@index([projectId, workDate])
+  @@index([workDate])
   @@map("fact_daily_manpower")
+}
+
+/** Ca làm việc - bảng mở rộng được (thêm ca = INSERT, không migration). */
+model Shift {
+  code      String  @id
+  nameVi    String
+  nameEn    String
+  sortOrder Int
+  isActive  Boolean @default(true)
+
+  manpower FactDailyManpower[]
+
+  @@map("dim_shift")
+}
+
+/** Lịch ngày cho nhóm theo tuần ISO (Thứ 2 đầu tuần). Đổ sẵn trong migration, không seed. */
+model CalendarDate {
+  date      DateTime @id @db.Date
+  yearMonth String
+  isoYear   Int
+  isoWeek   Int
+  weekStart DateTime @db.Date
+  dayOfWeek Int // 1 = Thứ 2 ... 7 = Chủ nhật (ISO)
+
+  @@index([weekStart])
+  @@index([yearMonth])
+  @@map("dim_date")
+}
+
+/** Kế hoạch dùng từng chiếc thiết bị cho Gantt T14. 1 dòng = 1 thanh. Ngày thực tế lấy từ fact_daily_equipment_usage. */
+model ProjectEquipmentPlan {
+  id            Int      @id @default(autoincrement())
+  projectId     Int
+  equipmentId   Int
+  unitNo        Int
+  workItemId    Int?
+  plannedStart  DateTime @db.Date
+  plannedFinish DateTime @db.Date
+  note          String   @default("")
+  updatedAt     DateTime @updatedAt
+  updatedBy     String   @default("system")
+
+  project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  equipment Equipment        @relation(fields: [equipmentId], references: [id], onDelete: Restrict)
+  workItem  ProjectWorkItem? @relation(fields: [workItemId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, equipmentId, unitNo])
+  @@index([projectId, plannedStart])
+  @@map("project_equipment_plan")
 }
 
 /**

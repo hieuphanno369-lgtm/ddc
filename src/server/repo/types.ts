@@ -108,6 +108,8 @@ export interface Project {
   penaltyValue: number | null; // giá trị phạt ước tính (tỷ VNĐ)
   penalized: boolean; // Đã bị phạt HĐ?
   isActive: boolean;
+  factoryId: number | null; // khu vực/nhà máy SX chính
+  contractValueOriginal: number | null; // G-7: giá trị HĐ theo currencyCode
   createdAt: string;
   updatedAt: string;
   createdBy: string;
@@ -250,6 +252,40 @@ export interface FactDailyManpower {
   plannedHeadcount: number;
   actualHeadcount: number;
 }
+
+export interface Shift {
+  code: string;
+  nameVi: string;
+  nameEn: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+/** Dòng DB: nhân lực theo ngày × nhà thầu × ca. FactDailyManpower (có sẵn) = tổng NGÀY, giữ nguyên cho mọi chỗ đọc. */
+export interface FactDailyManpowerShift {
+  projectId: number;
+  contractorId: number;
+  workDate: string; // 'YYYY-MM-DD'
+  shiftCode: string;
+  plannedHeadcount: number;
+  actualHeadcount: number;
+}
+
+export interface ProjectEquipmentPlan {
+  id: number;
+  projectId: number;
+  equipmentId: number;
+  unitNo: number;
+  workItemId: number | null;
+  plannedStart: string; // 'YYYY-MM-DD'
+  plannedFinish: string; // 'YYYY-MM-DD'
+  note: string;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+/** Kết quả lưu 1 tháng: đã có dòng isLatest ('updated'), chưa có dòng nào ('created'), hoặc dự án không tồn tại ('not_found'). */
+export type SaveFactResult = 'created' | 'updated' | 'not_found';
 
 export interface FactDailyEquipmentUsage {
   projectId: number;

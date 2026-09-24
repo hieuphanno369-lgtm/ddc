@@ -3,6 +3,7 @@ import { DEFAULT_STAGE_WEIGHTS, type StageInput } from '@/lib/stages';
 import { calcCpi, calcDayVariance, calcDurationPctComplete, calcEv, calcPv, calcSpi } from '@/lib/evm';
 import { endOfMonth } from '@/lib/clock';
 import { keyMsAuditText } from '@/lib/key-milestones';
+import { sumManpowerShifts } from '@/lib/shifts';
 import type {
   ActivityLogEntry,
   AlertLog,
@@ -71,6 +72,7 @@ function mapProject(p: {
   contractDate: Date | null; plannedStartDate: Date | null; plannedFinishDate: Date | null;
   committedHandoverDate: Date | null; actualStartDate: Date | null; actualFinishDate: Date | null;
   penaltyValue: number | null; penalized: boolean; isActive: boolean;
+  factoryId: number | null; contractValueOriginal: number | null;
   createdAt: Date; updatedAt: Date; createdBy: string; updatedBy: string;
 }): Project {
   return {
@@ -95,6 +97,8 @@ function mapProject(p: {
     penaltyValue: p.penaltyValue,
     penalized: p.penalized,
     isActive: p.isActive,
+    factoryId: p.factoryId,
+    contractValueOriginal: p.contractValueOriginal,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
     createdBy: p.createdBy,
@@ -289,7 +293,7 @@ export const repo = {
       where: { projectId, workDate: { gte: dayStart(from), lte: dayStart(to) } },
       orderBy: [{ workDate: 'asc' }, { contractorId: 'asc' }],
     });
-    return rows.map((m) => ({ ...m, workDate: day(m.workDate)! }));
+    return sumManpowerShifts(rows.map((m) => ({ ...m, workDate: day(m.workDate)! })));
   },
 
   async getDailyEquipment(projectId: number, from: string, to: string): Promise<FactDailyEquipmentUsage[]> {

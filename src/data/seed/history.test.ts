@@ -3,6 +3,7 @@ import { buildRepoData, SEED_CURRENT_MONTH, SEED_HISTORY_MONTHS, seedPctPlanDura
 import { seedProjects } from './projects';
 import { DEFAULT_STAGE_WEIGHTS, validateStageWeights } from '@/lib/stages';
 import { ERP_DETAIL_PROJECT_ID } from './erp';
+import { sumManpowerShifts } from '@/lib/shifts';
 
 describe('Seed dữ liệu', () => {
   const data = buildRepoData();
@@ -50,7 +51,7 @@ describe('Seed dữ liệu', () => {
 
 describe('Seed ERP v2', () => {
   const data = buildRepoData();
-  const lastDay = [...new Set(data.dailyManpower.map((m) => m.workDate))].sort().at(-1)!;
+  const lastDay = [...new Set(data.dailyManpowerShifts.map((m) => m.workDate))].sort().at(-1)!;
 
   it('7 giai đoạn dimension, sortOrder 1..7 không trùng', () => {
     expect(data.stages).toHaveLength(7);
@@ -71,10 +72,25 @@ describe('Seed ERP v2', () => {
 
   it('6 nhà thầu, tổng nhân lực ngày cuối KH 520 / TT 486', () => {
     expect(data.contractors).toHaveLength(6);
-    const rows = data.dailyManpower.filter((m) => m.workDate === lastDay);
+    const rows = sumManpowerShifts(data.dailyManpowerShifts.filter((m) => m.workDate === lastDay));
     expect(rows).toHaveLength(6);
     expect(rows.reduce((a, b) => a + b.plannedHeadcount, 0)).toBe(520);
     expect(rows.reduce((a, b) => a + b.actualHeadcount, 0)).toBe(486);
+  });
+
+  it('ngay cuoi co dung 12 dong ca, moi (contractor, ngay) co du 2 ma morning/afternoon', () => {
+    const shiftRows = data.dailyManpowerShifts.filter((m) => m.workDate === lastDay);
+    expect(shiftRows).toHaveLength(12);
+    const byContractor = new Map<number, Set<string>>();
+    for (const r of shiftRows) {
+      const set = byContractor.get(r.contractorId) ?? new Set<string>();
+      set.add(r.shiftCode);
+      byContractor.set(r.contractorId, set);
+    }
+    expect(byContractor.size).toBe(6);
+    for (const codes of byContractor.values()) {
+      expect([...codes].sort()).toEqual(['afternoon', 'morning']);
+    }
   });
 
   it('7 nhóm thiết bị, tổng ngày cuối KH 72 / TT 63', () => {
@@ -85,7 +101,7 @@ describe('Seed ERP v2', () => {
   });
 
   it('đúng 7 ngày tracking liên tiếp', () => {
-    const days = [...new Set(data.dailyManpower.map((m) => m.workDate))];
+    const days = [...new Set(data.dailyManpowerShifts.map((m) => m.workDate))];
     expect(days).toHaveLength(7);
   });
 

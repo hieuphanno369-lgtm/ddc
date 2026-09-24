@@ -42,6 +42,9 @@ async function main() {
   await prisma.equipment.deleteMany();
   await prisma.equipment.createMany({ data: data.equipments });
 
+  await prisma.shift.deleteMany();
+  await prisma.shift.createMany({ data: data.shifts });
+
   // ---- Projects ----
   await prisma.project.deleteMany();
   await prisma.project.createMany({
@@ -123,7 +126,7 @@ async function main() {
 
   await prisma.factDailyManpower.deleteMany();
   await prisma.factDailyManpower.createMany({
-    data: data.dailyManpower.map((m) => ({ ...m, workDate: new Date(`${m.workDate}T00:00:00Z`) })),
+    data: data.dailyManpowerShifts.map((m) => ({ ...m, workDate: new Date(`${m.workDate}T00:00:00Z`) })),
   });
 
   await prisma.factDailyEquipmentUsage.deleteMany();

@@ -10,7 +10,7 @@ import type {
   Contractor,
   Equipment,
   FactDailyEquipmentUsage,
-  FactDailyManpower,
+  FactDailyManpowerShift,
   FactFinancial,
   FactProgressMonthly,
   FactStageWorkItem,
@@ -27,20 +27,22 @@ import type {
   ProjectStageWeight,
   ProjectWorkItem,
   SapQueueItem,
+  Shift,
   Stage,
   UserAccount,
   ValueChainProgress,
 } from '@/server/repo/types';
+import { splitHeadcount } from '@/lib/shifts';
 import { customers, exchangeRates, factories, teams, currencies } from './dims';
 import {
   DAY_FACTORS, ERP_DETAIL_PROJECT_ID, contractors, equipmentLastDay, equipments,
-  keyMilestoneSeed, manpowerLastDay, stages, workItemNames,
+  keyMilestoneSeed, manpowerLastDay, shifts, stages, workItemNames,
 } from './erp';
 import { seedProjects, type SeedProject } from './projects';
 
 // Hằng số seed - CHỈ dùng để sinh dữ liệu mẫu. Code production đọc src/lib/clock.ts.
 /** Kỳ báo cáo hiện tại (tháng 09/2026). */
-export const SEED_VERSION = '2026-09-22-erp-v2';
+export const SEED_VERSION = '2026-09-24-p1a';
 export const SEED_REPORT_DATE = new Date('2026-09-16T00:00:00Z');
 export const SEED_CURRENT_MONTH = '2026-09';
 export const SEED_HISTORY_MONTHS = [
@@ -131,6 +133,8 @@ function toProject(p: SeedProject): Project {
     penaltyValue: p.penaltyValue,
     penalized: p.penalized,
     isActive: true,
+    factoryId: (p.id % factories.length) + 1,
+    contractValueOriginal: null,
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-09-01T00:00:00Z',
     createdBy: 'system',
@@ -401,7 +405,7 @@ function trackingDates(): string[] {
 
 function buildDailyResources(): {
   projectContractors: ProjectContractor[];
-  manpower: FactDailyManpower[];
+  manpowerShifts: FactDailyManpowerShift[];
   equipmentUsage: FactDailyEquipmentUsage[];
 } {
   const pid = ERP_DETAIL_PROJECT_ID;
@@ -412,18 +416,31 @@ function buildDailyResources(): {
     contractorId: c.id,
   }));
 
-  const manpower: FactDailyManpower[] = [];
+  const manpowerShifts: FactDailyManpowerShift[] = [];
   const equipmentUsage: FactDailyEquipmentUsage[] = [];
 
   dates.forEach((workDate, d) => {
     const f = DAY_FACTORS[d];
     for (const row of manpowerLastDay) {
-      manpower.push({
+      const total = Math.round(row.planned * f);
+      const totalActual = Math.round(row.actual * f);
+      const [morningPlanned, afternoonPlanned] = splitHeadcount(total);
+      const [morningActual, afternoonActual] = splitHeadcount(totalActual);
+      manpowerShifts.push({
         projectId: pid,
         contractorId: row.contractorId,
         workDate,
-        plannedHeadcount: Math.round(row.planned * f),
-        actualHeadcount: Math.round(row.actual * f),
+        shiftCode: 'morning',
+        plannedHeadcount: morningPlanned,
+        actualHeadcount: morningActual,
+      });
+      manpowerShifts.push({
+        projectId: pid,
+        contractorId: row.contractorId,
+        workDate,
+        shiftCode: 'afternoon',
+        plannedHeadcount: afternoonPlanned,
+        actualHeadcount: afternoonActual,
       });
     }
     for (const row of equipmentLastDay) {
@@ -438,7 +455,7 @@ function buildDailyResources(): {
     }
   });
 
-  return { projectContractors, manpower, equipmentUsage };
+  return { projectContractors, manpowerShifts, equipmentUsage };
 }
 
 /**
@@ -481,12 +498,14 @@ export interface RepoData {
   contractors: Contractor[];
   projectContractors: ProjectContractor[];
   equipments: Equipment[];
-  dailyManpower: FactDailyManpower[];
+  shifts: Shift[];
+  dailyManpowerShifts: FactDailyManpowerShift[];
   dailyEquipment: FactDailyEquipmentUsage[];
 }
 
 export function buildRepoData(): RepoData {
   const projects = seedProjects.map(toProject);
+  const projectFactoryId = new Map(projects.map((p) => [p.id, p.factoryId!]));
   const facts: FactProgressMonthly[] = [];
   const valueChain: ValueChainProgress[] = [];
   const financial: FactFinancial[] = [];
@@ -569,7 +588,7 @@ export function buildRepoData(): RepoData {
       volumes.push({
         projectId: p.id,
         yearMonth,
-        factoryId: (p.id % factories.length) + 1,
+        factoryId: projectFactoryId.get(p.id)!,
         tonnageProcessed: Math.round(tonnageThisMonth),
       });
 
@@ -623,7 +642,8 @@ export function buildRepoData(): RepoData {
     contractors,
     projectContractors: res.projectContractors,
     equipments,
-    dailyManpower: res.manpower,
+    shifts,
+    dailyManpowerShifts: res.manpowerShifts,
     dailyEquipment: res.equipmentUsage,
   };
 }
