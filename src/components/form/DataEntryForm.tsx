@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import type {
   AlertLog,
   Currency,
-  CurrencyCode,
   Customer,
   FactFinancial,
   FactProgressMonthly,
@@ -18,7 +17,6 @@ import type {
   ProjectPhoto,
   ProjectSapCode,
   ProjectType,
-  StageCode,
   TeamKd,
   ValueChainProgress,
 } from '@/server/repo/types';
@@ -27,9 +25,22 @@ import { marketKey, stageKey, typeKey } from '@/lib/labels';
 import { computeEvm } from '@/lib/evm';
 import { STAGE_ORDER, calcChainPctActual, findCurrentStage, normPct } from '@/lib/stages';
 import { THRESHOLDS } from '@/lib/thresholds';
-import { fmtNum, formatPct, formatRatio, toTitleCase } from '@/lib/format';
+import { fmtNum, formatDateTime, formatPct, formatRatio, toTitleCase } from '@/lib/format';
 import { normalizeKeyMilestones, toKeyMilestoneDraft, validateKeyMilestones, type KeyMilestoneDraft, type KeyMsErrors } from '@/lib/key-milestones';
 import { addPhotoAction, addSapCodeAction, closeAlertAction, createDimValueAction, deletePhotoAction, lockMonthAction, saveKeyMilestonesAction, saveMonthlyData } from '@/server/actions';
+import {
+  buildBaseForm,
+  buildSavePatch,
+  checkDraft,
+  draftKey,
+  formsEqual,
+  legacyDraftKey,
+  makeStamp,
+  restoreDraft,
+  saveErrorKind,
+  type DraftCheck,
+  type FormState,
+} from './dataEntryState';
 import { Combobox } from './Combobox';
 import { KeyMilestoneEditor } from './KeyMilestoneEditor';
 import { Badge, Dot } from '@/components/ui/Badge';
@@ -65,36 +76,7 @@ interface Props {
   keyMilestones: ProjectKeyMilestone[];
   today: IsoDate;
   initialStep?: DataEntryStep;
-}
-
-interface FormState {
-  projectName: string;
-  customerId: string;
-  teamKdId: string;
-  marketCode: string;
-  projectType: string;
-  priority: string;
-  contractValue: string;
-  tonnage: string;
-  currencyCode: string;
-  contractDate: string;
-  plannedStartDate: string;
-  plannedFinishDate: string;
-  committedHandoverDate: string;
-  actualStartDate: string;
-  actualFinishDate: string;
-  penaltyValue: string;
-  penalized: boolean;
-  pctPlan: string;
-  stagePct: Record<StageCode, string>;
-  stageApplicable: Record<StageCode, boolean>;
-  ac: string;
-  equipmentActual: string;
-  revenueCumulative: string;
-  costActualCumulative: string;
-  arCollected: string;
-  arOutstanding: string;
-  arOverdue: string;
+  canEditFinance: boolean;
 }
 
 export function DataEntryForm({
@@ -118,21 +100,26 @@ export function DataEntryForm({
   keyMilestones,
   today,
   initialStep,
+  canEditFinance,
 }: Props) {
   const t = useTranslations();
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const base = useMemo(() => buildBaseForm(project, fact, financial, chain), [project, fact, financial, chain]);
+  const stamp = useMemo(() => makeStamp(project, fact, financial), [project, fact, financial]);
+
   const [step, setStep] = useState<Step>(initialStep ?? 'progress');
-  const [form, setForm] = useState<FormState>(() => loadDraft(projectId, month, project, fact, financial, chain));
+  const [form, setForm] = useState<FormState>(() => base);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | undefined>(undefined);
+  const [noChangeMsg, setNoChangeMsg] = useState(false);
+  const [pendingDraft, setPendingDraft] = useState<Extract<DraftCheck, { kind: 'fresh' | 'stale' }> | null>(null);
   const [msRows, setMsRows] = useState<KeyMilestoneDraft[]>(() => keyMilestones.map(toKeyMilestoneDraft));
   const [msDirty, setMsDirty] = useState(false);
   const [msErrors, setMsErrors] = useState<KeyMsErrors>({});
   const [msSaveErr, setMsSaveErr] = useState<string | null>(null);
-  // Chỉ gửi `chain` khi user thực sự sửa tiến độ - tránh derive pctActual=0 ghi đè tháng import.
-  const [chainDirty, setChainDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -145,20 +132,42 @@ export function DataEntryForm({
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoErr, setPhotoErr] = useState<string | null>(null);
 
-  // Draft auto-save (debounced)
+  // Chạy 1 lần khi mount: dọn bản nháp v1 cũ (không bao giờ áp), rồi soi bản nháp v2 hiện có.
+  useEffect(() => {
+    localStorage.removeItem(legacyDraftKey(projectId, month));
+    const check = checkDraft(localStorage.getItem(draftKey(projectId, month)), stamp);
+    if (check.kind === 'foreign') {
+      localStorage.removeItem(draftKey(projectId, month));
+    } else if (check.kind === 'fresh' || check.kind === 'stale') {
+      setPendingDraft(check);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Draft auto-save (debounced) - bỏ qua khi còn banner nháp chờ quyết định.
   useEffect(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      localStorage.setItem(`ddc_draft_${projectId}_${month}`, JSON.stringify(form));
+      if (pendingDraft) return;
+      if (formsEqual(form, base)) {
+        localStorage.removeItem(draftKey(projectId, month));
+      } else {
+        localStorage.setItem(
+          draftKey(projectId, month),
+          JSON.stringify({ v: 2, savedAt: new Date().toISOString(), stamp, form }),
+        );
+      }
     }, 800);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [form, projectId, month]);
+  }, [form, base, stamp, pendingDraft, projectId, month]);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }) as FormState);
     setSaved(false);
+    setSaveErr(undefined);
+    setNoChangeMsg(false);
   }
 
   function updateQuery(patch: Record<string, string | null>) {
@@ -205,43 +214,32 @@ export function DataEntryForm({
 
   async function submit() {
     if (!validate()) return;
+    const patch = buildSavePatch(base, form, { canEditFinance });
+    const hasPatch = Object.keys(patch).length > 0;
+    if (!hasPatch && !msDirty) {
+      setSaveErr(undefined);
+      setSaved(false);
+      setNoChangeMsg(true);
+      return;
+    }
+    setNoChangeMsg(false);
     setSaving(true);
     try {
-      const res = await saveMonthlyData(projectId, month, {
-        projectName: form.projectName || undefined,
-        customerId: form.customerId ? Number(form.customerId) : undefined,
-        teamKdId: form.teamKdId ? Number(form.teamKdId) : undefined,
-        marketCode: (form.marketCode || undefined) as Market | undefined,
-        projectType: (form.projectType || undefined) as ProjectType | undefined,
-        priority: (form.priority || undefined) as Priority | undefined,
-        contractValue: form.contractValue ? Number(form.contractValue) : undefined,
-        tonnage: form.tonnage ? Number(form.tonnage) : undefined,
-        currencyCode: (form.currencyCode || undefined) as CurrencyCode | undefined,
-        contractDate: form.contractDate || null,
-        plannedStartDate: form.plannedStartDate || null,
-        plannedFinishDate: form.plannedFinishDate || null,
-        committedHandoverDate: form.committedHandoverDate || null,
-        actualStartDate: form.actualStartDate || null,
-        actualFinishDate: form.actualFinishDate || null,
-        penaltyValue: form.penaltyValue ? Number(form.penaltyValue) : null,
-        penalized: form.penalized,
-        pctPlan: form.pctPlan ? Number(form.pctPlan) : undefined,
-        ...(chainDirty ? { chain: stageInputs } : {}),
-        ac: form.ac ? Number(form.ac) : undefined,
-        equipmentActual: form.equipmentActual ? Number(form.equipmentActual) : undefined,
-        revenueCumulative: form.revenueCumulative ? Number(form.revenueCumulative) : undefined,
-        costActualCumulative: form.costActualCumulative ? Number(form.costActualCumulative) : undefined,
-        arCollected: form.arCollected ? Number(form.arCollected) : undefined,
-        arOverdue: form.arOverdue ? Number(form.arOverdue) : undefined,
-      });
+      let res: { ok: boolean; error?: string } = { ok: true };
+      if (hasPatch) {
+        res = await saveMonthlyData(projectId, month, patch);
+      }
       if (res.ok) {
-        localStorage.removeItem(`ddc_draft_${projectId}_${month}`);
+        localStorage.removeItem(draftKey(projectId, month));
+        setSaveErr(undefined);
         if (msDirty) {
           const ms = await saveKeyMilestonesAction(projectId, normalizeKeyMilestones(msRows));
           if (ms.ok) { setMsDirty(false); setMsSaveErr(null); } else setMsSaveErr(t('form.keyMs.saveError'));
         }
         router.refresh();
         setSaved(true);
+      } else {
+        setSaveErr(res.error);
       }
     } finally {
       setSaving(false);
@@ -346,6 +344,33 @@ export function DataEntryForm({
           status={project.actualStartDate ? (derivedPctActual >= 1 ? 'Hoan_thanh' : 'Dang_trien_khai') : 'Chuan_bi'}
         />
       </div>
+
+      {pendingDraft && (
+        <div className="sumbar">
+          <p>{t('dataGuard.draft.found', { time: formatDateTime(pendingDraft.draft.savedAt) })}</p>
+          {pendingDraft.kind === 'stale' && <p>{t('dataGuard.draft.stale')}</p>}
+          <div className="flex gap-2">
+            <button
+              className="btn"
+              onClick={() => {
+                setForm(restoreDraft(base, pendingDraft.draft));
+                setPendingDraft(null);
+              }}
+            >
+              {t('dataGuard.draft.restore')}
+            </button>
+            <button
+              className="btn ghost"
+              onClick={() => {
+                localStorage.removeItem(draftKey(projectId, month));
+                setPendingDraft(null);
+              }}
+            >
+              {t('dataGuard.draft.discard')}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Steps */}
       <div className="msdetail" style={{ borderBottom: 'none', background: 'transparent', padding: 0 }}>
@@ -522,20 +547,14 @@ export function DataEntryForm({
                           type="number"
                           step="0.01"
                           value={fmtNum(form.stagePct?.[s] ?? '')}
-                          onChange={(e) => {
-                            set('stagePct', { ...form.stagePct, [s]: e.target.value });
-                            setChainDirty(true);
-                          }}
+                          onChange={(e) => set('stagePct', { ...form.stagePct, [s]: e.target.value })}
                           className={inputCls('stagePct.' + s)}
                         />
                         <label className="inline" style={{ fontSize: 'var(--t-caption1)', color: 'var(--label2)' }}>
                           <input
                             type="checkbox"
                             checked={form.stageApplicable?.[s] ?? true}
-                            onChange={(e) => {
-                              set('stageApplicable', { ...form.stageApplicable, [s]: e.target.checked });
-                              setChainDirty(true);
-                            }}
+                            onChange={(e) => set('stageApplicable', { ...form.stageApplicable, [s]: e.target.checked })}
                             className="h-4 w-4 rounded border-sep2 text-brand focus:ring-brand"
                           />
                           {t('form.stageApplicable')}
@@ -570,22 +589,23 @@ export function DataEntryForm({
         {step === 'finance' && (
           <div className="f2">
             <Field label={t('metric.revenue') + ' (' + t('metric.cumulative') + ', tỷ)'}>
-              <input type="number" step="0.1" value={fmtNum(form.revenueCumulative)} onChange={(e) => set('revenueCumulative', e.target.value)} className={inputCls('rev')} />
+              <input type="number" step="0.1" disabled={!canEditFinance} value={fmtNum(form.revenueCumulative)} onChange={(e) => set('revenueCumulative', e.target.value)} className={canEditFinance ? inputCls('rev') : 'inp ro'} />
             </Field>
             <Field label={t('metric.cost') + ' (' + t('metric.cumulative') + ', tỷ)'}>
-              <input type="number" step="0.1" value={fmtNum(form.costActualCumulative)} onChange={(e) => set('costActualCumulative', e.target.value)} className={inputCls('cost')} />
+              <input type="number" step="0.1" disabled={!canEditFinance} value={fmtNum(form.costActualCumulative)} onChange={(e) => set('costActualCumulative', e.target.value)} className={canEditFinance ? inputCls('cost') : 'inp ro'} />
             </Field>
             <Field label={t('metric.collected') + ' (tỷ)'}>
-              <input type="number" step="0.1" value={fmtNum(form.arCollected)} onChange={(e) => set('arCollected', e.target.value)} className={inputCls('col')} />
+              <input type="number" step="0.1" disabled={!canEditFinance} value={fmtNum(form.arCollected)} onChange={(e) => set('arCollected', e.target.value)} className={canEditFinance ? inputCls('col') : 'inp ro'} />
             </Field>
             <Field label={t('metric.overdue') + ' (tỷ)'}>
-              <input type="number" step="0.1" value={fmtNum(form.arOverdue)} onChange={(e) => set('arOverdue', e.target.value)} className={inputCls('over')} />
+              <input type="number" step="0.1" disabled={!canEditFinance} value={fmtNum(form.arOverdue)} onChange={(e) => set('arOverdue', e.target.value)} className={canEditFinance ? inputCls('over') : 'inp ro'} />
             </Field>
             <Field label={t('metric.outstanding')}>
               <div className="text-footnote font-semibold" style={{ background: 'var(--fill)', borderRadius: 'var(--r-sm)', padding: '9px 12px' }}>
                 {fmtNum(String((Number(form.contractValue) || 0) - (Number(form.arCollected) || 0) - (Number(form.arOverdue) || 0)))} tỷ
               </div>
             </Field>
+            {!canEditFinance && <p className="hintline" style={{ gridColumn: '1 / -1' }}>{t('dataGuard.save.financeReadonly')}</p>}
           </div>
         )}
 
@@ -692,6 +712,16 @@ export function DataEntryForm({
 
       {/* Actions */}
       <div className="stickybar">
+        {saveErr && (
+          <p className="sumbar bad">
+            {(() => {
+              const kind = saveErrorKind(saveErr);
+              if (kind === 'generic') return t('dataGuard.save.generic', { msg: saveErr });
+              if (kind === 'locked') return t('dataGuard.save.locked', { month });
+              return t(`dataGuard.save.${kind}`);
+            })()}
+          </p>
+        )}
         <div className="flex items-center gap-2">
           {locked && <Badge tone="warn">{t('form.locked')}</Badge>}
           {!locked && canLock && (
@@ -708,6 +738,7 @@ export function DataEntryForm({
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {saved && <span className="chip c-ok">{t('form.savedProfile')}</span>}
+          {!saved && noChangeMsg && <span className="chip">{t('dataGuard.save.noChange')}</span>}
           <div className="ml-auto flex items-center gap-2">
             {step !== 'progress' && (
               <button
@@ -797,59 +828,3 @@ function AlertTab({ alerts }: { alerts: AlertLog[] }) {
   );
 }
 
-function loadDraft(
-  projectId: number,
-  month: string,
-  project: Project,
-  fact: FactProgressMonthly | undefined,
-  financial: FactFinancial | undefined,
-  chain: ValueChainProgress[],
-): FormState {
-  const stagePct = {} as Record<StageCode, string>;
-  const stageApplicable = {} as Record<StageCode, boolean>;
-  for (const s of STAGE_ORDER) {
-    const v = chain.find((c) => c.stageCode === s);
-    stagePct[s] = v ? String(v.pctComplete) : '';
-    stageApplicable[s] = v ? v.applicable : true;
-  }
-  const base: FormState = {
-    projectName: project.projectName,
-    customerId: String(project.customerId),
-    teamKdId: String(project.teamKdId),
-    marketCode: project.marketCode,
-    projectType: project.projectType,
-    priority: project.priority,
-    contractValue: String(project.contractValue),
-    tonnage: String(project.tonnage),
-    currencyCode: project.currencyCode,
-    contractDate: project.contractDate ?? '',
-    plannedStartDate: project.plannedStartDate ?? '',
-    plannedFinishDate: project.plannedFinishDate ?? '',
-    committedHandoverDate: project.committedHandoverDate ?? '',
-    actualStartDate: project.actualStartDate ?? '',
-    actualFinishDate: project.actualFinishDate ?? '',
-    penaltyValue: project.penaltyValue != null ? String(project.penaltyValue) : '',
-    penalized: project.penalized,
-    pctPlan: fact ? String(fact.pctPlan) : '',
-    stagePct,
-    stageApplicable,
-    ac: fact ? String(fact.ac) : '',
-    equipmentActual: fact ? String(fact.equipmentActual) : '',
-    revenueCumulative: financial ? String(financial.revenueCumulative) : '',
-    costActualCumulative: financial ? String(financial.costActualCumulative) : '',
-    arCollected: financial ? String(financial.arCollected) : '',
-    arOutstanding: financial ? String(financial.arOutstanding) : '',
-    arOverdue: financial ? String(financial.arOverdue) : '',
-  };
-  const key = `ddc_draft_${projectId}_${month}`;
-  const saved = typeof window !== 'undefined' ? localStorage.getItem(key) : null;
-  if (saved) {
-    try {
-      // Draft cũ có thể thiếu stagePct/stageApplicable → merge lên base để không crash.
-      return { ...base, ...(JSON.parse(saved) as Partial<FormState>) };
-    } catch {
-      /* ignore */
-    }
-  }
-  return base;
-}

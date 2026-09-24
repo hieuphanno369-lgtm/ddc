@@ -586,6 +586,20 @@
         "not_assigned": "Bạn không được gán dự án này",
         "not_found": "Không tìm thấy dự án"
       }
+    },
+    "draft": {
+      "found": "Có bản nháp chưa lưu lúc {time}.",
+      "stale": "Dữ liệu đã được lưu sau thời điểm nháp — khôi phục sẽ thay các ô bằng bản nháp.",
+      "restore": "Khôi phục bản nháp",
+      "discard": "Bỏ bản nháp"
+    },
+    "save": {
+      "noChange": "Không có thay đổi để lưu",
+      "forbidden": "Bạn không có quyền lưu dự án này.",
+      "locked": "Tháng {month} đã khoá số liệu — không lưu được.",
+      "notFound": "Không tìm thấy dự án.",
+      "generic": "Lưu thất bại: {msg}",
+      "financeReadonly": "Chỉ Admin/BOD được sửa số tài chính — các ô dưới đây chỉ để xem."
     }
   }
 }

@@ -63,6 +63,15 @@ describe('P3 - chỉ Admin/BOD được ghi field tài chính', () => {
 
     expect(res).toEqual({ ok: true });
   });
+
+  it('data-entry (PIC) gửi patch chỉ gồm pctPlan + projectName (dung thu buildSavePatch sinh khi canEditFinance:false) → lưu được', async () => {
+    login(dataEntry('pm@daidung.com.vn'));
+
+    const res = await saveMonthlyData(1, YM, { pctPlan: 0.1, projectName: 'TEN MOI TU DATA-ENTRY' });
+
+    expect(res).toEqual({ ok: true });
+    expect(repo.getProject(1)!.projectName).toBe('TEN MOI TU DATA-ENTRY');
+  });
 });
 
 describe('P4 - import chặn size/type file', () => {

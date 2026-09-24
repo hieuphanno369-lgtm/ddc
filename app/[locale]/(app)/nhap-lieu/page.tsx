@@ -83,6 +83,7 @@ export default async function NhapLieuPage({
             keyMilestones={keyMilestones}
             today={today}
             initialStep={initialStep}
+            canEditFinance={user?.role === 'admin' || user?.role === 'bod'}
           />
         )}
       </section>

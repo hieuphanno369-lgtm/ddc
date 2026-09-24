@@ -586,6 +586,20 @@
         "not_assigned": "You are not assigned to this project",
         "not_found": "Project not found"
       }
+    },
+    "draft": {
+      "found": "Unsaved draft from {time}.",
+      "stale": "Data was saved after this draft — restoring replaces fields with the draft.",
+      "restore": "Restore draft",
+      "discard": "Discard draft"
+    },
+    "save": {
+      "noChange": "Nothing to save",
+      "forbidden": "You are not allowed to save this project.",
+      "locked": "Month {month} is locked — cannot save.",
+      "notFound": "Project not found.",
+      "generic": "Save failed: {msg}",
+      "financeReadonly": "Only Admin/BOD can edit financials — fields below are read-only."
     }
   }
 }
