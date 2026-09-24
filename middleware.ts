@@ -2,6 +2,7 @@ import createMiddleware from 'next-intl/middleware';
 import { getToken } from 'next-auth/jwt';
 import { NextRequest, NextResponse } from 'next/server';
 import { routing } from './src/i18n/routing';
+import { requireAuthSecret } from './src/lib/env';
 import type { Role } from './src/server/repo/types';
 
 const intlMiddleware = createMiddleware(routing);
@@ -23,14 +24,19 @@ export default async function middleware(request: NextRequest) {
   );
   if (!hasLocale) return intlResp;
 
+  let secret: string;
+  try {
+    secret = requireAuthSecret();
+  } catch {
+    return new NextResponse('Server misconfigured: NEXTAUTH_SECRET', { status: 500 });
+  }
+
   let role: Role | null = null;
-  if (process.env.NEXTAUTH_SECRET) {
-    try {
-      const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-      role = (token?.role as Role) ?? null;
-    } catch {
-      role = null;
-    }
+  try {
+    const token = await getToken({ req: request, secret });
+    role = (token?.role as Role) ?? null;
+  } catch {
+    role = null;
   }
 
   if (!role) return intlResp;

@@ -6,6 +6,7 @@ import { prisma } from '@/server/db';
 import { repo } from '@/server/repo/mock-repo';
 import { logActivity } from '@/lib/activity';
 import { verifyPassword } from '@/lib/password';
+import { requireAuthSecret } from '@/lib/env';
 
 const allowedDomains = (process.env.ALLOWED_EMAIL_DOMAINS ?? '')
   .split(',')
@@ -84,8 +85,10 @@ export function isAllowedDomain(email: string): boolean {
 }
 
 export const authOptions: NextAuthOptions = {
-  // TODO: bỏ fallback secret - NEXTAUTH_SECRET phải set thật trong env, không hardcode dev (bảo mật).
-  secret: process.env.NEXTAUTH_SECRET ?? 'ddc-local-dev-secret',
+  // Getter: lỗi nổ lúc DÙNG secret (mỗi request), không nổ lúc import module.
+  get secret() {
+    return requireAuthSecret();
+  },
   providers: [
     CredentialsProvider({
       name: 'Credentials',
@@ -138,8 +141,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         (session.user as { role?: Role }).role = (token.role as Role) ?? 'viewer';
-        // TODO: fail-open - `?? true` mặc định cho xem finance. Phải `?? false` (fail-closed).
-        session.user.canViewFinance = token.canViewFinance ?? true;
+        session.user.canViewFinance = token.canViewFinance ?? false;
       }
       return session;
     },

@@ -20,7 +20,6 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       name: session.user.name ?? email,
       email,
       role: ((session.user as { role?: Role }).role as Role) ?? 'viewer',
-      // TODO: fail-open - `?? true` mặc định cho xem finance. Phải `?? false` (fail-closed).
       canViewFinance: (session.user as { canViewFinance?: boolean }).canViewFinance ?? false,
     };
   }

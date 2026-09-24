@@ -61,7 +61,7 @@ export default async function ProjectDetailPage({
   const t = await getTranslations();
   const locale = await getLocale();
   const user = await getCurrentUser();
-  const canViewFinance = user?.canViewFinance ?? true;
+  const canViewFinance = user?.canViewFinance ?? false;
   // B-4 (danh-gia.md, vòng 2 - BOLA/IDOR): data-entry/viewer chỉ được xem dự án mình có trong
   // project_assignments; admin/bod xem mọi dự án. Check TRƯỚC khi đọc project để không lộ qua
   // timing/behavior khác nhau giữa "không có quyền" và "chưa load xong".
