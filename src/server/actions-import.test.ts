@@ -26,13 +26,19 @@ function login(user: CurrentUser | null) {
   (getCurrentUser as Mock).mockResolvedValue(user);
 }
 
-function excelForm(rows: Record<string, string>[]): FormData {
+function excelForm(rows: Record<string, string>[], fileName = 'import.xlsx'): FormData {
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(rows);
   XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
   const bytes = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
   const fd = new FormData();
-  fd.set('file', new File([bytes], 'import.xlsx'));
+  fd.set('file', new File([bytes], fileName));
+  return fd;
+}
+
+function csvForm(csv: string): FormData {
+  const fd = new FormData();
+  fd.set('file', new File([csv], 'import.csv', { type: 'text/csv' }));
   return fd;
 }
 
@@ -90,6 +96,25 @@ describe('importExcelAction - bao loi tung dong (khong con continue im lang)', (
 
     expect(res.ok).toBe(true);
     expect(res.preview![0]).toMatchObject({ status: 'invalid', reason: 'not_assigned', projectId: null });
+  });
+
+  it("nợ F4 (Task 9): file .xls -> loi schema, khong con nhan .xls", async () => {
+    login(ADMIN);
+    const res = (await importExcelAction(
+      excelForm([{ 'mã sap': 'SAP-EV-BSN-001', 'tên dự án': 'Du an hop le', '% TT': '50' }], 'import.xls'),
+    )) as { ok: boolean; error?: string };
+
+    expect(res).toEqual({ ok: false, error: 'Chỉ chấp nhận file .xlsx/.csv' });
+  });
+
+  it('nợ F4 (Task 9): file CSV 2 dong (header + 1 dong) -> preview dung rowNo', async () => {
+    login(ADMIN);
+    const csv = 'mã sap,tên dự án,% TT\nSAP-EV-BSN-001,Du an CSV,50\n';
+    const res = (await importExcelAction(csvForm(csv))) as Result;
+
+    expect(res.ok).toBe(true);
+    expect(res.preview).toHaveLength(1);
+    expect(res.preview![0]).toMatchObject({ rowNo: 2, status: 'mapped', reason: null });
   });
 });
 

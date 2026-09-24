@@ -155,9 +155,9 @@ export const commitImportSchema = z.object({
 /** Giới hạn dung lượng 1 file import (10MB) - chặn ở action trước khi parse (chống DoS). */
 export const IMPORT_MAX_BYTES = 10 * 1024 * 1024;
 
-/** Chỉ nhận file bảng tính (.xlsx/.xls/.csv) trong giới hạn dung lượng. */
+/** Nợ F4 (P2A, Task 9): đọc bằng exceljs - không còn nhận .xls (chỉ .xlsx/.csv). */
 export const importFileSchema = z.object({
-  name: z.string().regex(/\.(xlsx|xls|csv)$/i, 'Chỉ chấp nhận file .xlsx/.xls/.csv'),
+  name: z.string().regex(/\.(xlsx|csv)$/i, 'Chỉ chấp nhận file .xlsx/.csv'),
   size: z.number().int().positive().max(IMPORT_MAX_BYTES, 'File vượt quá 10MB'),
 });
 

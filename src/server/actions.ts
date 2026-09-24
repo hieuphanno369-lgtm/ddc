@@ -1,11 +1,13 @@
 'use server';
 
 import { revalidateTag } from 'next/cache';
-import * as XLSX from 'xlsx';
+import { Readable } from 'node:stream';
+import ExcelJS from 'exceljs';
 import { getCurrentUser, type CurrentUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
 import { hashPassword, verifyPassword } from '@/lib/password';
 import { calcChainPctActual, findCurrentStage, normPct } from '@/lib/stages';
+import { cellText, type CellValue } from '@/lib/daily-import';
 import type { CurrencyCode, KeyMilestoneInput, Market, Priority, Project, ProjectType, Role, StageCode } from './repo/types';
 import { listTag, overviewTag, profileTag, trendTag } from './cache';
 import { addSapCodeSchema, changePasswordSchema, closeAlertSchema, commitImportSchema, createAccountSchema, createDimSchema, createProjectSchema, deletePhotoSchema, importFileSchema, lockMonthSchema, mergeDimSchema, renameDimSchema, resetPasswordSchema, saveKeyMilestonesSchema, saveMonthlyDataSchema, userRoleSchema } from './validation';
@@ -448,14 +450,37 @@ export async function importExcelAction(formData: FormData) {
   const file = formData.get('file') as File | null;
   if (!file) return { ok: false, error: 'No file' };
 
-  // Chặn trước khi parse: chỉ nhận .xlsx/.xls/.csv và size ≤ 10MB.
+  // Chặn trước khi parse: chỉ nhận .xlsx/.csv (nợ F4: bỏ .xls) và size ≤ 10MB.
   const fileParsed = importFileSchema.safeParse({ name: file.name, size: file.size });
   if (!fileParsed.success) return { ok: false, error: fileParsed.error.issues[0]?.message ?? 'Invalid file' };
 
-  const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, { type: 'array' });
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' });
+  // Nợ F4 (reviewer P1A): đọc bằng exceljs thay vì `xlsx` 0.18.5 (có lỗ hổng) - chỉ nhận .xlsx/.csv.
+  const buf = Buffer.from(await file.arrayBuffer());
+  const wb = new ExcelJS.Workbook();
+  try {
+    if (/\.csv$/i.test(file.name)) {
+      await wb.csv.read(Readable.from(buf));
+    } else {
+      await wb.xlsx.load(buf as unknown as ArrayBuffer);
+    }
+  } catch {
+    return { ok: false, error: 'Invalid file' };
+  }
+  const ws = wb.worksheets[0];
+  if (!ws || ws.rowCount === 0) return { ok: false, error: 'Invalid file' };
+  const colCount = Math.max(ws.columnCount, ws.getRow(1).cellCount);
+  const header: string[] = [];
+  for (let c = 1; c <= colCount; c++) header.push(cellText(ws.getRow(1).getCell(c).value as CellValue));
+  const raw: Record<string, unknown>[] = [];
+  const rowNos: number[] = [];
+  for (let r = 2; r <= ws.rowCount; r++) {
+    const record: Record<string, unknown> = {};
+    for (let c = 1; c <= colCount; c++) {
+      record[header[c - 1] || `col${c}`] = cellText(ws.getRow(r).getCell(c).value as CellValue);
+    }
+    raw.push(record);
+    rowNos.push(r);
+  }
 
   const known = await repo.getSapCodes();
   // data-entry chỉ thấy preview dự án mình được gán - không lộ projectId ngoài assignment.
@@ -470,7 +495,7 @@ export async function importExcelAction(formData: FormData) {
     const sapCode = pick(r, ['mã sap', 'ma sap', 'sap code', 'sap', 'mã dự án', 'ma du an', 'code']);
     const projectName = pick(r, ['tên dự án', 'ten du an', 'project name', 'name', 'dự án', 'du an']);
     const pctRaw = pick(r, ['% tt', '% hoàn thành', '% hoan thanh', '%ht', 'pctactual', '% actual', 'actual']);
-    const rowNo = ((r as { __rowNum__?: number }).__rowNum__ ?? i + 1) + 1;
+    const rowNo = rowNos[i];
 
     // Dòng hoàn toàn trống - không tính, không hiện trong preview.
     if (!sapCode && !projectName && !pctRaw) continue;
