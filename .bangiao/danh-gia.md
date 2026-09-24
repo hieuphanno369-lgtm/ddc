@@ -2,9 +2,37 @@ PHAN QUYET: CHOT
 
 # Đánh giá cuối P2B — Biểu đồ & hiệu năng (nhánh `feature/p2b-bieu-do`)
 
-> Nội dung do subagent reviewer (vai chỉ đọc) trả về; điều phối viên lưu nguyên văn vào file này.
+> Nội dung do subagent reviewer (vai chỉ đọc) trả về; điều phối viên lưu vào file này.
 
 Skill đã dùng: `ddc-tower:code-review`.
+
+## Vòng bổ sung — KPI (yêu cầu chủ dự án sau khi CHỐT vòng 2; diff `f9934a4..HEAD`: `a09b56e`, `7a28268`, `3d24821`, `dabd1c6`, `c0f7e01`, `ae5a74f`, `30d0756`)
+
+### Cổng kiểm (reviewer tự chạy lại qua PowerShell)
+- `npx tsc --noEmit`: sạch. `npm test`: **97/97 file, 1126/1126 xanh**.
+- File cấm (`prisma/`, `actions.ts`, `prisma-repo.ts`, `queries.ts`, `project-queries.ts`, `PROGRESS.md`, `.serena/`): **không đổi**.
+- Trùng với nhánh A: chỉ hồ sơ `.bangiao/*.md` (luật archive) và đuôi `vi.json`/`en.json` (đã biết). A không đụng `globals.css`, `tokens.css`, `KpiCard.tsx`, `OverviewWidgets.tsx`, `report/page.tsx`, `projects/[id]/page.tsx`. Key động `kpiSchedule.${direction}` có đủ 3 key ở cả vi/en nên test i18n của A không đỏ sau merge.
+
+### 3 yêu cầu — đối chiếu
+1. **Bỏ chữ "Trọng tâm" — ĐẠT.** Xoá prop `heroTagLabel` + span `.tag`; bỏ ở 5 chỗ gọi (`projects/[id]/page.tsx:208-210`, `report/page.tsx:51`, `OverviewWidgets.tsx:58`); gỡ CSS `.kpi.key .tag` + `@container` chết; nền gradient hero giữ nguyên. Key `kpi.focusTag` thừa để dọn sau.
+2. **Dòng chậm/nhanh dưới thẻ %TT — ĐẠT, đúng định nghĩa đã chốt.** `schedule-gap.ts:52-69`: `gapPct = pctActual − pctPlan`, `gapDays = Math.round(gapPct × planDays)`; `pctPlan` = %KH theo thời gian (`queries.ts:73`); `planDays` cùng cách `evm.ts:66`; `null` khi thiếu số liệu/`planDays ≤ 0`. Dự án 1: "▼ Chậm 56 ngày · −19,3%" — tester tính tay độc lập từ DB B khớp (283/288 ngày). Màu behind `--gold`, ahead `--mint`, onTrack kế thừa `.sb`.
+3. **Nhãn scorecard hiện đủ chữ — ĐẠT.** `globals.css:249-251` `.kpi .lb` bỏ nowrap/ellipsis, `line-height:1.3` + `min-height` 2 dòng; ảnh 390px: "TỔNG SỐ NHÂN LỰC/THIẾT BỊ" đủ 2 dòng, số chính thẳng hàng, chữ không chui dưới icon.
+
+### Kiểm thêm
+- Token `--mint` (`tokens.css:61`) đúng quy ước (cạnh `--gold`, không hex thô trong `.tsx`). [nit] `#30d158` là systemGreen chứ không phải systemMint.
+- CSS `.kpi .lb` chỉ ảnh hưởng nơi render qua `KpiCard` (overview/KpiGrid, BacklogOverdueCard, report, projects/[id]); không vỡ. Mọi thẻ cao thêm ~1 dòng caption2 — đánh đổi có chủ đích. [nit] skeleton `overview/page.tsx:33` (`height: 96`) thấp hơn thẻ thật.
+
+### Test
+- `schedule-gap.test.ts` 13 ca có giá trị thật; `KpiCard.test.ts` behind/ahead kiểm màu; test render trang khoá việc gỡ tag.
+
+### Tính đúng / thẩm mỹ
+- [important, thẩm mỹ] Ở lưới 6 cột, dòng chậm/nhanh tách "−19,3%" + `.sb` rỗng phía trên chiếm 1 dòng trống. **→ ĐÃ SỬA bởi điều phối viên ở `dc4e425`**: không render `.sb` rỗng khi có `scheduleGap`; dòng chậm/nhanh xếp cố định 2 dòng "▼ Chậm 56 ngày" / "−19,3%", mỗi dòng nowrap; thêm 2 test khoá (không có `<span>-</span>`, chỉ 1 `.sb`; có `sub` thì vẫn 2 `.sb`) + ca `onTrack` assert không có màu inline. Ảnh `kpi-v3-1440-projects1-row.png`, `kpi-v3-390-projects1-row.png`. tsc sạch, **1128/1128** xanh.
+- [nit] Trùng tên `calcScheduleGap` (`evm.ts:81`, `schedule-gap.ts:52`) + `toDate` chép lại — gộp khi dọn.
+- [nit] Dự án > ~1000 ngày KH có thể ra "Chậm 1 ngày · −0,0%".
+- Nhánh ahead/onTrack chưa có ảnh dữ liệu thật (seed không có dự án nhanh), chỉ unit test.
+
+### Kết luận vòng bổ sung
+ĐẠT cả 3 yêu cầu; không mục nào chặn merge.
 
 ## Vòng 2 (kiểm lại sau vòng sửa 1 — diff `fa2b261..HEAD`, toàn phase `10cda5a..HEAD`)
 
@@ -60,15 +88,18 @@ Skill đã dùng: `ddc-tower:code-review`.
 **Checklist merge P2A ↔ P2B** (khi `git merge main` sau khi P2A vào `main`):
 - `src/server/audit-log-page.ts` chắc chắn conflict: A thêm `note: a.note` vào phần map mà B đã chuyển sang `read-prisma.ts:166-175` (`readAuditLogPage`) → đưa `note` vào `readAuditLogPage` (+ `read-mock.ts`).
 - `src/server/repo/mock-repo.ts` cuối file: A đổi thành `const coreRepo = {…}` + `export const repo = { ...coreRepo, ...makeEntryMockRepo(...) }`; B thêm `Object.assign(repo, createReadMock(getData))` → giữ dòng của B sau dòng export của A.
-- `vi.json`/`en.json`: giữ đủ **5** nhóm `contractorJoin`, `dailyEntry`, `manpowerCharts`, `equipmentGantt`, `valueChainCard` — cả hai bên cùng thêm ở cuối nên chắc chắn conflict ở đuôi: nối đủ, kiểm dấu phẩy/ngoặc JSON, chạy test i18n phủ key.
+- `vi.json`/`en.json`: giữ đủ **6** nhóm `contractorJoin`, `dailyEntry`, `manpowerCharts`, `equipmentGantt`, `valueChainCard`, `kpiSchedule` — cả hai bên cùng thêm ở cuối nên chắc chắn conflict ở đuôi: nối đủ, kiểm dấu phẩy/ngoặc JSON, chạy test i18n phủ key (`src/i18n/messages.test.ts` của A).
+- `app/[locale]/(app)/admin/page.tsx`, `package.json` (scripts): cả hai bên đều sửa — gộp giữ phần của cả hai.
 - Schema P2A thêm bảng/cột → `docs.test.ts`, `erd-doc.test.ts` sẽ đỏ: bổ sung `TABLE_DOCS`/`ERD_LAYOUT` trong `src/lib/schema-meta/docs.ts`, chạy `npm run docs:erd`; sửa mô tả `docs.ts:105` (`'afternoon'` → A đổi sang `evening`).
-- Sau merge: `prisma migrate deploy` + `generate` + `npm test` + `npm run check:read`, so KPI/donut/S-curve `/vi/overview` bằng mắt; mở `/vi/projects/1` kiểm thẻ "Chuỗi giá trị" và wizard nhập liệu (thanh `.stage .fill`).
+- Sau merge: `prisma migrate deploy` + `generate` + `npm test` + `npm run check:read`, so KPI/donut/S-curve `/vi/overview` bằng mắt; mở `/vi/projects/1` kiểm thẻ "Chuỗi giá trị", thẻ %TT có dòng "Chậm/Nhanh N ngày" / "±x,x%", không còn tag "Trọng tâm", và wizard nhập liệu (thanh `.stage .fill`).
 
 **Bảo mật script dev** (vá trước lần `perf:seed` kế tiếp): L-1 host loopback + `PERF_CONFIRM`; L-2 `AND "createdBy"='perf-seed'`; L-3 `PERF_BASE` chỉ localhost.
 
 **Hiệu năng T1:** đo lại có kiểm soát ở Bước 11 theo `hieu-nang.md` mục 4b; quyết định index sau khi P2A nhả khoá `schema.prisma`.
 
+**Vòng bổ sung KPI — việc nhỏ:** test render trang khẳng định thẻ `metric.pctActual` có dòng `kpiSchedule.*`; nâng skeleton KPI `overview/page.tsx:33`; dọn key `kpi.focusTag`; gộp `toDate` + đặt lại tên một trong hai `calcScheduleGap`; chụp ảnh nhánh ahead/onTrack khi có dữ liệu; xác nhận ảnh `.bangiao/anh-test/*.png` không chứa dữ liệu khách hàng thật trước khi push remote.
+
 **Việc nhỏ khác:** tooltip "Tổng TT" (`WeeklyManpowerStackChart.tsx:142`) nên hiện `w.actualAvg`; dọn `detail.manpowerTrend` + `detail.evmMetrics` sau khi P2A merge; `/overview` gọi `getProjectSummaries` 6–8 lần/lượt render → cân nhắc `React.cache()` nếu đo lại cần; `.stagesub` xuống dòng ở 390px (`app/globals.css:480`); ghi chú có từ trước N-1/N-2/N-3 + thiếu key `admin.delete` chờ chủ dự án.
 
 ## Kết luận
-CHỐT. 4 mục CẦN SỬA vòng 1 xong đúng tiêu chí; tsc sạch, 1110/1110 xanh; không có thay đổi ngoài phạm vi, file cấm không đổi. Merge `main` chờ chủ dự án đồng ý; trước merge chuyển hồ sơ `.bangiao/` vào `.bangiao/archive/p2b-bieu-do-<yyyy-mm-dd>/` và làm theo checklist merge ở trên.
+CHỐT (toàn phase, sau vòng bổ sung KPI + sửa thẩm mỹ `dc4e425`). Cổng kiểm xanh (tsc sạch, 1128/1128); file cấm không đổi; không trùng file mới với nhánh A ngoài i18n đuôi file. Merge `main`: **A merge P2A trước, B gộp `main` về theo checklist trên rồi mới merge P2B**; trước merge chuyển hồ sơ `.bangiao/` vào `.bangiao/archive/p2b-bieu-do-<yyyy-mm-dd>/`.
