@@ -242,8 +242,13 @@
     backdrop-filter:blur(var(--mat-regular)) saturate(var(--mat-sat));
     border:.5px solid var(--glass-stroke);box-shadow:var(--e2),var(--inner-hi);
     will-change:transform}
+  /* Vong bo sung P2B: nhan xuong toi da 2 dong, khong ellipsis (truoc do 1 dong + "..." lam cat
+     chu vd "TONG SO NHAN LUC"). min-height danh du 2 dong de .vl (so chinh) thang hang giua cac
+     the cung hang du nhan dai/ngan khac nhau. padding-right:30px chua cho .ic (26px, goc tren
+     phai) o the thuong; the .key (hero) khong co icon nen ghi de padding-right:0 o duoi. */
   .kpi .lb{font-size:var(--t-caption2);font-weight:700;letter-spacing:.025em;text-transform:uppercase;
-    color:var(--label3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:30px}
+    color:var(--label3);white-space:normal;word-break:break-word;line-height:1.3;
+    min-height:calc(var(--t-caption2) * 2.6);padding-right:30px}
   .kpi .vl{font-size:var(--t-title1);font-weight:700;letter-spacing:var(--tr-large);line-height:var(--lh-tight);margin-top:6px}
   .kpi .sb{margin-top:6px;font-size:var(--t-caption1);color:var(--label2);min-height:18px;
     display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
