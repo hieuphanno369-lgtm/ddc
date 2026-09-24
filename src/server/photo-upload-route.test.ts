@@ -41,7 +41,13 @@ function login(user: unknown) {
   (getCurrentUser as Mock).mockResolvedValue(user);
 }
 
-function req(projectId: number, file: File | null, opts: { origin?: string | null; host?: string } = {}): NextRequest {
+// F3 (danh-gia.md): undici (Request trong Node) KHÔNG tự tính content-length cho body FormData
+// (khác trình duyệt thật, luôn tự set) - test phải tự khai header này cho khớp thực tế.
+function req(
+  projectId: number,
+  file: File | null,
+  opts: { origin?: string | null; host?: string; contentLength?: number | null } = {},
+): NextRequest {
   const fd = new FormData();
   fd.set('projectId', String(projectId));
   fd.set('yearMonth', YM);
@@ -49,6 +55,9 @@ function req(projectId: number, file: File | null, opts: { origin?: string | nul
   if (file) fd.set('file', file);
   const headers: Record<string, string> = { host: opts.host ?? 'localhost:3000' };
   if (opts.origin !== null) headers.origin = opts.origin ?? ORIGIN;
+  const defaultContentLength = (file?.size ?? 0) + 2048; // + overhead multipart (boundary, field khac)
+  const contentLength = opts.contentLength === undefined ? defaultContentLength : opts.contentLength;
+  if (contentLength !== null) headers['content-length'] = String(contentLength);
   return new NextRequest('http://localhost:3000/api/photo-upload', { method: 'POST', headers, body: fd });
 }
 
@@ -104,13 +113,29 @@ describe('POST /api/photo-upload', () => {
     expect(res.status).toBe(400);
   });
 
-  it('anh vuot 5MB -> 400 (server tu chan)', async () => {
+  it('anh vuot 5MB -> 400 (server tu chan o buoc validate file, Content-Length van trong nguong)', async () => {
     login(ADMIN);
     const big = new File([Buffer.alloc(5 * 1024 * 1024 + 1)], 'to.png', { type: 'image/png' });
 
     const res = await POST(req(PID_PIC, big));
 
     expect(res.status).toBe(400);
+  });
+
+  it('F3 (danh-gia.md) - Content-Length 6MB -> 413', async () => {
+    login(ADMIN);
+
+    const res = await POST(req(PID_PIC, png(), { contentLength: 6 * 1024 * 1024 }));
+
+    expect(res.status).toBe(413);
+  });
+
+  it('F3 (danh-gia.md) - khong co Content-Length -> 413', async () => {
+    login(ADMIN);
+
+    const res = await POST(req(PID_PIC, png(), { contentLength: null }));
+
+    expect(res.status).toBe(413);
   });
 
   it('PNG hop le cua PIC -> 200 va repo.getPhotos(PID) tang 1', async () => {
