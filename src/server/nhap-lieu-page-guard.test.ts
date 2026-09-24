@@ -1,0 +1,120 @@
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
+import type { CurrentUser } from '@/lib/session';
+
+/**
+ * Mục 2 (danh-gia.md, vòng sửa 1) - F2a: `/nhap-lieu` phải tự kiểm quyền server-side, không phó
+ * mặc middleware (CVE-2025-29927 có thể bypass qua header x-middleware-subrequest). Đồng thời
+ * fail-closed số tài chính: chỉ nạp/truyền `financial` cho `DataEntryForm` khi `user.canViewFinance`.
+ */
+const { redirectCalls, formProps } = vi.hoisted(() => ({
+  redirectCalls: [] as string[],
+  formProps: [] as Array<{ projectId: number; financial?: unknown }>,
+}));
+
+vi.mock('next/navigation', () => ({
+  redirect: (url: string) => {
+    redirectCalls.push(url);
+    throw new Error(`REDIRECT:${url}`);
+  },
+}));
+vi.mock('next-intl/server', () => ({
+  getLocale: vi.fn(async () => 'vi'),
+  getTranslations: vi.fn(async () => (key: string) => key),
+}));
+vi.mock('@/lib/session', () => ({
+  getCurrentUser: vi.fn(),
+  homeForRole: (role: string) => (role === 'data-entry' ? '/nhap-lieu' : '/overview'),
+}));
+vi.mock('@/server/repo', async () => {
+  const mockRepo = await import('@/server/repo/mock-repo');
+  return { repo: mockRepo.repo };
+});
+vi.mock('@/components/form/CreateProjectForm', () => ({ CreateProjectForm: () => null }));
+vi.mock('@/components/form/DataEntryForm', () => ({
+  DataEntryForm: (props: { projectId: number; financial?: unknown }) => {
+    formProps.push(props);
+    return null;
+  },
+}));
+
+import * as React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { getCurrentUser } from '@/lib/session';
+import { repo as mockRepo } from '@/server/repo/mock-repo';
+import NhapLieuPage from '../../app/[locale]/(app)/nhap-lieu/page';
+
+// tsconfig `jsx: preserve` → esbuild hạ JSX về classic runtime (React.createElement) cho .tsx
+// import → React là biến tự do trong module trang → phải có global (mẫu pages-role-guard.test.ts).
+(globalThis as unknown as { React: typeof React }).React = React;
+
+const user = (role: 'admin' | 'data-entry' | 'bod' | 'viewer', canViewFinance: boolean): CurrentUser =>
+  ({ name: role, email: `${role}@daidung.com.vn`, role, canViewFinance }) as CurrentUser;
+
+function login(u: CurrentUser | null) {
+  (getCurrentUser as Mock).mockResolvedValue(u);
+}
+
+/**
+ * Gọi page, trả về URL đã redirect (hoặc null nếu trang render bình thường). Phải render thật
+ * qua `renderToStaticMarkup` (không chỉ gọi hàm page) để React thật sự invoke `DataEntryForm`
+ * (mock) và ghi lại props nó nhận được - gọi hàm page chỉ trả về cây JSX chưa render.
+ */
+async function visit(): Promise<string | null> {
+  redirectCalls.length = 0;
+  try {
+    const el = await NhapLieuPage({ searchParams: {} });
+    renderToStaticMarkup(el as React.ReactElement);
+    return null;
+  } catch (e) {
+    const m = /^REDIRECT:(.*)$/.exec((e as Error).message);
+    if (m) return m[1];
+    throw e;
+  }
+}
+
+afterEach(() => {
+  vi.clearAllMocks();
+  formProps.length = 0;
+});
+
+describe('guard /nhap-lieu (F2a)', () => {
+  it('chưa đăng nhập → /vi/login', async () => {
+    login(null);
+    expect(await visit()).toBe('/vi/login');
+  });
+
+  it('bod bị đá về /vi/overview', async () => {
+    login(user('bod', true));
+    expect(await visit()).toBe('/vi/overview');
+  });
+
+  it('viewer bị đá về /vi/overview', async () => {
+    login(user('viewer', false));
+    expect(await visit()).toBe('/vi/overview');
+  });
+
+  it('admin được vào', async () => {
+    login(user('admin', true));
+    expect(await visit()).toBeNull();
+  });
+
+  it('data-entry được vào', async () => {
+    login(user('data-entry', false));
+    expect(await visit()).toBeNull();
+  });
+
+  it('data-entry canViewFinance:false → prop financial của DataEntryForm là undefined', async () => {
+    login(user('data-entry', false));
+    await visit();
+    expect(formProps.at(-1)?.financial).toBeUndefined();
+  });
+
+  it('admin canViewFinance:true → vẫn nhận đúng financial thật từ repo (không bị ép undefined)', async () => {
+    login(user('admin', true));
+    await visit();
+    const props = formProps.at(-1)!;
+    const expected = (await mockRepo.getFinancial(props.projectId)).find((f) => f.yearMonth === '2026-09');
+    expect(expected).toBeDefined();
+    expect(props.financial).toEqual(expected);
+  });
+});

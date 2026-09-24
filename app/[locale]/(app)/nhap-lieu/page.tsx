@@ -1,7 +1,8 @@
-import { getTranslations } from 'next-intl/server';
+import { redirect } from 'next/navigation';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { repo } from '@/server/repo';
 import { currentMonth, historyMonths, todayIso } from '@/lib/clock';
-import { getCurrentUser } from '@/lib/session';
+import { getCurrentUser, homeForRole } from '@/lib/session';
 import { DataEntryForm, type DataEntryStep } from '@/components/form/DataEntryForm';
 import { CreateProjectForm } from '@/components/form/CreateProjectForm';
 
@@ -12,8 +13,13 @@ export default async function NhapLieuPage({
 }: {
   searchParams: Record<string, string | string[] | undefined>;
 }) {
-  const t = await getTranslations();
+  // F2a (danh-gia.md, vong sua 1): trang tu kiem quyen server-side, khong pho mac middleware
+  // (CVE-2025-29927 co the bi bypass qua header x-middleware-subrequest).
   const user = await getCurrentUser();
+  const locale = await getLocale();
+  if (!user) redirect(`/${locale}/login`);
+  if (user.role !== 'admin' && user.role !== 'data-entry') redirect(`/${locale}${homeForRole(user.role)}`);
+  const t = await getTranslations();
 
   // RBAC: data-entry chỉ thấy dự án mình là PIC (project_assignments). Admin thấy hết.
   let all = await repo.listProjects();
@@ -37,7 +43,9 @@ export default async function NhapLieuPage({
   const project = (await repo.getProject(selectedId)) ?? (await repo.getProject(projects[0]?.id));
 
   const fact = project ? await repo.getLatestFact(project.id, month) : undefined;
-  const financial = project ? (await repo.getFinancial(project.id)).find((f) => f.yearMonth === month) : undefined;
+  // F2a (danh-gia.md, vong sua 1): fail-closed - chi lay va truyen so tai chinh khi user co quyen xem.
+  const financial =
+    project && user.canViewFinance ? (await repo.getFinancial(project.id)).find((f) => f.yearMonth === month) : undefined;
   const chain = project ? await repo.getValueChain(project.id, month) : [];
   const alerts = project ? await repo.getAlerts(project.id) : [];
   const aliases = project ? await repo.getAliases(project.id) : [];
@@ -61,13 +69,14 @@ export default async function NhapLieuPage({
         {!project || projects.length === 0 ? (
           <p className="empty">{t('common.noData')}</p>
         ) : (
+          // bod không còn tới trang này (redirect ở đầu file) - chỉ admin/data-entry còn lại.
           <DataEntryForm
             key={`${project.id}-${month}`}
             projectId={project.id}
             projects={projects}
             project={project}
             fact={fact}
-            financial={financial}
+            financial={user.canViewFinance ? financial : undefined}
             chain={chain}
             alerts={alerts}
             aliases={aliases}
@@ -76,14 +85,14 @@ export default async function NhapLieuPage({
             month={month}
             months={months}
             locked={locked}
-            canLock={user?.role === 'admin'}
+            canLock={user.role === 'admin'}
             customers={dims.customers}
             teams={dims.teams}
             currencies={dims.currencies}
             keyMilestones={keyMilestones}
             today={today}
             initialStep={initialStep}
-            canEditFinance={user?.role === 'admin' || user?.role === 'bod'}
+            canEditFinance={user.role === 'admin'}
           />
         )}
       </section>
