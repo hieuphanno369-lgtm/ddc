@@ -3,6 +3,7 @@ import ExcelJS from 'exceljs';
 import { getCurrentUser } from '@/lib/session';
 import { getReportData } from '@/server/report';
 import { currentMonth } from '@/lib/clock';
+import { safeCell } from '@/lib/excel-safe';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,7 +37,7 @@ export async function GET() {
     { header: 'Priority', key: 'priority', width: 10 },
     { header: 'Rủi ro', key: 'penalty', width: 20 },
   ];
-  p0Red.forEach((w) => p0Ws.addRow({ code: w.currentAliasCode, name: w.projectName, priority: w.priority, penalty: w.penalty }));
+  p0Red.forEach((w) => p0Ws.addRow({ code: safeCell(w.currentAliasCode), name: safeCell(w.projectName), priority: safeCell(w.priority), penalty: safeCell(w.penalty) }));
 
   const ws = wb.addWorksheet('DanhSachDuAn');
   ws.columns = [
@@ -47,7 +48,7 @@ export async function GET() {
     { header: '% TT', key: 'pctActual', width: 10 },
     { header: 'Backlog (tỷ)', key: 'backlog', width: 14 },
   ];
-  rows.forEach((r) => ws.addRow({ code: r.code, name: r.name, spi: r.spi ?? '', cpi: r.cpi ?? '', pctActual: r.pctActual, backlog: r.backlog }));
+  rows.forEach((r) => ws.addRow({ code: safeCell(r.code), name: safeCell(r.name), spi: r.spi ?? '', cpi: r.cpi ?? '', pctActual: r.pctActual, backlog: r.backlog }));
 
   for (const sheet of [kpiWs, p0Ws, ws]) {
     sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };

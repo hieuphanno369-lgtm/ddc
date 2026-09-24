@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 import { exportProjects, type DashboardFilters, type GroupBy } from '@/server/queries';
 import { rateLimit } from '@/lib/rate-limit';
+import { getCurrentUser } from '@/lib/session';
+import { safeCell } from '@/lib/excel-safe';
 import type { Market, Priority, ProjectType, Status } from '@/server/repo/types';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  // TODO: thiếu auth check - ai cũng export được. Gọi getCurrentUser, chặn khi chưa login.
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!['admin', 'bod'].includes(user.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0] ?? 'local';
   const rl = rateLimit(`export:${ip}`, 30, 60_000);
   if (!rl.ok) {
@@ -56,16 +61,15 @@ export async function GET(req: NextRequest) {
   ];
 
   for (const r of rows) {
-    // TODO: Excel formula injection - escape value bắt đầu = + - @ \t \r (tên dự án/KH nhập tự do).
     ws.addRow({
-      code: r.currentAliasCode,
-      name: r.projectName,
-      customer: r.customerName,
-      team: r.teamName,
-      type: r.projectType,
-      market: r.marketCode,
-      status: r.status,
-      priority: r.priority,
+      code: safeCell(r.currentAliasCode),
+      name: safeCell(r.projectName),
+      customer: safeCell(r.customerName),
+      team: safeCell(r.teamName),
+      type: safeCell(r.projectType),
+      market: safeCell(r.marketCode),
+      status: safeCell(r.status),
+      priority: safeCell(r.priority),
       pctPlan: r.pctPlan,
       pctActual: r.pctActual,
       spi: r.spi ?? '',
