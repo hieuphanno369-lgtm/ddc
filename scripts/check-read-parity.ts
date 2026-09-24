@@ -4,6 +4,7 @@
  * Usage: npx tsx scripts/check-read-parity.ts
  */
 import { buildRepoData } from '@/data/seed/history';
+import { currentMonth, historyMonths } from '@/lib/clock';
 import { prisma } from '@/server/db';
 import { createReadMock } from '@/server/repo/read-mock';
 import { readRepoPrisma } from '@/server/repo/read-prisma';
@@ -17,16 +18,34 @@ function normalizeTimestamps(json: string): string {
   return json.replace(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(\.\d{3})?Z/g, (_m, base) => `${base}.000Z`);
 }
 
-/** So sanh khong phu thuoc thu tu: moi phan tu -> JSON (da chuan hoa timestamp), sort chuoi, noi lai. */
+/**
+ * Lam tron so thuc ve 6 chu so thap phan (de qua) - SUM/AVG cua Postgres va reduce() cua JS cong
+ * theo THU TU KHAC NHAU tren cung tap gia tri float64 nen sai so ~1e-10 la binh thuong, khong phai
+ * loi doc sai du lieu.
+ */
+function roundDeep(v: unknown): unknown {
+  if (typeof v === 'number') return Number.isFinite(v) ? Math.round(v * 1e6) / 1e6 : v;
+  if (Array.isArray(v)) return v.map(roundDeep);
+  if (v && typeof v === 'object') {
+    return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, val]) => [k, roundDeep(val)]));
+  }
+  return v;
+}
+
+function canon(x: unknown): string {
+  return normalizeTimestamps(JSON.stringify(roundDeep(x)));
+}
+
+/** So sanh khong phu thuoc thu tu: moi phan tu -> JSON chuan hoa, sort chuoi, noi lai. */
 function sortedJson(arr: unknown[]): string {
-  return [...arr].map((x) => normalizeTimestamps(JSON.stringify(x))).sort().join('\n');
+  return [...arr].map(canon).sort().join('\n');
 }
 
 let failed = false;
 
 function check(label: string, a: unknown, b: unknown) {
-  const aStr = Array.isArray(a) ? sortedJson(a) : normalizeTimestamps(JSON.stringify(a));
-  const bStr = Array.isArray(b) ? sortedJson(b) : normalizeTimestamps(JSON.stringify(b));
+  const aStr = Array.isArray(a) ? sortedJson(a) : canon(a);
+  const bStr = Array.isArray(b) ? sortedJson(b) : canon(b);
   if (aStr !== bStr) {
     failed = true;
     console.error(`\n[LECH] ${label}`);
@@ -58,6 +77,19 @@ async function main() {
       await mock.readEquipmentUsageDays(id, from, to),
     );
   }
+
+  // Buoc 5: T1-code (a) - readFactSnapshots/readFinancialSnapshots/readVolumeSnapshots/readMonthlyEvm.
+  const allProjectIds = (await prisma.project.findMany({ select: { id: true } })).map((p) => p.id);
+  for (const m of [currentMonth(), 'all']) {
+    check(`readFactSnapshots(${m})`, await readRepoPrisma.readFactSnapshots(m), await mock.readFactSnapshots(m));
+    check(`readFinancialSnapshots(${m})`, await readRepoPrisma.readFinancialSnapshots(m), await mock.readFinancialSnapshots(m));
+    check(`readVolumeSnapshots(${m})`, await readRepoPrisma.readVolumeSnapshots(m), await mock.readVolumeSnapshots(m));
+  }
+  check(
+    'readMonthlyEvm',
+    await readRepoPrisma.readMonthlyEvm(historyMonths(), allProjectIds),
+    await mock.readMonthlyEvm(historyMonths(), allProjectIds),
+  );
 
   await prisma.$disconnect();
 

@@ -1,16 +1,22 @@
 import type { Prisma } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { queryRaw, shiftFindMany, planFindMany } = vi.hoisted(() => ({
+const { queryRaw, shiftFindMany, planFindMany, factFindMany, financialFindMany, volumeFindMany } = vi.hoisted(() => ({
   queryRaw: vi.fn(async (_sql: unknown): Promise<unknown[]> => []),
   shiftFindMany: vi.fn(async (): Promise<unknown[]> => []),
   planFindMany: vi.fn(async (_args: unknown): Promise<unknown[]> => []),
+  factFindMany: vi.fn(async (_args: unknown): Promise<unknown[]> => []),
+  financialFindMany: vi.fn(async (_args: unknown): Promise<unknown[]> => []),
+  volumeFindMany: vi.fn(async (_args: unknown): Promise<unknown[]> => []),
 }));
 vi.mock('@/server/db', () => ({
   prisma: {
     $queryRaw: queryRaw,
     shift: { findMany: shiftFindMany },
     projectEquipmentPlan: { findMany: planFindMany },
+    factProgressMonthly: { findMany: factFindMany },
+    factFinancial: { findMany: financialFindMany },
+    factVolume: { findMany: volumeFindMany },
   },
 }));
 import { readRepoPrisma } from './read-prisma';
@@ -20,6 +26,9 @@ beforeEach(() => {
   queryRaw.mockClear();
   shiftFindMany.mockClear();
   planFindMany.mockClear();
+  factFindMany.mockClear();
+  financialFindMany.mockClear();
+  volumeFindMany.mockClear();
 });
 
 describe('read-prisma', () => {
@@ -81,6 +90,54 @@ describe('read-prisma', () => {
     expect(sql.values).toContain(3);
     expect(sql.values).toContain('2026-08-01');
     expect(sql.values).toContain('2026-08-31');
+  });
+
+  it('readFactSnapshots("all") goi $queryRaw, khong goi findMany', async () => {
+    await readRepoPrisma.readFactSnapshots('all');
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    expect(factFindMany).not.toHaveBeenCalled();
+  });
+
+  it('readFactSnapshots(thang) goi findMany voi where dung, khong goi $queryRaw', async () => {
+    await readRepoPrisma.readFactSnapshots('2026-09');
+    expect(factFindMany).toHaveBeenCalledTimes(1);
+    expect(factFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { yearMonth: '2026-09', isLatest: true } }));
+    expect(queryRaw).not.toHaveBeenCalled();
+  });
+
+  it('readFinancialSnapshots("all") goi $queryRaw, khong goi findMany', async () => {
+    await readRepoPrisma.readFinancialSnapshots('all');
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    expect(financialFindMany).not.toHaveBeenCalled();
+  });
+
+  it('readFinancialSnapshots(thang) goi findMany voi where dung', async () => {
+    await readRepoPrisma.readFinancialSnapshots('2026-09');
+    expect(financialFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { yearMonth: '2026-09', isLatest: true } }));
+  });
+
+  it('readVolumeSnapshots("all") goi $queryRaw, khong goi findMany', async () => {
+    await readRepoPrisma.readVolumeSnapshots('all');
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    expect(volumeFindMany).not.toHaveBeenCalled();
+  });
+
+  it('readVolumeSnapshots(thang) goi findMany voi where dung (khong co isLatest)', async () => {
+    await readRepoPrisma.readVolumeSnapshots('2026-09');
+    expect(volumeFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { yearMonth: '2026-09' } }));
+  });
+
+  it('readMonthlyEvm([], ...) khong goi DB', async () => {
+    const r1 = await readRepoPrisma.readMonthlyEvm([], [1]);
+    const r2 = await readRepoPrisma.readMonthlyEvm(['2026-09'], []);
+    expect(r1).toEqual([]);
+    expect(r2).toEqual([]);
+    expect(queryRaw).not.toHaveBeenCalled();
+  });
+
+  it('readMonthlyEvm(thang, id) goi $queryRaw 1 lan', async () => {
+    await readRepoPrisma.readMonthlyEvm(['2026-09'], [1, 2]);
+    expect(queryRaw).toHaveBeenCalledTimes(1);
   });
 
   it('ten ham cua readRepoPrisma khong trung ten ham nao cua prisma-repo', () => {

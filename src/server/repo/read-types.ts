@@ -1,4 +1,4 @@
-import type { ProjectEquipmentPlan, Shift } from './types';
+import type { FactProgressMonthly, ProjectEquipmentPlan, Shift } from './types';
 
 /** Nhân lực theo tháng × nhà thầu × ca (đã cộng các ngày). days = số ngày có dòng của ca đó. */
 export interface ShiftMonthRow { yearMonth: string; contractorId: number; shiftCode: string; planned: number; actual: number; days: number }
@@ -8,6 +8,13 @@ export interface DateRange { from: string; to: string } // 'YYYY-MM-DD', from <=
 /** Thiết bị dùng thực tế theo nhóm × ngày, đã cộng ngang nhà thầu; chỉ dòng qtyActual > 0. */
 export interface EquipmentUsageDay { equipmentId: number; workDate: string; qtyActual: number }
 
+// --- Bước 5 (T1) ---
+export type FactSnapshot = Pick<FactProgressMonthly,
+  'projectId' | 'yearMonth' | 'pctActual' | 'bac' | 'pv' | 'ev' | 'ac' | 'spi' | 'cpi' | 'bottleneckStage'>;
+export interface FinancialSnapshot { projectId: number; yearMonth: string; revenuePeriod: number; arOverdue: number }
+export interface VolumeSnapshot { projectId: number; factoryId: number; yearMonth: string; tonnageProcessed: number }
+export interface MonthlyEvmRow { yearMonth: string; pv: number; ev: number; ac: number; spiAvg: number | null; cpiAvg: number | null }
+
 export interface ReadRepo {
   readShifts(): Promise<Shift[]>;                                                   // mọi ca, sortOrder tăng
   readManpowerByShiftMonth(projectId: number): Promise<ShiftMonthRow[]>;            // sort yearMonth, contractorId, shiftCode
@@ -15,4 +22,9 @@ export interface ReadRepo {
   readManpowerRange(projectId: number): Promise<DateRange | null>;                  // min/max workDate; không có dòng → null
   readEquipmentPlans(projectId: number): Promise<ProjectEquipmentPlan[]>;           // sort equipmentId, unitNo, plannedStart, id
   readEquipmentUsageDays(projectId: number, from: string, to: string): Promise<EquipmentUsageDay[]>; // sort equipmentId, workDate
+  // Bước 5
+  readFactSnapshots(yearMonth: string): Promise<FactSnapshot[]>;         // 'all' = bản isLatest của THÁNG MỚI NHẤT mỗi dự án
+  readFinancialSnapshots(yearMonth: string): Promise<FinancialSnapshot[]>; // như trên cho fact_financial
+  readVolumeSnapshots(yearMonth: string): Promise<VolumeSnapshot[]>;       // 'all' = tháng mới nhất mỗi (projectId, factoryId)
+  readMonthlyEvm(months: string[], projectIds: number[]): Promise<MonthlyEvmRow[]>; // chỉ isLatest; tháng không có dòng → không trả
 }

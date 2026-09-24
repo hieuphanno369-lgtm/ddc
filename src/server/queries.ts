@@ -2,8 +2,8 @@ import { calcDurationPctComplete, calcEac, calcVac, deriveStatus, isOnTrack, pen
 import { THRESHOLDS } from '@/lib/thresholds';
 import { repo } from './repo';
 import { currentMonth, historyMonths, isValidYearMonth, prevMonth, today } from '@/lib/clock';
+import type { FactSnapshot } from './repo/read-types';
 import type {
-  FactProgressMonthly,
   Market,
   Priority,
   Project,
@@ -51,8 +51,10 @@ export interface DashboardFilters {
   groupKey?: string;
 }
 
-async function summarize(project: Project, fact: FactProgressMonthly | undefined): Promise<ProjectSummary> {
-  const dims = await repo.getDims();
+type Dims = Awaited<ReturnType<typeof repo.getDims>>;
+
+/** Đồng bộ - `dims` lấy 1 lần ở tầng gọi, không tự query nữa (T1: tránh N+1 theo số dự án). */
+function summarize(project: Project, fact: FactSnapshot | undefined, dims: Dims): ProjectSummary {
   const customer = dims.customers.find((c) => c.id === project.customerId);
   const team = dims.teams.find((t) => t.id === project.teamKdId);
   const status = deriveStatus({
@@ -102,14 +104,13 @@ function round2(v: number | null): number | null {
   return v == null ? null : Math.round(v * 100) / 100;
 }
 
-async function matchesGroup(project: Project, groupKey: string, groupBy: GroupBy): Promise<boolean> {
-  const dims = await repo.getDims();
-  if (groupBy === 'team') return (dims.teams.find((t) => t.id === project.teamKdId)?.name ?? '-') === groupKey;
-  if (groupBy === 'type') return project.projectType === groupKey;
-  return project.marketCode === groupKey;
+function matchesGroup(p: Pick<Project, 'teamKdId' | 'projectType' | 'marketCode'>, groupKey: string, groupBy: GroupBy, dims: Dims): boolean {
+  if (groupBy === 'team') return (dims.teams.find((t) => t.id === p.teamKdId)?.name ?? '-') === groupKey;
+  if (groupBy === 'type') return p.projectType === groupKey;
+  return p.marketCode === groupKey;
 }
 
-async function filterSummaries(summaries: ProjectSummary[], filters: DashboardFilters): Promise<ProjectSummary[]> {
+function filterSummaries(summaries: ProjectSummary[], filters: DashboardFilters, dims: Dims): ProjectSummary[] {
   let rows = summaries;
   if (filters.status && filters.status !== 'all') rows = rows.filter((r) => r.status === filters.status);
   if (filters.teamKdId && filters.teamKdId !== 'all') rows = rows.filter((r) => r.teamKdId === filters.teamKdId);
@@ -118,10 +119,7 @@ async function filterSummaries(summaries: ProjectSummary[], filters: DashboardFi
   if (filters.market && filters.market !== 'all') rows = rows.filter((r) => r.marketCode === filters.market);
   if (filters.projectType && filters.projectType !== 'all') rows = rows.filter((r) => r.projectType === filters.projectType);
   if (filters.groupKey && filters.groupBy) {
-    const matches = await Promise.all(
-      rows.map(async (r) => ({ r, ok: await matchesGroup((await repo.getProject(r.id))!, filters.groupKey!, filters.groupBy!) })),
-    );
-    rows = matches.filter((m) => m.ok).map((m) => m.r);
+    rows = rows.filter((r) => matchesGroup(r, filters.groupKey!, filters.groupBy!, dims));
   }
   return rows;
 }
@@ -135,25 +133,28 @@ export async function getScopedProjectIds(filters: DashboardFilters): Promise<Se
   if (filters.market && filters.market !== 'all') projects = projects.filter((p) => p.marketCode === filters.market);
   if (filters.projectType && filters.projectType !== 'all') projects = projects.filter((p) => p.projectType === filters.projectType);
   if (filters.groupKey && filters.groupBy) {
-    const matches = await Promise.all(projects.map(async (p) => ({ p, ok: await matchesGroup(p, filters.groupKey!, filters.groupBy!) })));
-    projects = matches.filter((m) => m.ok).map((m) => m.p);
+    const dims = await repo.getDims();
+    projects = projects.filter((p) => matchesGroup(p, filters.groupKey!, filters.groupBy!, dims));
   }
   return new Set(projects.map((p) => p.id));
 }
 
 export async function getProjectSummaries(yearMonth: string, filters?: DashboardFilters): Promise<ProjectSummary[]> {
-  const projects = await repo.listProjects();
-  const summaries = await Promise.all(
-    projects.map(async (p) => summarize(p, await repo.getLatestFact(p.id, yearMonth))),
-  );
-  return filters ? filterSummaries(summaries, filters) : summaries;
+  const [projects, dims, facts] = await Promise.all([
+    repo.listProjects(),
+    repo.getDims(),
+    repo.readFactSnapshots(yearMonth),
+  ]);
+  const byId = new Map(facts.map((f) => [f.projectId, f]));
+  const summaries = projects.map((p) => summarize(p, byId.get(p.id), dims));
+  return filters ? filterSummaries(summaries, filters, dims) : summaries;
 }
 
 export async function getProjectSummary(projectId: number, yearMonth: string): Promise<ProjectSummary | undefined> {
   // TODO: BOLA - không check quyền đọc project. Viewer/data-entry đọc được detail dự án ngoài scope.
   const p = await repo.getProject(projectId);
   if (!p) return undefined;
-  return summarize(p, await repo.getLatestFact(projectId, yearMonth));
+  return summarize(p, await repo.getLatestFact(projectId, yearMonth), await repo.getDims());
 }
 
 // ---- Portfolio KPI ----
@@ -211,8 +212,8 @@ export async function getPortfolioKpis(yearMonth: string, filters: DashboardFilt
   // dữ liệu để so sánh thì không được bịa ra một cú tăng/tụt KPI giả. Trả delta = 0 thay vì chạy
   // tiếp với pctActual mặc định 0 cho mọi dự án ở bên thiếu dữ liệu.
   const [curFacts, prevFacts] = await Promise.all([
-    repo.getFactsForMonth(yearMonth),
-    repo.getFactsForMonth(prevYm),
+    repo.readFactSnapshots(yearMonth),
+    repo.readFactSnapshots(prevYm),
   ]);
   if (curFacts.length === 0 || prevFacts.length === 0) {
     return { ...cur, delta: ZERO_DELTA };
@@ -249,24 +250,20 @@ export async function getStatusBreakdown(yearMonth: string, filters: DashboardFi
 // ---- Bar: Lượng & Trị ----
 export async function getTonnageValueByGroup(yearMonth: string, groupBy: GroupBy, filters: DashboardFilters = {}) {
   const summaries = await getProjectSummaries(yearMonth, filters);
-  const volumes = await repo.getVolumesForMonth(yearMonth);
-  const financial = await repo.getFinancialForMonth(yearMonth);
-  const dims = await repo.getDims();
+  const volumes = await repo.readVolumeSnapshots(yearMonth);
+  const financial = await repo.readFinancialSnapshots(yearMonth);
+
+  const tonnageByProject = new Map<number, number>();
+  for (const v of volumes) tonnageByProject.set(v.projectId, (tonnageByProject.get(v.projectId) ?? 0) + v.tonnageProcessed);
+  const revenueByProject = new Map<number, number>();
+  for (const f of financial) revenueByProject.set(f.projectId, (revenueByProject.get(f.projectId) ?? 0) + f.revenuePeriod);
 
   const groups = new Map<string, { tonnage: number; value: number }>();
   for (const s of summaries) {
-    const proj = (await repo.getProject(s.id))!;
-    const key =
-      groupBy === 'team'
-        ? dims.teams.find((t) => t.id === proj.teamKdId)?.name ?? '-'
-        : groupBy === 'type'
-          ? s.projectType
-          : s.marketCode;
-    const vol = volumes.filter((v) => v.projectId === s.id).reduce((a, b) => a + b.tonnageProcessed, 0);
-    const fin = financial.filter((f) => f.projectId === s.id).reduce((a, b) => a + b.revenuePeriod, 0);
+    const key = groupBy === 'team' ? s.teamName : groupBy === 'type' ? s.projectType : s.marketCode;
     const g = groups.get(key) ?? { tonnage: 0, value: 0 };
-    g.tonnage += vol;
-    g.value += fin;
+    g.tonnage += tonnageByProject.get(s.id) ?? 0;
+    g.value += revenueByProject.get(s.id) ?? 0;
     groups.set(key, g);
   }
   return [...groups.entries()].map(([key, v]) => ({
@@ -280,7 +277,7 @@ export async function getTonnageValueByGroup(yearMonth: string, groupBy: GroupBy
 export async function getCapacityData(yearMonth: string, filters: DashboardFilters = {}) {
   const dims = await repo.getDims();
   const ids = new Set((await getProjectSummaries(yearMonth, filters)).map((s) => s.id));
-  const volumes = await repo.getVolumesForMonth(yearMonth);
+  const volumes = await repo.readVolumeSnapshots(yearMonth);
   return dims.factories.map((factory) => {
     const processed = volumes
       .filter((v) => v.factoryId === factory.id && ids.has(v.projectId))
@@ -299,32 +296,34 @@ export async function getCapacityData(yearMonth: string, filters: DashboardFilte
 // ---- Line: SPI/CPI trend ----
 export async function getSpiCpiTrend(filters: DashboardFilters = {}) {
   const ids = await getScopedProjectIds(filters);
-  return Promise.all(
-    historyMonths().map(async (m) => {
-      const facts = (await repo.getFactsForMonth(m)).filter((f) => ids.has(f.projectId));
-      const spis = facts.map((f) => f.spi).filter((x): x is number => x != null);
-      const cpis = facts.map((f) => f.cpi).filter((x): x is number => x != null);
-      const avg = (arr: number[]) =>
-        arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 100) / 100 : null;
-      return { month: m, spi: avg(spis), cpi: avg(cpis) };
-    }),
-  );
+  const months = historyMonths();
+  const rows = await repo.readMonthlyEvm(months, [...ids]);
+  const byMonth = new Map(rows.map((r) => [r.yearMonth, r]));
+  return months.map((m) => {
+    const r = byMonth.get(m);
+    return {
+      month: m,
+      spi: r?.spiAvg != null ? Math.round(r.spiAvg * 100) / 100 : null,
+      cpi: r?.cpiAvg != null ? Math.round(r.cpiAvg * 100) / 100 : null,
+    };
+  });
 }
 
 // ---- S-curve ----
 export async function getPortfolioSCurve(filters: DashboardFilters = {}) {
   const ids = await getScopedProjectIds(filters);
-  return Promise.all(
-    historyMonths().map(async (m) => {
-      const facts = (await repo.getFactsForMonth(m)).filter((f) => ids.has(f.projectId));
-      return {
-        month: m,
-        pv: Math.round(facts.reduce((a, b) => a + b.pv, 0)),
-        ev: Math.round(facts.reduce((a, b) => a + b.ev, 0)),
-        ac: Math.round(facts.reduce((a, b) => a + b.ac, 0)),
-      };
-    }),
-  );
+  const months = historyMonths();
+  const rows = await repo.readMonthlyEvm(months, [...ids]);
+  const byMonth = new Map(rows.map((r) => [r.yearMonth, r]));
+  return months.map((m) => {
+    const r = byMonth.get(m);
+    return {
+      month: m,
+      pv: Math.round(r?.pv ?? 0),
+      ev: Math.round(r?.ev ?? 0),
+      ac: Math.round(r?.ac ?? 0),
+    };
+  });
 }
 
 // ---- Watchlist ----
@@ -342,20 +341,19 @@ export async function getWatchlist(yearMonth: string, filters: DashboardFilters 
 
 // ---- Missing month ----
 export async function getMissingMonth(yearMonth: string) {
-  const projects = await repo.listProjects();
-  const rows = await Promise.all(
-    projects.map(async (p) => {
-      const fact = await repo.getLatestFact(p.id, yearMonth);
-      const status = deriveStatus({
-        actualStartDate: p.actualStartDate,
-        actualFinishDate: p.actualFinishDate,
-        pctActual: fact?.pctActual ?? 0,
-      });
-      return status === 'Dang_trien_khai' && !fact
-        ? { id: p.id, projectName: p.projectName, code: p.currentAliasCode }
-        : null;
-    }),
-  );
+  const [projects, facts] = await Promise.all([repo.listProjects(), repo.readFactSnapshots(yearMonth)]);
+  const byId = new Map(facts.map((f) => [f.projectId, f]));
+  const rows = projects.map((p) => {
+    const fact = byId.get(p.id);
+    const status = deriveStatus({
+      actualStartDate: p.actualStartDate,
+      actualFinishDate: p.actualFinishDate,
+      pctActual: fact?.pctActual ?? 0,
+    });
+    return status === 'Dang_trien_khai' && !fact
+      ? { id: p.id, projectName: p.projectName, code: p.currentAliasCode }
+      : null;
+  });
   return rows.filter((x): x is { id: number; projectName: string; code: string } => x != null);
 }
 

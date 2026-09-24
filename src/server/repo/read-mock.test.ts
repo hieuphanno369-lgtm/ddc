@@ -54,4 +54,38 @@ describe('read-mock', () => {
     const rows = await mock.readShifts();
     for (let i = 1; i < rows.length; i++) expect(rows[i].sortOrder).toBeGreaterThanOrEqual(rows[i - 1].sortOrder);
   });
+
+  it('readFactSnapshots("all"): moi du an dung 1 dong = thang lon nhat', async () => {
+    const rows = await mock.readFactSnapshots('all');
+    const latestByProject = new Map<number, string>();
+    for (const f of data.facts.filter((f) => f.isLatest)) {
+      const cur = latestByProject.get(f.projectId);
+      if (!cur || f.yearMonth > cur) latestByProject.set(f.projectId, f.yearMonth);
+    }
+    expect(rows).toHaveLength(latestByProject.size);
+    for (const r of rows) expect(r.yearMonth).toBe(latestByProject.get(r.projectId));
+  });
+
+  it('readMonthlyEvm: khop cong tay tren buildRepoData().facts', async () => {
+    const months = ['2026-08', '2026-09'];
+    const ids = [1, 2];
+    const rows = await mock.readMonthlyEvm(months, ids);
+    for (const m of months) {
+      const facts = data.facts.filter((f) => f.isLatest && ids.includes(f.projectId) && f.yearMonth === m);
+      const row = rows.find((r) => r.yearMonth === m);
+      if (facts.length === 0) {
+        expect(row).toBeUndefined();
+        continue;
+      }
+      expect(row).toBeDefined();
+      expect(row!.pv).toBeCloseTo(facts.reduce((s, f) => s + f.pv, 0));
+      expect(row!.ev).toBeCloseTo(facts.reduce((s, f) => s + f.ev, 0));
+      expect(row!.ac).toBeCloseTo(facts.reduce((s, f) => s + f.ac, 0));
+    }
+  });
+
+  it('readMonthlyEvm([], ids) hoac (months, []) -> mang rong', async () => {
+    expect(await mock.readMonthlyEvm([], [1])).toEqual([]);
+    expect(await mock.readMonthlyEvm(['2026-09'], [])).toEqual([]);
+  });
 });

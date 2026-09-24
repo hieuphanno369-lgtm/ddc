@@ -1,5 +1,4 @@
 import { loadPortfolioKpis, loadWatchlist } from '@/server/cache';
-import { repo } from '@/server/repo';
 import { currentMonth } from '@/lib/clock';
 import { getProjectSummaries, type PortfolioKpis, type ProjectSummary } from '@/server/queries';
 
@@ -26,24 +25,17 @@ export async function getReportData(month: string = currentMonth()): Promise<Rep
   const p0Red = watchlist.filter(
     (w) => w.priority === 'P0' && (w.penalty === 'risk' || w.penalty === 'penalized'),
   );
-  const projects = await repo.listProjects();
   // Backlog từng dòng dùng chung định nghĩa với thẻ KPI Tổng quan (chủ dự án chốt 2026-09-24,
-  // P1B/T12a, bước 8A-4): giá trị HĐ nếu dự án đang "Chuẩn bị", còn lại 0.
-  const summaryById = new Map((await getProjectSummaries(month)).map((x) => [x.id, x]));
-  const rows = await Promise.all(
-    projects.map(async (p) => {
-      const fact = await repo.getLatestFact(p.id, month);
-      const s = summaryById.get(p.id);
-      return {
-        id: p.id,
-        code: p.currentAliasCode,
-        name: p.projectName,
-        spi: fact?.spi != null ? Math.round(fact.spi * 100) / 100 : null,
-        cpi: fact?.cpi != null ? Math.round(fact.cpi * 100) / 100 : null,
-        pctActual: fact?.pctActual ?? 0,
-        backlog: s?.status === 'Chuan_bi' ? s.contractValue : 0,
-      };
-    }),
-  );
+  // P1B/T12a, bước 8A-4): giá trị HĐ nếu dự án đang "Chuẩn bị", còn lại 0. `summary.spi/cpi` đã
+  // làm tròn 2 số giống hệt cách cũ (Math.round(x*100)/100) - không cần getLatestFact riêng nữa.
+  const rows: ReportRow[] = (await getProjectSummaries(month)).map((s) => ({
+    id: s.id,
+    code: s.currentAliasCode,
+    name: s.projectName,
+    spi: s.spi,
+    cpi: s.cpi,
+    pctActual: s.pctActual,
+    backlog: s.status === 'Chuan_bi' ? s.contractValue : 0,
+  }));
   return { kpis, p0Red, rows };
 }

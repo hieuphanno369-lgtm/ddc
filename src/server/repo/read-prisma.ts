@@ -1,6 +1,9 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/server/db';
-import type { DateRange, EquipmentUsageDay, ReadRepo, ShiftMonthRow, WeekContractorRow } from './read-types';
+import type {
+  DateRange, EquipmentUsageDay, FactSnapshot, FinancialSnapshot, MonthlyEvmRow, ReadRepo, ShiftMonthRow,
+  VolumeSnapshot, WeekContractorRow,
+} from './read-types';
 
 /**
  * Read repo Prisma (Postgres) - truy vấn tổng hợp cho T12b/T14/T1, tách khỏi `prisma-repo.ts`
@@ -71,6 +74,60 @@ export const readRepoPrisma = {
       GROUP BY 1, 2 HAVING SUM("qtyActual") > 0 ORDER BY 1, 2
     `);
   },
+
+  async readFactSnapshots(yearMonth: string): Promise<FactSnapshot[]> {
+    if (yearMonth === 'all') {
+      return prisma.$queryRaw<FactSnapshot[]>(Prisma.sql`
+        SELECT DISTINCT ON ("projectId") "projectId","yearMonth","pctActual","bac","pv","ev","ac","spi","cpi","bottleneckStage"
+        FROM "fact_progress_monthly" WHERE "isLatest" = true ORDER BY "projectId", "yearMonth" DESC
+      `);
+    }
+    const rows = await prisma.factProgressMonthly.findMany({
+      where: { yearMonth, isLatest: true },
+      select: {
+        projectId: true, yearMonth: true, pctActual: true, bac: true,
+        pv: true, ev: true, ac: true, spi: true, cpi: true, bottleneckStage: true,
+      },
+    });
+    return rows.map((r) => ({ ...r, bottleneckStage: r.bottleneckStage as FactSnapshot['bottleneckStage'] }));
+  },
+
+  async readFinancialSnapshots(yearMonth: string): Promise<FinancialSnapshot[]> {
+    if (yearMonth === 'all') {
+      return prisma.$queryRaw<FinancialSnapshot[]>(Prisma.sql`
+        SELECT DISTINCT ON ("projectId") "projectId","yearMonth","revenuePeriod","arOverdue"
+        FROM "fact_financial" WHERE "isLatest" = true ORDER BY "projectId", "yearMonth" DESC
+      `);
+    }
+    return prisma.factFinancial.findMany({
+      where: { yearMonth, isLatest: true },
+      select: { projectId: true, yearMonth: true, revenuePeriod: true, arOverdue: true },
+    });
+  },
+
+  async readVolumeSnapshots(yearMonth: string): Promise<VolumeSnapshot[]> {
+    if (yearMonth === 'all') {
+      return prisma.$queryRaw<VolumeSnapshot[]>(Prisma.sql`
+        SELECT DISTINCT ON ("projectId","factoryId") "projectId","factoryId","yearMonth","tonnageProcessed"
+        FROM "fact_volume" ORDER BY "projectId","factoryId","yearMonth" DESC
+      `);
+    }
+    return prisma.factVolume.findMany({
+      where: { yearMonth },
+      select: { projectId: true, factoryId: true, yearMonth: true, tonnageProcessed: true },
+    });
+  },
+
+  async readMonthlyEvm(months: string[], projectIds: number[]): Promise<MonthlyEvmRow[]> {
+    if (months.length === 0 || projectIds.length === 0) return [];
+    return prisma.$queryRaw<MonthlyEvmRow[]>(Prisma.sql`
+      SELECT "yearMonth", SUM("pv")::float8 AS pv, SUM("ev")::float8 AS ev, SUM("ac")::float8 AS ac,
+             AVG("spi")::float8 AS "spiAvg", AVG("cpi")::float8 AS "cpiAvg"
+      FROM "fact_progress_monthly"
+      WHERE "isLatest" = true AND "yearMonth" = ANY(${months}::text[]) AND "projectId" = ANY(${projectIds}::int[])
+      GROUP BY "yearMonth" ORDER BY "yearMonth"
+    `);
+  },
 } satisfies Pick<ReadRepo,
   | 'readShifts'
   | 'readManpowerByShiftMonth'
@@ -78,4 +135,8 @@ export const readRepoPrisma = {
   | 'readManpowerRange'
   | 'readEquipmentPlans'
   | 'readEquipmentUsageDays'
+  | 'readFactSnapshots'
+  | 'readFinancialSnapshots'
+  | 'readVolumeSnapshots'
+  | 'readMonthlyEvm'
 >;
