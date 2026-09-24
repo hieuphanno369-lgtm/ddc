@@ -668,5 +668,36 @@
       "forbidden": "Bạn không có quyền sửa dự án này.",
       "generic": "Lưu thất bại: {msg}"
     }
+  },
+  "dailyImport": {
+    "title": "Nhập từ Excel",
+    "template": "Tải file mẫu",
+    "preview": "Xem trước",
+    "commit": "Ghi {n} ngày",
+    "summary": "{ok} dòng hợp lệ · {invalid} dòng lỗi",
+    "rowNo": "Dòng",
+    "sheetCol": "Sheet",
+    "statusCol": "Trạng thái",
+    "sheet": {
+      "manpower": "Nhân lực",
+      "equipment": "Thiết bị"
+    },
+    "ok": "Hợp lệ",
+    "done": "Đã ghi {days} ngày ({created} mới · {updated} sửa)",
+    "reason": {
+      "bad_date": "Ngày không đọc được",
+      "out_of_window": "Ngày ngoài khoảng được phép",
+      "unknown_contractor": "Nhà thầu không thuộc dự án",
+      "unknown_equipment": "Thiết bị không có trong danh mục",
+      "bad_number": "Số không hợp lệ",
+      "actual_future": "Có số thực tế cho ngày tương lai",
+      "duplicate": "Trùng dòng phía trên"
+    },
+    "err": {
+      "bad_file": "File không đọc được hoặc không phải .xlsx.",
+      "bad_header": "Sheet {sheet} sai tiêu đề cột — dùng file mẫu.",
+      "too_many_rows": "File quá 5000 dòng.",
+      "too_many_days": "File quá 62 ngày — tách nhỏ file."
+    }
   }
 }

@@ -668,5 +668,36 @@
       "forbidden": "You are not allowed to edit this project.",
       "generic": "Save failed: {msg}"
     }
+  },
+  "dailyImport": {
+    "title": "Import from Excel",
+    "template": "Download template",
+    "preview": "Preview",
+    "commit": "Save {n} days",
+    "summary": "{ok} valid rows · {invalid} invalid",
+    "rowNo": "Row",
+    "sheetCol": "Sheet",
+    "statusCol": "Status",
+    "sheet": {
+      "manpower": "Manpower",
+      "equipment": "Equipment"
+    },
+    "ok": "Valid",
+    "done": "Saved {days} days ({created} new · {updated} changed)",
+    "reason": {
+      "bad_date": "Unreadable date",
+      "out_of_window": "Date outside allowed window",
+      "unknown_contractor": "Contractor not in project",
+      "unknown_equipment": "Unknown equipment",
+      "bad_number": "Invalid number",
+      "actual_future": "Actual figure on a future date",
+      "duplicate": "Duplicate of a row above"
+    },
+    "err": {
+      "bad_file": "Unreadable or non-.xlsx file.",
+      "bad_header": "Sheet {sheet} has wrong headers — use the template.",
+      "too_many_rows": "File exceeds 5000 rows.",
+      "too_many_days": "File exceeds 62 days — split it."
+    }
   }
 }

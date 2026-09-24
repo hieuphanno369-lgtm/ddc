@@ -8,6 +8,7 @@ import { isInWindow } from '@/lib/daily-entry';
 import type { Contractor, Equipment, FactDailyEquipmentUsage, FactDailyManpowerShift, Shift } from '@/server/repo/types';
 import { saveDailyResourcesAction, type DailySaveError } from '@/server/actions-entry';
 import { ContractorJoinBlock } from './ContractorJoinBlock';
+import { DailyImportBlock } from './DailyImportBlock';
 import {
   buildEquipmentGrid,
   buildManpowerGrid,
@@ -335,6 +336,8 @@ export function ResourceEntryPanel({
               {t('dailyEntry.save', { date })}
             </button>
           )}
+
+          <DailyImportBlock projectId={projectId} disabled={disabled} />
         </>
       )}
     </div>

@@ -3,10 +3,16 @@
 import { logActivity } from '@/lib/activity';
 import { todayIso } from '@/lib/clock';
 import { dailyDateWindow, isInWindow, needsReason, hasFutureActual, DAILY_REASON_MIN, type EquipmentCellInput, type ManpowerCellInput } from '@/lib/daily-entry';
+import {
+  DAILY_IMPORT_MAX_DAYS, DAILY_IMPORT_MAX_ROWS, groupImportByDay, parseEquipmentSheet, parseManpowerSheet, type DailyImportRow,
+} from '@/lib/daily-import';
+import { readDailyWorkbook } from './daily-import';
 import { requireWriteProject } from './action-guards';
 import { repo } from './repo';
 import type { Role } from './repo/types';
-import { createContractorSchema, projectContractorSchema, saveDailyResourcesSchema } from './validation';
+import {
+  commitDailyImportSchema, createContractorSchema, dailyImportFileSchema, projectContractorSchema, saveDailyResourcesSchema,
+} from './validation';
 
 /** G-18: gán 1 nhà thầu (đã có trong danh mục) vào dự án. */
 export async function addProjectContractorAction(
@@ -145,4 +151,96 @@ export async function createContractorAction(
   if (joined === 'not_found') return { ok: false, error: 'Not found' };
   await logActivity(user, 'contractor_create', contractor.name);
   return { ok: true, id: contractor.id };
+}
+
+export type DailyImportError =
+  | 'Forbidden'
+  | 'Invalid input'
+  | 'Not found'
+  | 'bad_file'
+  | 'bad_header'
+  | 'too_many_rows'
+  | 'too_many_days';
+
+/** Task 5 (P2A): xem trước file Excel nhân lực/thiết bị (chưa ghi gì vào DB). */
+export async function previewDailyImportAction(
+  formData: FormData,
+): Promise<
+  | { ok: true; rows: DailyImportRow[]; okCount: number; invalidCount: number; days: number }
+  | { ok: false; error: DailyImportError; sheet?: 'manpower' | 'equipment' }
+> {
+  const projectIdRaw = formData.get('projectId');
+  const projectId = typeof projectIdRaw === 'string' ? Number(projectIdRaw) : NaN;
+  if (!Number.isInteger(projectId) || projectId <= 0) return { ok: false, error: 'Invalid input' };
+
+  const user = await requireWriteProject(projectId);
+  if (!user) return { ok: false, error: 'Forbidden' };
+
+  const project = await repo.getProject(projectId);
+  if (!project) return { ok: false, error: 'Not found' };
+
+  const file = formData.get('file');
+  if (!(file instanceof File)) return { ok: false, error: 'Invalid input' };
+  const fileParsed = dailyImportFileSchema.safeParse({ name: file.name, size: file.size });
+  if (!fileParsed.success) return { ok: false, error: 'Invalid input' };
+
+  const buf = Buffer.from(await file.arrayBuffer());
+  const wb = await readDailyWorkbook(buf);
+  if (!wb.ok) return { ok: false, error: 'bad_file' };
+
+  const [members, shifts, equipments] = await Promise.all([
+    repo.getContractors(projectId),
+    repo.getShifts(),
+    repo.getEquipments(),
+  ]);
+  const ctx = { members, shifts, equipments, window: dailyDateWindow(user.role, todayIso()), today: todayIso() };
+
+  const mpParsed = parseManpowerSheet(wb.manpower.header, wb.manpower.rows, ctx);
+  if (!mpParsed.ok) return { ok: false, error: 'bad_header', sheet: 'manpower' };
+  const eqParsed = parseEquipmentSheet(wb.equipment.header, wb.equipment.rows, ctx);
+  if (!eqParsed.ok) return { ok: false, error: 'bad_header', sheet: 'equipment' };
+
+  const rows = [...mpParsed.rows, ...eqParsed.rows];
+  if (rows.length > DAILY_IMPORT_MAX_ROWS) return { ok: false, error: 'too_many_rows' };
+
+  const days = new Set(rows.filter((r) => r.workDate).map((r) => r.workDate));
+  if (days.size > DAILY_IMPORT_MAX_DAYS) return { ok: false, error: 'too_many_days' };
+
+  const okCount = rows.filter((r) => r.status === 'ok').length;
+  const invalidCount = rows.length - okCount;
+  return { ok: true, rows, okCount, invalidCount, days: days.size };
+}
+
+/** Task 5 (P2A): ghi các ngày đã xem trước. Kiểm lại TOÀN BỘ trước khi ghi ngày nào. */
+export async function commitDailyImportAction(
+  projectId: number,
+  days: { workDate: string; manpower: ManpowerCellInput[]; equipment: EquipmentCellInput[] }[],
+  reason?: string,
+): Promise<
+  | { ok: true; days: number; created: number; updated: number; unchanged: number }
+  | { ok: false; error: DailySaveError | 'too_many_days'; month?: string; workDate?: string }
+> {
+  const user = await requireWriteProject(projectId);
+  if (!user) return { ok: false, error: 'Forbidden' };
+
+  const parsed = commitDailyImportSchema.safeParse({ projectId, days, reason });
+  if (!parsed.success) return { ok: false, error: 'Invalid input' };
+  if (parsed.data.days.length > DAILY_IMPORT_MAX_DAYS) return { ok: false, error: 'too_many_days' };
+
+  for (const d of parsed.data.days) {
+    const check = await checkDailyPayload(user, projectId, d.workDate, { manpower: d.manpower, equipment: d.equipment }, parsed.data.reason);
+    if (!check.ok) return { ...check, workDate: d.workDate };
+  }
+
+  let created = 0;
+  let updated = 0;
+  let unchanged = 0;
+  for (const d of parsed.data.days) {
+    const r = await repo.saveDailyResources(projectId, d.workDate, { manpower: d.manpower, equipment: d.equipment }, user.email, parsed.data.reason?.trim() ?? '');
+    created += r.created;
+    updated += r.updated;
+    unchanged += r.unchanged;
+  }
+  await logActivity(user, 'commit_daily_import', `project ${projectId} · ${parsed.data.days.length} ngày`);
+  return { ok: true, days: parsed.data.days.length, created, updated, unchanged };
 }

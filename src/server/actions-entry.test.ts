@@ -11,8 +11,10 @@ vi.mock('@/lib/session', () => ({ getCurrentUser: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/session';
 import {
-  addProjectContractorAction, createContractorAction, removeProjectContractorAction, saveDailyResourcesAction,
+  addProjectContractorAction, commitDailyImportAction, createContractorAction, previewDailyImportAction,
+  removeProjectContractorAction, saveDailyResourcesAction,
 } from '@/server/actions-entry';
+import { buildDailyTemplate } from '@/server/daily-import';
 
 const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.com.vn', role: 'admin', canViewFinance: true };
 const dataEntry = (email: string): CurrentUser => ({ name: email, email, role: 'data-entry', canViewFinance: false });
@@ -195,5 +197,80 @@ describe('saveDailyResourcesAction (Task 4)', () => {
       equipment: [],
     });
     expect(res).toEqual({ ok: false, error: 'Invalid input' });
+  });
+});
+
+describe('previewDailyImportAction / commitDailyImportAction (Task 5)', () => {
+  async function buildFile(dataRows: (string | number)[][], filename = 'import.xlsx'): Promise<File> {
+    const ExcelJS = (await import('exceljs')).default;
+    const members = repo.getContractors(1);
+    const shifts = repo.getShifts();
+    const equipments = repo.getEquipments();
+    const tpl = await buildDailyTemplate({ members, shifts, equipments });
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(tpl as unknown as ArrayBuffer);
+    const ws = wb.getWorksheet('NhanLuc')!;
+    for (const row of dataRows) ws.addRow(row);
+    const buf = await wb.xlsx.writeBuffer();
+    return new File([buf], filename);
+  }
+
+  function form(projectId: number, file: File): FormData {
+    const fd = new FormData();
+    fd.set('projectId', String(projectId));
+    fd.set('file', file);
+    return fd;
+  }
+
+  it('1 ok, 1 nha thau la, 1 ngay hong -> okCount 1, invalidCount 2, rowNo 2,3,4', async () => {
+    login(ADMIN);
+    const file = await buildFile([
+      ['2026-09-16', 'Nhà thầu Lắp dựng A', 5, 4, 3, 2],
+      ['2026-09-16', 'Nhà thầu không tồn tại', 1, 1, 1, 1],
+      ['khong-phai-ngay', 'Nhà thầu Lắp dựng A', 1, 1, 1, 1],
+    ]);
+
+    const res = await previewDailyImportAction(form(1, file));
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.okCount).toBe(1);
+    expect(res.invalidCount).toBe(2);
+    expect(res.rows.map((r) => r.rowNo)).toEqual([2, 3, 4]);
+  });
+
+  it("file .xls -> Invalid input", async () => {
+    login(ADMIN);
+    const file = await buildFile([], 'import.xls');
+    const res = await previewDailyImportAction(form(1, file));
+    expect(res).toEqual({ ok: false, error: 'Invalid input' });
+  });
+
+  it('header dung (khong sua gi) -> preview khong loi bad_header', async () => {
+    login(ADMIN);
+    const file = await buildFile([]);
+    const res = await previewDailyImportAction(form(1, file));
+    expect(res.ok).toBe(true);
+  });
+
+  it('commit 2 ngay, ngay thu 2 ngoai window -> loi out_of_window + workDate, ngay thu 1 khong duoc ghi', async () => {
+    login(ADMIN);
+    const before = repo.getDailyManpowerByShift(1, '2026-09-16', '2026-09-16');
+
+    const res = await commitDailyImportAction(1, [
+      { workDate: '2026-09-16', manpower: [{ contractorId: 1, shiftCode: 'morning', plannedHeadcount: 1000, actualHeadcount: 1000 }], equipment: [] },
+      { workDate: '2026-12-25', manpower: [{ contractorId: 1, shiftCode: 'morning', plannedHeadcount: 1, actualHeadcount: 0 }], equipment: [] },
+    ]);
+
+    expect(res).toEqual({ ok: false, error: 'out_of_window', workDate: '2026-12-25' });
+    expect(repo.getDailyManpowerByShift(1, '2026-09-16', '2026-09-16')).toEqual(before);
+  });
+
+  it('commit hop le -> dem dung', async () => {
+    login(ADMIN);
+    const res = await commitDailyImportAction(1, [
+      { workDate: '2026-09-16', manpower: [{ contractorId: 1, shiftCode: 'morning', plannedHeadcount: 1000, actualHeadcount: 1000 }], equipment: [] },
+    ]);
+    expect(res).toEqual({ ok: true, days: 1, created: 0, updated: 1, unchanged: 0 });
   });
 });

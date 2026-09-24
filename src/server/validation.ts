@@ -214,28 +214,43 @@ export const createContractorSchema = z.object({
 
 /** Task 4 (P2A): nhân lực theo ca + thiết bị theo ngày. */
 const dailyValue = z.number().int().min(0).max(DAILY_VALUE_MAX);
+const manpowerCellSchema = z.object({
+  contractorId: z.number().int().positive(),
+  shiftCode: z.string().trim().min(1).max(20),
+  plannedHeadcount: dailyValue,
+  actualHeadcount: dailyValue,
+});
+const equipmentCellSchema = z.object({
+  contractorId: z.number().int().positive(),
+  equipmentId: z.number().int().positive(),
+  qtyPlanned: dailyValue,
+  qtyActual: dailyValue,
+});
 export const saveDailyResourcesSchema = z.object({
   projectId: z.number().int().positive(),
   workDate: z.string().refine(isValidIsoDate, 'Ngày phải dạng YYYY-MM-DD hợp lệ'),
-  manpower: z
+  manpower: z.array(manpowerCellSchema).max(500),
+  equipment: z.array(equipmentCellSchema).max(500),
+  reason: z.string().trim().max(500).optional(),
+});
+
+/** Task 5 (P2A): file import Excel nhân lực/thiết bị theo ngày - chỉ nhận .xlsx. */
+export const dailyImportFileSchema = z.object({
+  name: z.string().regex(/\.xlsx$/i, 'Chỉ chấp nhận file .xlsx'),
+  size: z.number().int().positive().max(IMPORT_MAX_BYTES, 'File vượt quá 10MB'),
+});
+
+/** Task 5 (P2A): commit các ngày đã xem trước từ import Excel. */
+export const commitDailyImportSchema = z.object({
+  projectId: z.number().int().positive(),
+  days: z
     .array(
       z.object({
-        contractorId: z.number().int().positive(),
-        shiftCode: z.string().trim().min(1).max(20),
-        plannedHeadcount: dailyValue,
-        actualHeadcount: dailyValue,
+        workDate: z.string().refine(isValidIsoDate, 'Ngày phải dạng YYYY-MM-DD hợp lệ'),
+        manpower: z.array(manpowerCellSchema).max(500),
+        equipment: z.array(equipmentCellSchema).max(500),
       }),
     )
-    .max(500),
-  equipment: z
-    .array(
-      z.object({
-        contractorId: z.number().int().positive(),
-        equipmentId: z.number().int().positive(),
-        qtyPlanned: dailyValue,
-        qtyActual: dailyValue,
-      }),
-    )
-    .max(500),
+    .min(1),
   reason: z.string().trim().max(500).optional(),
 });
