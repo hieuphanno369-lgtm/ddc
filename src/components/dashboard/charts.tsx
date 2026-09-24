@@ -224,34 +224,6 @@ export function SCurve({
   );
 }
 
-export function BacklogOverdueLine({
-  data,
-}: {
-  data: { month: string; backlog: number; overdue: number }[];
-}) {
-  const locale = useLocale();
-  const c = useChartTokens();
-  return (
-    <ResponsiveContainer width="100%" height={160}>
-      <LineChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
-        <XAxis
-          dataKey="month"
-          tick={{ fontSize: 11, fill: c.axis }}
-          tickLine={false}
-          axisLine={false}
-          tickFormatter={(m: string) => `${m.slice(5)}/${m.slice(2, 4)}`}
-        />
-        <YAxis tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} />
-        <Tooltip {...TOOLTIP_STYLE} formatter={(value) => formatTyd(Number(value), locale)} />
-        <Legend wrapperStyle={{ fontSize: 'var(--t-caption1)' }} />
-        <Line type="monotone" dataKey="backlog" name="Backlog" stroke={c.plan} strokeWidth={2} dot={{ r: 2 }} />
-        <Line type="monotone" dataKey="overdue" name="Công nợ quá hạn" stroke={c.danger} strokeWidth={2} dot={{ r: 2 }} />
-      </LineChart>
-    </ResponsiveContainer>
-  );
-}
-
 export function Sparkline({ data, color }: { data: number[]; color?: string }) {
   const c = useChartTokens();
   const stroke = color ?? c.actual;

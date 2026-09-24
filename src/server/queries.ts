@@ -182,7 +182,7 @@ async function kpisForMonth(yearMonth: string, filters: DashboardFilters) {
     behindSchedule: summaries.filter((s) => s.status === 'Dang_trien_khai' && !s.onTrack).length,
     penaltyRisk: summaries.filter((s) => s.penalty === 'risk').length,
     penalized: summaries.filter((s) => s.penalty === 'penalized').length,
-    // TODO: backlog 2 định nghĩa lệch - đây tính tổng contractValue dự án Chuan_bi, còn card BacklogOverdue dùng financial.backlog (đang hardcode 0). Chốt 1 công thức.
+    // Backlog = Σ giá trị HĐ dự án trạng thái Chuẩn bị (chủ dự án chốt 2026-09-24, P1B/T12a).
     backlog: summaries
       .filter((s) => s.status === 'Chuan_bi')
       .reduce((sum, s) => sum + s.contractValue, 0),
