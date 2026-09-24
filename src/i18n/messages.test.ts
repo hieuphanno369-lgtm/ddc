@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -105,5 +105,50 @@ describe('i18n: key dùng trong code đều tồn tại', () => {
     // AlertList render t(`alert.${type==='Red'?'red':'amber'}`) - không trích được bằng regex.
     expect(viKeys).toEqual(expect.arrayContaining(['alert.red', 'alert.amber']));
     expect(enKeys).toEqual(expect.arrayContaining(['alert.red', 'alert.amber']));
+  });
+});
+
+/**
+ * (danh-gia.md vòng 2, mục phải sửa 2) `ActivityViewer.tsx` render `t(\`activity.${a.action}\`)` -
+ * mọi action literal truyền vào `logActivity(user, ...)` dưới `src/server/` phải có key
+ * `activity.<action>` ở CẢ vi và en, nếu không next-intl ném lỗi lúc render trang /admin.
+ */
+function listTsFilesRecursive(dir: string): string[] {
+  const out: string[] = [];
+  for (const name of readdirSync(dir)) {
+    const full = join(dir, name);
+    const st = statSync(full);
+    if (st.isDirectory()) out.push(...listTsFilesRecursive(full));
+    else if (name.endsWith('.ts') && !name.endsWith('.test.ts')) out.push(full);
+  }
+  return out;
+}
+
+/** Bắt cả action literal đơn (`'save_data'`) lẫn ternary (`isActive ? 'a' : 'b'`). */
+function logActivityActions(source: string): string[] {
+  const actions = new Set<string>();
+  for (const m of source.matchAll(/logActivity\(\s*\w+\s*,\s*([^,)]+)[,)]/g)) {
+    for (const lit of m[1].matchAll(/'([a-z_]+)'/g)) actions.add(lit[1]);
+  }
+  return [...actions];
+}
+
+describe('i18n: moi action logActivity duoi src/server/ co key activity.<action>', () => {
+  const serverFiles = listTsFilesRecursive(join(ROOT, 'src/server'));
+  const actions = new Set<string>();
+  for (const f of serverFiles) for (const a of logActivityActions(readFileSync(f, 'utf-8'))) actions.add(a);
+  const actionList = [...actions];
+
+  it('quet duoc it nhat 1 action (khong bo sot do regex sai)', () => {
+    expect(actionList.length).toBeGreaterThan(0);
+  });
+
+  it('moi action co activity.<action> o ca vi.json va en.json', () => {
+    expect(actionList.filter((a) => !viKeys.includes(`activity.${a}`)), 'thiếu ở vi.json').toEqual([]);
+    expect(actionList.filter((a) => !enKeys.includes(`activity.${a}`)), 'thiếu ở en.json').toEqual([]);
+  });
+
+  it('tap action thu duoc chua save_exchange_rate va activate_factory (14 key moi vong 2)', () => {
+    expect(actionList).toEqual(expect.arrayContaining(['save_exchange_rate', 'activate_factory']));
   });
 });

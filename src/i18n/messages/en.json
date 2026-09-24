@@ -572,7 +572,21 @@
     "lock_account": "Lock account",
     "unlock_account": "Unlock account",
     "add_photo": "Add site photo",
-    "delete_photo": "Delete site photo"
+    "delete_photo": "Delete site photo",
+    "save_exchange_rate": "Save exchange rate",
+    "delete_exchange_rate": "Delete exchange rate",
+    "save_factory": "Save factory",
+    "activate_factory": "Activate factory",
+    "deactivate_factory": "Deactivate factory",
+    "project_contractor_add": "Add contractor to project",
+    "project_contractor_remove": "Remove contractor from project",
+    "save_daily_resources": "Save daily resources",
+    "contractor_create": "Create contractor",
+    "commit_daily_import": "Commit daily import",
+    "create_dim": "Create dimension",
+    "rename_dim": "Rename dimension",
+    "merge_dim": "Merge dimensions",
+    "save_key_milestones": "Save key milestones"
   },
   "dataGuard": {
     "import": {

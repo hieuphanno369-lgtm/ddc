@@ -572,7 +572,21 @@
     "lock_account": "Khóa tài khoản",
     "unlock_account": "Mở khóa tài khoản",
     "add_photo": "Thêm ảnh hiện trường",
-    "delete_photo": "Xóa ảnh hiện trường"
+    "delete_photo": "Xóa ảnh hiện trường",
+    "save_exchange_rate": "Lưu tỷ giá",
+    "delete_exchange_rate": "Xoá tỷ giá",
+    "save_factory": "Lưu khu vực sản xuất",
+    "activate_factory": "Bật khu vực sản xuất",
+    "deactivate_factory": "Tắt khu vực sản xuất",
+    "project_contractor_add": "Thêm nhà thầu vào dự án",
+    "project_contractor_remove": "Gỡ nhà thầu khỏi dự án",
+    "save_daily_resources": "Lưu nhân lực/thiết bị ngày",
+    "contractor_create": "Tạo nhà thầu",
+    "commit_daily_import": "Import nhân lực/thiết bị ngày",
+    "create_dim": "Tạo danh mục",
+    "rename_dim": "Đổi tên danh mục",
+    "merge_dim": "Gộp danh mục",
+    "save_key_milestones": "Lưu mốc chính"
   },
   "dataGuard": {
     "import": {
