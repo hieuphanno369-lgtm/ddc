@@ -25,6 +25,10 @@ export interface ResourceSnapshot {
   manpowerActual: number;
   equipmentPlanned: number;
   equipmentActual: number;
+  /** Số nhà thầu KHÁC NHAU có dòng nhân lực trong ngày manpowerAsOfDate; 0 nếu chưa có dữ liệu. */
+  manpowerContractors: number;
+  /** Số nhà thầu KHÁC NHAU có dòng thiết bị trong ngày equipmentAsOfDate; 0 nếu chưa có dữ liệu. */
+  equipmentContractors: number;
 }
 
 /** Kết thúc ở min(hôm nay, cuối tháng đang xem) - xem tháng quá khứ phải ra số của tháng đó. */
@@ -64,6 +68,8 @@ export async function getResourceSnapshot(projectId: number, yearMonth: string):
     manpowerActual: manpowerRows.reduce((s, m) => s + m.actualHeadcount, 0),
     equipmentPlanned: equipmentRows.reduce((s, e) => s + e.qtyPlanned, 0),
     equipmentActual: equipmentRows.reduce((s, e) => s + e.qtyActual, 0),
+    manpowerContractors: new Set(manpowerRows.map((m) => m.contractorId)).size,
+    equipmentContractors: new Set(equipmentRows.map((e) => e.contractorId)).size,
   };
 }
 

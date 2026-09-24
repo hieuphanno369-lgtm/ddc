@@ -52,3 +52,16 @@ describe('ActivityViewer - cot "Nguoi dung" (ten + email)', () => {
     expect(out).toMatch(/Admin\s+<span class="en">/);
   });
 });
+
+describe('ActivityViewer - phan trang 20 dong/trang (P1B Task 6)', () => {
+  it('25 dong -> chi 20 <tr trong tbody, co chu "1 / 2", o thoi gian co gio', () => {
+    const rows: ActivityLogEntry[] = Array.from({ length: 25 }, (_, i) => ({ ...ROW, id: i + 1 }));
+    const out = renderToStaticMarkup(React.createElement(ActivityViewer, { activity: rows }));
+    const tbodyMatch = out.match(/<tbody>([\s\S]*?)<\/tbody>/);
+    const trCount = (tbodyMatch?.[1].match(/<tr>/g) ?? []).length;
+
+    expect(trCount).toBe(20);
+    expect(out).toContain('1 / 2');
+    expect(out).toMatch(/class="mono">\d{2}:\d{2} \d{2}\/\d{2}\/\d{4}</);
+  });
+});

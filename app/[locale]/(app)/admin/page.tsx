@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { getCurrentUser, homeForRole } from '@/lib/session';
 import { repo } from '@/server/repo';
-import { formatDate, formatTon } from '@/lib/format';
+import { formatTon } from '@/lib/format';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { IconFactory, IconMoney, IconUser } from '@/components/icons';
 import { ResetDataButton } from '@/components/admin/ResetDataButton';
@@ -10,6 +10,9 @@ import { UserEditor } from '@/components/admin/UserEditor';
 import { ActivityViewer } from '@/components/admin/ActivityViewer';
 import { FieldEditor } from '@/components/admin/FieldEditor';
 import { DeleteProject } from '@/components/admin/DeleteProject';
+import { AuditMiniTable } from '@/components/admin/AuditMiniTable';
+import { logSince } from '@/lib/log-paging';
+import { getAuditLogPage } from '@/server/audit-log-page';
 
 export default async function AdminPage() {
   // RBAC server-side: trang admin chỉ dành cho admin (không phó mặc middleware).
@@ -20,9 +23,11 @@ export default async function AdminPage() {
   const t = await getTranslations();
   const dims = await repo.getDims();
   const projects = (await repo.listProjects()).map((p) => ({ id: p.id, name: p.projectName, code: p.currentAliasCode }));
-  const audit = await repo.getAuditLog();
+  const auditPage = await getAuditLogPage({ page: 1, range: '14d' });
   const users = await repo.getUserRoles();
-  const activity = await repo.getActivity();
+  // Xoa luoi chi chay khi co ghi moi -> phai loc luc doc (giu retention 14 ngay).
+  const since = logSince('14d', new Date())!;
+  const activity = (await repo.getActivity()).filter((a) => new Date(a.createdAt) >= since);
   const customerValues = await repo.getDimFieldValues('customer');
   const teamValues = await repo.getDimFieldValues('team');
 
@@ -54,36 +59,20 @@ export default async function AdminPage() {
       </Card>
 
       <Card>
-        <CardHeader title="Audit log" subtitle={String(audit.length)} />
+        <CardHeader title={t('audit.title')} subtitle={`${t('logPaging.range14')} · ${auditPage.total}`} />
         <CardBody>
-          {audit.length === 0 ? (
-            <p className="empty">{t('common.noData')}</p>
-          ) : (
-            <div className="scroll" style={{ maxHeight: 256 }}>
-              <table className="tbl sticky">
-                <thead>
-                  <tr>
-                    <th>{t('common.actions')}</th>
-                    <th>Table</th>
-                    <th>Record</th>
-                    <th>Field</th>
-                    <th>By</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {audit.map((a) => (
-                    <tr key={a.id}>
-                      <td className="mono">{formatDate(a.changedAt, locale)}</td>
-                      <td>{a.tableName}</td>
-                      <td className="mono">{a.recordId}</td>
-                      <td>{a.field}</td>
-                      <td>{a.changedBy}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <AuditMiniTable
+            entries={auditPage.items}
+            locale={locale}
+            labels={{
+              time: t('admin.time'),
+              user: t('admin.user'),
+              table: t('audit.table'),
+              record: t('audit.record'),
+              field: t('audit.field'),
+              empty: t('common.noData'),
+            }}
+          />
         </CardBody>
       </Card>
 

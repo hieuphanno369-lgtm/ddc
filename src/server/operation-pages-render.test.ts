@@ -26,6 +26,19 @@ vi.mock('@/server/repo', async () => {
   return { repo: mockRepo.repo };
 });
 vi.mock('@/server/report', () => ({ getReportData: vi.fn() }));
+// getAuditLogPage doc Prisma truc tiep (khong qua repo) - mock lai bang du lieu cua mock-repo de
+// khong choc Postgres that trong test render trang (Bước 3, ke-hoach.md Task 6).
+vi.mock('@/server/audit-log-page', async () => {
+  const { repo } = await import('@/server/repo/mock-repo');
+  const { paginate, logSince } = await import('@/lib/log-paging');
+  return {
+    getAuditLogPage: vi.fn(async ({ page, range, pageSize = 20, now = new Date() }: { page: number; range: 'all' | '14d'; pageSize?: number; now?: Date }) => {
+      const since = logSince(range, now);
+      const rows = repo.getAuditLog().filter((a) => !since || new Date(a.changedAt) >= since);
+      return { ...paginate(rows, page, pageSize), pageSize };
+    }),
+  };
+});
 vi.mock('@/i18n/navigation', () => ({
   Link: (props: { href: string; children?: React.ReactNode; className?: string }) =>
     React.createElement('a', { href: props.href, className: props.className }, props.children),
@@ -188,7 +201,7 @@ describe('/audit - render nội dung', () => {
   it('nhật ký rỗng: hiện common.noData (seed auditLog = [])', async () => {
     (getCurrentUser as Mock).mockResolvedValue(ADMIN);
 
-    const out = await render(AuditPage);
+    const out = await render(() => AuditPage({}));
 
     expect(out).toContain('audit.title');
     expect(out).toContain('common.noData');
@@ -199,7 +212,7 @@ describe('/audit - render nội dung', () => {
     repo.logAudit('fact_progress_monthly', '42', 'pctActual', '30', '45', 'admin@daidung.com.vn');
     (getCurrentUser as Mock).mockResolvedValue(ADMIN);
 
-    const out = await render(AuditPage);
+    const out = await render(() => AuditPage({}));
 
     expect(out).toContain('<table');
     expect(out).toContain('fact_progress_monthly');
@@ -214,9 +227,59 @@ describe('/audit - render nội dung', () => {
     repo.logAudit('alert_log', '7', 'action', '', 'Đã xử lý', 'admin@daidung.com.vn');
     (getCurrentUser as Mock).mockResolvedValue(ADMIN);
 
-    const out = await render(AuditPage);
+    const out = await render(() => AuditPage({}));
 
     expect(out).toContain('Đã xử lý');
     expect(out).toMatch(/>-</);
+  });
+
+  it('25 lần ghi audit: chỉ 20 dòng dữ liệu trên trang, nút "sau" trỏ tới page=2 (P1B Task 6)', async () => {
+    for (let i = 0; i < 25; i++) {
+      repo.logAudit('fact_progress_monthly', String(i), 'pctActual', '1', '2', 'admin@daidung.com.vn');
+    }
+    (getCurrentUser as Mock).mockResolvedValue(ADMIN);
+
+    const out = await render(() => AuditPage({}));
+    const rowCount = (out.match(/<tr>/g) ?? []).length - 1; // trừ dòng <thead><tr> header
+
+    expect(rowCount).toBe(20);
+    expect(out).toContain('href="/audit?page=2"');
+  });
+
+  it('range=all: nút "14 ngày gần nhất" trỏ về /audit (bỏ tham số mặc định)', async () => {
+    (getCurrentUser as Mock).mockResolvedValue(ADMIN);
+
+    const out = await render(() => AuditPage({ searchParams: { range: 'all' } }));
+
+    expect(out).toContain('href="/audit"');
+  });
+
+  // Tester (P1B, Task 6): tham số rác trên URL thật (?page=..., không chỉ đơn vị parsePage())
+  // phải không làm trang crash - render ở mức trang, đi qua đúng parsePage() bên trong AuditPage.
+  it('?page=rac (chuoi khong phai so): khong throw, ve trang 1 nhu khong co page', async () => {
+    for (let i = 0; i < 25; i++) {
+      repo.logAudit('fact_progress_monthly', String(i), 'pctActual', '1', '2', 'admin@daidung.com.vn');
+    }
+    (getCurrentUser as Mock).mockResolvedValue(ADMIN);
+
+    const out = await render(() => AuditPage({ searchParams: { page: 'rac' } }));
+    const rowCount = (out.match(/<tr>/g) ?? []).length - 1;
+
+    expect(rowCount).toBe(20);
+    expect(out).toContain('href="/audit?page=2"');
+  });
+
+  // Next.js cho phép ?page=2&page=3 -> searchParams.page thanh mang string[].
+  it('?page bi lap lai thanh mang (Next.js searchParams) -> khong throw, fallback trang 1', async () => {
+    for (let i = 0; i < 25; i++) {
+      repo.logAudit('fact_progress_monthly', String(i), 'pctActual', '1', '2', 'admin@daidung.com.vn');
+    }
+    (getCurrentUser as Mock).mockResolvedValue(ADMIN);
+
+    const out = await render(() => AuditPage({ searchParams: { page: ['2', '3'] } }));
+    const rowCount = (out.match(/<tr>/g) ?? []).length - 1;
+
+    expect(rowCount).toBe(20);
+    expect(out).toContain('href="/audit?page=2"');
   });
 });

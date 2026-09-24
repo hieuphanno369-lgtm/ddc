@@ -111,3 +111,25 @@ describe('KpiCard - the "Trong tam" (hero=true, Task 4 spec dong 958 ke-hoach.md
     expect(ok).not.toContain('style=');
   });
 });
+
+describe('KpiCard - href/note (P1B Task 1: bam de cuon toi chart)', () => {
+  it('co href: ca the la <a href> kem class "tap"', () => {
+    const out = renderToStaticMarkup(React.createElement(KpiCard, { ...BASE, href: '#x' }));
+
+    expect(out).toContain('<a href="#x" class="kpi rise tap"');
+  });
+
+  it('khong co href: van la <div>, khong co class "tap"', () => {
+    const out = renderToStaticMarkup(React.createElement(KpiCard, BASE));
+
+    expect(out).toContain('class="kpi rise"');
+    expect(out).not.toContain('tap');
+    expect(out).toMatch(/^<div/);
+  });
+
+  it('co note: them 1 dong ".sb" phu sau dong cu', () => {
+    const out = renderToStaticMarkup(React.createElement(KpiCard, { ...BASE, note: 'KH 5' }));
+
+    expect(out).toContain('<div class="sb"><span>KH 5</span></div>');
+  });
+});

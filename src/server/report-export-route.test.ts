@@ -104,7 +104,7 @@ describe('getReportData - nguồn data của /report + export', () => {
     }
   });
 
-  it('dự án chưa có fact tháng này: spi/cpi null, pctActual 0, backlog 0 (không NaN)', async () => {
+  it('dự án chưa có fact tháng này, chưa khởi công (trạng thái Chuẩn bị): spi/cpi null, pctActual 0, backlog = giá trị HĐ (P1B/T12a bước 8A-4)', async () => {
     const template = repo.listProjects()[0];
     const fresh = repo.createProject(
       {
@@ -123,7 +123,19 @@ describe('getReportData - nguồn data của /report + export', () => {
     const row = rows.find((r) => r.id === fresh.id);
 
     expect(row).toBeDefined();
-    expect(row).toMatchObject({ spi: null, cpi: null, pctActual: 0, backlog: 0, name: 'Dự án mới chưa nộp số liệu' });
+    expect(row).toMatchObject({ spi: null, cpi: null, pctActual: 0, backlog: 500, name: 'Dự án mới chưa nộp số liệu' });
+  });
+
+  it('dự án đang triển khai (đã khởi công): backlog = 0, không phải giá trị HĐ (P1B/T12a bước 8A-4)', async () => {
+    const { rows } = await getReportData(MONTH);
+    const inProgress = repo
+      .listProjects()
+      .find((p) => p.actualStartDate != null);
+    expect(inProgress, 'seed phải có ít nhất 1 dự án đã khởi công').toBeDefined();
+
+    const row = rows.find((r) => r.id === inProgress!.id);
+    expect(row).toBeDefined();
+    expect(row!.backlog).toBe(0);
   });
 });
 

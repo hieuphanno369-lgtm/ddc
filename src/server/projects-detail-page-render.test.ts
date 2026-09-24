@@ -58,12 +58,34 @@ describe('Task 1 - 3 the "Trong tam" (%TT, SPI, CPI) dung canh nhau', () => {
     const keys = [...out.matchAll(/class="kpi rise key"><span class="tag">kpi\.focusTag<\/span><div class="lb">([^<]+)<\/div>/g)].map((m) => m[1]);
     expect(keys).toEqual(['metric.pctActual', 'metric.spi', 'metric.cpi']);
   });
-  it('thu tu 6 the: %KH, %TT, SPI, CPI, EAC, VAC', async () => {
+  it('thu tu 6 the: %KH, %TT, SPI, CPI, Tong nhan luc, Tong thiet bi (P1B Task 1: thay EAC/VAC)', async () => {
     const out = await render();
-    const pos = ['metric.pctPlan', 'metric.pctActual', 'metric.spi', 'metric.cpi', 'metric.eac', 'metric.vac']
+    const pos = ['metric.pctPlan', 'metric.pctActual', 'metric.spi', 'metric.cpi', 'resourceKpi.manpowerTotal', 'resourceKpi.equipmentTotal']
       .map((k) => out.indexOf(`<div class="lb">${k}</div>`));
     expect(pos.every((p) => p >= 0)).toBe(true);
     expect([...pos].sort((a, b) => a - b)).toEqual(pos);
+  });
+
+  it('khong con the EAC/VAC rieng (bang EVM van co the chua metric.eac trong <td>, khong assert chuoi tron)', async () => {
+    const out = await render();
+    expect(out).not.toContain('<div class="lb">metric.eac</div>');
+    expect(out).not.toContain('<div class="lb">metric.vac</div>');
+    expect(out).not.toContain('kpis k2');
+  });
+
+  it('the Tong nhan luc/thiet bi la anchor cuon toi dung card Tang 4, kem KH + so nha thau', async () => {
+    const out = await render();
+    expect(out).toContain('href="#res-manpower"');
+    expect(out).toContain('id="res-manpower"');
+    expect(out).toContain('href="#res-equipment"');
+    expect(out).toContain('id="res-equipment"');
+    expect(out).toContain('resourceKpi.planContractors');
+  });
+
+  it('du an 17 (chua co du lieu ngay): khong hien KH/so nha thau, hien "Chua co du lieu"', async () => {
+    const out = await render({}, '17');
+    expect(out).not.toContain('resourceKpi.planContractors');
+    expect(out).toContain('detail.noDailyData');
   });
 });
 
@@ -76,6 +98,22 @@ describe('Task 2 - Timeline KH/TT dang thanh', () => {
     const out = await render({}, '17');
     expect(out).toContain('detail.tl.notStarted');
     expect(out).not.toContain('class="tlbar act"');
+  });
+});
+
+describe('T13a - cot trong so chuoi gia tri lay that tu project_stage_weight (P1B Task 2)', () => {
+  it('du an 1: trong so mac dinh 5/10/10/40/5/27/3 -> co "40%" (fabrication) va "5%" (design), khong con dau "-" cung', async () => {
+    const out = await render();
+    expect(out).toContain('class="w">40%</span>');
+    expect(out).toContain('class="w">5%</span>');
+    expect(out).not.toContain('class="w">-</span>');
+  });
+});
+
+describe('T13b - so tuyet doi (tan) canh % o chuoi gia tri (P1B Task 3, nhanh T)', () => {
+  it('du an 1: co hien so tan KH/TT cho giai doan dinh luong', async () => {
+    const out = await render();
+    expect(out).toContain('valueChainAbs.ton');
   });
 });
 

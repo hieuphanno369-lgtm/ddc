@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import type { CurrentUser } from '@/lib/session';
 import type { Role } from '@/server/repo/types';
+import { computeSearchNavParams } from '@/lib/search-box-nav';
 import { SettingsMenu } from './SettingsMenu';
 import { TopProgressBar } from './TopProgressBar';
 import { SyncProgressBar } from './SyncProgressBar';
@@ -170,11 +171,8 @@ function SearchBox() {
   const [v, setV] = useState(searchParams.get('search') ?? '');
   useEffect(() => {
     const id = setTimeout(() => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (!v) params.delete('search');
-      else params.set('search', v);
-      params.delete('page');
-      const qs = params.toString();
+      const qs = computeSearchNavParams(searchParams.toString(), v);
+      if (qs === null) return; // không có gì thay đổi thật -> không đụng URL (bug 3.16)
       router.replace(qs ? `?${qs}` : '?', { scroll: false });
     }, 300);
     return () => clearTimeout(id);

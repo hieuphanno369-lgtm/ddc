@@ -609,5 +609,20 @@
       "tooBig": "{name}: empty or larger than {mb}MB",
       "failed": "{name}: {msg}"
     }
+  },
+  "resourceKpi": {
+    "manpowerTotal": "Total manpower",
+    "equipmentTotal": "Total equipment",
+    "asOf": "Data of {date}",
+    "planContractors": "Plan {planned} · {n} contractors"
+  },
+  "valueChainAbs": {
+    "ton": "{actual}/{planned} t"
+  },
+  "logPaging": {
+    "range14": "Last 14 days",
+    "rangeAll": "All",
+    "prev": "Previous page",
+    "next": "Next page"
   }
 }

@@ -10,9 +10,8 @@ import {
   loadTonnageByGroup,
   loadWatchlist,
 } from '@/server/cache';
-import { getScopedProjectIds, type DashboardFilters, type GroupBy } from '@/server/queries';
-import { repo } from '@/server/repo';
-import { historyMonths } from '@/lib/clock';
+import type { DashboardFilters, GroupBy } from '@/server/queries';
+import { getOverdueScorecard, type Scorecard } from '@/server/overdue-scorecard';
 import { formatTyd } from '@/lib/format';
 import { THRESHOLDS } from '@/lib/thresholds';
 import { KpiCard } from './KpiCard';
@@ -25,7 +24,6 @@ import { IconAlert, IconFlag, IconMoney, IconProject, IconFactory, IconTrend } f
 
 const CapacityBar = dynamic(() => import('./charts').then((m) => m.CapacityBar), { ssr: false, loading: () => <CardSkeleton h={220} /> });
 const SCurve = dynamic(() => import('./charts').then((m) => m.SCurve), { ssr: false, loading: () => <CardSkeleton h={240} /> });
-const BacklogOverdueLine = dynamic(() => import('./charts').then((m) => m.BacklogOverdueLine), { ssr: false, loading: () => <CardSkeleton h={160} /> });
 const SpiCpiLine = dynamic(() => import('./charts').then((m) => m.SpiCpiLine), { ssr: false, loading: () => <CardSkeleton h={200} /> });
 const DrillDonut = dynamic(() => import('./DrillCharts').then((m) => m.DrillDonut), { ssr: false, loading: () => <CardSkeleton h={200} /> });
 const GroupByCard = dynamic(() => import('./DrillCharts').then((m) => m.GroupByCard), { ssr: false, loading: () => <CardSkeleton h={260} /> });
@@ -120,38 +118,18 @@ export async function SpiCpiCard({ filters }: { filters: DashboardFilters }) {
 export async function BacklogOverdueCard({ month, filters }: { month: string; filters: DashboardFilters }) {
   const t = await getTranslations();
   const locale = await getLocale();
-  const scopedIds = await getScopedProjectIds(filters);
   const kpis = await loadPortfolioKpis(month, filters);
-  const months = historyMonths();
-  const backlogTrend = await Promise.all(
-    months.map(async (m) =>
-      (await repo.getFinancialForMonth(m)).filter((f) => scopedIds.has(f.projectId)).reduce((a, b) => a + b.backlog, 0),
-    ),
-  );
-  const overdueTrend = await Promise.all(
-    months.map(async (m) =>
-      (await repo.getFinancialForMonth(m)).filter((f) => scopedIds.has(f.projectId)).reduce((a, b) => a + b.arOverdue, 0),
-    ),
-  );
-  const totalOverdue = (await repo.getFinancialForMonth(month))
-    .filter((f) => scopedIds.has(f.projectId))
-    .reduce((a, b) => a + b.arOverdue, 0);
-  const data = months.map((m, i) => ({ month: m, backlog: backlogTrend[i], overdue: overdueTrend[i] }));
+  const backlog: Scorecard = { value: kpis.backlog, delta: kpis.delta.backlog };
+  const overdue = await getOverdueScorecard(month, filters);
   return (
     <Card>
       <CardHeader title={t('overview.backlogOverdue')} />
-      <CardBody className="flex flex-col gap-3">
-        <div className="g2">
-          <div>
-            <div className="text-caption2 font-bold uppercase tracking-[.025em] text-label3">{t('kpi.backlog')}</div>
-            <div className="text-title3 font-bold">{formatTyd(kpis.backlog, locale)}</div>
-          </div>
-          <div>
-            <div className="text-caption2 font-bold uppercase tracking-[.025em] text-label3">{t('metric.overdue')}</div>
-            <div className="text-title3 font-bold" style={{ color: 'var(--danger)' }}>{formatTyd(totalOverdue, locale)}</div>
-          </div>
-        </div>
-        <BacklogOverdueLine data={data} />
+      <CardBody>
+        <Rise className="kpis k2">
+          <KpiCard label={t('kpi.backlog')} value={formatTyd(backlog.value, locale)} delta={backlog.delta} deltaSuffix={t('common.previousMonth')} tone="neutral" icon={IconMoney} />
+          <KpiCard label={t('metric.overdue')} value={formatTyd(overdue.value, locale)} delta={overdue.delta} deltaSuffix={t('common.previousMonth')}
+            tone={overdue.value > 0 ? 'danger' : 'neutral'} invertDelta icon={IconAlert} />
+        </Rise>
       </CardBody>
     </Card>
   );

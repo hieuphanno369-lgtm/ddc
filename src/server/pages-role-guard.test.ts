@@ -43,6 +43,19 @@ vi.mock('@/server/report', () => ({
     rows: [],
   })),
 }));
+// getAuditLogPage doc Prisma truc tiep - mock lai bang mock-repo de khong choc Postgres that
+// (Bước 3, ke-hoach.md Task 6).
+vi.mock('@/server/audit-log-page', async () => {
+  const { repo } = await import('@/server/repo/mock-repo');
+  const { paginate, logSince } = await import('@/lib/log-paging');
+  return {
+    getAuditLogPage: vi.fn(async ({ page, range, pageSize = 20, now = new Date() }: { page: number; range: 'all' | '14d'; pageSize?: number; now?: Date }) => {
+      const since = logSince(range, now);
+      const rows = repo.getAuditLog().filter((a) => !since || new Date(a.changedAt) >= since);
+      return { ...paginate(rows, page, pageSize), pageSize };
+    }),
+  };
+});
 
 import * as React from 'react';
 import { getCurrentUser } from '@/lib/session';
@@ -112,26 +125,26 @@ describe.each(OPERATION_PAGES)('guard %s (admin + bod)', (_path, page) => {
 describe('guard /audit (CHỈ admin)', () => {
   it('chưa đăng nhập → /vi/login', async () => {
     login(null);
-    expect(await visit(AuditPage)).toBe('/vi/login');
+    expect(await visit(() => AuditPage({}))).toBe('/vi/login');
   });
 
   it('admin được vào', async () => {
     login(user('admin'));
-    expect(await visit(AuditPage)).toBeNull();
+    expect(await visit(() => AuditPage({}))).toBeNull();
   });
 
   it('bod bị đá về /vi/overview', async () => {
     login(user('bod'));
-    expect(await visit(AuditPage)).toBe('/vi/overview');
+    expect(await visit(() => AuditPage({}))).toBe('/vi/overview');
   });
 
   it('data-entry bị đá về /vi/nhap-lieu', async () => {
     login(user('data-entry'));
-    expect(await visit(AuditPage)).toBe('/vi/nhap-lieu');
+    expect(await visit(() => AuditPage({}))).toBe('/vi/nhap-lieu');
   });
 
   it('viewer bị đá về /vi/overview', async () => {
     login(user('viewer'));
-    expect(await visit(AuditPage)).toBe('/vi/overview');
+    expect(await visit(() => AuditPage({}))).toBe('/vi/overview');
   });
 });

@@ -1,7 +1,7 @@
 import { loadPortfolioKpis, loadWatchlist } from '@/server/cache';
 import { repo } from '@/server/repo';
 import { currentMonth } from '@/lib/clock';
-import type { PortfolioKpis, ProjectSummary } from '@/server/queries';
+import { getProjectSummaries, type PortfolioKpis, type ProjectSummary } from '@/server/queries';
 
 export interface ReportRow {
   id: number;
@@ -10,7 +10,7 @@ export interface ReportRow {
   spi: number | null;
   cpi: number | null;
   pctActual: number;
-  backlog: number; // FactFinancial.backlog tháng hiện tại
+  backlog: number; // Giá trị HĐ nếu dự án Chuẩn bị, còn lại 0
 }
 
 export interface ReportData {
@@ -27,11 +27,13 @@ export async function getReportData(month: string = currentMonth()): Promise<Rep
     (w) => w.priority === 'P0' && (w.penalty === 'risk' || w.penalty === 'penalized'),
   );
   const projects = await repo.listProjects();
-  const financial = await repo.getFinancialForMonth(month);
+  // Backlog từng dòng dùng chung định nghĩa với thẻ KPI Tổng quan (chủ dự án chốt 2026-09-24,
+  // P1B/T12a, bước 8A-4): giá trị HĐ nếu dự án đang "Chuẩn bị", còn lại 0.
+  const summaryById = new Map((await getProjectSummaries(month)).map((x) => [x.id, x]));
   const rows = await Promise.all(
     projects.map(async (p) => {
       const fact = await repo.getLatestFact(p.id, month);
-      const fin = financial.find((f) => f.projectId === p.id);
+      const s = summaryById.get(p.id);
       return {
         id: p.id,
         code: p.currentAliasCode,
@@ -39,7 +41,7 @@ export async function getReportData(month: string = currentMonth()): Promise<Rep
         spi: fact?.spi != null ? Math.round(fact.spi * 100) / 100 : null,
         cpi: fact?.cpi != null ? Math.round(fact.cpi * 100) / 100 : null,
         pctActual: fact?.pctActual ?? 0,
-        backlog: fin?.backlog ?? 0,
+        backlog: s?.status === 'Chuan_bi' ? s.contractValue : 0,
       };
     }),
   );

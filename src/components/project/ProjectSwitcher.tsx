@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import { IconSearch } from '@/components/icons';
+import { listboxKeyAction } from '@/lib/list-nav';
 
 /**
  * Combobox tìm kiếm dự án - gõ keyword (tên/mã) ra gợi ý, click chọn.
@@ -20,7 +21,10 @@ export function ProjectSwitcher({
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
   const ref = useRef<HTMLDivElement>(null);
+  const listId = useId();
+  const optId = (i: number) => `${listId}-o${i}`;
   const current = projects.find((p) => p.id === currentId);
 
   const q = query.trim().toLowerCase();
@@ -29,6 +33,7 @@ export function ProjectSwitcher({
         .filter((p) => p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q))
         .slice(0, 10)
     : [];
+  const count = results.length;
 
   useEffect(() => {
     function onOutside(e: MouseEvent) {
@@ -37,6 +42,16 @@ export function ProjectSwitcher({
     document.addEventListener('mousedown', onOutside);
     return () => document.removeEventListener('mousedown', onOutside);
   }, []);
+
+  // Danh sach loc lai khi query hoac trang thai dong/mo doi -> bo chon active cu.
+  useEffect(() => {
+    setActive(-1);
+  }, [query, open]);
+
+  useEffect(() => {
+    if (active >= 0) document.getElementById(optId(active))?.scrollIntoView({ block: 'nearest' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
 
   function select(id: number) {
     setOpen(false);
@@ -55,21 +70,49 @@ export function ProjectSwitcher({
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
+          onKeyDown={(e) => {
+            const a = listboxKeyAction(e.key, { open, active, count });
+            if (a.type === 'none') return;
+            e.preventDefault();
+            if (a.type === 'open') {
+              setOpen(true);
+              setActive(a.active);
+            } else if (a.type === 'move') {
+              setActive(a.active);
+            } else if (a.type === 'choose') {
+              select(results[a.index].id);
+            } else {
+              setOpen(false);
+              setQuery('');
+            }
+          }}
           placeholder={current ? `${current.code} - ${current.name}` : t('common.searchProject')}
           className="inp pl-8"
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={open && active >= 0 ? optId(active) : undefined}
         />
       </div>
 
       {open && q && (
-        <div className="pop">
+        <div className="pop" id={results.length > 0 ? listId : undefined} role={results.length > 0 ? 'listbox' : undefined}>
           {results.length === 0 ? (
             <p className="px-3 py-2.5 text-caption1 text-label3">{t('common.noResult')}</p>
           ) : (
-            results.map((p) => (
+            results.map((p, i) => (
               <button
                 key={p.id}
+                type="button"
+                id={optId(i)}
+                role="option"
+                aria-selected={i === active}
+                tabIndex={-1}
+                onMouseEnter={() => setActive(i)}
                 onClick={() => select(p.id)}
                 className="flex items-center gap-2"
+                style={i === active ? { background: 'var(--fill)' } : undefined}
               >
                 <span className="mono shrink-0">{p.code}</span>
                 <span className="flex-1 truncate">{p.name}</span>

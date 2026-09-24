@@ -65,6 +65,36 @@ describe('getResourceSnapshot - N-6: nhân lực và thiết bị lệch ngày n
   });
 });
 
+describe('getResourceSnapshot - manpowerContractors/equipmentContractors (P1B Task 1, the A)', () => {
+  it('nhan luc: dem so nha thau KHAC NHAU trong dung ngay cuoi cung (bo qua ngay truoc)', async () => {
+    vi.spyOn(repo, 'getDailyManpower').mockResolvedValueOnce([
+      { projectId: 1, contractorId: 3, workDate: '2026-09-15', plannedHeadcount: 10, actualHeadcount: 9 },
+      { projectId: 1, contractorId: 1, workDate: '2026-09-16', plannedHeadcount: 5, actualHeadcount: 4 },
+      { projectId: 1, contractorId: 2, workDate: '2026-09-16', plannedHeadcount: 5, actualHeadcount: 4 },
+    ]);
+
+    const s = await getResourceSnapshot(1, MONTH);
+    expect(s.manpowerContractors).toBe(2);
+  });
+
+  it('thiet bi: dem so nha thau KHAC NHAU (khong phai so dong) trong dung ngay cuoi', async () => {
+    vi.spyOn(repo, 'getDailyEquipment').mockResolvedValueOnce([
+      { projectId: 1, contractorId: 1, equipmentId: 1, workDate: '2026-09-16', qtyPlanned: 1, qtyActual: 1 },
+      { projectId: 1, contractorId: 1, equipmentId: 2, workDate: '2026-09-16', qtyPlanned: 1, qtyActual: 1 },
+      { projectId: 1, contractorId: 4, equipmentId: 1, workDate: '2026-09-16', qtyPlanned: 1, qtyActual: 1 },
+    ]);
+
+    const s = await getResourceSnapshot(1, MONTH);
+    expect(s.equipmentContractors).toBe(2);
+  });
+
+  it('du an chua co du lieu ngay -> ca 2 bang 0', async () => {
+    const s = await getResourceSnapshot(17, MONTH);
+    expect(s.manpowerContractors).toBe(0);
+    expect(s.equipmentContractors).toBe(0);
+  });
+});
+
 describe('resourceWindow', () => {
   it('tháng hiện tại → kết thúc ở HÔM NAY, không phải cuối tháng', () => {
     expect(resourceWindow('2026-09').to).toBe('2026-09-16');

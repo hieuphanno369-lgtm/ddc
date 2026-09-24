@@ -52,6 +52,8 @@ const CHANGED_SOURCES: Record<string, string> = {
   'StageTimelineChart': 'src/components/project/StageTimelineChart.tsx',
   'stageText': 'src/components/project/stageText.ts',
   'WorkItemCompareChart': 'src/components/project/WorkItemCompareChart.tsx',
+  'trang /admin': 'app/[locale]/(app)/admin/page.tsx',
+  'ActivityViewer': 'src/components/admin/ActivityViewer.tsx',
 };
 
 describe('i18n: vi/en phủ key như nhau', () => {

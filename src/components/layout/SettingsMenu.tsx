@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { signOut } from 'next-auth/react';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import type { CurrentUser } from '@/lib/session';
 import type { Role } from '@/server/repo/types';
+import { nextActiveIndex } from '@/lib/list-nav';
 import {
   IconAdmin,
   IconBook,
@@ -77,6 +78,9 @@ function Section({
     <div className="border-b border-sep">
       <button
         onClick={onToggle}
+        role="menuitem"
+        tabIndex={-1}
+        aria-expanded={open}
         className="flex w-full items-center gap-2 px-3 py-2 text-caption2 font-bold uppercase tracking-[.06em] text-label3 hover:bg-fill"
       >
         <span className="flex-1 text-left">{label}</span>
@@ -96,18 +100,38 @@ export function SettingsMenu({ user }: { user: CurrentUser }) {
   const [open, setOpen] = useState(false);
   const [openCat, setOpenCat] = useState<CatKey | null>(null);
   const [showPw, setShowPw] = useState(false);
+  const [focusOnOpen, setFocusOnOpen] = useState<'first' | 'last'>('first');
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+
+  function close(returnFocus: boolean) {
+    setOpen(false);
+    if (returnFocus) triggerRef.current?.focus();
+  }
 
   useEffect(() => {
     const saved = (localStorage.getItem('ddc-theme') as Theme) || 'system';
     setTheme(saved);
     applyTheme(saved);
     function onOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) close(false);
     }
     document.addEventListener('mousedown', onOutside);
     return () => document.removeEventListener('mousedown', onOutside);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Danh sach menuitem doc dong (Section co the dang mo/dong lam doi danh sach).
+  const items = () => Array.from(panelRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+
+  useEffect(() => {
+    if (!open) return;
+    const list = items();
+    (focusOnOpen === 'last' ? list.at(-1) : list[0])?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   function toggleCat(key: CatKey) {
     setOpenCat((cur) => (cur === key ? null : key));
@@ -117,12 +141,12 @@ export function SettingsMenu({ user }: { user: CurrentUser }) {
     setTheme(next);
     localStorage.setItem('ddc-theme', next);
     applyTheme(next);
-    setOpen(false);
+    close(true);
   }
 
   function chooseLocale(next: (typeof LOCALES)[number]) {
     router.replace(pathname, { locale: next });
-    setOpen(false);
+    close(true);
   }
 
   function logout() {
@@ -139,7 +163,25 @@ export function SettingsMenu({ user }: { user: CurrentUser }) {
   return (
     <div className="relative" ref={ref}>
       <button
-        onClick={() => setOpen((v) => !v)}
+        ref={triggerRef}
+        onClick={() => {
+          setFocusOnOpen('first');
+          setOpen((v) => !v);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setFocusOnOpen('first');
+            setOpen(true);
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setFocusOnOpen('last');
+            setOpen(true);
+          }
+        }}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={menuId}
         className="rounded-sm p-2 text-label3 transition-colors duration-fast ease-std hover:bg-fill hover:text-label"
         title={t('settings.title')}
       >
@@ -147,7 +189,25 @@ export function SettingsMenu({ user }: { user: CurrentUser }) {
       </button>
 
       {open && (
-        <div className="mat mat-chrome absolute bottom-full right-0 z-50 mb-1 w-56 overflow-hidden rounded-md">
+        <div
+          id={menuId}
+          role="menu"
+          ref={panelRef}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+              const list = items();
+              const i = list.indexOf(document.activeElement as HTMLElement);
+              list[nextActiveIndex(i, e.key, list.length)]?.focus();
+              e.preventDefault();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              close(true);
+            } else if (e.key === 'Tab') {
+              close(false);
+            }
+          }}
+          className="mat mat-chrome absolute bottom-full right-0 z-50 mb-1 w-56 overflow-hidden rounded-md"
+        >
           {/* User */}
           <div className="flex items-center gap-3 border-b border-sep px-3 py-3">
             <div className="avatar" style={{ width: 36, height: 36, flex: '0 0 36px' }}>
@@ -168,7 +228,9 @@ export function SettingsMenu({ user }: { user: CurrentUser }) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  onClick={() => setOpen(false)}
+                  role="menuitem"
+                  tabIndex={-1}
+                  onClick={() => close(false)}
                   className={`${itemCls} ${active ? activeCls : idleCls}`}
                 >
                   <Icon size={16} />
@@ -183,6 +245,8 @@ export function SettingsMenu({ user }: { user: CurrentUser }) {
             {THEMES.map(({ key, icon: Icon }) => (
               <button
                 key={key}
+                role="menuitem"
+                tabIndex={-1}
                 onClick={() => choose(key)}
                 className={`${itemCls} ${theme === key ? activeCls : idleCls}`}
               >
@@ -198,6 +262,8 @@ export function SettingsMenu({ user }: { user: CurrentUser }) {
             {LOCALES.map((l) => (
               <button
                 key={l}
+                role="menuitem"
+                tabIndex={-1}
                 onClick={() => chooseLocale(l)}
                 className={`${itemCls} ${locale === l ? activeCls : idleCls}`}
               >
@@ -211,9 +277,11 @@ export function SettingsMenu({ user }: { user: CurrentUser }) {
           {/* USER */}
           <Section label={t('settings.user')} open={openCat === 'user'} onToggle={() => toggleCat('user')}>
             <button
+              role="menuitem"
+              tabIndex={-1}
               onClick={() => {
                 setShowPw(true);
-                setOpen(false);
+                close(true);
               }}
               className={`${itemCls} text-label2`}
             >
@@ -223,7 +291,7 @@ export function SettingsMenu({ user }: { user: CurrentUser }) {
           </Section>
 
           <div className="pt-1">
-            <button onClick={logout} className={`${itemCls} text-danger`}>
+            <button role="menuitem" tabIndex={-1} onClick={logout} className={`${itemCls} text-danger`}>
               <IconLogout size={16} />
               {t('auth.signOut')}
             </button>

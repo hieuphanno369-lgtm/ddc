@@ -7,9 +7,13 @@ import { HelpTip } from './HelpTip';
 (globalThis as unknown as { React: typeof React }).React = React;
 
 describe('HelpTip', () => {
-  it('render dung nut "?" + bong bong, alignRight -> class "help rt"', () => {
+  it('render dung nut "?" + bong bong, alignRight -> class "help rt"; co aria-describedby khop id bong bong (Task 5)', () => {
     const out = renderToStaticMarkup(React.createElement(HelpTip, { text: 'Nội dung', label: 'Giải thích', alignRight: true }));
-    expect(out).toBe('<button type="button" class="help rt" aria-label="Giải thích">?<span class="bub">Nội dung</span></button>');
+    expect(out).toContain('class="help rt"');
+    expect(out).toContain('aria-label="Giải thích"');
+    const m = out.match(/aria-describedby="([^"]+)"/);
+    expect(m?.[1]).toBeTruthy();
+    expect(out).toContain(`<span class="bub" id="${m![1]}" role="tooltip">Nội dung</span>`);
   });
 
   it('khong alignRight -> class "help"', () => {
