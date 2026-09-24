@@ -2,6 +2,7 @@
 
 import { logActivity } from '@/lib/activity';
 import { todayIso } from '@/lib/clock';
+import { runAlertEngineSafe } from './alert-engine';
 import { dailyDateWindow, isInWindow, needsReason, hasFutureActual, DAILY_REASON_MIN, type EquipmentCellInput, type ManpowerCellInput } from '@/lib/daily-entry';
 import {
   DAILY_IMPORT_MAX_DAYS, DAILY_IMPORT_MAX_ROWS, groupImportByDay, parseEquipmentSheet, parseManpowerSheet, type DailyImportRow,
@@ -132,6 +133,7 @@ export async function saveDailyResourcesAction(
     user.email,
     parsed.data.reason?.trim() ?? '',
   );
+  await runAlertEngineSafe(projectId).catch(() => {});
   await logActivity(user, 'save_daily_resources', `project ${projectId} · ${workDate}`);
   return { ok: true, ...result };
 }
@@ -241,6 +243,7 @@ export async function commitDailyImportAction(
     updated += r.updated;
     unchanged += r.unchanged;
   }
+  await runAlertEngineSafe(projectId).catch(() => {});
   await logActivity(user, 'commit_daily_import', `project ${projectId} · ${parsed.data.days.length} ngày`);
   return { ok: true, days: parsed.data.days.length, created, updated, unchanged };
 }

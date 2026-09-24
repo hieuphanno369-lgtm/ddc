@@ -753,5 +753,16 @@
     "err": {
       "invalid": "Tỷ giá phải là số > 0, tháng không ở tương lai."
     }
+  },
+  "alertClose": {
+    "action": "Hành động đã xử lý",
+    "note": "Ghi chú (tuỳ chọn)",
+    "confirm": "Xác nhận đóng",
+    "cancel": "Huỷ",
+    "err": {
+      "action_short": "Nhập hành động đã xử lý (ít nhất 3 ký tự).",
+      "already_closed": "Alert này đã được đóng.",
+      "forbidden": "Bạn không có quyền đóng alert này."
+    }
   }
 }

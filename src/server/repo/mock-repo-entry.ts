@@ -1,8 +1,8 @@
 import type { RepoData } from '@/data/seed/history';
 import type { EquipmentCellInput, ManpowerCellInput } from '@/lib/daily-entry';
 import type {
-  AuditLogEntry, Contractor, CurrencyCode, ExchangeRate, FactDailyManpowerShift, FactVolume, Factory, FxSource,
-  JobName, JobRunEntry, JobTrigger, Shift,
+  AlertLog, AuditLogEntry, Contractor, CurrencyCode, ExchangeRate, FactDailyManpowerShift, FactVolume, Factory,
+  FxSource, JobName, JobRunEntry, JobTrigger, NewEngineAlert, Shift,
 } from './types';
 
 export interface EntryMockDeps {
@@ -305,6 +305,31 @@ export function makeEntryMockRepo({ getData, persist }: EntryMockDeps) {
         .jobRuns.filter((r) => r.jobName === jobName)
         .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
         .slice(0, limit);
+    },
+
+    /**
+     * T11 (Task 8): ghi các alert engine vừa bắn - bỏ qua nếu đã có alert cùng (projectId, dedupeKey)
+     * bất kể đóng/mở (K6), HOẶC đang có alert MỞ cùng (projectId, ruleCode). Trả số dòng tạo mới.
+     */
+    insertEngineAlerts(rows: NewEngineAlert[]): number {
+      const d = getData();
+      let created = 0;
+      for (const r of rows) {
+        const dup = d.alerts.some((a) => a.projectId === r.projectId && a.dedupeKey === r.dedupeKey);
+        const openSameRule = d.alerts.some((a) => a.projectId === r.projectId && a.ruleCode === r.ruleCode && !a.closedAt);
+        if (dup || openSameRule) continue;
+        const id = d.alerts.reduce((m, a) => Math.max(m, a.id), 0) + 1;
+        const entry: AlertLog = {
+          id, projectId: r.projectId, alertType: r.alertType, ruleTriggered: r.ruleTriggered, message: r.message,
+          openedAt: r.openedAt, closedAt: null, owner: r.owner, action: '', deadline: r.deadline,
+          ruleCode: r.ruleCode, dedupeKey: r.dedupeKey, closedBy: null, closeNote: '',
+          notifyChannel: null, notifySentAt: null, notifyError: null, notifyAttempts: 0,
+        };
+        d.alerts.push(entry);
+        created++;
+      }
+      if (created > 0) persist();
+      return created;
     },
   };
 }

@@ -1,9 +1,9 @@
 import { prisma } from '@/server/db';
-import type { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import type { EquipmentCellInput, ManpowerCellInput } from '@/lib/daily-entry';
 import type {
   Contractor, CurrencyCode, ExchangeRate, FactDailyManpowerShift, FactVolume, Factory, FxSource,
-  JobName, JobRunEntry, JobTrigger, Shift,
+  JobName, JobRunEntry, JobTrigger, NewEngineAlert, Shift,
 } from './types';
 
 /** 'YYYY-MM-DD' → Date tại 00:00:00Z, để so sánh với cột @db.Date (khớp prisma-repo.ts). */
@@ -305,5 +305,34 @@ export const entryPrismaRepo = {
       status: r.status as JobRunEntry['status'], detail: r.detail,
       startedAt: r.startedAt.toISOString(), finishedAt: iso(r.finishedAt), startedBy: r.startedBy,
     }));
+  },
+
+  /**
+   * T11 (Task 8): ghi các alert engine vừa bắn - bỏ qua nếu đã có alert cùng (projectId, dedupeKey)
+   * bất kể đóng/mở (K6), HOẶC đang có alert MỞ cùng (projectId, ruleCode). Trả số dòng tạo mới.
+   */
+  async insertEngineAlerts(rows: NewEngineAlert[]): Promise<number> {
+    let created = 0;
+    for (const r of rows) {
+      const openSameRule = await prisma.alertLog.findFirst({
+        where: { projectId: r.projectId, ruleCode: r.ruleCode, closedAt: null },
+      });
+      if (openSameRule) continue;
+      try {
+        await prisma.alertLog.create({
+          data: {
+            projectId: r.projectId, alertType: r.alertType, ruleTriggered: r.ruleTriggered, message: r.message,
+            openedAt: new Date(r.openedAt), closedAt: null, owner: r.owner, action: '', deadline: r.deadline,
+            ruleCode: r.ruleCode, dedupeKey: r.dedupeKey, closedBy: null, closeNote: '',
+            notifyChannel: null, notifySentAt: null, notifyError: null, notifyAttempts: 0,
+          },
+        });
+        created++;
+      } catch (e) {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') continue;
+        throw e;
+      }
+    }
+    return created;
   },
 };

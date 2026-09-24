@@ -275,3 +275,30 @@ describe('saveMonthlyData - T8 (Task 6, P2A): khu vuc san xuat + san luong', () 
     expect(res).toEqual({ ok: false, error: 'invalid_factory' });
   });
 });
+
+describe('saveMonthlyData - T11 (Task 8, P2A): engine canh bao', () => {
+  it("lam SPI < 0.9 cho du an 3 (chua co alert SPI thang nay) -> co alert 'spi_low' moi", async () => {
+    login(ADMIN);
+    const before = repo.getAlerts().filter((a) => a.projectId === 3 && a.ruleCode === 'spi_low' && !a.closedAt);
+    expect(before).toHaveLength(0);
+
+    const weights = repo.getStageWeights(3);
+    const chain = weights.map((w) => ({ stageCode: w.stageCode, pctComplete: 0.1, applicable: w.applicable }));
+    const res = await saveMonthlyData(3, YM, { chain });
+
+    expect(res).toEqual({ ok: true });
+    const after = repo.getAlerts().filter((a) => a.projectId === 3 && a.ruleCode === 'spi_low' && !a.closedAt);
+    expect(after).toHaveLength(1);
+  });
+
+  it('runAlertEngineSafe bi spy throw -> saveMonthlyData van { ok: true }', async () => {
+    login(ADMIN);
+    const spy = vi.spyOn(await import('@/server/alert-engine'), 'runAlertEngineSafe').mockRejectedValue(new Error('boom'));
+    try {
+      const res = await saveMonthlyData(1, YM, { ac: 10 });
+      expect(res).toEqual({ ok: true });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});

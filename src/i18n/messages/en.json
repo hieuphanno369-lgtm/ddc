@@ -753,5 +753,16 @@
     "err": {
       "invalid": "Rate must be > 0 and month not in the future."
     }
+  },
+  "alertClose": {
+    "action": "Action taken",
+    "note": "Note (optional)",
+    "confirm": "Confirm close",
+    "cancel": "Cancel",
+    "err": {
+      "action_short": "Describe the action taken (at least 3 chars).",
+      "already_closed": "This alert is already closed.",
+      "forbidden": "You are not allowed to close this alert."
+    }
   }
 }

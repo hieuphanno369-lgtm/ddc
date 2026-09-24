@@ -3,6 +3,7 @@
  * Single source of truth cho types. Đổi sang Prisma/Supabase sau: giữ nguyên
  * các type này, chỉ swap phần repository impl.
  */
+import type { AlertCandidate } from '@/lib/alert-rules';
 
 export type Market = 'TN' | 'XK' | 'NoiBo';
 export type ProjectType =
@@ -461,6 +462,14 @@ export interface NotifyRecipient {
   email: string;
   minSeverity: AlertSeverity;
   isEnabled: boolean;
+}
+
+// ---- T11 (Task 8, P2A): engine cảnh báo ----
+/** `AlertCandidate` (`src/lib/alert-rules.ts`) + phần engine tự gán (owner/deadline/openedAt). */
+export interface NewEngineAlert extends AlertCandidate {
+  owner: string;
+  deadline: string; // 'YYYY-MM-DD'
+  openedAt: string; // ISO timestamp
 }
 
 export interface SapQueueItem {

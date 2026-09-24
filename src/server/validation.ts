@@ -278,3 +278,10 @@ export const commitDailyImportSchema = z.object({
     .min(1),
   reason: z.string().trim().max(500).optional(),
 });
+
+/** T11 (Task 8, P2A): đóng alert - bắt buộc ghi hành động đã xử lý (Q12). */
+export const closeAlertSchema = z.object({
+  alertId: z.number().int().positive(),
+  action: z.string().trim().min(3).max(500),
+  note: z.string().trim().max(1000),
+});

@@ -151,4 +151,36 @@ describe('closeAlertAction - ma trận quyền (Q1: BOD đóng được alert)',
       expect(closedAt(alert.id)).toBeNull();
     });
   });
+
+  describe('T11 (Task 8): hành động bắt buộc + không đóng 2 lần', () => {
+    it("action 'ab' (< 3 ký tự) -> action_short, alert giữ nguyên đang mở", async () => {
+      const alert = alertFor(false);
+      login(ADMIN);
+
+      const res = await closeAlertAction(alert.id, 'ab');
+
+      expect(res).toEqual({ ok: false, error: 'action_short' });
+      expect(closedAt(alert.id)).toBeNull();
+    });
+
+    it('đóng lần 2 -> already_closed', async () => {
+      const alert = alertFor(false);
+      login(ADMIN);
+
+      expect(await closeAlertAction(alert.id, 'Đã xử lý')).toEqual({ ok: true });
+      expect(await closeAlertAction(alert.id, 'Đã xử lý lần 2')).toEqual({ ok: false, error: 'already_closed' });
+    });
+
+    it('đóng kèm ghi chú -> closeNote va closedBy đúng email', async () => {
+      const alert = alertFor(false);
+      login(ADMIN);
+
+      const res = await closeAlertAction(alert.id, 'Đã xử lý', 'Đã liên hệ nhà thầu');
+
+      expect(res).toEqual({ ok: true });
+      const saved = repo.getAlerts().find((a) => a.id === alert.id);
+      expect(saved?.closeNote).toBe('Đã liên hệ nhà thầu');
+      expect(saved?.closedBy).toBe(ADMIN.email);
+    });
+  });
 });

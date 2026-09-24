@@ -1,9 +1,10 @@
-import { currentMonth } from '@/lib/clock';
+import { currentMonth, todayIso } from '@/lib/clock';
 import { missingRateCurrencies } from '@/lib/fx';
-import { isRatesDue } from '@/lib/job-schedule';
+import { isAlertsDailyDue, isRatesDue } from '@/lib/job-schedule';
 import type { JobName, JobTrigger } from './repo/types';
 import { repo } from './repo';
 import { refreshMonthRates } from './fx-rates';
+import { runAlertEngine } from './alert-engine';
 
 /** Chạy 1 job, luôn ghi job_run (running → ok/error) - KHÔNG BAO GIỜ throw. */
 export async function runJob(
@@ -21,8 +22,8 @@ export async function runJob(
         ? { status: 'ok', detail: `saved ${r.saved.join(',') || '-'}; manual: ${r.keptManual.join(',') || '-'}; missing: ${r.missingFromSource.join(',') || '-'}` }
         : { status: 'error', detail: `${r.error}: ${r.detail}` };
     } else {
-      // 'alerts_daily' - Task 8 se thay bang engine that (chua co o Task 7).
-      result = { status: 'error', detail: 'unknown_job' };
+      const r = await runAlertEngine({});
+      result = { status: 'ok', detail: `checked=${r.checked} created=${r.created}` };
     }
     await repo.finishJobRun(id, result.status, result.detail);
     return result;
@@ -52,10 +53,18 @@ export async function runDueJobs(trigger: 'lazy' | 'cron'): Promise<void> {
   g.__ddcJobsBusy = true;
   try {
     const ym = currentMonth();
-    const [rates, ratesRuns] = await Promise.all([repo.getExchangeRates(), repo.getRecentJobRuns('rates_monthly', 5)]);
+    const today = todayIso();
+    const [rates, ratesRuns, alertsRuns] = await Promise.all([
+      repo.getExchangeRates(),
+      repo.getRecentJobRuns('rates_monthly', 5),
+      repo.getRecentJobRuns('alerts_daily', 5),
+    ]);
     const missing = missingRateCurrencies(rates, ym).length > 0;
     if (isRatesDue(ratesRuns, missing, new Date())) {
       await runJob('rates_monthly', trigger, 'system');
+    }
+    if (isAlertsDailyDue(alertsRuns, today, new Date())) {
+      await runJob('alerts_daily', trigger, 'system');
     }
   } catch (e) {
     // eslint-disable-next-line no-console

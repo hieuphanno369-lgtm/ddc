@@ -8,11 +8,12 @@ import { hashPassword, verifyPassword } from '@/lib/password';
 import { calcChainPctActual, findCurrentStage, normPct } from '@/lib/stages';
 import type { CurrencyCode, KeyMilestoneInput, Market, Priority, Project, ProjectType, Role, StageCode } from './repo/types';
 import { listTag, overviewTag, profileTag, trendTag } from './cache';
-import { addSapCodeSchema, changePasswordSchema, commitImportSchema, createAccountSchema, createDimSchema, createProjectSchema, deletePhotoSchema, importFileSchema, lockMonthSchema, mergeDimSchema, renameDimSchema, resetPasswordSchema, saveKeyMilestonesSchema, saveMonthlyDataSchema, userRoleSchema } from './validation';
+import { addSapCodeSchema, changePasswordSchema, closeAlertSchema, commitImportSchema, createAccountSchema, createDimSchema, createProjectSchema, deletePhotoSchema, importFileSchema, lockMonthSchema, mergeDimSchema, renameDimSchema, resetPasswordSchema, saveKeyMilestonesSchema, saveMonthlyDataSchema, userRoleSchema } from './validation';
 import { repo } from './repo';
 import { deletePhotoFile } from '@/lib/uploads';
 import { addPhotoForUser } from './photo-service';
 import { historyMonths } from '@/lib/clock';
+import { runAlertEngineSafe } from './alert-engine';
 
 /** Chặn write theo role - viewer không được ghi, khóa số liệu chỉ Admin/Trưởng phòng. */
 async function requireRole(allowed: Role[]): Promise<CurrentUser | null> {
@@ -196,6 +197,7 @@ export async function saveMonthlyData(
     await repo.saveVolume(projectId, month, volumeTarget, volumeTonnage, by);
   }
 
+  await runAlertEngineSafe(projectId).catch(() => {});
   await logActivity(user, 'save_data', `project ${projectId} · ${month}`);
   revalidateTag(overviewTag(month));
   revalidateTag(trendTag);
@@ -361,13 +363,16 @@ export async function toggleAccountActiveAction(email: string, isActive: boolean
   return { ok: true };
 }
 
-export async function closeAlertAction(alertId: number, action: string) {
+export async function closeAlertAction(alertId: number, action: string, note = '') {
   const alert = (await repo.getAlerts()).find((a) => a.id === alertId);
   // Admin đóng mọi alert; data-entry chỉ alert dự án mình được gán (requireProject).
   // BOD (Trưởng phòng) cũng được đóng mọi alert - không phải PIC theo assignment nên xét riêng.
   const user = (await requireProject(alert?.projectId ?? -1)) ?? (await requireRole(['bod']));
   if (!user) return { ok: false, error: 'Forbidden' };
-  await repo.closeAlert(alertId, action, user.email);
+  const parsed = closeAlertSchema.safeParse({ alertId, action, note });
+  if (!parsed.success) return { ok: false, error: 'action_short' };
+  if (alert?.closedAt) return { ok: false, error: 'already_closed' };
+  await repo.closeAlert(alertId, parsed.data.action, user.email, parsed.data.note);
   await logActivity(user, 'close_alert', `alert ${alertId}`);
   for (const m of historyMonths()) revalidateTag(overviewTag(m));
   return { ok: true };
@@ -529,6 +534,12 @@ export async function commitImportAction(month: string, rows: { projectId: numbe
   }
   if (await repo.isMonthLocked(month)) return { ok: false, error: 'locked' };
   const result = await repo.importMonthlyFacts(month, target, user.email);
+
+  const failedIds = new Set(result.failed.map((f) => f.projectId));
+  const importedProjectIds = [...new Set(target.filter((r) => !failedIds.has(r.projectId)).map((r) => r.projectId))];
+  for (const projectId of importedProjectIds) {
+    await runAlertEngineSafe(projectId).catch(() => {});
+  }
 
   await logActivity(user, 'commit_import', `${result.imported} rows`);
   revalidateTag(overviewTag(month));

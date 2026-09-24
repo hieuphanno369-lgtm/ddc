@@ -38,9 +38,23 @@ describe('runJob', () => {
     expect(repo.getRecentJobRuns('rates_monthly', 5)[0].status).toBe('error');
   });
 
-  it("alerts_daily (Task 7, chua co engine) -> error unknown_job", async () => {
+  it("alerts_daily -> ghi run 'ok' detail checked=", async () => {
     const res = await runJob('alerts_daily', 'cron');
-    expect(res).toEqual({ status: 'error', detail: 'unknown_job' });
+    expect(res.status).toBe('ok');
+    expect(res.detail).toMatch(/^checked=\d+ created=\d+$/);
+    expect(repo.getRecentJobRuns('alerts_daily', 5)[0].status).toBe('ok');
+  });
+
+  it('engine alerts_daily throw (spy) -> run error, KHONG throw', async () => {
+    const spy = vi.spyOn(await import('./alert-engine'), 'runAlertEngine').mockRejectedValue(new Error('boom'));
+    try {
+      const res = await runJob('alerts_daily', 'cron');
+      expect(res.status).toBe('error');
+      expect(res.detail).toContain('boom');
+      expect(repo.getRecentJobRuns('alerts_daily', 5)[0].status).toBe('error');
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 
