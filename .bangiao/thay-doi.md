@@ -313,3 +313,55 @@ rủi ro "vỡ" vì trước đó thanh của nó cũng không hiện đúng, ki
   không liên quan thay đổi CSS, không lặp lại cùng 1 file ở 2 lần chạy). Không nới hay sửa test nào.
 
 **Commit:** `fix(p2b): the Chuoi gia tri thanh tien do khong hien mau - .stage .fill thieu display`.
+
+## Debugger vòng 2 (xác nhận độc lập bằng Playwright thật trên dev server, bổ sung ảnh chụp)
+
+Được giao lại đúng nhiệm vụ debug lỗi ĐỎ ở `.bangiao/ket-qua-test.md` vòng 2 (commit kiểm `102a467`).
+Trong lúc điều tra (đọc `page.tsx`/`globals.css`/`DataEntryForm.tsx`, chạy test RED để xác nhận), một
+phiên khác đã chạy song song và commit fix trước (`4024dd2` — xem mục "Debugger vòng 1" ngay trên) với
+**đúng root cause và đúng cách sửa** mà điều tra độc lập ở đây cũng đi tới (không hẹn mà gặp — cả 2 đều
+đọc `app/globals.css:469` không có `display:`, `<i className="fill">` ở `page.tsx:579` mặc định
+`display:inline`, và nhận ra `.bar-mini i{display:block;...}` ở `app/globals.css:194` là tiền lệ đúng
+chuẩn có sẵn trong chính file này cho đúng tình huống "thẻ `<i>` làm thanh fill"). Đã đối chiếu
+`git show 4024dd2 -- app/globals.css`: chỉ thêm `display:block;` vào đầu rule `.stage .fill{...}` —
+đúng 1 dòng, đúng chỗ, không đổi gì khác. **Không sửa lại code** (đã đúng, sửa lần 2 là thừa/rủi ro).
+
+**Phần còn thiếu ở vòng 1, bổ sung ở đây:** yêu cầu gốc của nhiệm vụ đòi xác nhận bằng mắt qua
+`mcp__playwright`/Playwright thật (không chỉ unit test render tĩnh) trên `http://localhost:3001`, cả
+desktop lẫn 390px, và chụp `.bangiao/anh-test/v2-fix-thanh-tien-do.png` — commit `4024dd2` chưa có ảnh
+nào. Đã bổ sung:
+
+- Dùng `playwright` cài **global** sẵn có trên máy (`npm ls -g playwright` → `1.63.0`, không đụng
+  `node_modules`/`package.json` của dự án) để đăng nhập thật `admin@daidung.com.vn` / `Admin@123` (mật
+  khẩu seed test, xem `docs/README_NON_TECH.md:161`) vào `http://localhost:3001/vi/projects/1` (dev
+  server PID 13700 đã chạy sẵn từ trước, không khởi động thêm).
+- Đọc `getComputedStyle(el).display` + `getBoundingClientRect()` cho MỌI phần tử `.stage .fill` trên
+  trang thật, ở cả 2 viewport `1440×1000` và `390×900`:
+  - Mọi `.fill` đều `display:"block"` (đã đổi từ `"inline"` trước sửa).
+  - 6 hàng không nghẽn (Thiết kế/Vật tư/Vận chuyển/Shop Drawing/Gia công = 100%, Nghiệm thu = 0%): độ
+    rộng thật tỉ lệ đúng theo `style.width` (vd desktop hàng 100% → `width:302px` = đúng bề ngang cột;
+    hàng 0% → `width:0`; không còn cố định `0×0` như trước sửa), nền `linear-gradient(90deg, rgb(42,
+    109, 180), rgb(29, 90, 158))` = đúng `var(--accent-2)`→`var(--accent)`.
+  - Hàng nghẽn "Lắp dựng" (33%, có class `.stage.bt`): độ rộng đúng tỉ lệ 33% cột (desktop 102px/302px
+    ≈ 33,8%, mobile 26,5px/72,6px ≈ 36,5% — khớp sai số do padding/viền, không phải lỗi), nền
+    `linear-gradient(90deg, rgb(255, 179, 64), rgb(178, 80, 0))` = đúng `#ffb340`→`var(--warn)` (cam),
+    khác hẳn 6 hàng xanh còn lại — xác nhận đúng yêu cầu mục 4(d) ("hàng nghẽn tô cam").
+- Ảnh chụp: `.bangiao/anh-test/v2-fix-thanh-tien-do.png` (bắt buộc theo yêu cầu, = bản sao của
+  `v2-fix-thanh-tien-do-desktop-card.png`), kèm `v2-fix-thanh-tien-do-desktop.png`/`-desktop-card.png`
+  (1440×1000, crop `.valueChainCard`) và `v2-fix-thanh-tien-do-mobile.png`/`-mobile-card.png`
+  (390×900) — nhìn thấy trực tiếp bằng mắt: 6 thanh xanh dài đúng theo %, 1 thanh cam (Lắp dựng 33,3%)
+  ngắn hơn hẳn, ở cả 2 độ rộng màn hình; ở 390px thẻ xuống đúng 1 cột (dưới breakpoint 1180px có sẵn).
+- `npx tsc --noEmit`: sạch (chạy lại sau khi tình trạng repo đã có commit `4024dd2`).
+- `npm test`: **1110/1110 xanh** (1 lần chạy đầy đủ không lỗi; 1 lần chạy trước đó 3 test
+  `report-export-route.test.ts` timeout do tải CPU song song với script Playwright cùng lúc — chạy lại
+  riêng file đó độc lập thì xanh trong 10,4 s, xác nhận flaky do tài nguyên máy lúc đó, không liên quan
+  thay đổi CSS; không sửa/nới test nào).
+
+**Không phát hiện thêm lỗi nào khác** ngoài đúng lỗi đã báo. `DataEntryForm.tsx:520` (wizard nhập liệu)
+dùng chung `.stage`/`.fill`/`.bar` — cùng được sửa theo do fix ở gốc CSS, không cần đổi file này (đã ghi
+trong "Debugger vòng 1"); không xác nhận riêng bằng Playwright ở đây vì đã có đủ bằng chứng CSS dùng
+chung selector và HTML cấu trúc giống hệt `page.tsx` (2 nơi cùng `<div className="bar"><i
+className="fill" ...>` bên trong `<div className="stage">`).
+
+**Commit (bổ sung, không đổi code sản phẩm):** `test(p2b): xac nhan sua thanh tien do bang Playwright
+that vong 2 - anh chup desktop+mobile`.
