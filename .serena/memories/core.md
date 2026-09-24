@@ -12,6 +12,9 @@ Invariants:
 - Clock is virtualized: read "today" via `src/lib/clock.ts`, never `new Date()` in business logic. `DDC_FAKE_TODAY` override is guarded to non-production only.
 - Fact/progress tables are append-only: rows carry `version`/`isLatest`, never UPDATE-in-place.
 - Per-project read authz goes through `src/server/authz.ts` (`requireProjectRead()`) — Admin/BOD see all projects, Data-entry/Viewer only projects listed in `project_assignments`. This was retrofitted after most routes already existed — verify a given route actually calls it, don't assume.
+- Manpower is stored PER SHIFT (`fact_daily_manpower.shiftCode` → `dim_shift`, open-ended code list, currently `morning`/`afternoon`); daily totals = sum of shifts (`src/lib/shifts.ts`, done in the repo layer). Never add fixed per-shift columns.
+- Photo uploads: both entry points (`addPhotoAction`, `POST /api/photo-upload`) go through `addPhotoForUser` (`src/server/photo-service.ts`); file type is decided by magic bytes (`detectImageKind` in `src/lib/uploads.ts`), never by client MIME/filename.
+- Finance visibility is fail-closed (`canViewFinance ?? false`); pages must self-check role, not rely on middleware alone.
 - 4 roles: Admin, BOD, Data-entry, Viewer. Auth = next-auth v4 credentials + Google OAuth stub (no CLIENT_ID set, not live).
 
 More: `mem:tech_stack` (deps/versions/DB), `mem:conventions` (workflow + code conventions, `.bangiao/` pipeline artifacts), `mem:suggested_commands` (Windows-specific commands), `mem:task_completion` (done-criteria for a coding task).

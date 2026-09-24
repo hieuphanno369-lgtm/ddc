@@ -13,3 +13,10 @@ PowerShell and bash syntax within one command.
   (apply pending migrations, no new one created). DB: Postgres on `localhost:5433` (not default 5432),
   db `ddc_control_tower`.
 - Seed: `npx prisma db seed` (runs `prisma/seed.ts`, wired via `package.json` → `prisma.seed`).
+- npm tarball download fails with `SELF_SIGNED_CERT_IN_CHAIN` (corporate TLS interception; `npm view` still works).
+  Fix without weakening TLS: export Windows trusted roots (`Cert:\LocalMachine\Root`, `CurrentUser\Root`,
+  `LocalMachine\CA`) to a PEM and set `NODE_EXTRA_CA_CERTS=<pem>` for the npm process. Never use
+  `NODE_TLS_REJECT_UNAUTHORIZED=0` / `strict-ssl=false`.
+- Stopping a dev server: kill by PID (`netstat -ano | findstr :3000`), NEVER `taskkill /IM node.exe`
+  (kills the other account's dev server and node-based MCP servers).
+- `next dev -H 127.0.0.1` breaks every request (500) on Next 14 with middleware — use Windows Firewall instead.

@@ -1,6 +1,6 @@
 # Tech Stack
 
-- Next.js 14.2.15 (App Router) + React 18.3 + TypeScript 5.5.4.
+- Next.js 14.2.35 (App Router; nâng từ 14.2.15 ở P1A để vá CVE-2025-29927 — dòng 14.x còn advisory RCE khi host Windows, phải nâng ≥ 15.5.24 trước go-live) + React 18.3 + TypeScript 5.5.4.
 - next-intl 3.26.3 — locales vi/en, routing config in `src/i18n/` (`routing.ts`/`navigation.ts`/`request.ts`), pages under `app/[locale]/...`.
 - next-auth 4.24.7 — credentials + Google OAuth (stub, no CLIENT_ID, not live).
 - Prisma 6.19.3 + Postgres 16.6, LOCAL DEV at `localhost:5433` (non-default port) — db `ddc_control_tower`.
