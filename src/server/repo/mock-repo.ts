@@ -6,6 +6,7 @@ import { calcDayVariance, calcDurationPctComplete, calcSpi } from '@/lib/evm';
 import { endOfMonth } from '@/lib/clock';
 import { keyMsAuditText } from '@/lib/key-milestones';
 import { sumManpowerShifts } from '@/lib/shifts';
+import { makeEntryMockRepo } from './mock-repo-entry';
 import type {
   ActivityLogEntry,
   AlertLog,
@@ -93,7 +94,7 @@ function getData(): RepoData {
   return globalForData.__ddcRepoData;
 }
 
-export const repo = {
+const coreRepo = {
   reset() {
     delete globalForData.__ddcRepoData;
     if (PERSIST_ENABLED) {
@@ -492,6 +493,7 @@ export const repo = {
     oldValue: string,
     newValue: string,
     changedBy: string,
+    note = '',
   ) {
     const nextId = getData().auditLog.length + 1;
     getData().auditLog.push({
@@ -503,6 +505,7 @@ export const repo = {
       newValue,
       changedBy,
       changedAt: new Date().toISOString(),
+      note,
     });
     persist();
   },
@@ -913,12 +916,14 @@ export const repo = {
     this.logAudit('project_key_milestone', String(projectId), 'replace', keyMsAuditText(before), keyMsAuditText(rows), changedBy);
   },
 
-  closeAlert(id: number, action: string, changedBy = 'system') {
+  closeAlert(id: number, action: string, changedBy = 'system', note = '') {
     const a = getData().alerts.find((x) => x.id === id);
     if (!a) return;
     a.closedAt = new Date().toISOString();
     a.action = action;
-    this.logAudit('alert_log', String(id), 'action', '', action, changedBy);
+    a.closedBy = changedBy;
+    a.closeNote = note;
+    this.logAudit('alert_log', String(id), 'action', '', action, changedBy, note);
   },
 
   addSapCode(projectId: number, sapCode: string, sourceDocType: string, changedBy = 'system') {
@@ -938,3 +943,5 @@ export const repo = {
     return true;
   },
 };
+
+export const repo = { ...coreRepo, ...makeEntryMockRepo({ getData, persist }) };

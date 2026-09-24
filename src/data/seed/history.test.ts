@@ -78,7 +78,7 @@ describe('Seed ERP v2', () => {
     expect(rows.reduce((a, b) => a + b.actualHeadcount, 0)).toBe(486);
   });
 
-  it('ngay cuoi co dung 12 dong ca, moi (contractor, ngay) co du 2 ma morning/afternoon', () => {
+  it('ngay cuoi co dung 12 dong ca, moi (contractor, ngay) co du 2 ma morning/evening', () => {
     const shiftRows = data.dailyManpowerShifts.filter((m) => m.workDate === lastDay);
     expect(shiftRows).toHaveLength(12);
     const byContractor = new Map<number, Set<string>>();
@@ -89,7 +89,7 @@ describe('Seed ERP v2', () => {
     }
     expect(byContractor.size).toBe(6);
     for (const codes of byContractor.values()) {
-      expect([...codes].sort()).toEqual(['afternoon', 'morning']);
+      expect([...codes].sort()).toEqual(['evening', 'morning']);
     }
   });
 
@@ -132,6 +132,18 @@ describe('Seed ERP v2', () => {
   it('assignment chỉ trỏ tới email có thật trong userRoles (nếu không RBAC khoá sạch app)', () => {
     const emails = new Set(data.userRoles.map((u) => u.email));
     for (const a of data.assignments) expect(emails.has(a.userEmail)).toBe(true);
+  });
+
+  it('moi alert seed co ruleCode va dedupeKey khong trung trong cung du an', () => {
+    expect(data.alerts.length).toBeGreaterThan(0);
+    for (const a of data.alerts) expect(a.ruleCode).not.toBeNull();
+    const byProject = new Map<number, Set<string>>();
+    for (const a of data.alerts) {
+      const set = byProject.get(a.projectId) ?? new Set<string>();
+      expect(set.has(a.dedupeKey!)).toBe(false);
+      set.add(a.dedupeKey!);
+      byProject.set(a.projectId, set);
+    }
   });
 
   it('ke hoach thiet bi Gantt: 6 dong, plannedFinish >= plannedStart, unitNo >= 1, workItemId ton tai o du an 1', () => {

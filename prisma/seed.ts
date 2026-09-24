@@ -31,7 +31,9 @@ async function main() {
   await prisma.currency.createMany({ data: data.currencies });
 
   await prisma.exchangeRate.deleteMany();
-  await prisma.exchangeRate.createMany({ data: data.exchangeRates });
+  await prisma.exchangeRate.createMany({
+    data: data.exchangeRates.map((r) => ({ ...r, updatedAt: d(r.updatedAt) })),
+  });
 
   await prisma.stage.deleteMany();
   await prisma.stage.createMany({ data: data.stages });
@@ -147,7 +149,9 @@ async function main() {
   // ---- Logs / phụ ----
   await prisma.alertLog.deleteMany();
   await prisma.alertLog.createMany({
-    data: data.alerts.map((a) => ({ ...a, openedAt: new Date(a.openedAt), closedAt: d(a.closedAt) })),
+    data: data.alerts.map((a) => ({
+      ...a, openedAt: new Date(a.openedAt), closedAt: d(a.closedAt), notifySentAt: d(a.notifySentAt),
+    })),
   });
 
   await prisma.projectPhoto.deleteMany();
@@ -159,6 +163,7 @@ async function main() {
   await prisma.projectHistory.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.activityLog.deleteMany();
+  await prisma.jobRun.deleteMany();
 
   // ---- User accounts (4, từ seed history) ----
   await prisma.userRole.deleteMany();

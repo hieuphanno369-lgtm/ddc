@@ -4,6 +4,7 @@ import { calcCpi, calcDayVariance, calcDurationPctComplete, calcEv, calcPv, calc
 import { endOfMonth } from '@/lib/clock';
 import { keyMsAuditText } from '@/lib/key-milestones';
 import { sumManpowerShifts } from '@/lib/shifts';
+import { entryPrismaRepo } from './prisma-repo-entry';
 import type {
   ActivityLogEntry,
   AlertLog,
@@ -21,6 +22,7 @@ import type {
   FactStageWorkItem,
   FactVolume,
   Factory,
+  FxSource,
   Market,
   Priority,
   Project,
@@ -170,7 +172,7 @@ function mapFinancial(f: {
   };
 }
 
-export const repo = {
+const coreRepo = {
   // ---- Reads ----
   async listProjects(): Promise<Project[]> {
     const rows = await prisma.project.findMany({ where: { isActive: true } });
@@ -350,6 +352,14 @@ export const repo = {
       owner: a.owner,
       action: a.action,
       deadline: a.deadline,
+      ruleCode: a.ruleCode,
+      dedupeKey: a.dedupeKey,
+      closedBy: a.closedBy,
+      closeNote: a.closeNote,
+      notifyChannel: a.notifyChannel,
+      notifySentAt: iso(a.notifySentAt),
+      notifyError: a.notifyError,
+      notifyAttempts: a.notifyAttempts,
     }));
   },
 
@@ -462,11 +472,12 @@ export const repo = {
         isActive: t.isActive, mergedIntoId: t.mergedIntoId,
       })),
       factories: factories.map((f) => ({
-        id: f.id, name: f.name, region: f.region, capacityTonPerYear: f.capacityTonPerYear,
+        id: f.id, name: f.name, region: f.region, capacityTonPerYear: f.capacityTonPerYear, isActive: f.isActive,
       })),
       currencies: currencies.map((c) => ({ code: c.code as CurrencyCode, name: c.name })),
       exchangeRates: exchangeRates.map((e) => ({
         currencyCode: e.currencyCode as CurrencyCode, yearMonth: e.yearMonth, rateToVnd: e.rateToVnd,
+        source: e.source as FxSource, updatedBy: e.updatedBy, updatedAt: iso(e.updatedAt),
       })),
     };
   },
@@ -664,15 +675,16 @@ export const repo = {
       newValue: a.newValue,
       changedBy: a.changedBy,
       changedAt: a.changedAt.toISOString(),
+      note: a.note,
     }));
   },
 
   async logAudit(
     tableName: string, recordId: string, field: string,
-    oldValue: string, newValue: string, changedBy: string,
+    oldValue: string, newValue: string, changedBy: string, note = '',
   ) {
     await prisma.auditLog.create({
-      data: { tableName, recordId, field, oldValue, newValue, changedBy },
+      data: { tableName, recordId, field, oldValue, newValue, changedBy, note },
     });
   },
 
@@ -1081,9 +1093,12 @@ export const repo = {
     await this.logAudit('project_key_milestone', String(projectId), 'replace', keyMsAuditText(before), keyMsAuditText(rows), changedBy);
   },
 
-  async closeAlert(id: number, action: string, changedBy = 'system') {
-    await prisma.alertLog.update({ where: { id }, data: { closedAt: new Date(), action } });
-    await this.logAudit('alert_log', String(id), 'action', '', action, changedBy);
+  async closeAlert(id: number, action: string, changedBy = 'system', note = '') {
+    await prisma.alertLog.update({
+      where: { id },
+      data: { closedAt: new Date(), action, closedBy: changedBy, closeNote: note },
+    });
+    await this.logAudit('alert_log', String(id), 'action', '', action, changedBy, note);
   },
 
   async addSapCode(projectId: number, sapCode: string, sourceDocType: string, changedBy = 'system'): Promise<boolean> {
@@ -1127,3 +1142,5 @@ export const repo = {
     ]);
   },
 };
+
+export const repo = { ...coreRepo, ...entryPrismaRepo };

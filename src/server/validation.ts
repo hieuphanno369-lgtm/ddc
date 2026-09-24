@@ -41,7 +41,7 @@ const PROJECT_TYPE = [
   'Khac',
 ] as const;
 const PRIORITY = ['P0', 'P1', 'P2', 'P3'] as const;
-const CURRENCY = ['VND', 'USD', 'EUR', 'AUD', 'SAR'] as const;
+const CURRENCY = ['VND', 'USD', 'EUR'] as const;
 const STAGE_CODES = ['design', 'shop', 'procurement', 'fabrication', 'transport', 'erection', 'handover'] as const;
 
 export const saveMonthlyDataSchema = z.object({

@@ -47,6 +47,7 @@ export async function getAuditLogPage(opts: {
       newValue: a.newValue,
       changedBy: a.changedBy,
       changedAt: a.changedAt.toISOString(),
+      note: a.note,
     })),
     total,
     page,

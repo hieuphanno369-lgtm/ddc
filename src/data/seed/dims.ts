@@ -26,24 +26,21 @@ export const teams: TeamKd[] = [
 ];
 
 export const factories: Factory[] = [
-  { id: 1, name: 'Nhà máy Đồng Nai', region: 'Miền Nam', capacityTonPerYear: 60000 },
-  { id: 2, name: 'Nhà máy Bà Rịa - Vũng Tàu', region: 'Miền Nam', capacityTonPerYear: 45000 },
-  { id: 3, name: 'Nhà máy Hà Tĩnh', region: 'Miền Trung', capacityTonPerYear: 30000 },
+  { id: 1, name: 'Nhà máy Đồng Nai', region: 'Miền Nam', capacityTonPerYear: 60000, isActive: true },
+  { id: 2, name: 'Nhà máy Bà Rịa - Vũng Tàu', region: 'Miền Nam', capacityTonPerYear: 45000, isActive: true },
+  { id: 3, name: 'Nhà máy Hà Tĩnh', region: 'Miền Trung', capacityTonPerYear: 30000, isActive: true },
 ];
 
+// Q8: chỉ giữ VND/USD/EUR (không dự án seed nào dùng AUD/SAR).
 export const currencies: Currency[] = [
   { code: 'VND', name: 'Việt Nam Đồng' },
   { code: 'USD', name: 'US Dollar' },
   { code: 'EUR', name: 'Euro' },
-  { code: 'AUD', name: 'Australian Dollar' },
-  { code: 'SAR', name: 'Saudi Riyal' },
 ];
 
 // Tỷ giá demo (VCB mua chuyển khoản cuối tháng) - tháng 09/2026, cập nhật thủ công bởi Admin
 export const exchangeRates: ExchangeRate[] = [
-  { currencyCode: 'VND', yearMonth: '2026-09', rateToVnd: 1 },
-  { currencyCode: 'USD', yearMonth: '2026-09', rateToVnd: 25400 },
-  { currencyCode: 'EUR', yearMonth: '2026-09', rateToVnd: 27500 },
-  { currencyCode: 'AUD', yearMonth: '2026-09', rateToVnd: 16800 },
-  { currencyCode: 'SAR', yearMonth: '2026-09', rateToVnd: 6770 },
+  { currencyCode: 'VND', yearMonth: '2026-09', rateToVnd: 1, source: 'manual', updatedBy: 'system', updatedAt: '2026-09-01T00:00:00Z' },
+  { currencyCode: 'USD', yearMonth: '2026-09', rateToVnd: 25400, source: 'manual', updatedBy: 'system', updatedAt: '2026-09-01T00:00:00Z' },
+  { currencyCode: 'EUR', yearMonth: '2026-09', rateToVnd: 27500, source: 'manual', updatedBy: 'system', updatedAt: '2026-09-01T00:00:00Z' },
 ];

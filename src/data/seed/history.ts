@@ -2,6 +2,7 @@ import { calcDurationPctComplete, calcSpi, findBottleneck, penaltyState } from '
 import { THRESHOLDS } from '@/lib/thresholds';
 import { DEFAULT_STAGE_WEIGHTS, STAGE_CALC_MODE, STAGE_ORDER } from '@/lib/stages';
 import { endOfMonth } from '@/lib/clock';
+import { handoverKey, monthKey } from '@/lib/alert-keys';
 import { hashSync } from 'bcryptjs';
 import type {
   ActivityLogEntry,
@@ -16,6 +17,7 @@ import type {
   FactStageWorkItem,
   FactStageMilestone,
   FactVolume,
+  JobRunEntry,
   Project,
   ProjectAlias,
   ProjectAssignment,
@@ -43,7 +45,7 @@ import { seedProjects, type SeedProject } from './projects';
 
 // Hằng số seed - CHỈ dùng để sinh dữ liệu mẫu. Code production đọc src/lib/clock.ts.
 /** Kỳ báo cáo hiện tại (tháng 09/2026). */
-export const SEED_VERSION = '2026-09-24-p1a';
+export const SEED_VERSION = '2026-09-24-p2a';
 export const SEED_REPORT_DATE = new Date('2026-09-16T00:00:00Z');
 export const SEED_CURRENT_MONTH = '2026-09';
 export const SEED_HISTORY_MONTHS = [
@@ -162,6 +164,14 @@ function buildAlerts(projects: Project[], facts: FactProgressMonthly[]): AlertLo
         owner: 'Trưởng phòng KHDATT',
         action: '',
         deadline: '2026-09-30',
+        ruleCode: 'spi_low',
+        dedupeKey: monthKey('spi_low', SEED_CURRENT_MONTH),
+        closedBy: null,
+        closeNote: '',
+        notifyChannel: null,
+        notifySentAt: null,
+        notifyError: null,
+        notifyAttempts: 0,
       });
     }
     if (f.cpi != null && f.cpi < THRESHOLDS.cpiWarn) {
@@ -176,6 +186,14 @@ function buildAlerts(projects: Project[], facts: FactProgressMonthly[]): AlertLo
         owner: 'Trưởng phòng KHDATT',
         action: '',
         deadline: '2026-09-30',
+        ruleCode: 'cpi_low',
+        dedupeKey: monthKey('cpi_low', SEED_CURRENT_MONTH),
+        closedBy: null,
+        closeNote: '',
+        notifyChannel: null,
+        notifySentAt: null,
+        notifyError: null,
+        notifyAttempts: 0,
       });
     }
     const pen = penaltyState({
@@ -185,6 +203,7 @@ function buildAlerts(projects: Project[], facts: FactProgressMonthly[]): AlertLo
       today: SEED_REPORT_DATE,
     });
     if (pen === 'penalized' || pen === 'risk') {
+      const ruleCode = pen === 'penalized' ? 'penalty_overdue' : 'penalty_risk';
       alerts.push({
         id: id++,
         projectId: proj.id,
@@ -199,6 +218,14 @@ function buildAlerts(projects: Project[], facts: FactProgressMonthly[]): AlertLo
         owner: 'BOD',
         action: '',
         deadline: '2026-09-20',
+        ruleCode,
+        dedupeKey: handoverKey(ruleCode, proj.committedHandoverDate),
+        closedBy: null,
+        closeNote: '',
+        notifyChannel: null,
+        notifySentAt: null,
+        notifyError: null,
+        notifyAttempts: 0,
       });
     }
   }
@@ -425,8 +452,8 @@ function buildDailyResources(): {
     for (const row of manpowerLastDay) {
       const total = Math.round(row.planned * f);
       const totalActual = Math.round(row.actual * f);
-      const [morningPlanned, afternoonPlanned] = splitHeadcount(total);
-      const [morningActual, afternoonActual] = splitHeadcount(totalActual);
+      const [morningPlanned, eveningPlanned] = splitHeadcount(total);
+      const [morningActual, eveningActual] = splitHeadcount(totalActual);
       manpowerShifts.push({
         projectId: pid,
         contractorId: row.contractorId,
@@ -439,9 +466,9 @@ function buildDailyResources(): {
         projectId: pid,
         contractorId: row.contractorId,
         workDate,
-        shiftCode: 'afternoon',
-        plannedHeadcount: afternoonPlanned,
-        actualHeadcount: afternoonActual,
+        shiftCode: 'evening',
+        plannedHeadcount: eveningPlanned,
+        actualHeadcount: eveningActual,
       });
     }
     for (const row of equipmentLastDay) {
@@ -503,6 +530,7 @@ export interface RepoData {
   dailyManpowerShifts: FactDailyManpowerShift[];
   dailyEquipment: FactDailyEquipmentUsage[];
   equipmentPlans: ProjectEquipmentPlan[];
+  jobRuns: JobRunEntry[];
 }
 
 export function buildRepoData(): RepoData {
@@ -648,5 +676,6 @@ export function buildRepoData(): RepoData {
     dailyManpowerShifts: res.manpowerShifts,
     dailyEquipment: res.equipmentUsage,
     equipmentPlans: equipmentPlanSeed,
+    jobRuns: [],
   };
 }

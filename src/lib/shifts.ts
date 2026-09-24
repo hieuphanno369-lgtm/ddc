@@ -28,9 +28,9 @@ export function sumManpowerShifts(rows: FactDailyManpowerShift[]): FactDailyManp
   });
 }
 
-/** Chia 1 số nguyên ≥0 thành [ca sáng, ca chiều]: sáng = ceil(x/2), chiều = x - sáng. */
+/** Chia 1 số nguyên ≥0 thành [ca sáng, ca tối]: sáng = ceil(x/2), tối = x - sáng. */
 export function splitHeadcount(total: number): [number, number] {
   const morning = Math.ceil(total / 2);
-  const afternoon = total - morning;
-  return [morning, afternoon];
+  const evening = total - morning;
+  return [morning, evening];
 }
