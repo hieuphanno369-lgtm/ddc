@@ -3,6 +3,25 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P1A — Dữ liệu đúng (Tài khoản A) — CHỐT + ĐÃ MERGE vào `main` (2026-09-24)
+Nhánh `feature/p1a-du-lieu-dung`, dây chuyền ship đủ chặng (2 vòng CAN SUA → CHỐT ở reviewer vòng 3). Hồ sơ:
+`.bangiao/archive/p1a-du-lieu-dung-2026-09-24/`. `tsc` sạch, 838 test P1A (928/928 sau khi gộp P1B), `next build` (font mock) sạch.
+- **T2**: bản nháp localStorage không tự đè DB (chỉ áp khi bấm "Khôi phục", có dấu phiên bản); ngày về `yyyy-MM-dd`;
+  form chỉ gửi field đã đổi; dự án mới để trống ngày.
+- **3 lỗi mất dữ liệu âm thầm**: tháng chưa có fact/tài chính → tạo version 1, field không gửi lấy từ tháng trước;
+  data-entry không còn gửi số tài chính (hết Forbidden); import Excel báo lỗi từng dòng (`rowNo` + lý do); lỗi lưu luôn hiện chữ.
+- **Bảo mật**: `/api/export` bắt đăng nhập admin/bod + chống chèn công thức (`safeCell`); `canViewFinance ?? false`;
+  bắt buộc `NEXTAUTH_SECRET`; upload ảnh kiểm magic byte (bỏ SVG), `nosniff` + CSP sandbox ở `/api/photos`,
+  giới hạn Content-Length; trang nhập liệu tự kiểm role; **Next 14.2.15 → 14.2.35** (vá CVE-2025-29927).
+- **T3**: `PhotoDropzone` kéo-thả + icon cloud + thanh tiến trình (XHR tới `POST /api/photo-upload`).
+- **Migration gộp** `20260924090000_p1a_data_foundation` (+ rollback `prisma/rollback/`): `dim_shift` + `shiftCode` nhân lực
+  (dữ liệu cũ dồn vào ca sáng), `dim_date` tuần ISO 2020–2035, `dim_project.factoryId` + `contractValueOriginal`,
+  `project_equipment_plan` (Gantt T14), index cho T1. Seed có ca + 6 thanh Gantt.
+- **Nợ / chờ quyết**: nâng Next ≥ 15.5.24 + React 19 + next-intl ≥ 4.9.1 + next-auth 4.24.15 (Next 14 còn RCE khi host
+  Windows — chặn go-live); tường lửa chặn inbound 3000/3001 (`-H 127.0.0.1` làm dev 500); F4 xlsx → P2A; F6 nháp → P3A;
+  F5/F7/F9 → P5B; F8 (import lộ mã SAP) chờ chủ dự án. Chi tiết: `danh-gia.md` mục 4–5 trong archive.
+- **B sau khi kéo main**: `npm install` (Next 14.2.35) + `npx prisma migrate deploy` + seed trên `ddc_control_tower_b`.
+
 ### ✅ P1B — UI nhanh (Tài khoản B) — CHỐT + ĐÃ MERGE vào `main` (2026-09-24)
 Nhánh `feature/p1b-ui-nhanh`, dây chuyền ship đủ chặng (1 vòng debug, 1 vòng CAN SUA → CHỐT). Hồ sơ:
 `.bangiao/archive/p1b-ui-nhanh-2026-09-24/`. Không migration. `tsc` sạch, 802/802 test, `next build` (font mock) sạch.
