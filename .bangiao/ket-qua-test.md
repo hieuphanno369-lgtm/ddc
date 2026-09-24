@@ -1,5 +1,103 @@
 # XANH
 
+## Vòng bổ sung — KPI (2026-09-24, kiểm 5 commit `a09b56e`, `7a28268`, `3d24821`, `dabd1c6`, `c0f7e01`)
+
+P2B — kiểm 3 việc độc lập trên thẻ KPI (`.kpi`/`.kpi.key`): (1) bỏ tag "Trọng tâm" khỏi thẻ hero,
+(2) thẻ %TT thêm dòng "Chậm/Nhanh N ngày · ±x,x%" (`src/lib/schedule-gap.ts`), (3) nhãn scorecard
+hiện đủ chữ, xuống tối đa 2 dòng. Đối chiếu `.bangiao/thay-doi.md` mục "Vòng bổ sung — KPI". Kiểm
+thử độc lập, không sửa file sản phẩm. Skill dùng: `ddc-tower:test-driven-development`,
+`ddc-tower:verification-before-completion` (chạy tay xác nhận trước khi kết luận, evidence trước
+khi tuyên bố). Đụng UI → smoke-test bằng `mcp__playwright` trên dev server cổng 3001, đăng nhập
+thật `admin@daidung.com.vn`. Đụng DB (đối chiếu công thức `schedule-gap.ts`) → đọc trực tiếp bằng
+`prisma` qua `DATABASE_URL` trong `.env` (đọc thuần, script tạm không commit; MCP postgres không
+dùng vì có thể không kết nối tới DB B).
+
+### Cổng kiểm
+
+- `npx tsc --noEmit` (PowerShell, `D:\_project\DDC_Control_Tower-B` chữ hoa): sạch, không lỗi.
+- `npm test` (PowerShell, `npx vitest run`): **97/97 file · 1126/1126 test PASS**, khớp đúng số
+  coder báo cáo ở `thay-doi.md` (commit 3 cuối cùng của vòng bổ sung).
+
+### `src/lib/schedule-gap.ts` — tự tính độc lập + đối chiếu dữ liệu thật dự án 1
+
+Đọc trực tiếp DB `ddc_control_tower_b` (Prisma, read-only) cho dự án 1 (SVĐ PVF):
+`plannedStartDate=2025-12-15`, `plannedFinishDate=2026-09-29`, fact `2026-09` (`isLatest`)
+`pctActual=0.7898`. Hôm nay hệ thống 2026-09-24 (không có `DDC_FAKE_TODAY` trong `.env` của
+worktree B → dùng giờ thật), nên `pctPlan` (do `queries.ts` tính theo % thời gian đã trôi, KHÔNG
+phải `fact.pctPlan` nhập tay) = (2026-09-24 − 2025-12-15) / (2026-09-29 − 2025-12-15) =
+283/288 ngày = **98,26%** — tự tính bằng script Node độc lập (không gọi hàm sản phẩm), khớp đúng
+số hiển thị trên trang.
+
+Gọi thẳng `calcScheduleGap(0.9826388889, 0.7898, '2025-12-15', '2026-09-29')` (hàm thật, không
+mock): `gapPct = 0.7898 − 0.9826388889 = −0.19284 (điểm %)`, `gapDays = round(−0.19284 × 288) =
+−56`, `direction = 'behind'` → chuỗi hiển thị đúng **"▼ Chậm 56 ngày · −19,3%"** — khớp CHÍNH XÁC
+ví dụ trong `thay-doi.md` và khớp dòng thật render trên `/vi/projects/1` (xem mục Playwright bên
+dưới). Xác nhận độc lập cả 3 số (%TT, %KH, gapDays) đều đúng theo dữ liệu thật, không chỉ tin theo
+unit test có sẵn của coder.
+
+Tự tính thêm các ca biên (không dùng lại test có sẵn của coder, viết script riêng gọi thẳng hàm
+thật):
+- Thiếu `plannedFinishDate`/`plannedStartDate` → `null`. PASS.
+- `start === finish` (0 ngày kế hoạch) → `null`, không chia 0. PASS.
+- Trước ngày bắt đầu (`pctPlan=0`, `pctActual=0,05` → 100 ngày KH) → `gapDays=5`, `direction=ahead`.
+  PASS, khớp mô tả kế hoạch ("trước ngày bắt đầu").
+- Sau ngày kết thúc (`pctPlan=1` kẹp, `pctActual=0,9`) → `gapDays=−10`, `direction=behind`. PASS.
+- Làm tròn `.5`: `gapPct×planDays = ±0,5` → `Math.round` cho `-1`/`+1` đúng hướng (không có ca nào
+  lật dấu sai). PASS.
+- `direction` quyết định theo **`gapDays` đã làm tròn**, không phải `gapPct` thô: ca `gapPct` âm
+  rất nhỏ (`−0,002`, 100 ngày KH → `−0,2` ngày) làm tròn về `gapDays=0` → `direction='onTrack'` dù
+  `gapPct < 0` — đúng đặc tả "quyết định theo gapDays (không phải gapPct)" trong `thay-doi.md`.
+  PASS.
+
+Không phát hiện sai lệch nào giữa công thức thật, dữ liệu DB thật và mô tả trong kế hoạch.
+
+### Kiểm bằng Playwright thật (tự khởi động `npx next dev -p 3001` PID 9708, tự dừng đúng PID này
+sau khi xong — không `taskkill /IM node.exe`)
+
+Đăng nhập sẵn có `admin@daidung.com.vn` từ phiên trước (session còn hiệu lực).
+
+- **`/vi/projects/1`**: KHÔNG còn tag "Trọng tâm" ở đâu trên trang (`browser_find` 0 kết quả). Thẻ
+  "% Thực tế" hiện `78,98%` + dòng `▼ Chậm 56 ngày · −19,3%` màu vàng gold — không còn dấu "-" thừa
+  (xác nhận đúng fix commit `c0f7e01`: `!sub && !scheduleGap && <span>-</span>`, trước đó thiếu
+  `!scheduleGap` nên luôn hiện "-" đè lên dòng chậm/nhanh). Thẻ SPI vẫn hiện màu vàng gold (tone
+  warn) không vỡ theo yêu cầu "thẻ hero khác không vỡ".
+- **`/vi/overview`**, **`/vi/report`**: KHÔNG còn tag "Trọng tâm" (`browser_find` 0 kết quả cho cả
+  2 trang). Thẻ hero "Trễ tiến độ" vẫn nền gradient navy, không vỡ.
+- **4 breakpoint** (1440, 1000 — 3 cột, 600 — 2 cột, 390): chụp ảnh `.kpis` (crop) ở
+  `/vi/projects/1` cả 4 độ rộng + `/vi/overview` và `/vi/report` ở 1440/390. Nhãn dài "TỔNG SỐ NHÂN
+  LỰC"/"TỔNG SỐ THIẾT BỊ" hiện đủ chữ, xuống đúng 2 dòng ở lưới hẹp (390/600), KHÔNG bị cắt "...".
+  Số chính (`486`, `63`, `98,26%`, `78,98%`...) thẳng hàng giữa các thẻ cùng hàng dù nhãn dài/ngắn
+  khác nhau — đúng do `min-height` mới trên `.kpi .lb`. Dòng "Chậm 56 ngày · −19,3%" ở 390px xuống
+  đúng 2 dòng, không cắt mất số `%` cuối dòng (đúng do class `.gap` mới `white-space:normal`). Icon
+  góc trên phải không bị chữ nhãn 2 dòng đè lên (padding-right giữ nguyên áp dụng cả khối). Ảnh lưu
+  `.bangiao/anh-test/kpi-v2-{1440,1000,600,390}-projects1-row.png`,
+  `kpi-v2-1440-projects1-full.png`, `kpi-v2-{1440,390}-overview-row.png`,
+  `kpi-v2-1440-report-row.png`.
+- **`/en/projects/1`**: không có `MISSING_MESSAGE` trong console lẫn DOM (`browser_find` 0 kết
+  quả); dòng chậm/nhanh hiện đúng tiếng Anh **"▼ Behind 56d · −19.3%"** (khớp template
+  `kpiSchedule.behind` trong `en.json`).
+- Console: chỉ có 3 cảnh báo `defaultProps` của `recharts` (deprecation React, không liên quan
+  KPI, đã biết từ các vòng test trước) — không có lỗi ứng dụng nào khác, không crash trang nào
+  trong 4 route đã mở (`/vi/projects/1`, `/vi/overview`, `/vi/report`, `/en/projects/1`).
+
+### `git status` sau khi kiểm
+
+Không có thay đổi ở bất kỳ file sản phẩm nào (chỉ `.bangiao/anh-test/kpi-v2-*.png` mới thêm). File
+`.bangiao/danh-gia-bao-mat.md` bị sửa đổi trong `git status` đầu phiên — không phải do tôi (không
+đụng file này), nghi có phiên security-reviewer chạy song song.
+
+### Kết luận vòng bổ sung — KPI
+
+**XANH.** Cả 3 việc đúng như mô tả `thay-doi.md`: tag "Trọng tâm" đã gỡ hết (3 trang kiểm), dòng
+"Chậm/Nhanh N ngày · ±x,x%" tính đúng công thức (xác nhận bằng dữ liệu DB thật + tính tay độc lập,
+không chỉ tin unit test), dấu "-" thừa đã hết, nhãn scorecard hiện đủ chữ ở mọi breakpoint đã kiểm
+(1440/1000/600/390), số chính thẳng hàng, không có hồi quy ở thẻ hero khác (SPI/CPI warn vẫn gold).
+`npx tsc --noEmit` sạch, `npm test` 1126/1126 xanh. Không phát hiện lỗi nào cần dừng dây chuyền.
+
+---
+
+# Vòng 3 (trước) — XANH, giữ nguyên để tham khảo
+
 P2B — Vòng 3, kiểm lại sau khi debugger sửa lỗi thanh tiến độ (commit `4024dd2`: thêm
 `display:block;` vào rule `.stage .fill` ở `app/globals.css:469`; `0b5c74d`: debugger vòng 2 bổ
 sung ảnh chụp Playwright xác nhận độc lập). Commit kiểm: `102a467`..`0b5c74d` (xem `git log` đầy
