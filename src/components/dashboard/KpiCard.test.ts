@@ -10,9 +10,11 @@ import { KpiCard, type KpiCardProps } from './KpiCard';
 
 /**
  * KpiCard chưa có file test riêng trước đợt redesign Apple Glass (đổi sang
- * class .kpi/.key/.tag + prop heroTagLabel mới, xem .bangiao/thay-doi.md mục
- * 3.1). Render tĩnh để khẳng định đúng markup người dùng nhìn thấy (class,
- * text, có/không có icon), không chỉ khẳng định "không throw".
+ * class .kpi/.key, xem .bangiao/thay-doi.md mục 3.1). Render tĩnh để khẳng
+ * định đúng markup người dùng nhìn thấy (class, text, có/không có icon),
+ * không chỉ khẳng định "không throw".
+ * Vòng bổ sung P2B (2026-09-24): bỏ tag "Trọng tâm" (prop `heroTagLabel` cũ
+ * đã xoá).
  */
 const DummyIcon = (p: { size?: number; className?: string }) =>
   React.createElement('svg', { 'data-testid': 'dummy-icon', width: p.size });
@@ -71,32 +73,20 @@ describe('KpiCard - truong hop bien ke hoach da neu ten (Task 4: khong co delta/
 });
 
 describe('KpiCard - the "Trong tam" (hero=true, Task 4 spec dong 958 ke-hoach.md)', () => {
-  it('hero=true: doi sang the .kpi.key, hien tag heroTagLabel, KHONG hien icon', () => {
-    const out = renderToStaticMarkup(
-      React.createElement(KpiCard, { ...BASE, hero: true, heroTagLabel: 'Trọng tâm' })
-    );
-
-    expect(out).toContain('class="kpi rise key"');
-    expect(out).toContain('class="tag">Trọng tâm</span>');
-    expect(out).not.toContain('data-testid="dummy-icon"');
-  });
-
-  it('hero=true nhung KHONG truyen heroTagLabel: the .tag render RONG (khoa lai hop dong hien tai)', () => {
-    // Ca 3 noi goi that (OverviewWidgets/report/projects[id]) luon truyen kem
-    // heroTagLabel khi hero=true nen truong hop nay chua xay ra tren san pham
-    // that. Test nay chi khoa lai hanh vi hien tai (khong crash, chi rong) de
-    // bat regression neu sau nay co noi goi moi thieu heroTagLabel.
+  it('hero=true: doi sang the .kpi.key, KHONG con tag, KHONG hien icon (vong bo sung P2B: bo tag "Trong tam")', () => {
     const out = renderToStaticMarkup(React.createElement(KpiCard, { ...BASE, hero: true }));
 
-    expect(out).toContain('<span class="tag"></span>');
+    expect(out).toContain('class="kpi rise key"');
+    expect(out).not.toContain('class="tag"');
+    expect(out).not.toContain('data-testid="dummy-icon"');
   });
 
   it('hero=true + tone warn/danger: chu gia tri phai la mau vang --gold, KHONG con trang cung (B-3)', () => {
     const warn = renderToStaticMarkup(
-      React.createElement(KpiCard, { ...BASE, hero: true, heroTagLabel: 'Trọng tâm', tone: 'warn' })
+      React.createElement(KpiCard, { ...BASE, hero: true, tone: 'warn' })
     );
     const danger = renderToStaticMarkup(
-      React.createElement(KpiCard, { ...BASE, hero: true, heroTagLabel: 'Trọng tâm', tone: 'danger' })
+      React.createElement(KpiCard, { ...BASE, hero: true, tone: 'danger' })
     );
 
     expect(warn).toContain('style="color:var(--gold)"');
@@ -105,7 +95,7 @@ describe('KpiCard - the "Trong tam" (hero=true, Task 4 spec dong 958 ke-hoach.md
 
   it('hero=true + tone ok/neutral: khong co mau inline (van la chu trang ke thua tu nen gradient)', () => {
     const ok = renderToStaticMarkup(
-      React.createElement(KpiCard, { ...BASE, hero: true, heroTagLabel: 'Trọng tâm', tone: 'ok' })
+      React.createElement(KpiCard, { ...BASE, hero: true, tone: 'ok' })
     );
 
     expect(ok).not.toContain('style=');

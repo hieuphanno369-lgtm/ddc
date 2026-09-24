@@ -55,10 +55,12 @@ async function render(searchParams: Record<string, string> = {}, projectId = '1'
 afterEach(() => vi.clearAllMocks());
 
 describe('Task 1 - 3 the "Trong tam" (%TT, SPI, CPI) dung canh nhau', () => {
-  it('dung 3 the .kpi.key, gan dung %TT/SPI/CPI', async () => {
+  it('dung 3 the .kpi.key, gan dung %TT/SPI/CPI, KHONG con tag "Trong tam" (vong bo sung P2B)', async () => {
     const out = await render();
-    const keys = [...out.matchAll(/class="kpi rise key"><span class="tag">kpi\.focusTag<\/span><div class="lb">([^<]+)<\/div>/g)].map((m) => m[1]);
+    const keys = [...out.matchAll(/class="kpi rise key"><div class="lb">([^<]+)<\/div>/g)].map((m) => m[1]);
     expect(keys).toEqual(['metric.pctActual', 'metric.spi', 'metric.cpi']);
+    expect(out).not.toContain('class="tag"');
+    expect(out).not.toContain('kpi.focusTag');
   });
   it('thu tu 6 the: %KH, %TT, SPI, CPI, Tong nhan luc, Tong thiet bi (P1B Task 1: thay EAC/VAC)', async () => {
     const out = await render();

@@ -10,16 +10,8 @@ export interface KpiCardProps {
   deltaSuffix?: string;
   tone?: KpiTone;
   invertDelta?: boolean;
-  /** true -> the "Trong tam": nen gradient navy + tag vang, khong hien icon. */
+  /** true -> the "Trong tam": nen gradient navy, khong hien icon. */
   hero?: boolean;
-  /**
-   * Chu tren tag vang khi hero=true (vd. da dich san "Trong tam"/"Focus").
-   * KpiCard KHONG tu dich: component nay phai o lai dang sync (khong 'use client',
-   * khong async) de renderToStaticMarkup trong test render trang van dung duoc
-   * khi long trong cay Server Component - nen ben goi (da co t() san) tu tinh
-   * chu roi truyen xuong.
-   */
-  heroTagLabel?: string;
   icon: (p: IconProps) => React.ReactNode;
   /** Dong phu thu 2, hien duoi `sub` (vd "KH 520 · 6 nha thau"). */
   note?: string;
@@ -44,7 +36,6 @@ export function KpiCard({
   tone = 'neutral',
   invertDelta = false,
   hero = false,
-  heroTagLabel,
   icon: Icon,
   note,
   href,
@@ -59,9 +50,7 @@ export function KpiCard({
 
   const body = (
     <>
-      {hero ? (
-        <span className="tag">{heroTagLabel}</span>
-      ) : (
+      {!hero && (
         <div className="ic">
           <Icon size={15} />
         </div>

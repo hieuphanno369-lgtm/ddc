@@ -189,9 +189,9 @@ export default async function ProjectDetailPage({
       {/* 6 KPI - 3 the "Trong tam" (%TT, SPI, CPI) dung canh nhau nhu mock-up dong 646-649 */}
       <Rise className="kpis">
         <KpiCard label={t('metric.pctPlan')} value={formatPct(summary.pctPlan, locale)} delta={null} tone="neutral" icon={IconProject} />
-        <KpiCard label={t('metric.pctActual')} value={formatPct(summary.pctActual, locale)} delta={null} tone="neutral" hero heroTagLabel={t('kpi.focusTag')} icon={IconAlert} />
-        <KpiCard label={t('metric.spi')} value={formatRatio(summary.spi)} delta={null} tone={summary.spi != null && summary.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'} hero heroTagLabel={t('kpi.focusTag')} icon={IconTrend} />
-        <KpiCard label={t('metric.cpi')} value={formatRatio(summary.cpi)} delta={null} tone={summary.cpi != null && summary.cpi < THRESHOLDS.cpiWarn ? 'warn' : 'ok'} hero heroTagLabel={t('kpi.focusTag')} icon={IconMoney} />
+        <KpiCard label={t('metric.pctActual')} value={formatPct(summary.pctActual, locale)} delta={null} tone="neutral" hero icon={IconAlert} />
+        <KpiCard label={t('metric.spi')} value={formatRatio(summary.spi)} delta={null} tone={summary.spi != null && summary.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'} hero icon={IconTrend} />
+        <KpiCard label={t('metric.cpi')} value={formatRatio(summary.cpi)} delta={null} tone={summary.cpi != null && summary.cpi < THRESHOLDS.cpiWarn ? 'warn' : 'ok'} hero icon={IconMoney} />
         <KpiCard label={t('resourceKpi.manpowerTotal')}
           value={resources.manpowerAsOfDate ? formatQty(resources.manpowerActual, locale) : '-'}
           sub={resources.manpowerAsOfDate ? t('resourceKpi.asOf', { date: formatDayMonth(resources.manpowerAsOfDate) }) : t('detail.noDailyData')}

@@ -255,28 +255,14 @@
   .kpi.key{border-color:transparent;color:#fff;
     background:linear-gradient(158deg,var(--accent-2) 0%,var(--accent) 46%,var(--accent-deep) 100%);
     box-shadow:var(--e3), inset 0 .5px 0 rgba(255,255,255,.34)}
-  .kpi.key .lb{color:rgba(255,255,255,.76)}
+  /* Vong bo sung P2B: bo tag "Trong tam"/.tag (chu vang tren the hero, thay bang dong
+     "Cham/Nhanh N ngay" o KpiCard.tsx) - the hero van giu nen gradient navy noi bat, chi bo
+     chu tag. Khong con tag/icon chiem goc tren phai nen .lb khong can chua padding-right nua
+     (fix "khoang trong thua"); container-query rieng cho .tag (ban CAN SUA #1 cu) cung khong
+     con can thiet. */
+  .kpi.key .lb{color:rgba(255,255,255,.76);padding-right:0}
   .kpi.key .sb{color:rgba(255,255,255,.78)}
-  .kpi.key .tag{position:absolute;right:13px;top:13px;font-size:9px;font-weight:800;letter-spacing:.06em;
-    text-transform:uppercase;color:#3b2b00;background:var(--gold);border-radius:6px;padding:3px 7px}
   .kpi.key .chip{background:rgba(255,255,255,.95)}
-
-  /* Fix CAN SUA #1: padding-right:30px (dong tren) chi du cho icon .ic 26px
-     dung o the thuong. The .key (hero) thay icon bang tag chu ".tag" - voi
-     nhan dai nhu "Tre tien do"/"Behind Schedule", tag de vao dung vung chu
-     khi BE RONG THE (khong phai viewport) nho hon ~210px. Dung sat mep
-     @media(max-width:680px) se lot vung 1181-1450px o luoi 6 cot (KPI-1
-     reviewer chi ra): viewport rong nhung the van hep vi 6 cot, hoac sidebar
-     thu gon 68px lam viewport-check sai lech. Dung @container (container-type
-     dat tren chinh .kpi.key) de bat dung theo be rong THE thuc te, dung o moi
-     so cot/viewport/trang thai sidebar. Nguong 210px = K_max~186px (en) + bien
-     an toan, da do overlapX that bang Chrome DevTools Protocol (headless) -
-     xem .bangiao/thay-doi.md. */
-  .kpi.key{container-type:inline-size}
-  @container (max-width: 210px){
-    .kpi.key .tag{position:static;display:inline-block;margin:0 0 6px}
-    .kpi.key .lb{padding-right:0}
-  }
 
   /* Bien the so cot - app co luoi 5 / 4 / 2 thay vi luon 6 */
   .kpis.k5 { grid-template-columns: repeat(5, 1fr); }
