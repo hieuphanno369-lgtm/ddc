@@ -97,7 +97,7 @@ export function KpiCard({
             {deltaSuffix && <span>{deltaSuffix}</span>}
           </>
         ) : (
-          !sub && <span>-</span>
+          !sub && !scheduleGap && <span>-</span>
         )}
         {sub && <span>{sub}</span>}
       </div>
