@@ -110,6 +110,13 @@ describe('T13a - cot trong so chuoi gia tri lay that tu project_stage_weight (P1
   });
 });
 
+describe('T13b - so tuyet doi (tan) canh % o chuoi gia tri (P1B Task 3, nhanh T)', () => {
+  it('du an 1: co hien so tan KH/TT cho giai doan dinh luong', async () => {
+    const out = await render();
+    expect(out).toContain('valueChainAbs.ton');
+  });
+});
+
 describe('Task 6 - the "Cac moc chinh" + nut "Sua moc" theo vai tro', () => {
   it('admin thay the + link toi dung buoc Ho so', async () => {
     const out = await render();

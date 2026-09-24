@@ -579,5 +579,8 @@
     "equipmentTotal": "Total equipment",
     "asOf": "Data of {date}",
     "planContractors": "Plan {planned} · {n} contractors"
+  },
+  "valueChainAbs": {
+    "ton": "{actual}/{planned} t"
   }
 }

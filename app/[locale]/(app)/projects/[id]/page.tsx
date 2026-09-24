@@ -13,7 +13,7 @@ import { THRESHOLDS } from '@/lib/thresholds';
 import { calcScheduleGap } from '@/lib/evm';
 import { buildPlanActualTimeline } from '@/lib/timeline';
 import { buildStageTimelineRows } from '@/lib/stage-timeline';
-import { stageWeightLabel } from '@/lib/value-chain-view';
+import { stageTonnage, stageWeightLabel } from '@/lib/value-chain-view';
 import { formatDate, formatDateTime, formatDayMonth, formatPct, formatRatio, formatTon as formatQty, formatTyd } from '@/lib/format';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Rise } from '@/components/ui/Rise';
@@ -251,12 +251,20 @@ export default async function ProjectDetailPage({
                 if (v && !v.applicable) return null;
                 const pct = v?.pctComplete ?? 0;
                 const isBottleneck = stage === latest?.bottleneckStage;
+                const tonnage = stageTonnage(compare, stage);
                 return (
-                  <div key={stage} className={`stage${isBottleneck ? ' bt' : ''}`}>
+                  <div key={stage} className={`stage${isBottleneck ? ' bt' : ''}`} style={{ gridTemplateColumns: '116px 38px 1fr auto' }}>
                     <span className="nm">{t(stageKey[stage])}</span>
                     <span className="w">{stageWeightLabel(stageWeights, stage, locale)}</span>
                     <div className="bar"><i className="fill" style={{ width: `${Math.round(pct * 100)}%` }} /></div>
-                    <span className="pc">{formatPct(pct, locale)}</span>
+                    <span className="pc">
+                      {formatPct(pct, locale)}
+                      {tonnage && (
+                        <span className="text-label3" style={{ fontWeight: 500, marginLeft: 6, whiteSpace: 'nowrap' }}>
+                          {t('valueChainAbs.ton', { actual: formatQty(tonnage.actual, locale), planned: formatQty(tonnage.planned, locale) })}
+                        </span>
+                      )}
+                    </span>
                   </div>
                 );
               })}

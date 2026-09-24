@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ProjectStageWeight } from '@/server/repo/types';
-import { stageWeightLabel } from './value-chain-view';
+import type { WorkItemCompare, WorkItemCompareRow } from '@/lib/stage-timeline';
+import { stageTonnage, stageWeightLabel } from './value-chain-view';
 
 const W = (stageCode: ProjectStageWeight['stageCode'], weightPct: number, applicable = true): ProjectStageWeight => ({
   projectId: 1,
@@ -28,5 +29,24 @@ describe('stageWeightLabel', () => {
 
   it('khong co dong nao cho stage -> "-"', () => {
     expect(stageWeightLabel([W('shop', 10)], 'design', 'vi')).toBe('-');
+  });
+});
+
+const ROW = (planned: number, actual: number): WorkItemCompareRow => ({ workItemId: 1, name: 'x', planned, actual });
+
+describe('stageTonnage', () => {
+  it('2 dong -> cong dung KH/TT', () => {
+    const compare: WorkItemCompare = { fabrication: [ROW(100, 80), ROW(50, 40)] };
+    expect(stageTonnage(compare, 'fabrication')).toEqual({ planned: 150, actual: 120 });
+  });
+
+  it('stage khong co key (vd design - thu cong) -> null', () => {
+    const compare: WorkItemCompare = { fabrication: [ROW(100, 80)] };
+    expect(stageTonnage(compare, 'design')).toBeNull();
+  });
+
+  it('mang rong -> null', () => {
+    const compare: WorkItemCompare = { fabrication: [] };
+    expect(stageTonnage(compare, 'fabrication')).toBeNull();
   });
 });

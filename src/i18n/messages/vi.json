@@ -579,5 +579,8 @@
     "equipmentTotal": "Tổng số thiết bị",
     "asOf": "Số liệu ngày {date}",
     "planContractors": "KH {planned} · {n} nhà thầu"
+  },
+  "valueChainAbs": {
+    "ton": "{actual}/{planned} tấn"
   }
 }
