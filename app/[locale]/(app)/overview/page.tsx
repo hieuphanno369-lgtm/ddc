@@ -89,7 +89,7 @@ export default async function OverviewPage({
         <KpiGrid month={month} filters={filters} canViewFinance={canViewFinance} />
       </Suspense>
 
-      <div className="g21">
+      <div className="g2">
         <Suspense fallback={<CardSkeleton h={260} />}>
           <GroupBarCard month={month} groupBy={groupBy} filters={filters} />
         </Suspense>

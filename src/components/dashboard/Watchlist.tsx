@@ -1,8 +1,10 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { THRESHOLDS } from '@/lib/thresholds';
+import { maxHeightForRows, WATCHLIST_VISIBLE_ROWS } from '@/lib/visible-rows';
 import type { ProjectSummary } from '@/server/queries';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -19,6 +21,22 @@ function reasonsOf(t: (k: string) => string, s: ProjectSummary) {
 
 export function Watchlist({ items }: { items: ProjectSummary[] }) {
   const t = useTranslations();
+  const listRef = useRef<HTMLDivElement>(null);
+  const [measured, setMeasured] = useState<number | null>(null);
+  const overflow = items.length > WATCHLIST_VISIBLE_ROWS;
+
+  useEffect(() => {
+    if (!overflow || !listRef.current) return;
+    function measure() {
+      const rows = Array.from(listRef.current?.children ?? []) as HTMLElement[];
+      setMeasured(maxHeightForRows(rows, WATCHLIST_VISIBLE_ROWS));
+    }
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length]);
+
   return (
     <Card>
       <CardHeader title={t('overview.watchlist')} subtitle={t('watchlist.reason')} />
@@ -26,7 +44,11 @@ export function Watchlist({ items }: { items: ProjectSummary[] }) {
         {items.length === 0 ? (
           <p className="empty">{t('overview.noAlerts')}</p>
         ) : (
-          <div className="flex flex-col gap-2.5">
+          <div
+            ref={listRef}
+            className="flex flex-col gap-2.5"
+            style={overflow ? { maxHeight: measured ?? 400, overflowY: 'auto' } : undefined}
+          >
             {items.map((s) => (
               <Link key={s.id} href={`/projects/${s.id}`} className="alert">
                 <span className="dot" style={{ background: 'var(--danger)' }} />
