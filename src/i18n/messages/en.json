@@ -657,5 +657,10 @@
     "allStages": "All 7 stages",
     "footerWeight": "Σ weight",
     "footerFormula": "Actual % = Σ(weight × stage actual %)"
+  },
+  "kpiSchedule": {
+    "behind": "▼ Behind {days}d · −{pct}%",
+    "ahead": "▲ Ahead {days}d · +{pct}%",
+    "onTrack": "On track"
   }
 }

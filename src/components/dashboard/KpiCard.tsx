@@ -1,6 +1,13 @@
 import { IconArrowDown, IconArrowUp, type IconProps } from '@/components/icons';
+import type { ScheduleGapDirection } from '@/lib/schedule-gap';
 
 export type KpiTone = 'neutral' | 'ok' | 'warn' | 'danger';
+
+export interface KpiScheduleGapNote {
+  /** Da dich san (vd t('kpiSchedule.behind', {days, pct})) - KpiCard khong tu dich. */
+  text: string;
+  direction: ScheduleGapDirection;
+}
 
 export interface KpiCardProps {
   label: string;
@@ -15,6 +22,11 @@ export interface KpiCardProps {
   icon: (p: IconProps) => React.ReactNode;
   /** Dong phu thu 2, hien duoi `sub` (vd "KH 520 · 6 nha thau"). */
   note?: string;
+  /**
+   * Dong "Cham/Nhanh N ngay · ±x,x%" so voi tien do KH, hien duoi cung the %TT hero
+   * (Vong bo sung P2B). Mau theo direction - xem SCHEDULE_GAP_COLOR.
+   */
+  scheduleGap?: KpiScheduleGapNote;
   /** Co -> ca the la <a href> (anchor cuon toi chart), them class "tap" (da co CSS: globals.css:253). */
   href?: string;
 }
@@ -25,6 +37,19 @@ const TONE_VALUE: Record<KpiTone, string> = {
   ok: 'var(--ok)',
   warn: 'var(--warn)',
   danger: 'var(--danger)',
+};
+
+/**
+ * Mau dong "Cham/Nhanh N ngay · ±x,x%" tren nen gradient navy cua the hero. Khong dung
+ * --danger/--ok mac dinh: o theme sang 2 token do la mau toi, doc kem tren navy - cung ly do
+ * heroAlert (dong tren) dung --gold thay --warn/--danger. --gold dung lai cho "cham" (canh
+ * bao); "nhanh" dung token rieng --mint (app/tokens.css) - mot gia tri xanh sang co dinh (khong
+ * doi theo theme, giong --gold) du sang de doc tren navy.
+ */
+const SCHEDULE_GAP_COLOR: Record<ScheduleGapDirection, React.CSSProperties | undefined> = {
+  behind: { color: 'var(--gold)' },
+  ahead: { color: 'var(--mint)' },
+  onTrack: undefined,
 };
 
 export function KpiCard({
@@ -38,6 +63,7 @@ export function KpiCard({
   hero = false,
   icon: Icon,
   note,
+  scheduleGap,
   href,
 }: KpiCardProps) {
   const deltaUp = (delta ?? 0) > 0;
@@ -78,6 +104,13 @@ export function KpiCard({
       {note && (
         <div className="sb">
           <span>{note}</span>
+        </div>
+      )}
+      {scheduleGap && (
+        // class "gap" rieng: cho phep xuong dong o the hep (globals.css) thay vi cat "..." -
+        // dong nay co so % quan trong, cat mat la sai yeu cau "doc ro tren nen navy".
+        <div className="sb gap" style={SCHEDULE_GAP_COLOR[scheduleGap.direction]}>
+          <span>{scheduleGap.text}</span>
         </div>
       )}
     </>

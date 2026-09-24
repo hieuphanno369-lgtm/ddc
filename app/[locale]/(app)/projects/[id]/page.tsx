@@ -11,6 +11,7 @@ import { stageKey } from '@/lib/labels';
 import type { StageCode } from '@/server/repo/types';
 import { THRESHOLDS } from '@/lib/thresholds';
 import { calcScheduleGap } from '@/lib/evm';
+import { calcScheduleGap as calcKpiScheduleGap } from '@/lib/schedule-gap';
 import { buildPlanActualTimeline } from '@/lib/timeline';
 import { buildStageTimelineRows } from '@/lib/stage-timeline';
 import { VALUE_CHAIN_COLUMNS, chainFooterSummary, chainWeightTotalLabel, stagePctLabel, stageTonnage, stageWeightLabel } from '@/lib/value-chain-view';
@@ -119,6 +120,21 @@ export default async function ProjectDetailPage({
   });
   const startDelay = timeline?.startDelayDays ?? null;
   const gap = summary.pctPlan != null ? calcScheduleGap(summary.pctPlan, summary.pctActual) : null;
+  // Vong bo sung P2B: dong "Cham/Nhanh N ngay · ±x,x%" duoi the %TT hero - cong thuc rieng
+  // (gapDays quy doi ra ngay), khac voi `gap` phia tren (chi la diem % dung cho dong chan timeline).
+  const kpiScheduleGap = calcKpiScheduleGap(summary.pctPlan, summary.pctActual, project.plannedStartDate, project.plannedFinishDate);
+  const scheduleGapNote = kpiScheduleGap
+    ? {
+        direction: kpiScheduleGap.direction,
+        text: t(`kpiSchedule.${kpiScheduleGap.direction}`, {
+          days: Math.abs(kpiScheduleGap.gapDays),
+          pct: new Intl.NumberFormat(locale === 'vi' ? 'vi-VN' : 'en-US', {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          }).format(Math.abs(kpiScheduleGap.gapPct) * 100),
+        }),
+      }
+    : undefined;
   const latest = facts[facts.length - 1];
   const canEditMs = user?.role === 'admin' || user?.role === 'data-entry';
   const stageRows = buildStageTimelineRows(stageMilestones, stageWeights);
@@ -189,7 +205,7 @@ export default async function ProjectDetailPage({
       {/* 6 KPI - 3 the "Trong tam" (%TT, SPI, CPI) dung canh nhau nhu mock-up dong 646-649 */}
       <Rise className="kpis">
         <KpiCard label={t('metric.pctPlan')} value={formatPct(summary.pctPlan, locale)} delta={null} tone="neutral" icon={IconProject} />
-        <KpiCard label={t('metric.pctActual')} value={formatPct(summary.pctActual, locale)} delta={null} tone="neutral" hero icon={IconAlert} />
+        <KpiCard label={t('metric.pctActual')} value={formatPct(summary.pctActual, locale)} delta={null} tone="neutral" hero scheduleGap={scheduleGapNote} icon={IconAlert} />
         <KpiCard label={t('metric.spi')} value={formatRatio(summary.spi)} delta={null} tone={summary.spi != null && summary.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'} hero icon={IconTrend} />
         <KpiCard label={t('metric.cpi')} value={formatRatio(summary.cpi)} delta={null} tone={summary.cpi != null && summary.cpi < THRESHOLDS.cpiWarn ? 'warn' : 'ok'} hero icon={IconMoney} />
         <KpiCard label={t('resourceKpi.manpowerTotal')}

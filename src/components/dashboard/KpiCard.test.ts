@@ -14,7 +14,7 @@ import { KpiCard, type KpiCardProps } from './KpiCard';
  * định đúng markup người dùng nhìn thấy (class, text, có/không có icon),
  * không chỉ khẳng định "không throw".
  * Vòng bổ sung P2B (2026-09-24): bỏ tag "Trọng tâm" (prop `heroTagLabel` cũ
- * đã xoá).
+ * đã xoá) + thêm prop `scheduleGap` (dòng "Chậm/Nhanh N ngày · ±x,x%").
  */
 const DummyIcon = (p: { size?: number; className?: string }) =>
   React.createElement('svg', { 'data-testid': 'dummy-icon', width: p.size });
@@ -99,6 +99,53 @@ describe('KpiCard - the "Trong tam" (hero=true, Task 4 spec dong 958 ke-hoach.md
     );
 
     expect(ok).not.toContain('style=');
+  });
+});
+
+describe('KpiCard - scheduleGap (vong bo sung P2B: dong "Cham/Nhanh N ngay · ±x,x%" duoi the %TT)', () => {
+  it('direction=behind: hien dong .sb voi mau --gold (du contrast tren nen navy, giong heroAlert)', () => {
+    const out = renderToStaticMarkup(
+      React.createElement(KpiCard, {
+        ...BASE,
+        hero: true,
+        scheduleGap: { text: '▼ Chậm 5 ngày · −3,3%', direction: 'behind' },
+      })
+    );
+
+    expect(out).toContain('▼ Chậm 5 ngày · −3,3%');
+    expect(out).toContain('style="color:var(--gold)"');
+  });
+
+  it('direction=ahead: hien dong .sb voi mau xanh (khong phai --gold)', () => {
+    const out = renderToStaticMarkup(
+      React.createElement(KpiCard, {
+        ...BASE,
+        hero: true,
+        scheduleGap: { text: '▲ Nhanh 5 ngày · +3,3%', direction: 'ahead' },
+      })
+    );
+
+    expect(out).toContain('▲ Nhanh 5 ngày · +3,3%');
+    expect(out).toContain('style="color:var(--mint)"');
+  });
+
+  it('direction=onTrack: hien dong .sb, khong co mau inline rieng', () => {
+    const out = renderToStaticMarkup(
+      React.createElement(KpiCard, {
+        ...BASE,
+        hero: true,
+        scheduleGap: { text: 'Đúng tiến độ', direction: 'onTrack' },
+      })
+    );
+
+    expect(out).toContain('Đúng tiến độ');
+  });
+
+  it('khong truyen scheduleGap: khong render dong nay', () => {
+    const out = renderToStaticMarkup(React.createElement(KpiCard, { ...BASE, hero: true }));
+
+    expect(out).not.toContain('Chậm');
+    expect(out).not.toContain('Nhanh');
   });
 });
 

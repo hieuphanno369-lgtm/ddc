@@ -657,5 +657,10 @@
     "allStages": "Toàn bộ 7 giai đoạn",
     "footerWeight": "Σ trọng số",
     "footerFormula": "%TT = Σ(trọng số × %HT giai đoạn)"
+  },
+  "kpiSchedule": {
+    "behind": "▼ Chậm {days} ngày · −{pct}%",
+    "ahead": "▲ Nhanh {days} ngày · +{pct}%",
+    "onTrack": "Đúng tiến độ"
   }
 }

@@ -55,6 +55,10 @@
   --accent:#1d5a9e; --accent-2:#2a6db4; --accent-deep:#0e2741;
   --accent-tint:rgba(29,90,158,.12);
   --gold:#f5b301;
+  /* Vong bo sung P2B: mau "nhanh tien do" tren the hero (nen gradient navy o tren) - khong dung
+     --ok mac dinh vi ban sang cua no la mau xanh dam, doc kem tren navy giong ly do --gold thay
+     the cho --warn/--danger o cung nen. Co dinh 1 gia tri (khong doi theo theme) giong --gold. */
+  --mint:#30d158;
 
   /* ---------- SERIES (đã qua validator: PASS all-pairs, light) ---------- */
   --s-plan:#93b8e0; --s-actual:#1d5a9e; --s-cost:#a86a12; --s-third:#0f8a63; --s-third-lt:#6fbf9b;
