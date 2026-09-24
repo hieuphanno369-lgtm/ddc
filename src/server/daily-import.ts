@@ -7,6 +7,9 @@ import type { Contractor, Equipment, Shift } from '@/server/repo/types';
 /** H-1a (danh-gia.md vòng 1): trần số cột đọc từ 1 sheet - chặn file gài ô ở cột XFD (16384) làm nổ RAM. */
 export const SHEET_MAX_COLS = 64;
 
+/** H-1b (danh-gia.md vòng 2): trần số entry trong file .xlsx (zip) - chặn file gài hàng nghìn entry rỗng/nhỏ làm chậm `JSZip.loadAsync`. */
+export const XLSX_MAX_ENTRIES = 200;
+
 /** Sheet đã đọc có giới hạn dòng/cột, dùng chung cho mọi nơi đọc Excel bằng exceljs (H-1a). */
 export type BoundedSheet =
   | { ok: true; header: CellValue[]; rows: { rowNo: number; cells: CellValue[] }[] }
@@ -54,10 +57,12 @@ export function readBoundedSheet(ws: ExcelJS.Worksheet | undefined, maxRows: num
 }
 
 /**
- * H-1b: chống zip bomb - trước khi `wb.xlsx.load` giải nén toàn bộ, đo tổng dung lượng SAU giải
- * nén của các entry XML mang dữ liệu (sheet + shared strings) bằng stream có thể dừng sớm; KHÔNG
- * dùng `entry.async(...)` (dồn hết vào bộ nhớ trước khi trả) và KHÔNG tin `_data.uncompressedSize`
- * (siêu dữ liệu zip có thể bị làm giả).
+ * H-1b (danh-gia.md vòng 2): chống zip bomb - trước khi `wb.xlsx.load` giải nén toàn bộ, đo tổng
+ * dung lượng sau giải nén của MỌI entry (exceljs `entry.async('string'|'nodebuffer')` giải nén tất
+ * cả, không phân biệt tên - xem `exceljs/lib/xlsx/xlsx.js`), cộng dồn qua mọi entry vào MỘT biến
+ * `total`, và trần số entry (`XLSX_MAX_ENTRIES`) để chặn file gài rất nhiều entry nhỏ. Đo bằng
+ * stream có thể dừng sớm; KHÔNG dùng `entry.async(...)` (dồn hết vào bộ nhớ trước khi trả) và
+ * KHÔNG tin `_data.uncompressedSize` (siêu dữ liệu zip có thể bị làm giả).
  */
 export async function assertXlsxInflatedSize(buf: Buffer, limitBytes = 20 * 1024 * 1024): Promise<boolean> {
   let zip: JSZip;
@@ -67,13 +72,12 @@ export async function assertXlsxInflatedSize(buf: Buffer, limitBytes = 20 * 1024
     return false;
   }
 
-  const dataEntries = Object.values(zip.files).filter(
-    (f) => !f.dir && /^xl\/(worksheets\/[^/]+\.xml|sharedStrings\.xml)$/.test(f.name),
-  );
+  const entries = Object.values(zip.files).filter((f) => !f.dir);
+  if (entries.length > XLSX_MAX_ENTRIES) return false;
 
-  for (const entry of dataEntries) {
+  let total = 0;
+  for (const entry of entries) {
     const ok = await new Promise<boolean>((resolve) => {
-      let total = 0;
       let settled = false;
       const stream = (entry as JSZipObjectWithInternalStream).internalStream('uint8array');
       const finish = (result: boolean) => {

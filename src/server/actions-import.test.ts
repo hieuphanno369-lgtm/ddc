@@ -137,6 +137,27 @@ describe('importExcelAction - chan file doc hai (H-1c)', () => {
     expect(res.ok).toBe(false);
     expect(elapsed).toBeLessThan(2000);
   });
+
+  it('(H-1b vong 2) entry NGOAI regex loc ten cu (xl/styles.xml) -> ok:false, Invalid file, duoi 2s', async () => {
+    login(ADMIN);
+    const ExcelJS = (await import('exceljs')).default;
+    const JSZip = (await import('jszip')).default;
+    const wb = new ExcelJS.Workbook();
+    wb.addWorksheet('Sheet1');
+    const tpl = Buffer.from(await wb.xlsx.writeBuffer());
+    const zip = await JSZip.loadAsync(tpl);
+    zip.file('xl/styles.xml', 'A'.repeat(30 * 1024 * 1024), { compression: 'DEFLATE', compressionOptions: { level: 9 } });
+    const buf = await zip.generateAsync({ type: 'nodebuffer' });
+    const fd = new FormData();
+    fd.set('file', new File([buf], 'evil.xlsx'));
+
+    const start = Date.now();
+    const res = (await importExcelAction(fd)) as { ok: boolean; error?: string };
+    const elapsed = Date.now() - start;
+
+    expect(res).toEqual({ ok: false, error: 'Invalid file' });
+    expect(elapsed).toBeLessThan(2000);
+  });
 });
 
 describe('commitImportAction - failed[] cho dong khong thuoc assignment', () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
-import { assertXlsxInflatedSize, buildDailyTemplate, readDailyWorkbook } from './daily-import';
+import JSZip from 'jszip';
+import { assertXlsxInflatedSize, buildDailyTemplate, readDailyWorkbook, XLSX_MAX_ENTRIES } from './daily-import';
 import { manpowerHeaders, EQUIPMENT_HEADERS, cellText } from '@/lib/daily-import';
 import { repo } from '@/server/repo/mock-repo';
 
@@ -109,5 +110,90 @@ describe('assertXlsxInflatedSize (H-1b, chong zip bomb)', () => {
       equipments: repo.getEquipments(),
     });
     expect(await assertXlsxInflatedSize(buf)).toBe(true);
+  });
+
+  it('(a) entry NGOAI regex loc ten cu (xl/styles.xml) van bi do - exceljs giai nen MOI entry -> false, bad_file, nhanh', async () => {
+    const tpl = await buildDailyTemplate({
+      members: repo.getContractors(1),
+      shifts: repo.getShifts(),
+      equipments: repo.getEquipments(),
+    });
+    const zip = await JSZip.loadAsync(tpl);
+    // xl/styles.xml khong khop regex cu `/^xl\/(worksheets\/[^/]+\.xml|sharedStrings\.xml)$/` nhung
+    // exceljs (entry.async) van giai nen no vao RAM khi doc workbook.
+    zip.file('xl/styles.xml', 'A'.repeat(30 * 1024 * 1024), { compression: 'DEFLATE', compressionOptions: { level: 9 } });
+    const buf = await zip.generateAsync({ type: 'nodebuffer' });
+    expect(buf.length).toBeLessThan(1024 * 1024);
+
+    expect(await assertXlsxInflatedSize(buf)).toBe(false);
+
+    const start = Date.now();
+    const res = await readDailyWorkbook(buf);
+    const elapsed = Date.now() - start;
+    expect(res).toEqual({ ok: false, error: 'bad_file' });
+    expect(elapsed).toBeLessThan(2000);
+  });
+
+  it('(b) ten entry co "/" dau - JSZip.loadAsync giu nguyen ten, van phai bi do (khong duoc regex/ten bo qua)', async () => {
+    const zip = new JSZip();
+    zip.file('/xl/worksheets/sheet1.xml', 'A'.repeat(30 * 1024 * 1024), { compression: 'DEFLATE', compressionOptions: { level: 9 } });
+    const buf = await zip.generateAsync({ type: 'nodebuffer' });
+    expect(buf.length).toBeLessThan(1024 * 1024);
+
+    // JSZip `utils.resolve` giu nguyen phan tu dau tien du la rong ("/xl/..." tach ra co phan tu "" o
+    // dau) -> ten entry sau loadAsync van con "/" dau. Neu ban JSZip sau nay tu chuan hoa bo "/" dau,
+    // assert nay se that bai - luc do ghi chu lai va bo assert (khong con can thiet vi khong con
+    // "the ten co / dau tron duoc regex" nua vi ham moi khong loc theo ten).
+    const reloaded = await JSZip.loadAsync(buf);
+    expect(Object.keys(reloaded.files)).toContain('/xl/worksheets/sheet1.xml');
+
+    expect(await assertXlsxInflatedSize(buf)).toBe(false);
+  });
+
+  it('(c) cong don qua nhieu entry: 5 entry x 20KB vuot tran 64KB -> false (ma cu tung entry rieng se tra true)', async () => {
+    const zip = new JSZip();
+    for (let i = 1; i <= 5; i++) {
+      zip.file(`xl/worksheets/sheet${i}.xml`, 'A'.repeat(20 * 1024), { compression: 'DEFLATE' });
+    }
+    const buf = await zip.generateAsync({ type: 'nodebuffer' });
+    expect(await assertXlsxInflatedSize(buf, 64 * 1024)).toBe(false);
+  });
+
+  it('(c doi chung) 2 entry x 20KB duoi tran 64KB -> true', async () => {
+    const zip = new JSZip();
+    for (let i = 1; i <= 2; i++) {
+      zip.file(`xl/worksheets/sheet${i}.xml`, 'A'.repeat(20 * 1024), { compression: 'DEFLATE' });
+    }
+    const buf = await zip.generateAsync({ type: 'nodebuffer' });
+    expect(await assertXlsxInflatedSize(buf, 64 * 1024)).toBe(true);
+  });
+
+  it(`(d) ${XLSX_MAX_ENTRIES + 1} entry nho (vuot XLSX_MAX_ENTRIES) -> false`, async () => {
+    const zip = new JSZip();
+    for (let i = 0; i < XLSX_MAX_ENTRIES + 1; i++) zip.file(`f${i}.txt`, 'x');
+    const buf = await zip.generateAsync({ type: 'nodebuffer' });
+    expect(await assertXlsxInflatedSize(buf)).toBe(false);
+  });
+
+  it('(d doi chung) 50 entry nho (duoi XLSX_MAX_ENTRIES) -> true', async () => {
+    const zip = new JSZip();
+    for (let i = 0; i < 50; i++) zip.file(`f${i}.txt`, 'x');
+    const buf = await zip.generateAsync({ type: 'nodebuffer' });
+    expect(await assertXlsxInflatedSize(buf)).toBe(true);
+  });
+
+  it('(e) 3 entry x 15MB (tran mac dinh 20MB) -> bi tu choi som, elapsed < 2000ms (xac minh stream.pause() dung giai nen that, khong doc het ca 3 entry)', async () => {
+    const zip = new JSZip();
+    for (let i = 1; i <= 3; i++) {
+      zip.file(`xl/worksheets/sheet${i}.xml`, 'A'.repeat(15 * 1024 * 1024), { compression: 'DEFLATE', compressionOptions: { level: 9 } });
+    }
+    const buf = await zip.generateAsync({ type: 'nodebuffer' });
+
+    const start = Date.now();
+    const res = await assertXlsxInflatedSize(buf);
+    const elapsed = Date.now() - start;
+
+    expect(res).toBe(false);
+    expect(elapsed).toBeLessThan(2000);
   });
 });
