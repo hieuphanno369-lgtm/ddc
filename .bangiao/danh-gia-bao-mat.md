@@ -4,6 +4,16 @@ PHÁN QUYẾT BẢO MẬT: ĐẠT
 
 > Nội dung do subagent security-reviewer (vai chỉ đọc) trả về; điều phối viên lưu vào file này.
 
+## Vòng bổ sung — KPI (diff f9934a4..HEAD: a09b56e, 7a28268, 3d24821, dabd1c6, c0f7e01) — ĐẠT
+
+Skill: `ddc-tower:security-review`. Không thêm truy vấn/schema nên không cần kiểm DB.
+- **Phân quyền/BOLA — ĐẠT:** dòng chậm/nhanh (`projects/[id]/page.tsx:125-137`) chỉ dùng `summary.pctPlan`, `summary.pctActual`, `project.plannedStartDate/FinishDate` — đều đã hiện trên trang từ trước (%KH dòng 207, ngày KH 238/245, CountdownPanel 199-200). `requireProjectRead` (dòng 81) không đổi.
+- **Tài chính — ĐẠT:** `src/lib/schedule-gap.ts` là hàm thuần, không đụng chi phí/HĐ/CPI/EV/AC. `OverviewWidgets.tsx:58`, `report/page.tsx:51` chỉ bỏ prop `heroTagLabel`; gating `canViewFinance` không đổi.
+- **XSS — ĐẠT:** `kpiSchedule.*` văn bản tĩnh; tham số `days` (Math.abs số nguyên), `pct` (Intl.NumberFormat) do server tính; render text node; `style` từ bảng hằng `SCHEDULE_GAP_COLOR` theo union đóng.
+- **CSS/token — ĐẠT:** `tokens.css` thêm `--mint:#30d158`; `globals.css` chỉ đổi bố cục nhãn, không `url()`/`@import`/`content:` mới.
+- **Fail-open — không áp dụng:** thiếu dữ liệu hoặc số ngày KH ≤ 0 → `calcScheduleGap` trả `null`, ẩn dòng.
+- Ghi chú thấp (không chặn): key `kpi.focusTag` thừa (`vi.json`/`en.json:99`) → dọn i18n sau; ảnh `.bangiao/anh-test/kpi-*.png` chụp DB dev — xác nhận không có dữ liệu khách hàng thật trước khi push remote.
+
 ## Vòng 2 (diff fa2b261..HEAD: 710abab, f794113, c59716f, cdd5733, 84b6760, c61fa61, b8991b4, 102a467, 4024dd2, 0b5c74d, 002d010, 3d75eac)
 
 Skill: `ddc-tower:security-review`, soi tĩnh. Không có phát hiện mới (cao/trung bình/thấp). **Kết quả vòng 1 giữ nguyên**: L-1, L-2, L-3 vẫn mở; N-1, N-2, N-3 có từ trước.
