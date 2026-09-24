@@ -33,4 +33,26 @@ describe('entry repo (mock)', () => {
     const last = repo.getAuditLog()[0];
     expect(last.note).toBe('lý do');
   });
+
+  it('addProjectContractor lan 2 -> exists', () => {
+    expect(repo.addProjectContractor(2, 1, 'u@x')).toBe('added');
+    expect(repo.addProjectContractor(2, 1, 'u@x')).toBe('exists');
+  });
+
+  it('nha thau khong ton tai -> not_found', () => {
+    expect(repo.addProjectContractor(2, 999999, 'u@x')).toBe('not_found');
+  });
+
+  it('moi add/remove co 1 dong audit project_contractor', () => {
+    const before = repo.getAuditLog().length;
+    repo.addProjectContractor(3, 1, 'u@x');
+    const afterAdd = repo.getAuditLog();
+    expect(afterAdd.length).toBe(before + 1);
+    expect(afterAdd[0].tableName).toBe('project_contractor');
+
+    repo.removeProjectContractor(3, 1, 'u@x');
+    const afterRemove = repo.getAuditLog();
+    expect(afterRemove.length).toBe(before + 2);
+    expect(afterRemove[0].tableName).toBe('project_contractor');
+  });
 });

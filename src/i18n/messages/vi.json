@@ -624,5 +624,21 @@
     "rangeAll": "Tất cả",
     "prev": "Trang trước",
     "next": "Trang sau"
+  },
+  "contractorJoin": {
+    "title": "Nhà thầu tham gia",
+    "empty": "Chưa có nhà thầu tham gia — thêm nhà thầu để nhập nhân lực/thiết bị.",
+    "add": "Thêm nhà thầu",
+    "create": "+ Tạo nhà thầu mới",
+    "remove": "Gỡ",
+    "confirmRemove": "Gỡ {name} khỏi dự án?",
+    "err": {
+      "has_data": "Không gỡ được: nhà thầu đã có số liệu nhân lực/thiết bị ở dự án này.",
+      "forbidden": "Bạn không có quyền sửa dự án này.",
+      "generic": "Lỗi: {msg}"
+    }
+  },
+  "dailyEntry": {
+    "step": "Nhân lực & Thiết bị"
   }
 }

@@ -49,7 +49,7 @@ import { StatusBadge } from '@/components/ui/Badges';
 import { IconProject } from '@/components/icons';
 import { HelpTip } from '@/components/ui/HelpTip';
 
-export type DataEntryStep = 'progress' | 'finance' | 'profile' | 'extras';
+export type DataEntryStep = 'progress' | 'finance' | 'profile' | 'extras' | 'resources';
 type Step = DataEntryStep;
 
 const TYPES: ProjectType[] = ['EPC', 'San_van_dong', 'San_bay', 'Nha_xuong', 'Cau_cang', 'Cao_tang', 'Dong_tau', 'Cau_giao_thong', 'Khac'];
@@ -78,6 +78,7 @@ interface Props {
   today: IsoDate;
   initialStep?: DataEntryStep;
   canEditFinance: boolean;
+  resourcesPanel: React.ReactNode;
 }
 
 export function DataEntryForm({
@@ -102,6 +103,7 @@ export function DataEntryForm({
   today,
   initialStep,
   canEditFinance,
+  resourcesPanel,
 }: Props) {
   const t = useTranslations();
   const router = useRouter();
@@ -269,6 +271,7 @@ export function DataEntryForm({
     { key: 'finance', label: t('form.stepFinance') },
     { key: 'profile', label: t('form.stepProfile') },
     { key: 'extras', label: t('form.stepExtras') },
+    { key: 'resources', label: t('dailyEntry.step') },
   ];
 
   const inputCls = (key: string) => `inp${errors[key] ? ' bad' : ''}`;
@@ -368,6 +371,9 @@ export function DataEntryForm({
         })}
       </div>
 
+      {step === 'resources' ? (
+        resourcesPanel
+      ) : (
       <div className={`card overflow-visible ${locked ? 'pointer-events-none opacity-60' : ''}`}>
         <div className="bd">
         {step === 'profile' && (
@@ -676,6 +682,7 @@ export function DataEntryForm({
         )}
         </div>
       </div>
+      )}
 
       {/* Actions */}
       <div className="stickybar">
@@ -715,7 +722,7 @@ export function DataEntryForm({
                 {t('common.back')}
               </button>
             )}
-            {step !== 'extras' && (
+            {step !== 'resources' && (
               <button
                 onClick={() => go(1)}
                 className="btn ghost"
@@ -723,13 +730,15 @@ export function DataEntryForm({
                 {t('common.next')}
               </button>
             )}
-            <button
-              onClick={submit}
-              disabled={saving || locked}
-              className="btn"
-            >
-              {t('common.save')}
-            </button>
+            {step !== 'resources' && (
+              <button
+                onClick={submit}
+                disabled={saving || locked}
+                className="btn"
+              >
+                {t('common.save')}
+              </button>
+            )}
           </div>
         </div>
       </div>

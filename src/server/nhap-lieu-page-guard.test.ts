@@ -8,7 +8,7 @@ import type { CurrentUser } from '@/lib/session';
  */
 const { redirectCalls, formProps } = vi.hoisted(() => ({
   redirectCalls: [] as string[],
-  formProps: [] as Array<{ projectId: number; financial?: unknown }>,
+  formProps: [] as Array<{ projectId: number; financial?: unknown; resourcesPanel?: { props: Record<string, unknown> } }>,
 }));
 
 vi.mock('next/navigation', () => ({
@@ -31,7 +31,7 @@ vi.mock('@/server/repo', async () => {
 });
 vi.mock('@/components/form/CreateProjectForm', () => ({ CreateProjectForm: () => null }));
 vi.mock('@/components/form/DataEntryForm', () => ({
-  DataEntryForm: (props: { projectId: number; financial?: unknown }) => {
+  DataEntryForm: (props: { projectId: number; financial?: unknown; resourcesPanel?: { props: Record<string, unknown> } }) => {
     formProps.push(props);
     return null;
   },
@@ -129,5 +129,29 @@ describe('guard /nhap-lieu (F2a)', () => {
     const expected = (await mockRepo.getFinancial(props.projectId)).find((f) => f.yearMonth === '2026-09');
     expect(expected).toBeDefined();
     expect(props.financial).toEqual(expected);
+  });
+});
+
+/** Task 3 (P2A) - bước "Nhân lực & Thiết bị" nạp đúng dữ liệu cho ResourceEntryPanel. */
+describe('nạp dữ liệu buoc resources (Task 3)', () => {
+  async function visitWithQuery(searchParams: Record<string, string>) {
+    redirectCalls.length = 0;
+    const el = await NhapLieuPage({ searchParams });
+    renderToStaticMarkup(el as React.ReactElement);
+  }
+
+  it('admin ?project=1&step=resources → members.length === 6, shifts 2 dòng', async () => {
+    login(user('admin', true));
+    await visitWithQuery({ project: '1', step: 'resources' });
+    const panel = formProps.at(-1)!.resourcesPanel!;
+    expect((panel.props.members as unknown[]).length).toBe(6);
+    expect((panel.props.shifts as unknown[]).length).toBe(2);
+  });
+
+  it('?date=abc (không hợp lệ) → date === today seed 2026-09-16', async () => {
+    login(user('admin', true));
+    await visitWithQuery({ project: '1', date: 'abc' });
+    const panel = formProps.at(-1)!.resourcesPanel!;
+    expect(panel.props.date).toBe('2026-09-16');
   });
 });

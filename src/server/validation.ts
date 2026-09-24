@@ -198,3 +198,15 @@ export const mergeDimSchema = z.object({
   fromId: z.number().int().positive(),
   toId: z.number().int().positive(),
 });
+
+// ---- G-18: nhà thầu tham gia dự án (Task 3, P2A) ----
+export const projectContractorSchema = z.object({
+  projectId: z.number().int().positive(),
+  contractorId: z.number().int().positive(),
+});
+
+export const createContractorSchema = z.object({
+  projectId: z.number().int().positive(),
+  name: z.string().trim().min(1).max(120),
+  scopeOfWork: z.string().trim().max(200),
+});

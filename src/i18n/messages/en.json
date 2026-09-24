@@ -624,5 +624,21 @@
     "rangeAll": "All",
     "prev": "Previous page",
     "next": "Next page"
+  },
+  "contractorJoin": {
+    "title": "Participating contractors",
+    "empty": "No contractors yet — add one to enter manpower/equipment.",
+    "add": "Add contractor",
+    "create": "+ Create new contractor",
+    "remove": "Remove",
+    "confirmRemove": "Remove {name} from this project?",
+    "err": {
+      "has_data": "Cannot remove: this contractor already has manpower/equipment data here.",
+      "forbidden": "You are not allowed to edit this project.",
+      "generic": "Error: {msg}"
+    }
+  },
+  "dailyEntry": {
+    "step": "Manpower & Equipment"
   }
 }
