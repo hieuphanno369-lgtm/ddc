@@ -3,6 +3,22 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P1B — UI nhanh (Tài khoản B) — CHỐT + ĐÃ MERGE vào `main` (2026-09-24)
+Nhánh `feature/p1b-ui-nhanh`, dây chuyền ship đủ chặng (1 vòng debug, 1 vòng CAN SUA → CHỐT). Hồ sơ:
+`.bangiao/archive/p1b-ui-nhanh-2026-09-24/`. Không migration. `tsc` sạch, 802/802 test, `next build` (font mock) sạch.
+- **A**: trang chi tiết dự án bỏ EAC/VAC → thẻ "Tổng số nhân lực"/"Tổng số thiết bị" ("Số liệu ngày dd/mm",
+  "KH x · n nhà thầu"), bấm cuộn tới chart; bỏ hàng nguồn lực riêng.
+- **T7**: ↑↓ Enter Esc cho Combobox, ProjectSwitcher, SettingsMenu; Esc cho HelpTip (logic ở `src/lib/list-nav.ts`).
+- **T5**: /audit phân trang server 20 dòng, mặc định 14 ngày + nút "Tất cả" (`src/server/audit-log-page.ts`);
+  /admin sửa tiêu đề cột, có giờ. audit_log không xoá.
+- **T9/T10**: "Dự án cần lưu ý" 5 dòng + cuộn; Team KD/Cơ cấu rộng bằng nhau.
+- **T12a**: Backlog & Công nợ quá hạn thành 2 scorecard. **Chốt định nghĩa backlog = tổng HĐ dự án "Chuẩn bị"**
+  (áp cho KPI, /report, Excel — bỏ dùng `fact_financial.backlog`).
+- **T13**: Chuỗi giá trị thêm tấn TT/KH cạnh % (Thiết kế/Nghiệm thu để trống); trọng số lấy từ `project_stage_weight`.
+- Sửa kèm: SearchBox topbar tự xoá `?page` khi mount (lỗi có từ trước).
+- **Để sau**: Combobox ↓ khi đóng chưa sáng mục 0; `report.ts` gọi `getLatestFact` 2N; /admin lọc activity_log
+  trong bộ nhớ; `audit-log-page.ts` gọi prisma trực tiếp + thiếu index audit_log (→ P2B/T1).
+
 ### ✅ Redesign Apple Glass — CHỐT kỹ thuật + ĐÃ MERGE vào `main` (2026-09-23)
 Coder 12/12 Task + mọi vòng vá đã xong. Dây chuyền ship 6 agent (planner→coder→tester→debugger→
 security-reviewer→reviewer) đã CHỐT ở reviewer VÒNG 3 (vòng review chốt, sau 2 vòng CAN SUA đã dùng
