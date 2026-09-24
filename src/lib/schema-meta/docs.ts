@@ -1,0 +1,533 @@
+/**
+ * Phần "chữ" (ý nghĩa bảng/cột, join logic) cho ERD T4 - tách khỏi `build.ts` (phần "cấu trúc").
+ * Test `docs.test.ts` bắt buộc mọi bảng/cột thật (từ `buildSchemaMeta`) đều có mô tả ở đây và
+ * không có mô tả thừa - thêm/đổi bảng mà quên cập nhật là `npm test` đỏ.
+ */
+
+export type TableKind = 'dim' | 'hub' | 'fact' | 'support' | 'log';
+export interface TableDoc { kind: TableKind; desc: string; fields: Record<string, string> }
+
+export const TABLE_DOCS: Record<string, TableDoc> = {
+  // ---- Dimension ----
+  dim_customer: {
+    kind: 'dim',
+    desc: 'Khách hàng / chủ đầu tư (chuẩn hóa, có alias để gộp trùng).',
+    fields: {
+      id: 'khoá chính',
+      name: 'tên chuẩn (Vingroup, SunGroup…)',
+      group: 'nhóm khách hàng',
+      aliases: 'tên cũ/đồng nghĩa - dùng để autocomplete + truy vết merge',
+      isActive: 'false = đã merge vào khách hàng khác',
+      mergedIntoId: 'id khách hàng đích sau khi merge (null = chưa merge)',
+    },
+  },
+  dim_team_kd: {
+    kind: 'dim',
+    desc: 'Team kinh doanh (P.KD 01…10, nội bộ).',
+    fields: {
+      id: 'khoá chính',
+      name: 'tên team',
+      picName: 'người phụ trách',
+      aliases: 'tên cũ/đồng nghĩa',
+      isActive: 'false = đã merge vào team khác',
+      mergedIntoId: 'id team đích sau khi merge (null = chưa merge)',
+    },
+  },
+  dim_factory: {
+    kind: 'dim',
+    desc: 'Nhà máy / khu vực sản xuất.',
+    fields: {
+      id: 'khoá chính',
+      name: 'tên nhà máy',
+      region: 'khu vực',
+      capacityTonPerYear: 'công suất thiết kế (tấn/năm)',
+    },
+  },
+  dim_currency: {
+    kind: 'dim',
+    desc: 'Đơn vị tiền tệ.',
+    fields: {
+      code: 'khoá chính (VND, USD, EUR…)',
+      name: 'tên tiền tệ',
+    },
+  },
+  dim_exchange_rate: {
+    kind: 'dim',
+    desc: 'Tỷ giá theo tháng.',
+    fields: {
+      currencyCode: 'khoá ghép - FK tới dim_currency.code',
+      yearMonth: "khoá ghép - 'YYYY-MM'",
+      rateToVnd: 'tỷ giá quy đổi ra VND',
+      updatedBy: 'người cập nhật gần nhất',
+      updatedAt: 'thời điểm cập nhật gần nhất',
+    },
+  },
+  dim_stage: {
+    kind: 'dim',
+    desc: '7 giai đoạn chuỗi giá trị - dimension thật (trước đây là hằng số trong code).',
+    fields: {
+      code: "khoá chính ('design'…'handover')",
+      nameVi: 'tên tiếng Việt',
+      nameEn: 'tên tiếng Anh',
+      sortOrder: 'thứ tự trong chuỗi giá trị',
+      calcMode: 'manual = nhập tay %HT · volume = suy từ sản lượng hạng mục',
+    },
+  },
+  dim_contractor: {
+    kind: 'dim',
+    desc: 'Nhà thầu phụ (chuẩn hóa, gộp trùng qua mergedIntoId như dim_customer).',
+    fields: {
+      id: 'khoá chính',
+      name: 'tên nhà thầu',
+      scopeOfWork: 'phạm vi công việc',
+      isActive: 'false = đã merge vào nhà thầu khác',
+      mergedIntoId: 'id nhà thầu đích sau khi merge (null = chưa merge)',
+    },
+  },
+  dim_equipment: {
+    kind: 'dim',
+    desc: 'Nhóm thiết bị thi công.',
+    fields: {
+      id: 'khoá chính',
+      name: 'tên nhóm thiết bị',
+      unit: 'đơn vị đếm (cái, bộ…)',
+      isActive: 'false = ngừng dùng',
+    },
+  },
+  dim_shift: {
+    kind: 'dim',
+    desc: 'Ca làm việc - bảng mở rộng được, thêm ca mới chỉ cần INSERT (không cần migration).',
+    fields: {
+      code: "khoá chính - mã ca ('morning', 'afternoon'…)",
+      nameVi: 'tên ca tiếng Việt',
+      nameEn: 'tên ca tiếng Anh',
+      sortOrder: 'thứ tự hiển thị',
+      isActive: 'false = ca không còn dùng cho dữ liệu mới (dữ liệu cũ vẫn giữ)',
+    },
+  },
+  dim_date: {
+    kind: 'dim',
+    desc: 'Lịch ngày, đổ sẵn 2020–2035, dùng để nhóm theo tuần ISO (Thứ 2 đầu tuần) khi cần join lịch.',
+    fields: {
+      date: "khoá chính - 1 ngày ('YYYY-MM-DD')",
+      yearMonth: "tháng chứa ngày đó ('YYYY-MM')",
+      isoYear: 'năm ISO',
+      isoWeek: 'số tuần ISO trong năm',
+      weekStart: 'ngày Thứ 2 của tuần chứa ngày đó',
+      dayOfWeek: '1 = Thứ 2 … 7 = Chủ nhật (ISO)',
+    },
+  },
+
+  // ---- Hub ----
+  dim_project: {
+    kind: 'hub',
+    desc: 'Hub trung tâm - 1 dòng = 1 dự án. Mọi bảng fact/support đều trỏ về đây bằng projectId.',
+    fields: {
+      id: 'khoá chính - khoá ghép cho mọi bảng fact',
+      masterCode: 'mã surrogate nội bộ (M-00001), không đổi theo mã hợp đồng',
+      currentAliasCode: 'mã hiện hành đang dùng để gọi dự án',
+      projectName: 'tên dự án',
+      customerId: 'FK tới dim_customer.id',
+      teamKdId: 'FK tới dim_team_kd.id',
+      marketCode: 'TN | XK | NoiBo',
+      projectType: 'EPC | San_bay | Nha_xuong…',
+      priority: 'P0…P3',
+      contractValue: 'BAC - mốc ngân sách EVM (tỷ VNĐ)',
+      tonnage: 'khối lượng kết cấu thép (tấn)',
+      currencyCode: 'FK tới dim_currency.code',
+      contractDate: 'ngày ký hợp đồng',
+      plannedStartDate: 'ngày khởi công kế hoạch',
+      plannedFinishDate: 'ngày hoàn thành kế hoạch',
+      committedHandoverDate: 'mốc cam kết bàn giao - dùng tính nguy cơ phạt hợp đồng',
+      actualStartDate: 'ngày khởi công thực tế',
+      actualFinishDate: 'ngày hoàn thành thực tế',
+      penaltyValue: 'giá trị phạt ước tính (tỷ VNĐ)',
+      penalized: 'đã bị phạt hợp đồng?',
+      isActive: 'false = dự án đã xoá mềm',
+      factoryId: 'FK tới dim_factory.id - khu vực/nhà máy sản xuất chính của dự án',
+      contractValueOriginal: 'giá trị hợp đồng theo nguyên tệ (currencyCode), song song với contractValue quy đổi VND',
+      createdAt: 'thời điểm tạo',
+      updatedAt: 'thời điểm sửa gần nhất',
+      createdBy: 'người tạo',
+      updatedBy: 'người sửa gần nhất',
+    },
+  },
+
+  // ---- Support quanh dim_project ----
+  dim_project_alias: {
+    kind: 'support',
+    desc: 'Mã hợp đồng cũ / nội bộ của dự án theo từng giai đoạn hiệu lực.',
+    fields: {
+      id: 'khoá chính',
+      projectId: 'FK tới dim_project.id',
+      aliasCode: 'khoá ghép khi import bằng mã cũ',
+      aliasType: 'Ma_CT | Ma_noi_bo',
+      effectiveFrom: 'ngày bắt đầu hiệu lực mã này',
+      effectiveTo: 'ngày hết hiệu lực (null = đang dùng)',
+      reason: 'lý do đổi mã',
+      approvedBy: 'người duyệt đổi mã',
+    },
+  },
+  project_sap_codes: {
+    kind: 'support',
+    desc: 'Mã SAP liên kết dự án - khoá ghép import chính.',
+    fields: {
+      id: 'khoá chính',
+      projectId: 'FK tới dim_project.id',
+      sapCode: 'khoá ghép: Excel SAP → projectId',
+      sourceDocType: 'loại chứng từ nguồn phát hiện mã SAP',
+      linkedAt: 'thời điểm gán mã',
+      linkedBy: 'người gán mã',
+      note: 'ghi chú',
+    },
+  },
+  project_assignments: {
+    kind: 'support',
+    desc: 'Phân quyền PIC/Backup theo dự án (RBAC dữ liệu).',
+    fields: {
+      projectId: 'khoá ghép - FK tới dim_project.id',
+      userEmail: 'khoá ghép - FK tới user_roles.email',
+      roleInProject: 'PIC | Backup',
+      assignedBy: 'người gán quyền',
+      assignedAt: 'thời điểm gán quyền',
+    },
+  },
+  project_history: {
+    kind: 'support',
+    desc: 'Snapshot hồ sơ dự án trước mỗi lần sửa (append-only, không ghi đè).',
+    fields: {
+      id: 'khoá chính',
+      projectId: 'FK tới dim_project.id',
+      at: 'thời điểm snapshot',
+      by: 'người sửa',
+      note: 'mô tả thay đổi',
+      snapshot: 'bản chụp JSON toàn bộ dự án tại thời điểm đó',
+    },
+  },
+  project_photos: {
+    kind: 'support',
+    desc: 'Ảnh tiến độ theo dự án theo tháng.',
+    fields: {
+      id: 'khoá chính',
+      projectId: 'FK tới dim_project.id',
+      yearMonth: "tháng gắn với ảnh ('YYYY-MM')",
+      url: 'đường dẫn file ảnh',
+      caption: 'chú thích ảnh',
+      uploadedBy: 'người tải lên',
+      uploadedAt: 'thời điểm tải lên',
+    },
+  },
+  sap_queue: {
+    kind: 'support',
+    desc: 'Hàng đợi mã SAP lạ chờ duyệt (staging import) - chưa ghép được với dự án nào.',
+    fields: {
+      id: 'khoá chính',
+      sapCode: 'mã SAP phát hiện được',
+      sourceDocType: 'loại chứng từ nguồn',
+      projectNameHint: 'tên dự án gợi ý từ chứng từ',
+      status: 'pending | resolved',
+      projectId: 'FK tới dim_project.id sau khi ghép (null = chưa ghép); ON DELETE SET NULL',
+      detectedAt: 'thời điểm phát hiện',
+    },
+  },
+  alert_log: {
+    kind: 'log',
+    desc: 'Cảnh báo Red/Amber theo dự án.',
+    fields: {
+      id: 'khoá chính',
+      projectId: 'FK tới dim_project.id',
+      alertType: 'Red | Amber',
+      ruleTriggered: 'luật đã kích hoạt cảnh báo',
+      message: 'nội dung cảnh báo',
+      openedAt: 'thời điểm mở cảnh báo',
+      closedAt: 'thời điểm đóng cảnh báo (null = đang mở)',
+      owner: 'người phụ trách xử lý',
+      action: 'hành động đã ghi khi đóng',
+      deadline: 'hạn xử lý',
+    },
+  },
+
+  // ---- Support quanh dim_project (ERP v2) ----
+  project_key_milestone: {
+    kind: 'support',
+    desc: 'Mốc chính của dự án - danh sách động, do người dùng tự định nghĩa.',
+    fields: {
+      id: 'khoá chính',
+      projectId: 'FK tới dim_project.id',
+      name: 'tên mốc',
+      sortOrder: 'thứ tự hiển thị',
+      plannedDate: 'ngày kế hoạch',
+      actualDate: 'ngày thực tế (null = chưa đạt mốc)',
+    },
+  },
+  project_stage_weight: {
+    kind: 'support',
+    desc: 'Trọng số từng giai đoạn theo dự án. Tổng các giai đoạn applicable = 100.',
+    fields: {
+      projectId: 'khoá ghép - FK tới dim_project.id',
+      stageCode: 'khoá ghép - FK tới dim_stage.code',
+      weightPct: 'ĐIỂM phần trăm 0..100 (vd Gia công = 40), KHÔNG phải phân số',
+      applicable: 'false = dự án không có giai đoạn này',
+    },
+  },
+  project_work_item: {
+    kind: 'support',
+    desc: 'Hạng mục động theo dự án (Hệ giàn nâng … Hệ Walkaway).',
+    fields: {
+      id: 'khoá chính',
+      projectId: 'FK tới dim_project.id',
+      name: 'tên hạng mục, duy nhất trong 1 dự án',
+      sortOrder: 'thứ tự hiển thị',
+    },
+  },
+  project_contractor: {
+    kind: 'support',
+    desc: 'Nhà thầu tham gia dự án.',
+    fields: {
+      projectId: 'khoá ghép - FK tới dim_project.id',
+      contractorId: 'khoá ghép - FK tới dim_contractor.id',
+    },
+  },
+  project_equipment_plan: {
+    kind: 'support',
+    desc: 'Kế hoạch dùng từng chiếc thiết bị cho Gantt (T14). 1 dòng = 1 thanh Gantt; "1 chiếc" xác'
+      + ' định bằng cặp (equipmentId, unitNo). Ngày thực tế có dùng lấy từ fact_daily_equipment_usage,'
+      + ' KHÔNG lưu ở bảng này.',
+    fields: {
+      id: 'khoá chính',
+      projectId: 'FK tới dim_project.id',
+      equipmentId: 'FK tới dim_equipment.id - nhóm thiết bị',
+      unitNo: 'số thứ tự chiếc trong nhóm (No.1, No.2…)',
+      workItemId: 'FK tới project_work_item.id - hạng mục thiết bị phục vụ (null = chưa gán)',
+      plannedStart: 'ngày bắt đầu kế hoạch dùng',
+      plannedFinish: 'ngày kết thúc kế hoạch dùng',
+      note: 'ghi chú',
+      updatedAt: 'thời điểm sửa gần nhất',
+      updatedBy: 'người sửa gần nhất',
+    },
+  },
+
+  // ---- Fact ----
+  fact_progress_monthly: {
+    kind: 'fact',
+    desc: 'Tiến độ theo tháng (%KH nhập tay, %TT, PV/EV/AC) - append-only, mỗi lần lưu tạo version mới.',
+    fields: {
+      projectId: 'khoá ghép - FK tới dim_project.id',
+      yearMonth: "khoá ghép - 'YYYY-MM'",
+      version: 'khoá ghép - append-only, lịch sử KHÔNG bị ghi đè',
+      isLatest: 'true = bản mới nhất của (projectId, yearMonth), chỉ 1 dòng true mỗi cặp khoá',
+      pctPlan: '% KH người dùng nhập tay - chỉ để tra lịch sử, PV/SPI tính từ thời gian thực tế',
+      pctActual: '% hoàn thành thực tế',
+      actualStartDate: 'ngày khởi công thực tế tại thời điểm ghi',
+      actualFinishDate: 'ngày hoàn thành thực tế tại thời điểm ghi',
+      bac: 'snapshot contractValue tại thời điểm ghi',
+      pv: 'Planned Value',
+      ev: 'Earned Value',
+      ac: 'Actual Cost',
+      spi: 'EV/PV (null = PV = 0)',
+      cpi: 'EV/AC (null = AC = 0)',
+      bottleneckStage: 'giai đoạn nghẽn tiến độ (null = không có)',
+      manpowerPlanned: 'nhân lực KH tháng nhập tay',
+      manpowerActual: 'nhân lực TT tháng nhập tay',
+      equipmentPlanned: 'thiết bị KH tháng nhập tay',
+      equipmentActual: 'thiết bị TT tháng nhập tay',
+      snapshotLockedAt: 'thời điểm khoá tháng (Trưởng phòng) - null = chưa khoá',
+      lockedBy: 'người khoá tháng',
+      changedBy: 'người ghi bản này',
+      changedAt: 'thời điểm ghi bản này',
+      changeNote: "mô tả thay đổi tự sinh, vd \"pctActual: 45 → 50\"",
+    },
+  },
+  fact_financial: {
+    kind: 'fact',
+    desc: 'Tài chính theo tháng (doanh thu, chi phí, công nợ) - append-only, mỗi lần lưu tạo version mới.',
+    fields: {
+      projectId: 'khoá ghép - FK tới dim_project.id',
+      yearMonth: "khoá ghép - 'YYYY-MM'",
+      version: 'khoá ghép - append-only',
+      isLatest: 'true = bản mới nhất của (projectId, yearMonth)',
+      revenuePeriod: 'doanh thu trong tháng',
+      revenueCumulative: 'doanh thu luỹ kế',
+      costActualPeriod: 'chi phí thực tế trong tháng',
+      costActualCumulative: 'chi phí thực tế luỹ kế',
+      grossProfit: 'lợi nhuận gộp luỹ kế',
+      grossMarginPct: 'biên lợi nhuận gộp luỹ kế',
+      backlog: 'giá trị hợp đồng còn lại chưa ghi nhận doanh thu',
+      arCollected: 'công nợ đã thu',
+      arOutstanding: 'công nợ còn phải thu = giá trị HĐ − đã thu − quá hạn',
+      arOverdue: 'công nợ quá hạn',
+      changedBy: 'người ghi bản này',
+      changedAt: 'thời điểm ghi bản này',
+      changeNote: 'mô tả thay đổi tự sinh',
+    },
+  },
+  fact_volume: {
+    kind: 'fact',
+    desc: 'Sản lượng (tấn) theo nhà máy theo tháng.',
+    fields: {
+      projectId: 'khoá ghép - FK tới dim_project.id',
+      yearMonth: "khoá ghép - 'YYYY-MM'",
+      factoryId: 'khoá ghép - FK tới dim_factory.id',
+      tonnageProcessed: 'sản lượng đã xử lý trong tháng (tấn)',
+    },
+  },
+  fact_value_chain_progress: {
+    kind: 'fact',
+    desc: '% hoàn thành từng khâu chuỗi giá trị theo tháng.',
+    fields: {
+      projectId: 'khoá ghép - FK tới dim_project.id',
+      stageCode: 'khoá ghép - FK tới dim_stage.code',
+      yearMonth: "khoá ghép - 'YYYY-MM'",
+      pctComplete: '% hoàn thành khâu này trong tháng',
+      applicable: 'false = dự án không có giai đoạn này',
+    },
+  },
+  fact_stage_work_item: {
+    kind: 'fact',
+    desc: 'Sản lượng KH/TT (tấn) theo hạng mục × giai đoạn × tháng. Nguồn tính %HT giai đoạn định lượng.',
+    fields: {
+      projectId: 'khoá ghép - FK tới dim_project.id',
+      stageCode: 'khoá ghép - FK tới dim_stage.code',
+      workItemId: 'khoá ghép - FK tới project_work_item.id',
+      yearMonth: "khoá ghép - 'YYYY-MM'",
+      qtyPlan: 'sản lượng kế hoạch (tấn)',
+      qtyActual: 'sản lượng thực tế (tấn)',
+    },
+  },
+  fact_stage_milestone: {
+    kind: 'fact',
+    desc: 'Các mốc ngày của từng giai đoạn trong 1 dự án. "Ngày chênh lệch" KHÔNG phải cột: hệ thống'
+      + ' tự tính = actualFinish − plannedFinish lúc đọc.',
+    fields: {
+      projectId: 'khoá ghép - FK tới dim_project.id',
+      stageCode: 'khoá ghép - FK tới dim_stage.code',
+      plannedStart: 'ngày bắt đầu kế hoạch',
+      plannedFinish: 'ngày hoàn thành kế hoạch',
+      actualStart: 'ngày bắt đầu thực tế',
+      actualFinish: 'ngày hoàn thành thực tế',
+      forecastDate: 'ngày dự báo hoàn thành hiện tại (bỏ qua nếu đã có actualFinish)',
+      updatedAt: 'thời điểm sửa gần nhất',
+      updatedBy: 'người sửa gần nhất',
+    },
+  },
+  fact_daily_manpower: {
+    kind: 'fact',
+    desc: 'Nhân lực theo NGÀY × nhà thầu × CA. Tổng ngày = cộng các ca (app tự cộng khi đọc).',
+    fields: {
+      projectId: 'khoá ghép - FK tới dim_project.id',
+      contractorId: 'khoá ghép - FK tới dim_contractor.id',
+      workDate: 'khoá ghép - ngày làm việc',
+      shiftCode: 'khoá ghép - FK tới dim_shift.code',
+      plannedHeadcount: 'nhân lực kế hoạch của ca đó',
+      actualHeadcount: 'nhân lực thực tế của ca đó',
+    },
+  },
+  fact_daily_equipment_usage: {
+    kind: 'fact',
+    desc: 'Thiết bị dùng theo NGÀY - bảng nối nhiều-nhiều giữa nhà thầu và nhóm thiết bị (không'
+      + ' phân biệt chiếc cụ thể).',
+    fields: {
+      projectId: 'khoá ghép - FK tới dim_project.id',
+      contractorId: 'khoá ghép - FK tới dim_contractor.id',
+      equipmentId: 'khoá ghép - FK tới dim_equipment.id',
+      workDate: 'khoá ghép - ngày sử dụng',
+      qtyPlanned: 'số lượng kế hoạch (chiếc)',
+      qtyActual: 'số lượng thực tế đã dùng (chiếc)',
+    },
+  },
+
+  // ---- Log/support không gắn dự án ----
+  user_roles: {
+    kind: 'support',
+    desc: 'Tài khoản + quyền.',
+    fields: {
+      email: 'khoá chính',
+      name: 'tên người dùng',
+      passwordHash: 'mật khẩu đã băm',
+      role: 'admin | bod | data-entry | viewer',
+      canViewFinance: 'được xem số liệu tài chính?',
+      isActive: 'false = tài khoản bị khoá',
+      createdAt: 'thời điểm tạo',
+      lastLoginAt: 'lần đăng nhập gần nhất (null = chưa đăng nhập)',
+    },
+  },
+  audit_log: {
+    kind: 'log',
+    desc: 'Nhật ký thay đổi dữ liệu (ai sửa số nào, cũ → mới) - giữ lâu dài, không tự xoá.',
+    fields: {
+      id: 'khoá chính',
+      tableName: 'tên bảng bị sửa',
+      recordId: 'khoá bản ghi bị sửa (dạng text, vd "projectId/yearMonth")',
+      field: 'tên (các) cột bị sửa',
+      oldValue: 'giá trị cũ',
+      newValue: 'giá trị mới',
+      changedBy: 'người sửa',
+      changedAt: 'thời điểm sửa',
+    },
+  },
+  activity_log: {
+    kind: 'log',
+    desc: 'Nhật ký hoạt động người dùng (đăng nhập, thao tác) - tự xoá sau 14 ngày.',
+    fields: {
+      id: 'khoá chính',
+      userEmail: 'email người thao tác',
+      userName: 'tên người thao tác',
+      action: 'hành động (login, view…)',
+      detail: 'chi tiết thêm',
+      ip: 'địa chỉ IP',
+      userAgent: 'trình duyệt/thiết bị',
+      createdAt: 'thời điểm thao tác',
+    },
+  },
+};
+
+/** Join không có FK thật trong DB (vẽ nét đứt). */
+export const LOGICAL_JOINS: { from: string; to: string; note: string }[] = [
+  { from: 'project_assignments.userEmail', to: 'user_roles.email', note: 'RBAC dữ liệu - không có FK cứng vì user có thể chưa tồn tại lúc gán quyền' },
+  { from: 'fact_daily_manpower.workDate', to: 'dim_date.date', note: 'nhóm theo tuần ISO khi cần - không FK cứng' },
+  { from: 'fact_daily_equipment_usage.workDate', to: 'dim_date.date', note: 'nhóm theo tuần ISO khi cần - không FK cứng' },
+  { from: 'audit_log.recordId', to: 'audit_log.tableName', note: 'recordId trỏ tới bản ghi của bảng ghi trong tableName - không thể FK cứng vì tableName động' },
+];
+
+/** Vị trí hộp trên ERD - (cột, hàng); hàng đánh số theo thứ tự khai báo trong mỗi cột. */
+export const ERD_LAYOUT: Record<string, { col: number; row: number }> = {
+  // Cột 0
+  dim_customer: { col: 0, row: 0 },
+  dim_team_kd: { col: 0, row: 1 },
+  dim_factory: { col: 0, row: 2 },
+  dim_currency: { col: 0, row: 3 },
+  dim_exchange_rate: { col: 0, row: 4 },
+  user_roles: { col: 0, row: 5 },
+  // Cột 1
+  dim_project_alias: { col: 1, row: 0 },
+  project_sap_codes: { col: 1, row: 1 },
+  project_assignments: { col: 1, row: 2 },
+  project_history: { col: 1, row: 3 },
+  project_photos: { col: 1, row: 4 },
+  sap_queue: { col: 1, row: 5 },
+  alert_log: { col: 1, row: 6 },
+  // Cột 2
+  dim_project: { col: 2, row: 0 },
+  project_key_milestone: { col: 2, row: 1 },
+  project_stage_weight: { col: 2, row: 2 },
+  project_work_item: { col: 2, row: 3 },
+  project_contractor: { col: 2, row: 4 },
+  project_equipment_plan: { col: 2, row: 5 },
+  // Cột 3
+  fact_progress_monthly: { col: 3, row: 0 },
+  fact_financial: { col: 3, row: 1 },
+  fact_volume: { col: 3, row: 2 },
+  fact_value_chain_progress: { col: 3, row: 3 },
+  fact_stage_work_item: { col: 3, row: 4 },
+  fact_stage_milestone: { col: 3, row: 5 },
+  fact_daily_manpower: { col: 3, row: 6 },
+  fact_daily_equipment_usage: { col: 3, row: 7 },
+  // Cột 4
+  dim_stage: { col: 4, row: 0 },
+  dim_contractor: { col: 4, row: 1 },
+  dim_equipment: { col: 4, row: 2 },
+  dim_shift: { col: 4, row: 3 },
+  dim_date: { col: 4, row: 4 },
+  audit_log: { col: 4, row: 5 },
+  activity_log: { col: 4, row: 6 },
+};
