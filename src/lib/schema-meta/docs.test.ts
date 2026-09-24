@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
+import { IMPORT_MAPPING } from '@/lib/data-schema';
 import { buildSchemaMeta, type DatamodelLike } from './build';
 import { ERD_LAYOUT, LOGICAL_JOINS, TABLE_DOCS } from './docs';
 
@@ -46,6 +47,20 @@ describe('LOGICAL_JOINS', () => {
     for (const j of LOGICAL_JOINS) {
       expect(fieldSet.has(j.from), `LOGICAL_JOINS.from '${j.from}' khong ton tai`).toBe(true);
       expect(fieldSet.has(j.to), `LOGICAL_JOINS.to '${j.to}' khong ton tai`).toBe(true);
+    }
+  });
+});
+
+describe('IMPORT_MAPPING (src/lib/data-schema.ts)', () => {
+  it('moi token bang.cot trong targetField deu ton tai trong schema that', () => {
+    const fieldSet = new Set(meta.tables.flatMap((t) => t.fields.map((f) => `${t.table}.${f.name}`)));
+    const tokenRe = /[a-z_]+\.[a-zA-Z]+/g;
+    for (const m of IMPORT_MAPPING) {
+      const tokens = m.targetField.match(tokenRe) ?? [];
+      expect(tokens.length, `khong trich duoc token bang.cot nao tu '${m.targetField}'`).toBeGreaterThan(0);
+      for (const token of tokens) {
+        expect(fieldSet.has(token), `IMPORT_MAPPING.targetField token '${token}' khong ton tai`).toBe(true);
+      }
     }
   });
 });

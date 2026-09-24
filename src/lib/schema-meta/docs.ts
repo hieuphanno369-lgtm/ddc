@@ -6,6 +6,10 @@
 
 export type TableKind = 'dim' | 'hub' | 'fact' | 'support' | 'log';
 export interface TableDoc { kind: TableKind; desc: string; fields: Record<string, string> }
+/** Vị trí (cột, hàng) 1 bảng trên ERD. */
+export interface ErdLayoutPos { col: number; row: number }
+/** 1 join không có FK thật trong DB. */
+export interface LogicalJoin { from: string; to: string; note: string }
 
 export const TABLE_DOCS: Record<string, TableDoc> = {
   // ---- Dimension ----
@@ -482,7 +486,7 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
 };
 
 /** Join không có FK thật trong DB (vẽ nét đứt). */
-export const LOGICAL_JOINS: { from: string; to: string; note: string }[] = [
+export const LOGICAL_JOINS: LogicalJoin[] = [
   { from: 'project_assignments.userEmail', to: 'user_roles.email', note: 'RBAC dữ liệu - không có FK cứng vì user có thể chưa tồn tại lúc gán quyền' },
   { from: 'fact_daily_manpower.workDate', to: 'dim_date.date', note: 'nhóm theo tuần ISO khi cần - không FK cứng' },
   { from: 'fact_daily_equipment_usage.workDate', to: 'dim_date.date', note: 'nhóm theo tuần ISO khi cần - không FK cứng' },
@@ -490,7 +494,7 @@ export const LOGICAL_JOINS: { from: string; to: string; note: string }[] = [
 ];
 
 /** Vị trí hộp trên ERD - (cột, hàng); hàng đánh số theo thứ tự khai báo trong mỗi cột. */
-export const ERD_LAYOUT: Record<string, { col: number; row: number }> = {
+export const ERD_LAYOUT: Record<string, ErdLayoutPos> = {
   // Cột 0
   dim_customer: { col: 0, row: 0 },
   dim_team_kd: { col: 0, row: 1 },
