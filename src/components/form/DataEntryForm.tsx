@@ -238,6 +238,11 @@ export function DataEntryForm({
       } else {
         setSaveErr(res.error);
       }
+    } catch (e) {
+      // Mục 5 (danh-gia.md, vong sua 1): server action nem loi (vd 2 nguoi cung luu lan dau 1
+      // thang -> partial unique index ux_fact_progress_latest tu choi ban thu 2) truoc day roi
+      // vao khoang khong - nguoi dung khong thay gi. Hien qua nhanh dataGuard.save.generic san co.
+      setSaveErr(e instanceof Error ? e.message : 'Lỗi không xác định');
     } finally {
       setSaving(false);
     }
