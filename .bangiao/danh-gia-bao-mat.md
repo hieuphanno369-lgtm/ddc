@@ -1,9 +1,24 @@
 PHÁN QUYẾT BẢO MẬT: ĐẠT
 
-# Đánh giá bảo mật P2B (nhánh feature/p2b-bieu-do, diff 10cda5a..HEAD)
+# Đánh giá bảo mật P2B (nhánh feature/p2b-bieu-do)
 
-> Nội dung do subagent security-reviewer (vai chỉ đọc) trả về; điều phối viên lưu nguyên văn vào file này.
+> Nội dung do subagent security-reviewer (vai chỉ đọc) trả về; điều phối viên lưu vào file này.
 
+## Vòng 2 (diff fa2b261..HEAD: 710abab, f794113, c59716f, cdd5733, 84b6760, c61fa61, b8991b4, 102a467, 4024dd2, 0b5c74d, 002d010, 3d75eac)
+
+Skill: `ddc-tower:security-review`, soi tĩnh. Không có phát hiện mới (cao/trung bình/thấp). **Kết quả vòng 1 giữ nguyên**: L-1, L-2, L-3 vẫn mở; N-1, N-2, N-3 có từ trước.
+
+- **V2-1 Gating `canViewFinance` sau khi bỏ EVM + dời cụm — ĐẠT.** Diff page.tsx không thêm/xoá dòng `canViewFinance`; `<div className={canViewFinance ? 'g2' : ''}>` (dòng 463) và `{canViewFinance && (<Card>… detail.financial …</Card>)}` (488-514) giữ nguyên. S-curve (394), SPI/CPI, What-if (410), Lịch sử mã, SAP, Alert, Ảnh chỉ đổi vị trí — ở fa2b261 cũng không gating, mức lộ không đổi. Bỏ thẻ EVM làm **giảm** phần lộ của N-3. `requireProjectRead` vẫn ở dòng 80 trước mọi đọc.
+- **V2-2 StageSelectionContext / ValueChainModeChip — ĐẠT.** Context chỉ giữ `selected`/`toggle`, không fetch/storage. Props chip = chuỗi i18n tên giai đoạn. Props `StageExplorer` không đổi; `chainFooter`/`StageRow` render ở server.
+- **V2-3 manpower-queries.ts nhà thầu đã tắt `#id` — ĐẠT.** id lấy từ `readManpowerWeekly(projectId)` (`WHERE m."projectId" = ${projectId}`, bind); `getContractors()` chỉ dùng tra tên cho id đã có trong dự án; nhà thầu tắt chỉ hiện `#<id>`.
+- **V2-4 equipment-gantt-queries.ts ALL_TIME — ĐẠT.** Hằng số trong code; `readEquipmentUsageDays` vẫn `Prisma.sql` bind `projectId`/`from`/`to`. Ghi chú hiệu năng: không giới hạn theo plan nhưng đã GROUP BY trong 1 dự án, không thành vector DoS đáng kể.
+- **V2-5 XSS — ĐẠT.** Không thêm `dangerouslySetInnerHTML`; chip/nhãn/`StageRow`/`chainfoot` đều text node, `width` từ số, màu là biến CSS hằng. `globals.css` chỉ đổi style.
+
+**Kết luận vòng 2:** ĐẠT. Không mở bề mặt tấn công mới, không làm yếu phân quyền. Khuyến nghị vòng 1 (vá L-1/L-2 trước `perf:seed` kế tiếp; chủ dự án quyết N-3) còn hiệu lực.
+
+---
+
+## Vòng 1 (diff 10cda5a..HEAD) — giữ nguyên
 Skill đã dùng: `ddc-tower:security-review`. Chỉ soi tĩnh, không chạy DB. Không có phát hiện mức cao hay trung bình trong phạm vi P2B. Có 3 phát hiện mức thấp, đều ở script dev, và 3 ghi chú về lỗi có từ trước (không tính vào phán quyết).
 
 ## 1. SQL thô — ĐẠT
