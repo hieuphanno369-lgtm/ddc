@@ -582,5 +582,11 @@
   },
   "valueChainAbs": {
     "ton": "{actual}/{planned} tấn"
+  },
+  "logPaging": {
+    "range14": "14 ngày gần nhất",
+    "rangeAll": "Tất cả",
+    "prev": "Trang trước",
+    "next": "Trang sau"
   }
 }

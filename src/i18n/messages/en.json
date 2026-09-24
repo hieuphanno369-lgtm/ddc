@@ -582,5 +582,11 @@
   },
   "valueChainAbs": {
     "ton": "{actual}/{planned} t"
+  },
+  "logPaging": {
+    "range14": "Last 14 days",
+    "rangeAll": "All",
+    "prev": "Previous page",
+    "next": "Next page"
   }
 }

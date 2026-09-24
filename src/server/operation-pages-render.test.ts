@@ -26,6 +26,19 @@ vi.mock('@/server/repo', async () => {
   return { repo: mockRepo.repo };
 });
 vi.mock('@/server/report', () => ({ getReportData: vi.fn() }));
+// getAuditLogPage doc Prisma truc tiep (khong qua repo) - mock lai bang du lieu cua mock-repo de
+// khong choc Postgres that trong test render trang (Bước 3, ke-hoach.md Task 6).
+vi.mock('@/server/audit-log-page', async () => {
+  const { repo } = await import('@/server/repo/mock-repo');
+  const { paginate, logSince } = await import('@/lib/log-paging');
+  return {
+    getAuditLogPage: vi.fn(async ({ page, range, pageSize = 20, now = new Date() }: { page: number; range: 'all' | '14d'; pageSize?: number; now?: Date }) => {
+      const since = logSince(range, now);
+      const rows = repo.getAuditLog().filter((a) => !since || new Date(a.changedAt) >= since);
+      return { ...paginate(rows, page, pageSize), pageSize };
+    }),
+  };
+});
 vi.mock('@/i18n/navigation', () => ({
   Link: (props: { href: string; children?: React.ReactNode; className?: string }) =>
     React.createElement('a', { href: props.href, className: props.className }, props.children),
@@ -218,5 +231,26 @@ describe('/audit - render nội dung', () => {
 
     expect(out).toContain('Đã xử lý');
     expect(out).toMatch(/>-</);
+  });
+
+  it('25 lần ghi audit: chỉ 20 dòng dữ liệu trên trang, nút "sau" trỏ tới page=2 (P1B Task 6)', async () => {
+    for (let i = 0; i < 25; i++) {
+      repo.logAudit('fact_progress_monthly', String(i), 'pctActual', '1', '2', 'admin@daidung.com.vn');
+    }
+    (getCurrentUser as Mock).mockResolvedValue(ADMIN);
+
+    const out = await render(AuditPage);
+    const rowCount = (out.match(/<tr>/g) ?? []).length - 1; // trừ dòng <thead><tr> header
+
+    expect(rowCount).toBe(20);
+    expect(out).toContain('href="/audit?page=2"');
+  });
+
+  it('range=all: nút "14 ngày gần nhất" trỏ về /audit (bỏ tham số mặc định)', async () => {
+    (getCurrentUser as Mock).mockResolvedValue(ADMIN);
+
+    const out = await render(() => AuditPage({ searchParams: { range: 'all' } }));
+
+    expect(out).toContain('href="/audit"');
   });
 });

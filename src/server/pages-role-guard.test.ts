@@ -43,6 +43,19 @@ vi.mock('@/server/report', () => ({
     rows: [],
   })),
 }));
+// getAuditLogPage doc Prisma truc tiep - mock lai bang mock-repo de khong choc Postgres that
+// (Bước 3, ke-hoach.md Task 6).
+vi.mock('@/server/audit-log-page', async () => {
+  const { repo } = await import('@/server/repo/mock-repo');
+  const { paginate, logSince } = await import('@/lib/log-paging');
+  return {
+    getAuditLogPage: vi.fn(async ({ page, range, pageSize = 20, now = new Date() }: { page: number; range: 'all' | '14d'; pageSize?: number; now?: Date }) => {
+      const since = logSince(range, now);
+      const rows = repo.getAuditLog().filter((a) => !since || new Date(a.changedAt) >= since);
+      return { ...paginate(rows, page, pageSize), pageSize };
+    }),
+  };
+});
 
 import * as React from 'react';
 import { getCurrentUser } from '@/lib/session';
