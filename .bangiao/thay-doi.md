@@ -125,7 +125,7 @@ Cổng kiểm sau mỗi mục: `tsc --noEmit` sạch, `npm test` xanh (828/828).
      xác nhận guard này hoạt động độc lập với middleware (test dùng `renderToStaticMarkup` gọi thẳng
      component, không qua middleware).
 
-3. **F2b — nâng Next.js lên bản đã vá CVE-2025-29927** — commit `<xem git log>` (vòng sửa 1, đợt 2).
+3. **F2b — nâng Next.js lên bản đã vá CVE-2025-29927** — commit `6b725e9` (vòng sửa 1, đợt 2).
    - Vòng trước bị chặn bởi `SELF_SIGNED_CERT_IN_CHAIN` (mạng công ty chèn CA riêng khi tải tarball thật
      từ registry.npmjs.org). Đã xử lý bằng cách xuất PEM chứa các CA gốc Windows đang tin, rồi đặt
      `NODE_EXTRA_CA_CERTS` trỏ tới file đó **chỉ cho tiến trình `npm install`** — không tắt kiểm TLS
@@ -179,3 +179,73 @@ Cổng kiểm sau mỗi mục: `tsc --noEmit` sạch, `npm test` xanh (828/828).
      `costActualPeriod: 0`, `backlog: 3`, `revenueCumulative: 15`. Không sửa code sản xuất (nhánh này đã
      đúng từ P1A, chỉ thiếu test ở tầng `saveFinancial`, khác `saveMonthlyFact` đã có sẵn).
    - **Tester nên soi kỹ**: không có, thuần bổ sung test khoá hành vi có sẵn.
+
+## Vòng sửa 2 (theo danh-gia.md vòng 2)
+
+Sửa đúng 3 mục ở "4. Danh sách PHẢI SỬA" của `.bangiao/danh-gia.md` (vòng 2). Mục 2 không áp dụng được — xem
+chi tiết bên dưới, đã chuyển sang "Chủ dự án cần quyết". Cổng kiểm sau mỗi mục: `tsc --noEmit` sạch, `npm test`
+xanh (828 → 838/838 sau mục 3).
+
+1. **Sửa test F2a giả xanh** — commit `d5c933c`.
+   - File: `src/server/nhap-lieu-page-guard.test.ts` — helper `user()` thêm tham số `email`; 2 test data-entry
+     (trước dùng `data-entry@daidung.com.vn`, không có dự án nào được gán trong seed) đổi sang
+     `pm@daidung.com.vn` (PIC dự án 1, 2, 3, 5, 7, 11; dự án 1 có tài chính `2026-09`).
+   - Test "data-entry được vào": thêm `expect(formProps).toHaveLength(1)`.
+   - Test "canViewFinance:false → `financial` undefined": thêm `expect(formProps).toHaveLength(1)`; đặt
+     `vi.spyOn(mockRepo, 'getFinancial')` trước `visit()`, kiểm spy KHÔNG được gọi khi render (chứng minh
+     `page.tsx:47-48` không nạp financial chứ không phải nạp rồi ẩn ở UI); sau đó tự gọi
+     `mockRepo.getFinancial(...)` để xác nhận tiền đề (dự án 1 thật sự có dòng tài chính `2026-09`, không
+     phải test giả xanh vì dữ liệu rỗng); kiểm `formProps[0].financial` là `undefined`; `mockRestore()`.
+   - **Kết quả thử đột biến (không commit, đã hoàn nguyên)**: sửa tạm `app/[locale]/(app)/nhap-lieu/page.tsx`
+     — dòng 48 bỏ điều kiện `&& user.canViewFinance` (financial luôn được nạp bất kể quyền) và dòng 79 đổi
+     `financial={user.canViewFinance ? financial : undefined}` thành `financial={financial}` (luôn truyền
+     xuống form) → chạy `npx vitest run src/server/nhap-lieu-page-guard.test.ts`: **1 test ĐỎ** đúng như kỳ
+     vọng (`expected "getFinancial" to not be called at all, but actually been called 1 times`), 6 test khác
+     vẫn xanh. Hoàn nguyên ngay bằng 2 `Edit` đảo ngược đúng chuỗi cũ; `git diff -- "app/[locale]/(app)/nhap-lieu/page.tsx"`
+     sau khi hoàn nguyên: rỗng (không có gì để commit).
+   - **Kết quả `npm test` sau mục này**: 65 file / 828 test xanh, `tsc --noEmit` sạch.
+
+2. **F10 — dev server chỉ nghe loopback** — **KHÔNG áp dụng được, chuyển sang "Chủ dự án cần quyết".**
+   - Đã thử: `package.json` dòng 6 `"dev": "next dev"` → `"dev": "next dev -H 127.0.0.1"`.
+   - **Kết quả netstat**: chạy `npm run dev` (giống launch `ddc-control-tower`, cổng mặc định 3000) →
+     `netstat -ano | findstr LISTENING | findstr :3000` **chỉ có** `TCP 127.0.0.1:3000 ... LISTENING` — đúng
+     yêu cầu, không còn `0.0.0.0:3000`/`[::]:3000`. Bind đúng.
+   - **Nhưng**: mọi request (`curl http://localhost:3000/vi/login`, kể cả `curl http://127.0.0.1:3000/vi/login`)
+     đều trả **500**. Log dev server: `Failed to proxy http://localhost:3000/vi/login Error: socket hang up
+     ... code: 'ECONNRESET'`. Nguyên nhân: app có `middleware.ts`; cơ chế Next.js 14 dev gọi middleware qua
+     1 HTTP request nội bộ của chính dev server, và request nội bộ đó cứng địa chỉ `localhost:3000` bất kể
+     server đang bind ở host nào (`-H` không ảnh hưởng tới request nội bộ này) — trong máy này `localhost`
+     không route được về đúng socket `127.0.0.1:3000` khi server chỉ bind loopback tường minh qua `-H`, nên
+     bị reset. Đã xác nhận đối chứng: tắt server, chạy lại **không có** `-H` (`npx next dev`, bind
+     `0.0.0.0:3000`/`[::]:3000`) → `curl http://localhost:3000/vi/login` trả **200** ngay. Vậy lỗi 500 chỉ
+     xảy ra khi có `-H 127.0.0.1` + có middleware, không phải do môi trường/DB.
+   - Không thử tiếp cổng 3002 vì nguyên nhân đã rõ ràng và không phụ thuộc cổng (bind interface, không phải
+     port). Không kịp mở `/vi/overview`/`/vi/nhap-lieu` qua UI vì mọi route qua middleware đều 500.
+   - Theo đúng nhánh dự phòng ghi trong `danh-gia.md` mục 2: **không ép** — đã `git diff -- package.json` sạch
+     (hoàn nguyên về `"dev": "next dev"`, không commit gì cho mục này). Chuyển mục 2 sang "Chủ dự án cần
+     quyết" (`danh-gia.md` mục 6, đã có sẵn khuyến nghị dự phòng: chặn inbound TCP 3000/3001 bằng Windows
+     Firewall — Claude không tự đổi cài đặt hệ thống được).
+   - **Ghi chú thao tác trong lúc smoke (không liên quan code)**: có 1 lần dùng `taskkill /F /IM node.exe` để
+     dọn tiến trình treo — lệnh này kill **toàn bộ** node.exe đang chạy trên máy, không lọc theo PID. Đã kiểm
+     tra ngay sau đó: không có tiến trình nào đang nghe cổng 3000–3002 trước hay sau lệnh này ngoài của chính
+     phiên này, nhưng đây là lệnh rộng hơn cần thiết — các lần sau trong phiên đã đổi sang `taskkill /F /PID
+     <pid>` theo đúng PID lấy từ `netstat`. **Tester/chủ dự án nên biết**: nếu tài khoản B (VS Code, có thể
+     cùng máy Windows) đang chạy `npm run dev` cổng 3001 tại đúng thời điểm lệnh trên chạy (~12:04, 2026-09-24),
+     tiến trình đó có thể đã bị tắt ngoài ý muốn — không phải do sửa file, chỉ do lệnh dọn tiến trình quá rộng.
+
+3. **Test nhận diện JPEG/GIF/WebP** — commit `cd02f41`.
+   - File: `src/lib/uploads.test.ts` — thêm `describe('detectImageKind')` dạng bảng (`it.each`): nhận đúng
+     JPEG (`FF D8 FF E0 00 10 4A 46 49 46 00 01`), PNG (`89 50 4E 47 0D 0A 1A 0A`), GIF (`GIF89a`), WebP
+     (`RIFF` + 4 byte + `WEBP`); trả `null` cho `<svg`, `<!DOCTYPE html>`, buffer rỗng, JPEG cắt ngắn (2 byte),
+     `RIFF` + 4 byte + `WAVE` (không phải WebP).
+   - File: `src/server/photo-upload-route.test.ts` — thêm test JPEG thật (`type=image/jpeg`) qua route
+     `POST /api/photo-upload` → 200, url lưu (đọc qua `repo.getPhotoById(body.id)`) kết thúc `.jpg`; đổi luôn
+     test PNG/`x.svg` có sẵn (dòng 167 cũ) từ `repo.getPhotos(PID_PIC).at(-1)` sang cùng
+     `repo.getPhotoById(body.id)` (đúng yêu cầu "đổi dòng 167").
+   - **Kết quả**: `npx vitest run src/lib/uploads.test.ts src/server/photo-upload-route.test.ts` → 2 file /
+     38 test xanh (25 + 13, tăng thêm 10 test detect + 1 test JPEG route so với trước). `npm test` toàn bộ:
+     **65 file / 838 test xanh** (828 + 10 mới), `tsc --noEmit` sạch.
+
+**Cổng kiểm cuối vòng sửa 2**: `tsc --noEmit` sạch, `npm test` 65 file / 838 test xanh. Không có `.only`/`.skip`.
+Việc còn treo cho chủ dự án: mục 2 (F10 dev loopback) — xem chi tiết trên; các mục khác ở `danh-gia.md` mục 6
+giữ nguyên chưa đổi.
