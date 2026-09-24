@@ -136,6 +136,19 @@ describe('P2B Buoc 3 - T12b(b) chart cot chong nhan luc theo tuan', () => {
   });
 });
 
+describe('P2B Buoc 4 - T14 Gantt thiet bi', () => {
+  it('co the id="eq-gantt" + tieu de equipmentGantt.title', async () => {
+    const out = await render();
+    expect(out).toContain('id="eq-gantt"');
+    expect(out).toContain('equipmentGantt.title');
+  });
+
+  it('du an 17 (chua co ke hoach thiet bi) -> equipmentGantt.noPlan', async () => {
+    const out = await render({}, '17');
+    expect(out).toContain('equipmentGantt.noPlan');
+  });
+});
+
 describe('Task 6 - the "Cac moc chinh" + nut "Sua moc" theo vai tro', () => {
   it('admin thay the + link toi dung buoc Ho so', async () => {
     const out = await render();

@@ -37,8 +37,13 @@ const WeeklyManpowerStackChart = dynamic(
   () => import('@/components/project/WeeklyManpowerStackChart').then((m) => m.WeeklyManpowerStackChart),
   { ssr: false, loading: () => <div className="sk h-60" /> },
 );
+const EquipmentGantt = dynamic(
+  () => import('@/components/project/EquipmentGantt').then((m) => m.EquipmentGantt),
+  { ssr: false, loading: () => <div className="sk h-60" /> },
+);
 import { getResourceBreakdown, getResourceSnapshot, getWeeklyTracking, getWorkItemComparison } from '@/server/project-queries';
 import { getShiftChartData, getWeeklyChartData } from '@/server/manpower-queries';
+import { getEquipmentGantt } from '@/server/equipment-gantt-queries';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { WhatIf } from '@/components/project/WhatIf';
 import { ProjectSwitcher } from '@/components/project/ProjectSwitcher';
@@ -98,6 +103,7 @@ export default async function ProjectDetailPage({
   const tracking = await getWeeklyTracking(id, month);
   const shiftChart = await getShiftChartData(id, locale);
   const weekly = await getWeeklyChartData(id, project);
+  const gantt = await getEquipmentGantt(id, t('equipmentGantt.noWorkItem'));
   const keyMilestones = await repo.getKeyMilestones(id);
   const canEditMs = user?.role === 'admin' || user?.role === 'data-entry';
   const stageWeights = await repo.getStageWeights(id);
@@ -499,6 +505,22 @@ export default async function ProjectDetailPage({
         <CardBody>
           {weekly ? <WeeklyManpowerStackChart data={weekly} initialMonth={month} /> : <p className="empty">{t('manpowerCharts.noData')}</p>}
         </CardBody>
+      </Card>
+
+      {/* T14 - Gantt thiet bi theo tung chiec */}
+      <Card id="eq-gantt" style={{ scrollMarginTop: 72 }} className="overflow-visible">
+        <CardHeader
+          title={t('equipmentGantt.title')}
+          subtitle={gantt ? `${formatDate(gantt.planFrom, locale)} - ${formatDate(gantt.planTo, locale)}` : undefined}
+          titleExtra={<HelpTip text={t('equipmentGantt.help')} label={t('common.explain')} />}
+          action={gantt ? (
+            <Legend items={[
+              ...gantt.legend.map((l) => ({ label: l.name, color: l.color })),
+              { label: t('equipmentGantt.legendUsed'), color: 'var(--label2)' },
+            ]} />
+          ) : undefined}
+        />
+        <CardBody>{gantt ? <EquipmentGantt model={gantt} /> : <p className="empty">{t('equipmentGantt.noPlan')}</p>}</CardBody>
       </Card>
     </>
   );

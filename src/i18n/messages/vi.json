@@ -640,5 +640,17 @@
     "scrollHint": "Kéo ngang hoặc dùng phím ← → để xem toàn bộ timeline",
     "noData": "Chưa có số liệu nhân lực theo ngày",
     "total": "Tổng TT"
+  },
+  "equipmentGantt": {
+    "title": "Tiến độ sử dụng thiết bị theo tuần",
+    "help": "Mỗi hàng là 1 chiếc thiết bị. Thanh nhạt = kế hoạch sử dụng, màu theo hạng mục; ô đậm trên thanh = ngày thực tế có dùng (lấy từ số liệu thiết bị hằng ngày, gán cho các chiếc theo số thứ tự).",
+    "noPlan": "Chưa có kế hoạch thiết bị cho dự án này",
+    "noWorkItem": "Chưa gán hạng mục",
+    "legendUsed": "Ô đậm = ngày có dùng",
+    "tipWorkItem": "Hạng mục",
+    "tipPlan": "Kế hoạch",
+    "tipPlanDays": "Số ngày KH",
+    "tipUsedDays": "Ngày có dùng",
+    "unplanned": "{n} lượt thiết bị-ngày có dùng nhưng nằm ngoài kế hoạch (không vẽ)"
   }
 }

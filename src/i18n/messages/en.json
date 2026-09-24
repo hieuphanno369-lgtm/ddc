@@ -640,5 +640,17 @@
     "scrollHint": "Drag or use ← → keys to see the whole timeline",
     "noData": "No daily manpower data yet",
     "total": "Total actual"
+  },
+  "equipmentGantt": {
+    "title": "Weekly equipment usage schedule",
+    "help": "Each row is one equipment unit. Light bar = planned usage, coloured by work item; solid cells = days actually used (from daily equipment data, assigned to units in unit-number order).",
+    "noPlan": "No equipment plan for this project yet",
+    "noWorkItem": "No work item",
+    "legendUsed": "Solid = day used",
+    "tipWorkItem": "Work item",
+    "tipPlan": "Plan",
+    "tipPlanDays": "Planned days",
+    "tipUsedDays": "Days used",
+    "unplanned": "{n} equipment-days used outside the plan (not drawn)"
   }
 }
