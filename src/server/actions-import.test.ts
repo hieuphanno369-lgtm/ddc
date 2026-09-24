@@ -67,6 +67,21 @@ describe('importExcelAction - bao loi tung dong (khong con continue im lang)', (
     expect(rows[3]).toMatchObject({ status: 'invalid', reason: 'no_pct' });
   });
 
+  it('dong hoan toan trong (moi o rong) -> bo qua, khong tinh vao preview/invalid/mapped', async () => {
+    login(ADMIN);
+    const res = (await importExcelAction(
+      excelForm([
+        { 'mã sap': 'SAP-EV-BSN-001', 'tên dự án': 'Du an hop le', '% TT': '50' },
+        { 'mã sap': '', 'tên dự án': '', '% TT': '' },
+      ]),
+    )) as Result;
+
+    expect(res.ok).toBe(true);
+    expect(res.preview).toHaveLength(1);
+    expect(res.invalid).toBe(0);
+    expect(res.mapped).toBe(1);
+  });
+
   it('data-entry: SAP cua du an khong duoc gan -> invalid/not_assigned, projectId null', async () => {
     login(dataEntry('pm@daidung.com.vn'));
     const res = (await importExcelAction(

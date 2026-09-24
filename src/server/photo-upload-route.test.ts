@@ -89,6 +89,24 @@ describe('POST /api/photo-upload', () => {
     expect(res.status).toBe(400);
   });
 
+  it('anh 0 byte -> 400 (server tu chan, khong chi dua vao precheck client)', async () => {
+    login(ADMIN);
+    const empty = new File([], 'rong.png', { type: 'image/png' });
+
+    const res = await POST(req(PID_PIC, empty));
+
+    expect(res.status).toBe(400);
+  });
+
+  it('anh vuot 5MB -> 400 (server tu chan)', async () => {
+    login(ADMIN);
+    const big = new File([Buffer.alloc(5 * 1024 * 1024 + 1)], 'to.png', { type: 'image/png' });
+
+    const res = await POST(req(PID_PIC, big));
+
+    expect(res.status).toBe(400);
+  });
+
   it('PNG hop le cua PIC -> 200 va repo.getPhotos(PID) tang 1', async () => {
     login(dataEntry('pm@daidung.com.vn'));
     const before = repo.getPhotos(PID_PIC).length;

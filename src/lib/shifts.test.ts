@@ -41,6 +41,18 @@ describe('sumManpowerShifts', () => {
     expect(sumManpowerShifts([])).toEqual([]);
   });
 
+  it('them ca thu 3 (vd "night") -> tu cong ca 3 nhu 2 ca cu, khong sua code (tinh tong quat)', () => {
+    const rows: FactDailyManpowerShift[] = [
+      { projectId: 1, contractorId: 1, workDate: '2026-09-01', shiftCode: 'morning', plannedHeadcount: 5, actualHeadcount: 4 },
+      { projectId: 1, contractorId: 1, workDate: '2026-09-01', shiftCode: 'afternoon', plannedHeadcount: 3, actualHeadcount: 2 },
+      { projectId: 1, contractorId: 1, workDate: '2026-09-01', shiftCode: 'night', plannedHeadcount: 2, actualHeadcount: 1 },
+    ];
+    const result = sumManpowerShifts(rows);
+    expect(result).toEqual([
+      { projectId: 1, contractorId: 1, workDate: '2026-09-01', plannedHeadcount: 10, actualHeadcount: 7 },
+    ]);
+  });
+
   it('1 ca duy nhat (du lieu cu don vao morning) -> tong = chinh no', () => {
     const rows: FactDailyManpowerShift[] = [
       { projectId: 1, contractorId: 1, workDate: '2026-09-01', shiftCode: 'morning', plannedHeadcount: 7, actualHeadcount: 6 },
