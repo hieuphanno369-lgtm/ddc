@@ -47,8 +47,11 @@ import NhapLieuPage from '../../app/[locale]/(app)/nhap-lieu/page';
 // import → React là biến tự do trong module trang → phải có global (mẫu pages-role-guard.test.ts).
 (globalThis as unknown as { React: typeof React }).React = React;
 
-const user = (role: 'admin' | 'data-entry' | 'bod' | 'viewer', canViewFinance: boolean): CurrentUser =>
-  ({ name: role, email: `${role}@daidung.com.vn`, role, canViewFinance }) as CurrentUser;
+const user = (
+  role: 'admin' | 'data-entry' | 'bod' | 'viewer',
+  canViewFinance: boolean,
+  email = `${role}@daidung.com.vn`,
+): CurrentUser => ({ name: role, email, role, canViewFinance }) as CurrentUser;
 
 function login(u: CurrentUser | null) {
   (getCurrentUser as Mock).mockResolvedValue(u);
@@ -99,14 +102,24 @@ describe('guard /nhap-lieu (F2a)', () => {
   });
 
   it('data-entry được vào', async () => {
-    login(user('data-entry', false));
+    login(user('data-entry', false, 'pm@daidung.com.vn'));
     expect(await visit()).toBeNull();
+    expect(formProps).toHaveLength(1);
   });
 
   it('data-entry canViewFinance:false → prop financial của DataEntryForm là undefined', async () => {
-    login(user('data-entry', false));
+    login(user('data-entry', false, 'pm@daidung.com.vn'));
+    // pm@daidung.com.vn là PIC của dự án 1 (có seed tài chính '2026-09') - chứng minh page.tsx:47-48
+    // KHÔNG nạp financial khi !canViewFinance (không phải nạp rồi ẩn ở UI), chứ không phải test giả
+    // xanh vì dự án rỗng như trước.
+    const spy = vi.spyOn(mockRepo, 'getFinancial');
     await visit();
-    expect(formProps.at(-1)?.financial).toBeUndefined();
+    expect(formProps).toHaveLength(1);
+    expect(spy).not.toHaveBeenCalled();
+    const expected = (await mockRepo.getFinancial(formProps[0].projectId)).find((f) => f.yearMonth === '2026-09');
+    expect(expected).toBeDefined();
+    expect(formProps[0].financial).toBeUndefined();
+    spy.mockRestore();
   });
 
   it('admin canViewFinance:true → vẫn nhận đúng financial thật từ repo (không bị ép undefined)', async () => {
