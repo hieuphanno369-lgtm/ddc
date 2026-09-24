@@ -25,3 +25,11 @@ export async function requireProjectRead(user: CurrentUser | null, projectId: nu
   if (assigned.includes(projectId)) return;
   notFound();
 }
+
+/** Quyền GHI 1 dự án - cùng luật requireProject trong actions.ts: admin, hoặc data-entry có trong project_assignments. */
+export async function canWriteProject(user: CurrentUser | null, projectId: number): Promise<boolean> {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  if (user.role === 'data-entry' && (await repo.getAssignmentsForUser(user.email)).includes(projectId)) return true;
+  return false;
+}

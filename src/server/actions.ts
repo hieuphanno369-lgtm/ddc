@@ -8,9 +8,10 @@ import { hashPassword, verifyPassword } from '@/lib/password';
 import { calcChainPctActual, findCurrentStage, normPct } from '@/lib/stages';
 import type { CurrencyCode, KeyMilestoneInput, Market, Priority, Project, ProjectType, Role, StageCode } from './repo/types';
 import { listTag, overviewTag, profileTag, trendTag } from './cache';
-import { addPhotoSchema, addSapCodeSchema, changePasswordSchema, commitImportSchema, createAccountSchema, createDimSchema, createProjectSchema, deletePhotoSchema, importFileSchema, lockMonthSchema, mergeDimSchema, photoFileSchema, renameDimSchema, resetPasswordSchema, saveKeyMilestonesSchema, saveMonthlyDataSchema, userRoleSchema } from './validation';
+import { addSapCodeSchema, changePasswordSchema, commitImportSchema, createAccountSchema, createDimSchema, createProjectSchema, deletePhotoSchema, importFileSchema, lockMonthSchema, mergeDimSchema, renameDimSchema, resetPasswordSchema, saveKeyMilestonesSchema, saveMonthlyDataSchema, userRoleSchema } from './validation';
 import { repo } from './repo';
-import { deletePhotoFile, savePhotoFile } from '@/lib/uploads';
+import { deletePhotoFile } from '@/lib/uploads';
+import { addPhotoForUser } from './photo-service';
 import { historyMonths } from '@/lib/clock';
 
 /** Chặn write theo role - viewer không được ghi, khóa số liệu chỉ Admin/Trưởng phòng. */
@@ -366,26 +367,10 @@ export async function addSapCodeAction(projectId: number, sapCode: string, sourc
 
 /** Upload ảnh hiện trường - ghi file vào data/uploads, DB lưu path tương đối. */
 export async function addPhotoAction(formData: FormData) {
-  const projectId = Number(formData.get('projectId'));
-  const yearMonth = String(formData.get('yearMonth') ?? '');
-  const caption = String(formData.get('caption') ?? '');
-  const file = formData.get('file');
-
-  const user = await requireProject(projectId);
+  const user = await getCurrentUser();
   if (!user) return { ok: false, error: 'Forbidden' };
-
-  const parsed = addPhotoSchema.safeParse({ projectId, yearMonth, caption });
-  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
-
-  if (!(file instanceof File)) return { ok: false, error: 'No file' };
-  const fileParsed = photoFileSchema.safeParse({ type: file.type, size: file.size });
-  if (!fileParsed.success) return { ok: false, error: fileParsed.error.issues[0]?.message ?? 'Invalid file' };
-
-  const url = await savePhotoFile(parsed.data.projectId, parsed.data.yearMonth, file);
-  const photo = await repo.addPhoto(parsed.data.projectId, parsed.data.yearMonth, url, parsed.data.caption, user.email);
-  await logActivity(user, 'add_photo', `project ${parsed.data.projectId} · ${parsed.data.yearMonth}`);
-  revalidateTag(profileTag);
-  return { ok: true, id: photo.id };
+  const r = await addPhotoForUser(user, formData);
+  return r.ok ? { ok: true, id: r.id } : { ok: false, error: r.error };
 }
 
 /** Xóa ảnh - owner / Admin / data-entry được gán vào dự án đó (PIC/Backup) được xóa (cả file lẫn record). */
