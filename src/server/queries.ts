@@ -1,3 +1,4 @@
+import { cache as reactCache } from 'react';
 import { calcDurationPctComplete, calcEac, calcVac, deriveStatus, isOnTrack, penaltyState, type PenaltyState } from '@/lib/evm';
 import { THRESHOLDS } from '@/lib/thresholds';
 import { repo } from './repo';
@@ -139,7 +140,21 @@ export async function getScopedProjectIds(filters: DashboardFilters): Promise<Se
   return new Set(projects.map((p) => p.id));
 }
 
-export async function getProjectSummaries(yearMonth: string, filters?: DashboardFilters): Promise<ProjectSummary[]> {
+/**
+ * Dedupe trong 1 request Next.js (T1 Bước 11): trang /overview gọi `getProjectSummaries` 6-8
+ * lần/lần render (KpiGrid+BacklogOverdueCard cùng gọi loadPortfolioKpis, AlertBanner+WatchlistCard
+ * cùng gọi loadWatchlist, cộng getStatusBreakdown/getTonnageValueByGroup/getCapacityData/
+ * listProjects) - mỗi lần lặp lại đủ 3 query + `summarize()` trên toàn bộ dự án (đo trên 10 triệu
+ * dòng: ~50-100ms/lần cho summarize() riêng, KHÔNG giảm dù lặp lại - không phải "cache nguội").
+ * `React.cache()` chỉ có thật khi module này được bundle qua Next.js (dev/build/start); khi chạy
+ * qua `tsx` (scripts/perf/*) hoặc Vitest, 'react' không có export `cache` thật -> fallback về hàm
+ * gốc (không memo, giữ đúng hành vi cũ) để không bao giờ ném 'cache is not a function'.
+ */
+function requestMemo<Args extends unknown[], R>(fn: (...args: Args) => Promise<R>): (...args: Args) => Promise<R> {
+  return typeof reactCache === 'function' ? reactCache(fn) : fn;
+}
+
+async function getProjectSummariesUncached(yearMonth: string, filters?: DashboardFilters): Promise<ProjectSummary[]> {
   const [projects, dims, facts] = await Promise.all([
     repo.listProjects(),
     repo.getDims(),
@@ -149,6 +164,8 @@ export async function getProjectSummaries(yearMonth: string, filters?: Dashboard
   const summaries = projects.map((p) => summarize(p, byId.get(p.id), dims));
   return filters ? filterSummaries(summaries, filters, dims) : summaries;
 }
+
+export const getProjectSummaries = requestMemo(getProjectSummariesUncached);
 
 export async function getProjectSummary(projectId: number, yearMonth: string): Promise<ProjectSummary | undefined> {
   // TODO: BOLA - không check quyền đọc project. Viewer/data-entry đọc được detail dự án ngoài scope.

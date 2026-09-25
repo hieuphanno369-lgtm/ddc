@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/lib/session';
 import { repo } from '@/server/repo';
 import { formatDateTime } from '@/lib/format';
 import { type DashboardFilters, type GroupBy } from '@/server/queries';
-import { currentMonth, historyMonths } from '@/lib/clock';
+import { currentMonth, historyMonths, isValidYearMonth } from '@/lib/clock';
 import type { Market, Priority, ProjectType, Status } from '@/server/repo/types';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { FilterBar } from '@/components/dashboard/FilterBar';
@@ -47,7 +47,11 @@ export default async function OverviewPage({
   const lastUpdate = await repo.readLastAuditAt();
   const dims = await repo.getDims();
 
-  const month = p(searchParams, 'month') === 'all' ? 'all' : p(searchParams, 'month') || currentMonth();
+  // N-2 (danh-gia-bao-mat.md): month rác (khác 'all'/'YYYY-MM' hợp lệ) từng lọt thẳng vào khoá
+  // unstable_cache (src/server/cache.ts) - mỗi giá trị rác khác nhau phình thêm 1 khoá cache mới.
+  // Validate như trang Chi tiết, sai format thì rơi về tháng hiện tại.
+  const rawMonth = p(searchParams, 'month');
+  const month = rawMonth === 'all' ? 'all' : isValidYearMonth(rawMonth) ? rawMonth : currentMonth();
   const groupBy = (p(searchParams, 'groupBy') as GroupBy) || 'team';
 
   const filters: DashboardFilters = {
