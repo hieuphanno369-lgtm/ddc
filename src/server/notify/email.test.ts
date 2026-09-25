@@ -34,6 +34,18 @@ describe('sendEmail - tuy chon truyen cho nodemailer', () => {
     expect(opts.requireTLS).toBe(false);
   });
 
+  it('[T-3 - danh-gia-bao-mat.md] createTransport nhan IP da resolve (khong phai hostname goc) - chong DNS rebinding, servername = hostname goc de kiem TLS cert', async () => {
+    const { createTransport } = fakeTransport(async () => ({ accepted: ['r@x.com'], rejected: [] }));
+
+    await sendEmail(CFG_NO_AUTH, ['r@x.com'], 'Subj', 'Text', { createTransport, lookup: lookupPublic });
+
+    const opts = createTransport.mock.calls[0][0] as Record<string, unknown>;
+    expect(opts.host).toBe('93.184.216.34');
+    expect(opts.host).not.toBe(CFG_NO_AUTH.host);
+    expect(opts.tls).toMatchObject({ minVersion: 'TLSv1.2', servername: 'smtp.example.com' });
+    expect(opts.name).toBe('DDC-Control-Tower/1');
+  });
+
   it("thu co bcc = danh sach nguoi nhan, to = from (khong lo danh sach - K9)", async () => {
     const { createTransport, sendMail } = fakeTransport(async () => ({ accepted: ['a@x.com', 'b@x.com'], rejected: [] }));
 

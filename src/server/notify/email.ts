@@ -32,9 +32,14 @@ function isSmtpErrorWithCode(e: unknown): e is { code: string } {
 export async function sendEmail(cfg: SmtpConfig, to: string[], subject: string, text: string, deps: EmailDeps = {}): Promise<SendResult> {
   if (to.length === 0) return { ok: false, error: 'no_recipients' };
 
+  // T-3 (danh-gia-bao-mat.md): resolve DNS 1 lần, kiểm MỌI địa chỉ trả về rồi ghim thẳng transport
+  // vào địa chỉ đã kiểm (chống DNS rebinding - nếu chỉ truyền hostname cho nodemailer, nó tự
+  // resolve4/6 lại nên có thể trúng địa chỉ khác lúc thực sự kết nối).
   const hostIsIp = net.isIP(cfg.host) !== 0;
+  let targetIp: string;
   if (hostIsIp) {
     if (isBlockedSmtpIp(cfg.host)) return { ok: false, error: 'blocked_ip' };
+    targetIp = cfg.host;
   } else {
     const lookup = deps.lookup ?? ((h: string) => import('node:dns').then((dns) => dns.promises.lookup(h, { all: true, verbatim: true })));
     let addrs: Array<{ address: string; family: number }>;
@@ -45,11 +50,12 @@ export async function sendEmail(cfg: SmtpConfig, to: string[], subject: string, 
     }
     if (!addrs || addrs.length === 0) return { ok: false, error: 'dns_failed' };
     if (addrs.some((a) => isBlockedSmtpIp(a.address))) return { ok: false, error: 'blocked_ip' };
+    targetIp = addrs[0].address;
   }
 
   const createTransport = deps.createTransport ?? (await import('nodemailer')).createTransport;
   const transport = createTransport({
-    host: cfg.host,
+    host: targetIp,
     port: cfg.port,
     secure: cfg.secure,
     auth: cfg.user ? { user: cfg.user, pass: cfg.pass ?? '' } : undefined,
@@ -57,7 +63,10 @@ export async function sendEmail(cfg: SmtpConfig, to: string[], subject: string, 
     connectionTimeout: SMTP_CONNECT_TIMEOUT_MS,
     greetingTimeout: SMTP_CONNECT_TIMEOUT_MS,
     socketTimeout: SMTP_SOCKET_TIMEOUT_MS,
-    tls: { minVersion: 'TLSv1.2' },
+    // EHLO/HELO: không để nodemailer tự lấy os.hostname() (tránh lộ tên máy nội bộ).
+    name: 'DDC-Control-Tower/1',
+    // servername (SNI) = hostname gốc để cert TLS được kiểm đúng dù kết nối thẳng bằng IP.
+    tls: { minVersion: 'TLSv1.2', servername: cfg.host },
   });
 
   try {
