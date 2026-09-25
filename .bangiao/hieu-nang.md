@@ -19,7 +19,7 @@ lại ở Bước 11 này).
   đụng dữ liệu người thật — giữ nguyên.
 - **L-3** (`PERF_BASE` gửi mật khẩu admin tới bất kỳ URL nào): thêm `assertPerfLocalBase()` — chặn
   host khác localhost/127.0.0.1/::1 trừ khi có `PERF_ALLOW_REMOTE=1`.
-- Thêm 22 test mới cho `perf-guard.ts` (tổng 26/26 xanh).
+- Thêm 16 test mới cho `perf-guard.ts` (tổng 26/26 xanh).
 
 Commit: `ad972e1`.
 

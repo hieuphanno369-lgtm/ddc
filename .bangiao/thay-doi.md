@@ -13,7 +13,7 @@ Nhánh `feature/p2b-t1-hieu-nang` (từ `main` @ `4991f1b`). 3 commit code + 1 d
   lệnh xoá `dim_project` cũ thêm `AND "createdBy" = 'perf-seed'` (L-2 — trước đây chỉ lọc theo tiền
   tố `masterCode LIKE 'PERF-%'`, có thể xoá nhầm dự án thật nếu trùng tiền tố).
 - `scripts/perf/measure-pages.ts`: gọi `assertPerfLocalBase` trước khi đăng nhập.
-- `src/lib/perf-guard.test.ts`: +22 test (tổng 26/26 xanh).
+- `src/lib/perf-guard.test.ts`: +16 test (tổng 26/26 xanh).
 
 **Tester nên soi kỹ:** `assertPerfHost` cho phép "loopback theo `DATABASE_URL`" NGAY CẢ KHI
 `inet_server_addr()` trả về IP xa — có chủ đích (dùng khi kết nối qua SSH tunnel/port-forward tới
@@ -63,7 +63,7 @@ trước commit `ad972e1`). Không ảnh hưởng lịch sử/diff cuối cùng.
 
 - `npx tsc --noEmit`: sạch (sau cả 3 commit).
 - `npm test`: **119 file / 1394 test xanh** (không đổi so với trước Bước 11 — không có test nào
-  thêm/bớt số lượng, chỉ thêm 22 test perf-guard đã tính trong tổng này).
+  thêm/bớt số lượng, chỉ thêm 16 test perf-guard đã tính trong tổng này).
 - `npm run check:read`: **OK** (17/17 mục khớp) — chạy SAU khi `npm run perf:clean` +
   `npx prisma db seed` để trả DB về seed mặc định 17 dự án (đã xác nhận `dim_project` count=17,
   perf-prefix count=0 trước khi chạy).
