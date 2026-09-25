@@ -6,6 +6,8 @@ PowerShell and bash syntax within one command.
 - Dev server: `npm run dev` (Next.js on :3000). Usually already running in the user's own terminal —
   check before starting or killing one.
 - Type check: `npx tsc --noEmit`
+- Run `npm test`/`npx vitest` from PowerShell with an uppercase drive (`D:\_project\...`). From Git Bash
+  (`/d/_project/...`) Vitest falsely reports "no test suite found" en masse (Windows path case bug).
 - Tests: `npm test` (= `vitest run`, single pass) / `npm run test:watch` (watch mode)
 - Build: `npm run build`
 - Prisma: `npx prisma migrate dev` (create+apply a migration locally) / `npx prisma migrate status`
