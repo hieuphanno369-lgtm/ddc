@@ -73,8 +73,17 @@ export function openSecret(sealed: string): string {
   }
 }
 
-/** '••••' + 4 ký tự cuối; chuỗi ≤ 4 ký tự → '••••'. */
-export function secretHint(plain: string): string {
-  if (plain.length <= 4) return '••••';
-  return `••••${plain.slice(-4)}`;
+/**
+ * Gợi ý nhận diện URL webhook đã lưu, KHÔNG lộ giá trị bí mật.
+ * L-6 (danh-gia-bao-mat.md): trước đây lấy 4 ký tự cuối của URL - với webhook (vd Slack/Teams),
+ * token bí mật thường nằm ngay cuối path nên 4 ký tự cuối có thể lộ tới 1/4 một token ngắn. Đổi
+ * sang hiển thị host + '/…' (không đụng tới phần path chứa token).
+ */
+export function secretHintForUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.hostname}/…`;
+  } catch {
+    return '••••';
+  }
 }

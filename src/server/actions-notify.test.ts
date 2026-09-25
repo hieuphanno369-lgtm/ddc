@@ -72,7 +72,9 @@ describe('saveNotifyChannelAction - webhook', () => {
 
     const list = await repo.listNotifyChannels();
     const ch = list.find((c) => c.id === (res as { ok: true; id: number }).id)!;
-    expect(ch.secretHint).toBe('••••1234');
+    // L-6 (danh-gia-bao-mat.md): hint la host + '/…', KHONG con lay 4 ky tu cuoi cua URL (co the la
+    // duoi token that, vd Slack webhook).
+    expect(ch.secretHint).toBe('hooks.example.com/…');
     expect(ch.settings.webhookHost).toBe('hooks.example.com');
     expect(JSON.stringify(list)).not.toContain('hooks.example.com/abcd1234');
 
@@ -117,7 +119,7 @@ describe('saveNotifyChannelAction - webhook', () => {
     expect(res).toEqual({ ok: true, id: created.id });
     const ch = (await repo.listNotifyChannels()).find((c) => c.id === created.id)!;
     expect(ch.name).toBe('Doi ten');
-    expect(ch.secretHint).toBe('••••1234');
+    expect(ch.secretHint).toBe('hooks.example.com/…'); // L-6: hint la host + '/…'
   });
 
   it("doi kind khi sua -> Invalid input", async () => {

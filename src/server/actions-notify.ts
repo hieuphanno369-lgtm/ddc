@@ -3,7 +3,7 @@
 import net from 'node:net';
 import { revalidateTag } from 'next/cache';
 import { logActivity } from '@/lib/activity';
-import { hasSecretKey, sealSecret, secretHint } from '@/lib/secret-box';
+import { hasSecretKey, sealSecret, secretHintForUrl } from '@/lib/secret-box';
 import { checkWebhookUrl, isBlockedSmtpIp, webhookPolicyFromEnv, type WebhookUrlError } from '@/lib/notify-url';
 import { testNotice } from '@/lib/notify-message';
 import { requireRoleUser } from './action-guards';
@@ -47,7 +47,7 @@ export async function saveNotifyChannelAction(
       if (!checked.ok) return { ok: false, error: checked.error };
     }
     if (!hasSecretKey()) return { ok: false, error: 'secret_key_missing' };
-    secret = { enc: sealSecret(rawSecret), hint: data.kind === 'webhook' ? secretHint(rawSecret) : '••••••' };
+    secret = { enc: sealSecret(rawSecret), hint: data.kind === 'webhook' ? secretHintForUrl(rawSecret) : '••••••' };
   } else if (data.kind === 'email' && data.clearSecret) {
     secret = null;
   } else {

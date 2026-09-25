@@ -55,7 +55,8 @@ test.describe('07 - Quan tri (admin)', () => {
     await card.getByRole('button', { name: vi('notifyAdmin.save') }).click();
 
     const webhookRow = card.locator('tr', { hasText: 'E2E Webhook' });
-    await expect(webhookRow.getByText('••••hook')).toBeVisible();
+    // L-6 (danh-gia-bao-mat.md): hint la host + '/…', khong con 4 ky tu cuoi cua URL (co the la duoi token that).
+    await expect(webhookRow.getByText('example.invalid/…')).toBeVisible();
 
     await webhookRow.getByRole('button', { name: vi('notifyAdmin.edit') }).click();
     const urlFieldEdit = card.locator('.field', { hasText: vi('notifyAdmin.webhookUrl') }).locator('input[type="password"]');

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { hasSecretKey, openSecret, sealSecret, secretHint, SECRET_KEY_ENV } from './secret-box';
+import { hasSecretKey, openSecret, sealSecret, secretHintForUrl, SECRET_KEY_ENV } from './secret-box';
 
 const KEY_32 = Buffer.from('a'.repeat(32), 'utf8').toString('base64');
 const KEY_16 = Buffer.from('a'.repeat(16), 'utf8').toString('base64');
@@ -60,8 +60,13 @@ describe('secret-box', () => {
     expect(() => openSecret('abc')).toThrow('secret_bad_format');
   });
 
-  it('secretHint lay 4 ky tu cuoi, chuoi ngan -> ••••', () => {
-    expect(secretHint('https://hooks.x/abcd1234')).toBe('••••1234');
-    expect(secretHint('ab')).toBe('••••');
+  it('L-6 (danh-gia-bao-mat.md): secretHintForUrl hien host + "/…", KHONG lo ky tu cuoi (co the la duoi token)', () => {
+    expect(secretHintForUrl('https://hooks.x/services/T000/B000/abcd1234efgh5678')).toBe('hooks.x/…');
+    expect(secretHintForUrl('https://hooks.slack.com/services/X')).toBe('hooks.slack.com/…');
+  });
+
+  it('secretHintForUrl: URL khong hop le -> ••••', () => {
+    expect(secretHintForUrl('khong-phai-url')).toBe('••••');
+    expect(secretHintForUrl('')).toBe('••••');
   });
 });
