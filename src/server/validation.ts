@@ -146,6 +146,13 @@ export const removeSapSchema = z.object({
   sapCodeId: z.number().int().positive(),
 });
 
+/** P3A (Task 6, G-17): gán/gỡ PIC hoặc Backup cho dự án - chỉ admin. */
+export const projectMemberSchema = z.object({
+  projectId: z.number().int().positive(),
+  email: z.string().trim().toLowerCase().email(),
+  roleInProject: z.enum(['PIC', 'Backup']),
+});
+
 export const createProjectSchema = z.object({
   projectName: z.string().trim().min(1).max(PROJECT_NAME_MAX),
   customerId: z.number().int().positive(),

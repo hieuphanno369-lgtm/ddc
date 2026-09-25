@@ -1,15 +1,16 @@
 'use server';
 
+import { z } from 'zod';
 import { revalidateTag } from 'next/cache';
 import { historyMonths, todayIso } from '@/lib/clock';
 import { validateStageWeights } from '@/lib/stages';
 import { normalizeProjectCode } from '@/lib/project-code';
 import { logActivity } from '@/lib/activity';
-import { requireWriteProject } from './action-guards';
+import { requireRoleUser, requireWriteProject } from './action-guards';
 import { runAlertEngineSafe } from './alert-engine';
 import { checkProfileRules, type ProfileRuleError } from './project-profile-rules';
 import { listTag, overviewTag, profileTag, trendTag } from './cache';
-import { projectCodeSchema, removeSapSchema, stageWeightRowsSchema, updateProjectSchema } from './validation';
+import { projectCodeSchema, projectMemberSchema, removeSapSchema, stageWeightRowsSchema, updateProjectSchema } from './validation';
 import { repo } from './repo';
 import type { Project, StageWeightInput } from './repo/types';
 
@@ -135,5 +136,76 @@ export async function removeSapCodeAction(
   if (result === 'not_found') return { ok: false, error: 'Not found' };
 
   await logActivity(user, 'remove_sap', `project ${projectId} · sap ${sapCodeId}`);
+  return { ok: true };
+}
+
+/** G-17: gán PIC/Backup - CHỈ admin (đây là cấp quyền, xem `src/server/authz.ts`). */
+export async function setProjectMemberAction(
+  projectId: number,
+  email: string,
+  roleInProject: 'PIC' | 'Backup',
+): Promise<
+  | { ok: true; result: 'added' | 'changed' | 'unchanged' }
+  | { ok: false; error: 'Forbidden' | 'Invalid input' | 'Not found' | 'user_not_found' | 'role_not_allowed' | 'pic_exists' }
+> {
+  const user = await requireRoleUser(['admin']);
+  if (!user) return { ok: false, error: 'Forbidden' };
+  const parsed = projectMemberSchema.safeParse({ projectId, email, roleInProject });
+  if (!parsed.success) return { ok: false, error: 'Invalid input' };
+  const project = await repo.getProject(parsed.data.projectId);
+  if (!project) return { ok: false, error: 'Not found' };
+
+  const account = await repo.findAccount(parsed.data.email);
+  if (!account || !account.isActive) return { ok: false, error: 'user_not_found' };
+  if (parsed.data.roleInProject === 'PIC' && account.role !== 'data-entry') return { ok: false, error: 'role_not_allowed' };
+  if (parsed.data.roleInProject === 'Backup' && account.role !== 'data-entry' && account.role !== 'viewer') {
+    return { ok: false, error: 'role_not_allowed' };
+  }
+  if (parsed.data.roleInProject === 'PIC') {
+    const members = await repo.getProjectMembers(parsed.data.projectId);
+    if (members.some((m) => m.roleInProject === 'PIC' && m.userEmail !== parsed.data.email)) {
+      return { ok: false, error: 'pic_exists' };
+    }
+  }
+
+  const result = await repo.setProjectMember(parsed.data.projectId, parsed.data.email, parsed.data.roleInProject, user.email);
+  await logActivity(user, 'project_member_set', `project ${parsed.data.projectId} · ${parsed.data.email} · ${parsed.data.roleInProject}`);
+  revalidateTag(profileTag);
+  return { ok: true, result };
+}
+
+/** G-17: gỡ PIC/Backup - CHỈ admin. */
+export async function removeProjectMemberAction(
+  projectId: number,
+  email: string,
+): Promise<{ ok: true } | { ok: false; error: 'Forbidden' | 'Invalid input' | 'not_member' }> {
+  const user = await requireRoleUser(['admin']);
+  if (!user) return { ok: false, error: 'Forbidden' };
+  const parsed = z.object({ projectId: z.number().int().positive(), email: z.string().trim().toLowerCase().email() }).safeParse({ projectId, email });
+  if (!parsed.success) return { ok: false, error: 'Invalid input' };
+
+  const result = await repo.removeProjectMember(parsed.data.projectId, parsed.data.email, user.email);
+  if (result === 'not_member') return { ok: false, error: 'not_member' };
+
+  await logActivity(user, 'project_member_remove', `project ${parsed.data.projectId} · ${parsed.data.email}`);
+  revalidateTag(profileTag);
+  return { ok: true };
+}
+
+/** G-5: duyệt chủ đầu tư do data-entry tạo từ form - CHỈ admin. */
+export async function approveCustomerAction(
+  customerId: number,
+): Promise<{ ok: true } | { ok: false; error: 'Forbidden' | 'Invalid input' | 'not_found' | 'not_pending' }> {
+  const user = await requireRoleUser(['admin']);
+  if (!user) return { ok: false, error: 'Forbidden' };
+  const parsed = z.number().int().positive().safeParse(customerId);
+  if (!parsed.success) return { ok: false, error: 'Invalid input' };
+
+  const result = await repo.approveCustomer(parsed.data, user.email);
+  if (result === 'not_found') return { ok: false, error: 'not_found' };
+  if (result === 'not_pending') return { ok: false, error: 'not_pending' };
+
+  await logActivity(user, 'approve_customer', `customer ${parsed.data}`);
+  revalidateTag(profileTag);
   return { ok: true };
 }

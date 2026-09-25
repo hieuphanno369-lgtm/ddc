@@ -610,7 +610,10 @@ export async function createDimValueAction(field: 'customer' | 'team', name: str
   if (!user) return { ok: false, error: 'Forbidden' };
   const parsed = createDimSchema.safeParse({ field, name });
   if (!parsed.success) return { ok: false, error: 'invalid' };
-  const id = await repo.createDimValue(parsed.data.field, parsed.data.name);
+  const id = await repo.createDimValue(parsed.data.field, parsed.data.name, {
+    needsReview: parsed.data.field === 'customer' && user.role !== 'admin',
+    by: user.email,
+  });
   await logActivity(user, 'create_dim', `${field}: ${parsed.data.name}`);
   revalidateTag(profileTag);
   return { ok: true, id };

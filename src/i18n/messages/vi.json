@@ -591,7 +591,10 @@
     "update_project": "Sửa hồ sơ dự án",
     "change_project_code": "Đổi mã CT",
     "save_stage_weights": "Lưu trọng số giai đoạn",
-    "remove_sap": "Gỡ mã SAP"
+    "remove_sap": "Gỡ mã SAP",
+    "project_member_set": "Gán người phụ trách",
+    "project_member_remove": "Gỡ người phụ trách",
+    "approve_customer": "Duyệt chủ đầu tư"
   },
   "dataGuard": {
     "import": {

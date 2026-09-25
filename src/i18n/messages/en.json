@@ -591,7 +591,10 @@
     "update_project": "Update project profile",
     "change_project_code": "Change contract code",
     "save_stage_weights": "Save stage weights",
-    "remove_sap": "Remove SAP code"
+    "remove_sap": "Remove SAP code",
+    "project_member_set": "Assign project member",
+    "project_member_remove": "Remove project member",
+    "approve_customer": "Approve customer"
   },
   "dataGuard": {
     "import": {
