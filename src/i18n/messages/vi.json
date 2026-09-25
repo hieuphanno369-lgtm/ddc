@@ -594,7 +594,8 @@
     "remove_sap": "Gỡ mã SAP",
     "project_member_set": "Gán người phụ trách",
     "project_member_remove": "Gỡ người phụ trách",
-    "approve_customer": "Duyệt chủ đầu tư"
+    "approve_customer": "Duyệt chủ đầu tư",
+    "save_equipment_plans": "Lưu kế hoạch thiết bị"
   },
   "dataGuard": {
     "import": {
@@ -1032,6 +1033,29 @@
       "not_pending": "Chủ đầu tư này đã được duyệt.",
       "not_found": "Không tìm thấy chủ đầu tư.",
       "generic": "Lỗi: {msg}"
+    }
+  },
+  "equipmentPlan": {
+    "title": "Kế hoạch sử dụng thiết bị (nguồn cho Gantt)",
+    "help": "Mỗi dòng = 1 chiếc thiết bị trong 1 khoảng ngày. Gantt thiết bị ở Chi tiết dự án vẽ từ bảng này; ngày thực tế có dùng lấy từ số liệu thiết bị hằng ngày.",
+    "colEquipment": "Thiết bị",
+    "colUnit": "Chiếc số",
+    "colWorkItem": "Hạng mục",
+    "colStart": "Bắt đầu KH",
+    "colFinish": "Kết thúc KH",
+    "colNote": "Ghi chú",
+    "add": "+ Thêm dòng",
+    "remove": "Xoá dòng",
+    "save": "Lưu kế hoạch thiết bị",
+    "saved": "Đã lưu {n} dòng kế hoạch",
+    "count": "{n} dòng · {units} chiếc",
+    "noEquipment": "Chưa có thiết bị trong danh mục",
+    "limit": "Tối đa {n} dòng",
+    "err": {
+      "invalid": "Có dòng chưa hợp lệ - xem các ô tô đỏ",
+      "overlap": "Dòng {a} và {b}: cùng một chiếc bị trùng ngày",
+      "forbidden": "Bạn không có quyền sửa dự án này.",
+      "generic": "Lưu thất bại: {msg}"
     }
   }
 }

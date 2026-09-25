@@ -9,6 +9,7 @@ import { currentMonth } from '@/lib/clock';
 import { IMPORT_MAX_BYTES } from '@/lib/import-limits';
 import { PROJECT_NAME_MAX } from '@/lib/project-form';
 import { isValidProjectCode, PROJECT_CODE_MAX } from '@/lib/project-code';
+import { EQUIP_NOTE_MAX, EQUIP_PLAN_MAX_ROWS, EQUIP_UNIT_MAX } from '@/lib/equipment-plan';
 
 /**
  * Zod schema validate input mọi server action (spec §7.5 - không tin client).
@@ -360,4 +361,21 @@ export const closeAlertSchema = z.object({
   alertId: z.number().int().positive(),
   action: z.string().trim().min(3).max(500),
   note: z.string().trim().max(1000),
+});
+
+/** P3A (Task 12): kế hoạch sử dụng thiết bị theo từng chiếc - nguồn Gantt thiết bị (T14). */
+export const saveEquipmentPlansSchema = z.object({
+  projectId: z.number().int().positive(),
+  rows: z
+    .array(
+      z.object({
+        equipmentId: z.number().int().positive(),
+        unitNo: z.number().int().min(1).max(EQUIP_UNIT_MAX),
+        workItemId: z.number().int().positive().nullable(),
+        plannedStart: isoDate,
+        plannedFinish: isoDate,
+        note: z.string().trim().max(EQUIP_NOTE_MAX),
+      }),
+    )
+    .max(EQUIP_PLAN_MAX_ROWS),
 });

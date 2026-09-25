@@ -10,9 +10,11 @@ import {
 import { readDailyWorkbook } from './daily-import';
 import { requireWriteProject } from './action-guards';
 import { repo } from './repo';
-import type { Role } from './repo/types';
+import type { EquipmentPlanInput, Role } from './repo/types';
+import { validateEquipmentPlans, type EquipPlanErrors } from '@/lib/equipment-plan';
 import {
-  commitDailyImportSchema, createContractorSchema, dailyImportFileSchema, projectContractorSchema, saveDailyResourcesSchema,
+  commitDailyImportSchema, createContractorSchema, dailyImportFileSchema, projectContractorSchema,
+  saveDailyResourcesSchema, saveEquipmentPlansSchema,
 } from './validation';
 
 /** G-18: gán 1 nhà thầu (đã có trong danh mục) vào dự án. */
@@ -246,4 +248,39 @@ export async function commitDailyImportAction(
   await runAlertEngineSafe(projectId).catch(() => {});
   await logActivity(user, 'commit_daily_import', `project ${projectId} · ${parsed.data.days.length} ngày`);
   return { ok: true, days: parsed.data.days.length, created, updated, unchanged };
+}
+
+/**
+ * Task 12 (P3A, T14): thay TOÀN BỘ kế hoạch sử dụng thiết bị của 1 dự án - nguồn Gantt thiết bị.
+ * Không kiểm khoá tháng (kế hoạch không theo tháng), không chạy alert engine.
+ */
+export async function saveEquipmentPlansAction(
+  projectId: number,
+  rows: EquipmentPlanInput[],
+): Promise<
+  | { ok: true; count: number }
+  | { ok: false; error: 'Forbidden' | 'Not found' | 'Invalid input' | 'invalid_rows'; errors?: EquipPlanErrors; overlaps?: [number, number][] }
+> {
+  const user = await requireWriteProject(projectId);
+  if (!user) return { ok: false, error: 'Forbidden' };
+  const parsed = saveEquipmentPlansSchema.safeParse({ projectId, rows });
+  if (!parsed.success) return { ok: false, error: 'Invalid input' };
+  const project = await repo.getProject(projectId);
+  if (!project) return { ok: false, error: 'Not found' };
+
+  const [equipments, existingPlans, workItems] = await Promise.all([
+    repo.getEquipments(),
+    repo.readEquipmentPlans(projectId),
+    repo.getWorkItems(projectId),
+  ]);
+  // Vẫn cho lưu lại dòng cũ của thiết bị đã ngừng dùng (không có trong getEquipments() nữa).
+  const equipmentIds = new Set([...equipments.map((e) => e.id), ...existingPlans.map((p) => p.equipmentId)]);
+  const workItemIds = new Set(workItems.map((w) => w.id));
+
+  const check = validateEquipmentPlans(parsed.data.rows, { equipmentIds, workItemIds });
+  if (!check.ok) return { ok: false, error: 'invalid_rows', errors: check.errors, overlaps: check.overlaps };
+
+  await repo.replaceEquipmentPlans(projectId, parsed.data.rows, user.email);
+  await logActivity(user, 'save_equipment_plans', `project ${projectId} · ${parsed.data.rows.length}`);
+  return { ok: true, count: parsed.data.rows.length };
 }

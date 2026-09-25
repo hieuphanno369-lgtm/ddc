@@ -1,9 +1,10 @@
 import { prisma } from '@/server/db';
 import { DEFAULT_STAGE_WEIGHTS, STAGE_ORDER } from '@/lib/stages';
 import { planAliasChange } from '@/lib/project-code';
+import { equipPlanAuditText } from '@/lib/equipment-plan';
 import type { IsoDate } from '@/lib/clock';
 import { audit } from './prisma-repo-entry';
-import type { AuditLogEntry, ProjectAlias, ProjectMember, Role, StageWeightInput } from './types';
+import type { AuditLogEntry, EquipmentPlanInput, ProjectAlias, ProjectMember, Role, StageWeightInput } from './types';
 
 /** '00:00:00Z' của ngày `s` ('YYYY-MM-DD') - khớp cách lưu ngày @db.Date ở prisma-repo.ts. */
 const dayStart = (s: string): Date => new Date(`${s}T00:00:00Z`);
@@ -201,5 +202,28 @@ export const formPrismaRepo = {
       oldValue: a.oldValue, newValue: a.newValue, changedBy: a.changedBy,
       changedAt: a.changedAt.toISOString(), note: a.note,
     }));
+  },
+
+  /** Task 12 (P3A, T14): thay TOÀN BỘ kế hoạch thiết bị của 1 dự án - nguồn Gantt thiết bị. */
+  async replaceEquipmentPlans(projectId: number, rows: EquipmentPlanInput[], by: string): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+      const before = await tx.projectEquipmentPlan.findMany({ where: { projectId } });
+      const beforeText = equipPlanAuditText(before.map((p) => ({
+        equipmentId: p.equipmentId, unitNo: p.unitNo, workItemId: p.workItemId,
+        plannedStart: day(p.plannedStart)!, plannedFinish: day(p.plannedFinish)!, note: p.note,
+      })));
+      const afterText = equipPlanAuditText(rows);
+      await tx.projectEquipmentPlan.deleteMany({ where: { projectId } });
+      if (rows.length) {
+        await tx.projectEquipmentPlan.createMany({
+          data: rows.map((r) => ({
+            projectId, equipmentId: r.equipmentId, unitNo: r.unitNo, workItemId: r.workItemId,
+            plannedStart: dayStart(r.plannedStart), plannedFinish: dayStart(r.plannedFinish),
+            note: r.note, updatedBy: by,
+          })),
+        });
+      }
+      await audit(tx, 'project_equipment_plan', String(projectId), 'replace', beforeText, afterText, by);
+    });
   },
 };

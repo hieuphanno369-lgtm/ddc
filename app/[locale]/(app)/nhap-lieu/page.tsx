@@ -7,6 +7,7 @@ import { dailyDateWindow, isInWindow } from '@/lib/daily-entry';
 import { getCurrentUser, homeForRole } from '@/lib/session';
 import { DataEntryForm, type DataEntryStep } from '@/components/form/DataEntryForm';
 import { ResourceEntryPanel } from '@/components/form/ResourceEntryPanel';
+import { EquipmentPlanEditor } from '@/components/form/EquipmentPlanEditor';
 
 const STEPS: DataEntryStep[] = ['progress', 'finance', 'profile', 'extras', 'resources'];
 
@@ -68,6 +69,10 @@ export default async function NhapLieuPage({
   const dailyEquipment = project ? await repo.getDailyEquipment(project.id, date, date) : [];
   const monthLocked = await repo.isMonthLocked(date.slice(0, 7));
 
+  // Task 12 (P3A, T14): kế hoạch sử dụng thiết bị - nguồn Gantt thiết bị ở Chi tiết dự án.
+  const equipmentPlans = project ? await repo.readEquipmentPlans(project.id) : [];
+  const workItems = project ? await repo.getWorkItems(project.id) : [];
+
   // T8 (Task 6, P2A): sản lượng tháng của khu vực sản xuất chính của dự án.
   const volumeTonnage =
     project && project.factoryId != null
@@ -111,21 +116,24 @@ export default async function NhapLieuPage({
             initialStep={initialStep}
             canEditFinance={user.role === 'admin'}
             resourcesPanel={
-              <ResourceEntryPanel
-                key={date}
-                projectId={project.id}
-                masterCode={project.currentAliasCode}
-                date={date}
-                today={today}
-                entryWindow={entryWindow}
-                monthLocked={monthLocked}
-                members={members}
-                allContractors={allContractors}
-                shifts={shifts}
-                equipments={equipments}
-                manpower={manpower}
-                equipment={dailyEquipment}
-              />
+              <>
+                <ResourceEntryPanel
+                  key={date}
+                  projectId={project.id}
+                  masterCode={project.currentAliasCode}
+                  date={date}
+                  today={today}
+                  entryWindow={entryWindow}
+                  monthLocked={monthLocked}
+                  members={members}
+                  allContractors={allContractors}
+                  shifts={shifts}
+                  equipments={equipments}
+                  manpower={manpower}
+                  equipment={dailyEquipment}
+                />
+                <EquipmentPlanEditor projectId={project.id} plans={equipmentPlans} equipments={equipments} workItems={workItems} />
+              </>
             }
           />
         )}

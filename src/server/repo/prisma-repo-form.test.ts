@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   projectFindUnique, projectUpdate, projectAliasFindMany, projectAliasCreate, projectAliasUpdate,
   projectHistoryCreate, projectStageWeightFindMany, projectStageWeightDeleteMany, projectStageWeightCreateMany,
+  projectEquipmentPlanFindMany, projectEquipmentPlanDeleteMany, projectEquipmentPlanCreateMany,
   auditCreate, transactionMock,
 } = vi.hoisted(() => {
   const projectFindUnique = vi.fn(async () => ({
@@ -16,18 +17,23 @@ const {
   const projectStageWeightFindMany = vi.fn(async () => [] as unknown[]);
   const projectStageWeightDeleteMany = vi.fn(async () => ({ count: 0 }));
   const projectStageWeightCreateMany = vi.fn(async () => ({ count: 0 }));
+  const projectEquipmentPlanFindMany = vi.fn(async () => [] as unknown[]);
+  const projectEquipmentPlanDeleteMany = vi.fn(async () => ({ count: 0 }));
+  const projectEquipmentPlanCreateMany = vi.fn(async () => ({ count: 0 }));
   const auditCreate = vi.fn(async () => ({}));
   const client = {
     project: { findUnique: projectFindUnique, update: projectUpdate },
     projectAlias: { findMany: projectAliasFindMany, create: projectAliasCreate, update: projectAliasUpdate },
     projectHistory: { create: projectHistoryCreate },
     projectStageWeight: { findMany: projectStageWeightFindMany, deleteMany: projectStageWeightDeleteMany, createMany: projectStageWeightCreateMany },
+    projectEquipmentPlan: { findMany: projectEquipmentPlanFindMany, deleteMany: projectEquipmentPlanDeleteMany, createMany: projectEquipmentPlanCreateMany },
     auditLog: { create: auditCreate },
   };
   const transactionMock = vi.fn(async (fn: (tx: typeof client) => unknown) => fn(client));
   return {
     projectFindUnique, projectUpdate, projectAliasFindMany, projectAliasCreate, projectAliasUpdate,
     projectHistoryCreate, projectStageWeightFindMany, projectStageWeightDeleteMany, projectStageWeightCreateMany,
+    projectEquipmentPlanFindMany, projectEquipmentPlanDeleteMany, projectEquipmentPlanCreateMany,
     auditCreate, transactionMock,
   };
 });
@@ -38,6 +44,7 @@ vi.mock('@/server/db', () => ({
     projectAlias: { findMany: projectAliasFindMany, create: projectAliasCreate, update: projectAliasUpdate },
     projectHistory: { create: projectHistoryCreate },
     projectStageWeight: { findMany: projectStageWeightFindMany, deleteMany: projectStageWeightDeleteMany, createMany: projectStageWeightCreateMany },
+    projectEquipmentPlan: { findMany: projectEquipmentPlanFindMany, deleteMany: projectEquipmentPlanDeleteMany, createMany: projectEquipmentPlanCreateMany },
     auditLog: { create: auditCreate },
     $transaction: transactionMock,
   },
@@ -54,6 +61,9 @@ beforeEach(() => {
   projectHistoryCreate.mockClear();
   projectStageWeightDeleteMany.mockClear();
   projectStageWeightCreateMany.mockClear();
+  projectEquipmentPlanFindMany.mockClear();
+  projectEquipmentPlanDeleteMany.mockClear();
+  projectEquipmentPlanCreateMany.mockClear();
 });
 
 describe('prisma-repo.changeProjectCode', () => {
@@ -94,6 +104,20 @@ describe('prisma-repo.replaceStageWeights', () => {
     expect(projectStageWeightCreateMany).toHaveBeenCalled();
     expect(auditCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({ tableName: 'project_stage_weight', recordId: '7', field: 'replace', changedBy: 'admin@x' }),
+    });
+  });
+});
+
+describe('prisma-repo.replaceEquipmentPlans', () => {
+  it('chay trong $transaction, xoa roi tao lai, ghi audit', async () => {
+    await repo.replaceEquipmentPlans(7, [
+      { equipmentId: 1, unitNo: 1, workItemId: null, plannedStart: '2026-09-01', plannedFinish: '2026-09-10', note: '' },
+    ], 'admin@x');
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(projectEquipmentPlanDeleteMany).toHaveBeenCalledWith({ where: { projectId: 7 } });
+    expect(projectEquipmentPlanCreateMany).toHaveBeenCalled();
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ tableName: 'project_equipment_plan', recordId: '7', field: 'replace', changedBy: 'admin@x' }),
     });
   });
 });

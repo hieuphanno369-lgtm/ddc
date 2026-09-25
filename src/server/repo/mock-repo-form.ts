@@ -1,7 +1,8 @@
 import { DEFAULT_STAGE_WEIGHTS, STAGE_ORDER } from '@/lib/stages';
 import { planAliasChange } from '@/lib/project-code';
+import { equipPlanAuditText } from '@/lib/equipment-plan';
 import { audit, type EntryMockDeps } from './mock-repo-entry';
-import type { AuditLogEntry, ProjectMember, StageWeightInput } from './types';
+import type { AuditLogEntry, EquipmentPlanInput, ProjectMember, StageWeightInput } from './types';
 
 /** Chuỗi mô tả trọng số cho audit_log: "design:5,shop:10(x),…" - (x) = không áp dụng. */
 function stageWeightAuditText(rows: { stageCode: string; weightPct: number; applicable: boolean }[]): string {
@@ -166,6 +167,21 @@ export function makeFormMockRepo({ getData, persist }: EntryMockDeps) {
         .filter((a) => (exact.has(a.tableName) && a.recordId === String(projectId)) || (prefixed.has(a.tableName) && a.recordId.startsWith(prefix)))
         .sort((a, b) => b.changedAt.localeCompare(a.changedAt))
         .slice(0, limit);
+    },
+
+    /** Task 12 (P3A, T14): thay TOÀN BỘ kế hoạch thiết bị của 1 dự án - nguồn Gantt thiết bị. */
+    replaceEquipmentPlans(projectId: number, rows: EquipmentPlanInput[], by: string): void {
+      const d = getData();
+      const before = d.equipmentPlans.filter((p) => p.projectId === projectId);
+      const beforeText = equipPlanAuditText(before);
+      const afterText = equipPlanAuditText(rows);
+      const now = new Date().toISOString();
+      let nextId = d.equipmentPlans.reduce((m, p) => Math.max(m, p.id), 0) + 1;
+      d.equipmentPlans = d.equipmentPlans
+        .filter((p) => p.projectId !== projectId)
+        .concat(rows.map((r) => ({ id: nextId++, projectId, ...r, updatedAt: now, updatedBy: by })));
+      audit(d, 'project_equipment_plan', String(projectId), 'replace', beforeText, afterText, by);
+      persist();
     },
   };
 }

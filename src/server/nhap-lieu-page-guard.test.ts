@@ -8,7 +8,10 @@ import type { CurrentUser } from '@/lib/session';
  */
 const { redirectCalls, formProps } = vi.hoisted(() => ({
   redirectCalls: [] as string[],
-  formProps: [] as Array<{ projectId: number; financial?: unknown; resourcesPanel?: { props: Record<string, unknown> } }>,
+  formProps: [] as Array<{
+    projectId: number; financial?: unknown;
+    resourcesPanel?: { props: { children: Array<{ props: Record<string, unknown> } | false> } };
+  }>,
 }));
 
 vi.mock('next/navigation', () => ({
@@ -30,7 +33,10 @@ vi.mock('@/server/repo', async () => {
   return { repo: mockRepo.repo };
 });
 vi.mock('@/components/form/DataEntryForm', () => ({
-  DataEntryForm: (props: { projectId: number; financial?: unknown; resourcesPanel?: { props: Record<string, unknown> } }) => {
+  DataEntryForm: (props: {
+    projectId: number; financial?: unknown;
+    resourcesPanel?: { props: { children: Array<{ props: Record<string, unknown> } | false> } };
+  }) => {
     formProps.push(props);
     return null;
   },
@@ -144,18 +150,20 @@ describe('nạp dữ liệu buoc resources (Task 3)', () => {
     renderToStaticMarkup(el as React.ReactElement);
   }
 
+  // Task 12 (P3A): `resourcesPanel` giờ là 1 Fragment bọc <ResourceEntryPanel/> + <EquipmentPlanEditor/> -
+  // phần tử đầu tiên trong `children` vẫn là ResourceEntryPanel.
   it('admin ?project=1&step=resources → members.length === 6, shifts 2 dòng', async () => {
     login(user('admin', true));
     await visitWithQuery({ project: '1', step: 'resources' });
-    const panel = formProps.at(-1)!.resourcesPanel!;
-    expect((panel.props.members as unknown[]).length).toBe(6);
-    expect((panel.props.shifts as unknown[]).length).toBe(2);
+    const resourcePanel = formProps.at(-1)!.resourcesPanel!.props.children[0] as { props: Record<string, unknown> };
+    expect((resourcePanel.props.members as unknown[]).length).toBe(6);
+    expect((resourcePanel.props.shifts as unknown[]).length).toBe(2);
   });
 
   it('?date=abc (không hợp lệ) → date === today seed 2026-09-16', async () => {
     login(user('admin', true));
     await visitWithQuery({ project: '1', date: 'abc' });
-    const panel = formProps.at(-1)!.resourcesPanel!;
-    expect(panel.props.date).toBe('2026-09-16');
+    const resourcePanel = formProps.at(-1)!.resourcesPanel!.props.children[0] as { props: Record<string, unknown> };
+    expect(resourcePanel.props.date).toBe('2026-09-16');
   });
 });

@@ -324,6 +324,16 @@ export interface ProjectEquipmentPlan {
   updatedBy: string;
 }
 
+/** P3A (Task 12): 1 dòng kế hoạch gửi lên khi lưu - không có id/projectId/updatedAt/updatedBy. */
+export interface EquipmentPlanInput {
+  equipmentId: number;
+  unitNo: number;
+  workItemId: number | null;
+  plannedStart: string; // 'YYYY-MM-DD'
+  plannedFinish: string; // 'YYYY-MM-DD'
+  note: string;
+}
+
 /** Kết quả lưu 1 tháng: đã có dòng isLatest ('updated'), chưa có dòng nào ('created'), hoặc dự án không tồn tại ('not_found'). */
 export type SaveFactResult = 'created' | 'updated' | 'not_found';
 
