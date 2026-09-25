@@ -5,6 +5,7 @@ import { rateLimit } from '@/lib/rate-limit';
 import { getCurrentUser } from '@/lib/session';
 import { safeCell } from '@/lib/excel-safe';
 import type { Market, Priority, ProjectType, Status } from '@/server/repo/types';
+import { safeListSort, type ListSort } from '@/lib/finance-gate';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,7 @@ export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (!['admin', 'bod'].includes(user.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const canViewFinance = user.canViewFinance;
 
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0] ?? 'local';
   const rl = rateLimit(`export:${ip}`, 30, 60_000);
@@ -38,7 +40,7 @@ export async function GET(req: NextRequest) {
     month: sp.get('month') || undefined,
     filters,
     search: sp.get('search') || undefined,
-    sort: (sp.get('sort') as 'priority') || 'priority',
+    sort: safeListSort((sp.get('sort') as ListSort) || 'priority', canViewFinance),
   });
 
   const wb = new ExcelJS.Workbook();
@@ -56,8 +58,7 @@ export async function GET(req: NextRequest) {
     { header: '% TT', key: 'pctActual', width: 10 },
     { header: 'SPI', key: 'spi', width: 10 },
     { header: 'CPI', key: 'cpi', width: 10 },
-    { header: 'EAC', key: 'eac', width: 12 },
-    { header: 'Giá trị HĐ (tỷ)', key: 'value', width: 16 },
+    ...(canViewFinance ? [{ header: 'EAC', key: 'eac', width: 12 }, { header: 'Giá trị HĐ (tỷ)', key: 'value', width: 16 }] : []),
   ];
 
   for (const r of rows) {
@@ -74,8 +75,7 @@ export async function GET(req: NextRequest) {
       pctActual: r.pctActual,
       spi: r.spi ?? '',
       cpi: r.cpi ?? '',
-      eac: r.eac ?? '',
-      value: r.contractValue,
+      ...(canViewFinance ? { eac: r.eac ?? '', value: r.contractValue } : {}),
     });
   }
 

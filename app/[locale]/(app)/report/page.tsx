@@ -28,6 +28,7 @@ export default async function ReportPage() {
   if (!user) redirect(`/${locale}/login`);
   if (!['admin', 'bod'].includes(user.role)) redirect(`/${locale}${homeForRole(user.role)}`);
   const t = await getTranslations();
+  const canViewFinance = user.canViewFinance;
   const { kpis, p0Red, rows } = await getReportData(currentMonth());
   const prevLabel = t('common.previousMonth');
 
@@ -45,13 +46,15 @@ export default async function ReportPage() {
         </a>
       </div>
 
-      <Rise className="kpis">
+      <Rise className={`kpis${canViewFinance ? '' : ' k5'}`}>
         <KpiCard label={t('kpi.totalProjects')} value={String(kpis.totalProjects)} delta={kpis.delta.totalProjects} deltaSuffix={prevLabel} icon={IconProject} />
         <KpiCard label={t('kpi.inProgress')} value={String(kpis.inProgress)} delta={kpis.delta.inProgress} deltaSuffix={prevLabel} tone="ok" icon={IconFactory} />
         <KpiCard label={t('kpi.behindSchedule')} value={String(kpis.behindSchedule)} delta={kpis.delta.behindSchedule} deltaSuffix={prevLabel} tone="warn" invertDelta hero icon={IconTrend} />
         <KpiCard label={t('kpi.penaltyRisk')} value={String(kpis.penaltyRisk)} delta={kpis.delta.penaltyRisk} deltaSuffix={prevLabel} tone="warn" invertDelta icon={IconFlag} />
         <KpiCard label={t('kpi.penalized')} value={String(kpis.penalized)} delta={kpis.delta.penalized} deltaSuffix={prevLabel} tone="danger" invertDelta icon={IconAlert} />
-        <KpiCard label={t('kpi.backlog')} value={formatTyd(kpis.backlog, locale)} delta={kpis.delta.backlog} deltaSuffix={prevLabel} tone="neutral" icon={IconMoney} />
+        {canViewFinance && (
+          <KpiCard label={t('kpi.backlog')} value={formatTyd(kpis.backlog, locale)} delta={kpis.delta.backlog} deltaSuffix={prevLabel} tone="neutral" icon={IconMoney} />
+        )}
       </Rise>
 
       <Card>
@@ -85,7 +88,7 @@ export default async function ReportPage() {
                   <th className="num">SPI</th>
                   <th className="num">CPI</th>
                   <th className="num">% TT</th>
-                  <th className="num">{t('kpi.backlog')}</th>
+                  {canViewFinance && <th className="num">{t('kpi.backlog')}</th>}
                 </tr>
               </thead>
               <tbody>
@@ -108,12 +111,12 @@ export default async function ReportPage() {
                       </Badge>
                     </td>
                     <td className="num">{formatPct(r.pctActual, locale)}</td>
-                    <td className="num">{formatTyd(r.backlog, locale)}</td>
+                    {canViewFinance && <td className="num">{formatTyd(r.backlog, locale)}</td>}
                   </tr>
                 ))}
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="empty">
+                    <td colSpan={canViewFinance ? 6 : 5} className="empty">
                       {t('common.noData')}
                     </td>
                   </tr>
