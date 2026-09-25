@@ -130,6 +130,11 @@ export function UserEditor({ users }: { users: UserAccount[] }) {
                 <td>
                   {u.role === 'admin' ? (
                     <Badge tone="ok">{t('admin.canViewFinanceAlways')}</Badge>
+                  ) : u.role === 'data-entry' ? (
+                    // T-1 (danh-gia-bao-mat.md): data-entry luôn canViewFinance=true ở tầng server
+                    // (resolveAccess + setUserCanViewFinanceAction từ chối tắt) - không cho bấm tắt
+                    // ở đây để tránh "cảm giác an toàn giả".
+                    <Badge tone="ok">{t('admin.canViewFinanceOn')}</Badge>
                   ) : (
                     <button
                       onClick={async () => {

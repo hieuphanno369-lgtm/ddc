@@ -35,11 +35,15 @@ const roleSeed: Record<string, Role> = (process.env.ROLE_SEED ?? '')
  */
 export async function resolveAccess(email: string): Promise<{ role: Role; canViewFinance: boolean }> {
   const seedRole = roleSeed[email.toLowerCase()] ?? 'viewer';
-  const fallback: { role: Role; canViewFinance: boolean } = { role: seedRole, canViewFinance: seedRole === 'admin' };
+  // T-1 (danh-gia-bao-mat.md, phương án b tạm thời tới khi P3A gate form nhập liệu): data-entry
+  // luôn canViewFinance=true, giống admin - tránh "cảm giác an toàn giả" khi Quản trị tắt được nút
+  // nhưng /nhap-lieu vẫn lộ số tiền cho role này.
+  const alwaysOn = (r: Role) => r === 'admin' || r === 'data-entry';
+  const fallback: { role: Role; canViewFinance: boolean } = { role: seedRole, canViewFinance: alwaysOn(seedRole) };
   if (process.env.DATABASE_URL) {
     try {
       const row = await prisma.userRole.findUnique({ where: { email: email.toLowerCase() } });
-      if (row) return { role: row.role as Role, canViewFinance: row.role === 'admin' ? true : row.canViewFinance };
+      if (row) return { role: row.role as Role, canViewFinance: alwaysOn(row.role as Role) ? true : row.canViewFinance };
     } catch {
       /* ignore */
     }
@@ -47,7 +51,7 @@ export async function resolveAccess(email: string): Promise<{ role: Role; canVie
   }
   const u = repo.getUserRoles().find((x) => x.email === email.toLowerCase());
   if (!u) return fallback;
-  return { role: u.role, canViewFinance: u.role === 'admin' ? true : u.canViewFinance };
+  return { role: u.role, canViewFinance: alwaysOn(u.role) ? true : u.canViewFinance };
 }
 
 async function findAccount(email: string): Promise<UserAccount | null> {

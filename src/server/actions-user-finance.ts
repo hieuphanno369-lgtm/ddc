@@ -14,11 +14,19 @@ import { repo } from './repo';
 export async function setUserCanViewFinanceAction(
   email: string,
   canViewFinance: boolean,
-): Promise<{ ok: true } | { ok: false; error: 'Forbidden' | 'Invalid input' | 'Not found' }> {
+): Promise<{ ok: true } | { ok: false; error: 'Forbidden' | 'Invalid input' | 'Not found' | 'DataEntryLocked' }> {
   const user = await requireRoleUser(['admin']);
   if (!user) return { ok: false, error: 'Forbidden' };
   const normalized = typeof email === 'string' ? email.trim().toLowerCase() : '';
   if (!normalized || !normalized.includes('@')) return { ok: false, error: 'Invalid input' };
+
+  // T-1 (danh-gia-bao-mat.md, phương án b tạm thời tới khi P3A gate form nhập liệu): role data-entry
+  // luôn canViewFinance=true (xem resolveAccess trong auth.ts) - từ chối tắt ở đây để không tạo "cảm
+  // giác an toàn giả" (nút tắt được nhưng /nhap-lieu vẫn lộ số tiền).
+  if (!canViewFinance) {
+    const target = await repo.findAccount(normalized);
+    if (target?.role === 'data-entry') return { ok: false, error: 'DataEntryLocked' };
+  }
 
   const ok = await repo.setUserCanViewFinance(normalized, canViewFinance, user.email);
   if (!ok) return { ok: false, error: 'Not found' };

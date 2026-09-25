@@ -27,19 +27,35 @@ beforeEach(() => {
 });
 
 describe('setUserCanViewFinanceAction - Q6', () => {
-  it('admin bat quyen tai chinh cho data-entry -> ok, ghi audit_log', async () => {
+  it('admin tat quyen tai chinh cho bod (khong phai data-entry) -> ok, ghi audit_log', async () => {
     login(ADMIN);
-    const before = repo.getUserRoles().find((u) => u.email === 'pm@daidung.com.vn');
+    const before = repo.getUserRoles().find((u) => u.email === 'bod@daidung.com.vn');
     expect(before?.canViewFinance).toBe(true);
 
-    const res = await setUserCanViewFinanceAction('pm@daidung.com.vn', false);
+    const res = await setUserCanViewFinanceAction('bod@daidung.com.vn', false);
     expect(res).toEqual({ ok: true });
-    expect(repo.getUserRoles().find((u) => u.email === 'pm@daidung.com.vn')?.canViewFinance).toBe(false);
+    expect(repo.getUserRoles().find((u) => u.email === 'bod@daidung.com.vn')?.canViewFinance).toBe(false);
     expect(
       repo
         .getAuditLog()
-        .some((a) => a.tableName === 'user_roles' && a.recordId === 'pm@daidung.com.vn' && a.field === 'canViewFinance'),
+        .some((a) => a.tableName === 'user_roles' && a.recordId === 'bod@daidung.com.vn' && a.field === 'canViewFinance'),
     ).toBe(true);
+  });
+
+  it('[T-1] admin KHONG tat duoc quyen tai chinh cho data-entry -> DataEntryLocked, KHONG doi DB', async () => {
+    login(ADMIN);
+    const before = repo.getUserRoles().find((u) => u.email === 'pm@daidung.com.vn')?.canViewFinance;
+    expect(before).toBe(true);
+
+    const res = await setUserCanViewFinanceAction('pm@daidung.com.vn', false);
+    expect(res).toEqual({ ok: false, error: 'DataEntryLocked' });
+    expect(repo.getUserRoles().find((u) => u.email === 'pm@daidung.com.vn')?.canViewFinance).toBe(before);
+  });
+
+  it('[T-1] admin bat lai (true) cho data-entry van OK - chi khoa chieu tat', async () => {
+    login(ADMIN);
+    const res = await setUserCanViewFinanceAction('pm@daidung.com.vn', true);
+    expect(res).toEqual({ ok: true });
   });
 
   it('admin bat lai cho viewer -> ok', async () => {

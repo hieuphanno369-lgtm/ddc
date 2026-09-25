@@ -24,9 +24,9 @@ describe('resolveAccess - Q6 doc canViewFinance tung nguoi tu cot DB', () => {
     expect(await resolveAccess('bod@daidung.com.vn')).toEqual({ role: 'bod', canViewFinance: true });
   });
 
-  it('data-entry bi admin tat cot DB false -> canViewFinance false', async () => {
+  it('data-entry luon canViewFinance true (T-1, tam thoi toi khi P3A gate form nhap lieu), bat ke cot DB', async () => {
     findUniqueMock.mockResolvedValue({ role: 'data-entry', canViewFinance: false });
-    expect(await resolveAccess('pm@daidung.com.vn')).toEqual({ role: 'data-entry', canViewFinance: false });
+    expect(await resolveAccess('pm@daidung.com.vn')).toEqual({ role: 'data-entry', canViewFinance: true });
   });
 
   it('viewer mac dinh cot DB false -> canViewFinance false', async () => {
