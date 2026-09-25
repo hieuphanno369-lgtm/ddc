@@ -205,10 +205,12 @@ describe('getProjectMembers / setProjectMember / removeProjectMember (mock-repo)
     expect(repo.getProjectMembers(16).some((m) => m.userEmail === 'pm@daidung.com.vn')).toBe(false);
   });
 
-  it('pic trung khong bi chan o tang repo (luat pic_exists nam o action)', () => {
+  // Vòng sửa 1 (QĐ-11, S-6): trước đây mock KHÔNG chặn PIC trùng (luật nằm ở action) - đổi ý định
+  // có chủ đích, nay mock cũng tự kiểm và trả 'pic_exists' (đồng bộ với Prisma + partial unique index).
+  it('pic trung -> "pic_exists" (S-6, mock tu kiem, khong con "them duoc roi de action chan")', () => {
     const res = repo.setProjectMember(16, 'viewer@daidung.com.vn', 'PIC', 'admin@x');
-    expect(res).toBe('added');
-    expect(repo.getProjectMembers(16).filter((m) => m.roleInProject === 'PIC')).toHaveLength(2);
+    expect(res).toBe('pic_exists');
+    expect(repo.getProjectMembers(16).filter((m) => m.roleInProject === 'PIC')).toHaveLength(1);
   });
 });
 

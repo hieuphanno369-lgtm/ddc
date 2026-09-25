@@ -5,6 +5,7 @@
 
 BEGIN;
 
+DROP INDEX IF EXISTS "project_assignments_one_pic_key";
 DROP INDEX IF EXISTS "dim_project_currentAliasCode_lower_key";
 
 -- Xoa dau vet migration de "migrate deploy" co the ap lai tu dau.

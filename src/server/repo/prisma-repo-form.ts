@@ -177,28 +177,50 @@ export const formPrismaRepo = {
       });
   },
 
-  async setProjectMember(projectId: number, email: string, roleInProject: 'PIC' | 'Backup', by: string): Promise<'added' | 'changed' | 'unchanged'> {
-    const prev = await prisma.projectAssignment.findUnique({ where: { projectId_userEmail: { projectId, userEmail: email } } });
-    if (prev) {
-      if (prev.roleInProject === roleInProject) return 'unchanged';
-      await prisma.projectAssignment.update({
-        where: { projectId_userEmail: { projectId, userEmail: email } },
-        data: { roleInProject, assignedBy: by, assignedAt: new Date() },
+  /**
+   * S-6 (vòng sửa 1, QĐ-11): thêm/đổi thành viên trong 1 `$transaction` cùng audit; gán PIC thì
+   * kiểm lại trong `tx` đã có PIC khác chưa (partial unique index `project_assignments_one_pic_key`
+   * chặn ở tầng DB) - trùng trả `'pic_exists'`. `P2002` (race) cũng map về `'pic_exists'`.
+   */
+  async setProjectMember(projectId: number, email: string, roleInProject: 'PIC' | 'Backup', by: string): Promise<'added' | 'changed' | 'unchanged' | 'pic_exists'> {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const prev = await tx.projectAssignment.findUnique({ where: { projectId_userEmail: { projectId, userEmail: email } } });
+        if (prev) {
+          if (prev.roleInProject === roleInProject) return 'unchanged';
+          if (roleInProject === 'PIC') {
+            const otherPic = await tx.projectAssignment.findFirst({ where: { projectId, roleInProject: 'PIC', userEmail: { not: email } } });
+            if (otherPic) return 'pic_exists';
+          }
+          await tx.projectAssignment.update({
+            where: { projectId_userEmail: { projectId, userEmail: email } },
+            data: { roleInProject, assignedBy: by, assignedAt: new Date() },
+          });
+          await audit(tx, 'project_assignments', `${projectId}/${email}`, 'roleInProject', prev.roleInProject, roleInProject, by);
+          return 'changed';
+        }
+        if (roleInProject === 'PIC') {
+          const otherPic = await tx.projectAssignment.findFirst({ where: { projectId, roleInProject: 'PIC' } });
+          if (otherPic) return 'pic_exists';
+        }
+        await tx.projectAssignment.create({ data: { projectId, userEmail: email, roleInProject, assignedBy: by } });
+        await audit(tx, 'project_assignments', `${projectId}/${email}`, 'roleInProject', '', roleInProject, by);
+        return 'added';
       });
-      await audit(prisma, 'project_assignments', `${projectId}/${email}`, 'roleInProject', prev.roleInProject, roleInProject, by);
-      return 'changed';
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return 'pic_exists';
+      throw e;
     }
-    await prisma.projectAssignment.create({ data: { projectId, userEmail: email, roleInProject, assignedBy: by } });
-    await audit(prisma, 'project_assignments', `${projectId}/${email}`, 'roleInProject', '', roleInProject, by);
-    return 'added';
   },
 
   async removeProjectMember(projectId: number, email: string, by: string): Promise<'removed' | 'not_member'> {
-    const prev = await prisma.projectAssignment.findUnique({ where: { projectId_userEmail: { projectId, userEmail: email } } });
-    if (!prev) return 'not_member';
-    await prisma.projectAssignment.delete({ where: { projectId_userEmail: { projectId, userEmail: email } } });
-    await audit(prisma, 'project_assignments', `${projectId}/${email}`, 'roleInProject', prev.roleInProject, '', by);
-    return 'removed';
+    return prisma.$transaction(async (tx) => {
+      const prev = await tx.projectAssignment.findUnique({ where: { projectId_userEmail: { projectId, userEmail: email } } });
+      if (!prev) return 'not_member';
+      await tx.projectAssignment.delete({ where: { projectId_userEmail: { projectId, userEmail: email } } });
+      await audit(tx, 'project_assignments', `${projectId}/${email}`, 'roleInProject', prev.roleInProject, '', by);
+      return 'removed';
+    });
   },
 
   async approveCustomer(id: number, by: string): Promise<'approved' | 'not_found' | 'not_pending'> {

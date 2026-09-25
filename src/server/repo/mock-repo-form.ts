@@ -127,12 +127,16 @@ export function makeFormMockRepo({ getData, persist }: EntryMockDeps) {
         });
     },
 
-    setProjectMember(projectId: number, email: string, roleInProject: 'PIC' | 'Backup', by: string): 'added' | 'changed' | 'unchanged' {
+    /** S-6 (vòng sửa 1, QĐ-11): gán PIC khi đã có PIC khác (partial unique index ở Prisma) -> `'pic_exists'`. */
+    setProjectMember(projectId: number, email: string, roleInProject: 'PIC' | 'Backup', by: string): 'added' | 'changed' | 'unchanged' | 'pic_exists' {
       const d = getData();
       const prev = d.assignments.find((a) => a.projectId === projectId && a.userEmail === email);
       const now = new Date().toISOString();
       if (prev) {
         if (prev.roleInProject === roleInProject) return 'unchanged';
+        if (roleInProject === 'PIC' && d.assignments.some((a) => a.projectId === projectId && a.roleInProject === 'PIC' && a.userEmail !== email)) {
+          return 'pic_exists';
+        }
         const old = prev.roleInProject;
         prev.roleInProject = roleInProject;
         prev.assignedBy = by;
@@ -140,6 +144,9 @@ export function makeFormMockRepo({ getData, persist }: EntryMockDeps) {
         audit(d, 'project_assignments', `${projectId}/${email}`, 'roleInProject', old, roleInProject, by);
         persist();
         return 'changed';
+      }
+      if (roleInProject === 'PIC' && d.assignments.some((a) => a.projectId === projectId && a.roleInProject === 'PIC')) {
+        return 'pic_exists';
       }
       d.assignments.push({ projectId, userEmail: email, roleInProject, assignedBy: by, assignedAt: now });
       audit(d, 'project_assignments', `${projectId}/${email}`, 'roleInProject', '', roleInProject, by);

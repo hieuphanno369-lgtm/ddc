@@ -229,6 +229,7 @@ model ProjectSapCode {
 model ProjectAssignment {
   projectId     Int
   userEmail     String
+  /// index partial UNIQUE (projectId) WHERE roleInProject = 'PIC' tao bang SQL tay o migration 20260925110000 - toi da 1 PIC/du an
   roleInProject RoleInProject
   assignedBy    String
   assignedAt    DateTime      @default(now())

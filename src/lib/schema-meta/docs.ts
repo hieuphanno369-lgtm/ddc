@@ -195,7 +195,7 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
     fields: {
       projectId: 'khoá ghép - FK tới dim_project.id',
       userEmail: 'khoá ghép - FK tới user_roles.email',
-      roleInProject: 'PIC | Backup',
+      roleInProject: 'PIC | Backup - tối đa 1 PIC mỗi dự án (partial unique index tạo tay ở migration 20260925110000)',
       assignedBy: 'người gán quyền',
       assignedAt: 'thời điểm gán quyền',
     },

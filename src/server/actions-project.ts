@@ -189,6 +189,9 @@ export async function setProjectMemberAction(
   }
 
   const result = await repo.setProjectMember(parsed.data.projectId, parsed.data.email, parsed.data.roleInProject, user.email);
+  // S-6 (vòng sửa 1, QĐ-11): kiểm ở trên là fast-path; bắt lại kết quả 'pic_exists' từ repo (race
+  // 2 request gán PIC gần như đồng thời - partial unique index chặn ở tầng DB).
+  if (result === 'pic_exists') return { ok: false, error: 'pic_exists' };
   await logActivity(user, 'project_member_set', `project ${parsed.data.projectId} · ${parsed.data.email} · ${parsed.data.roleInProject}`);
   revalidateTag(profileTag);
   return { ok: true, result };

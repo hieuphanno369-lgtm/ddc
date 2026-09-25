@@ -5,7 +5,8 @@ const {
   projectFindUnique, projectFindFirst, projectUpdate, projectAliasFindMany, projectAliasFindFirst,
   projectAliasCreate, projectAliasUpdate, projectHistoryCreate, projectStageWeightFindMany,
   projectStageWeightDeleteMany, projectStageWeightCreateMany, projectEquipmentPlanFindMany,
-  projectEquipmentPlanDeleteMany, projectEquipmentPlanCreateMany,
+  projectEquipmentPlanDeleteMany, projectEquipmentPlanCreateMany, projectAssignmentFindUnique,
+  projectAssignmentFindFirst, projectAssignmentUpdate, projectAssignmentCreate, projectAssignmentDelete,
   auditCreate, executeRaw, transactionMock,
 } = vi.hoisted(() => {
   const projectFindUnique = vi.fn(async () => ({
@@ -24,6 +25,11 @@ const {
   const projectEquipmentPlanFindMany = vi.fn(async () => [] as unknown[]);
   const projectEquipmentPlanDeleteMany = vi.fn(async () => ({ count: 0 }));
   const projectEquipmentPlanCreateMany = vi.fn(async () => ({ count: 0 }));
+  const projectAssignmentFindUnique = vi.fn(async () => null as unknown);
+  const projectAssignmentFindFirst = vi.fn(async () => null as unknown);
+  const projectAssignmentUpdate = vi.fn(async () => ({}));
+  const projectAssignmentCreate = vi.fn(async () => ({}));
+  const projectAssignmentDelete = vi.fn(async () => ({}));
   const auditCreate = vi.fn(async () => ({}));
   const executeRaw = vi.fn(async () => 1);
   const client = {
@@ -32,6 +38,10 @@ const {
     projectHistory: { create: projectHistoryCreate },
     projectStageWeight: { findMany: projectStageWeightFindMany, deleteMany: projectStageWeightDeleteMany, createMany: projectStageWeightCreateMany },
     projectEquipmentPlan: { findMany: projectEquipmentPlanFindMany, deleteMany: projectEquipmentPlanDeleteMany, createMany: projectEquipmentPlanCreateMany },
+    projectAssignment: {
+      findUnique: projectAssignmentFindUnique, findFirst: projectAssignmentFindFirst,
+      update: projectAssignmentUpdate, create: projectAssignmentCreate, delete: projectAssignmentDelete,
+    },
     auditLog: { create: auditCreate },
     $executeRaw: executeRaw,
   };
@@ -40,7 +50,8 @@ const {
     projectFindUnique, projectFindFirst, projectUpdate, projectAliasFindMany, projectAliasFindFirst,
     projectAliasCreate, projectAliasUpdate, projectHistoryCreate, projectStageWeightFindMany,
     projectStageWeightDeleteMany, projectStageWeightCreateMany, projectEquipmentPlanFindMany,
-    projectEquipmentPlanDeleteMany, projectEquipmentPlanCreateMany,
+    projectEquipmentPlanDeleteMany, projectEquipmentPlanCreateMany, projectAssignmentFindUnique,
+    projectAssignmentFindFirst, projectAssignmentUpdate, projectAssignmentCreate, projectAssignmentDelete,
     auditCreate, executeRaw, transactionMock,
   };
 });
@@ -52,6 +63,10 @@ vi.mock('@/server/db', () => ({
     projectHistory: { create: projectHistoryCreate },
     projectStageWeight: { findMany: projectStageWeightFindMany, deleteMany: projectStageWeightDeleteMany, createMany: projectStageWeightCreateMany },
     projectEquipmentPlan: { findMany: projectEquipmentPlanFindMany, deleteMany: projectEquipmentPlanDeleteMany, createMany: projectEquipmentPlanCreateMany },
+    projectAssignment: {
+      findUnique: projectAssignmentFindUnique, findFirst: projectAssignmentFindFirst,
+      update: projectAssignmentUpdate, create: projectAssignmentCreate, delete: projectAssignmentDelete,
+    },
     auditLog: { create: auditCreate },
     $executeRaw: executeRaw,
     $transaction: transactionMock,
@@ -76,6 +91,13 @@ beforeEach(() => {
   projectEquipmentPlanFindMany.mockClear();
   projectEquipmentPlanDeleteMany.mockClear();
   projectEquipmentPlanCreateMany.mockClear();
+  projectAssignmentFindUnique.mockClear();
+  projectAssignmentFindUnique.mockResolvedValue(null);
+  projectAssignmentFindFirst.mockClear();
+  projectAssignmentFindFirst.mockResolvedValue(null);
+  projectAssignmentUpdate.mockClear();
+  projectAssignmentCreate.mockClear();
+  projectAssignmentDelete.mockClear();
   executeRaw.mockClear();
 });
 
@@ -147,6 +169,42 @@ describe('prisma-repo.replaceEquipmentPlans', () => {
     expect(projectEquipmentPlanCreateMany).toHaveBeenCalled();
     expect(auditCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({ tableName: 'project_equipment_plan', recordId: '7', field: 'replace', changedBy: 'admin@x' }),
+    });
+  });
+});
+
+describe('prisma-repo.setProjectMember', () => {
+  it('them moi -> "added", chay trong $transaction, ghi audit', async () => {
+    const res = await repo.setProjectMember(7, 'pm@daidung.com.vn', 'Backup', 'admin@x');
+    expect(res).toBe('added');
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ tableName: 'project_assignments', recordId: '7/pm@daidung.com.vn', changedBy: 'admin@x' }),
+    });
+  });
+
+  it('S-6: tx kiem lai da co PIC khac (projectAssignment.findFirst) -> "pic_exists"', async () => {
+    projectAssignmentFindFirst.mockResolvedValueOnce({ userEmail: 'khac@daidung.com.vn', roleInProject: 'PIC' });
+    const res = await repo.setProjectMember(7, 'pm@daidung.com.vn', 'PIC', 'admin@x');
+    expect(res).toBe('pic_exists');
+    expect(projectAssignmentCreate).not.toHaveBeenCalled();
+  });
+
+  it('S-6: P2002 gia lap (partial unique index) -> "pic_exists"', async () => {
+    projectAssignmentCreate.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError('trung', { code: 'P2002', clientVersion: '6.19.3' }));
+    const res = await repo.setProjectMember(7, 'pm@daidung.com.vn', 'PIC', 'admin@x');
+    expect(res).toBe('pic_exists');
+  });
+});
+
+describe('prisma-repo.removeProjectMember', () => {
+  it('chay trong $transaction, ghi audit', async () => {
+    projectAssignmentFindUnique.mockResolvedValueOnce({ roleInProject: 'Backup' });
+    const res = await repo.removeProjectMember(7, 'pm@daidung.com.vn', 'admin@x');
+    expect(res).toBe('removed');
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ tableName: 'project_assignments', recordId: '7/pm@daidung.com.vn', changedBy: 'admin@x' }),
     });
   });
 });
