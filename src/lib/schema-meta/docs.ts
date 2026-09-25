@@ -23,6 +23,8 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
       aliases: 'tên cũ/đồng nghĩa - dùng để autocomplete + truy vết merge',
       isActive: 'false = đã merge vào khách hàng khác',
       mergedIntoId: 'id khách hàng đích sau khi merge (null = chưa merge)',
+      needsReview: 'true = chủ đầu tư do data-entry tạo từ form, chờ admin duyệt hoặc gộp (G-5)',
+      createdBy: 'email người tạo; system = seed/import',
     },
   },
   dim_team_kd: {

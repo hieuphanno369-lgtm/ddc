@@ -11,7 +11,7 @@ export const customers: Customer[] = [
   { id: 8, name: 'Evapco', group: 'Xuất khẩu', aliases: [], isActive: true, mergedIntoId: null },
   { id: 9, name: 'JFE', group: 'Xuất khẩu', aliases: [], isActive: true, mergedIntoId: null },
   { id: 10, name: 'CTy CHK Quảng Trị', group: 'Nhà nước', aliases: [], isActive: true, mergedIntoId: null },
-];
+].map((c) => ({ ...c, needsReview: false, createdBy: 'system' }));
 
 export const teams: TeamKd[] = [
   { id: 1, name: 'P.KD 01', picName: '-', aliases: [], isActive: true, mergedIntoId: null },

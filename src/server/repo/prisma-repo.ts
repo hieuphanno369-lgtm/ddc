@@ -466,6 +466,7 @@ const coreRepo = {
       customers: customers.map((c) => ({
         id: c.id, name: c.name, group: c.group, aliases: c.aliases,
         isActive: c.isActive, mergedIntoId: c.mergedIntoId,
+        needsReview: c.needsReview, createdBy: c.createdBy,
       })),
       teams: teams.map((t) => ({
         id: t.id, name: t.name, picName: t.picName, aliases: t.aliases,
@@ -573,6 +574,7 @@ const coreRepo = {
       name: x.name,
       isActive: x.isActive,
       mergedIntoId: x.mergedIntoId,
+      needsReview: field === 'customer' ? (x as { needsReview: boolean }).needsReview : false,
       refCount: projects.filter((p) => (field === 'customer' ? p.customerId : p.teamKdId) === x.id).length,
     }));
   },

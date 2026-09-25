@@ -71,6 +71,8 @@ model Customer {
   aliases      String[] @default([])
   isActive     Boolean  @default(true)
   mergedIntoId Int?
+  needsReview  Boolean  @default(false)
+  createdBy    String   @default("system")
 
   mergedInto Customer?  @relation("CustomerMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
   mergedFrom Customer[] @relation("CustomerMerge")

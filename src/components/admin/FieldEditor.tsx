@@ -10,6 +10,7 @@ export interface DimValueRow {
   name: string;
   isActive: boolean;
   mergedIntoId: number | null;
+  needsReview: boolean;
   refCount: number;
 }
 

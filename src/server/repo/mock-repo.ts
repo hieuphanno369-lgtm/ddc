@@ -357,7 +357,7 @@ const coreRepo = {
     if (existing) return existing.id;
     const id = list.reduce((m, x) => Math.max(m, x.id), 0) + 1;
     if (field === 'customer') {
-      (list as Customer[]).push({ id, name: n, group: 'Khác', aliases: [], isActive: true, mergedIntoId: null });
+      (list as Customer[]).push({ id, name: n, group: 'Khác', aliases: [], isActive: true, mergedIntoId: null, needsReview: false, createdBy: 'system' });
     } else {
       (list as TeamKd[]).push({ id, name: n, picName: '-', aliases: [], isActive: true, mergedIntoId: null });
     }
@@ -397,6 +397,7 @@ const coreRepo = {
       name: x.name,
       isActive: x.isActive,
       mergedIntoId: x.mergedIntoId,
+      needsReview: field === 'customer' ? (x as Customer).needsReview : false,
       refCount: d.projects.filter((p) => (field === 'customer' ? p.customerId : p.teamKdId) === x.id).length,
     }));
   },

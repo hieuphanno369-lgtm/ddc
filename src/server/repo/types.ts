@@ -37,6 +37,8 @@ export interface Customer {
   aliases: string[]; // tên cũ/đồng nghĩa - dùng để autocomplete + truy vết merge
   isActive: boolean;
   mergedIntoId: number | null; // id canonical sau khi merge (null = chưa merge)
+  needsReview: boolean; // true = tao tu form boi data-entry, cho admin duyet/gop (G-5)
+  createdBy: string; // email nguoi tao; 'system' = seed/import
 }
 
 export interface TeamKd {
