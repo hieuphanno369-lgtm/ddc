@@ -1017,6 +1017,8 @@
       "fx_rate_missing": "Chưa có tỷ giá tháng ký hợp đồng",
       "weights_invalid": "Trọng số chưa hợp lệ (tổng phải 100%)",
       "invalid_factory": "Khu vực không hợp lệ hoặc đã ngừng dùng.",
+      "invalid_customer": "Chủ đầu tư không hợp lệ, đã ngừng dùng hoặc đã gộp vào CĐT khác - tải lại trang.",
+      "invalid_team": "Nhóm kinh doanh không hợp lệ, đã ngừng dùng hoặc đã gộp vào nhóm khác - tải lại trang.",
       "pic_exists": "Dự án đã có PIC - đổi PIC cũ sang Backup hoặc gỡ trước",
       "user_not_found": "Không tìm thấy tài khoản đang hoạt động",
       "role_not_allowed": "PIC phải là tài khoản Nhập liệu; Backup phải là tài khoản Nhập liệu hoặc Xem",

@@ -107,7 +107,7 @@ export const stageWeightRowsSchema = z
 
 /** P3A (Task 5): các trường hồ sơ dùng chung cho tạo mới VÀ sửa (G-4/7/8/11/12). */
 const PROFILE_SHAPE = {
-  projectName: z.string().trim().min(1).max(PROJECT_NAME_MAX),
+  projectName: z.string().trim().min(1).max(PROJECT_NAME_MAX).transform((s) => s.toUpperCase()),
   customerId: z.number().int().positive(),
   teamKdId: z.number().int().positive(),
   marketCode: z.enum(MARKET),
@@ -155,7 +155,7 @@ export const projectMemberSchema = z.object({
 });
 
 export const createProjectSchema = z.object({
-  projectName: z.string().trim().min(1).max(PROJECT_NAME_MAX),
+  projectName: z.string().trim().min(1).max(PROJECT_NAME_MAX).transform((s) => s.toUpperCase()),
   customerId: z.number().int().positive(),
   teamKdId: z.number().int().positive(),
   marketCode: z.enum(MARKET),

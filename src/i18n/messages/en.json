@@ -1017,6 +1017,8 @@
       "fx_rate_missing": "No exchange rate for the contract month",
       "weights_invalid": "Invalid weights (must total 100%)",
       "invalid_factory": "Invalid or inactive production area.",
+      "invalid_customer": "Invalid, inactive, or merged customer - reload the page.",
+      "invalid_team": "Invalid, inactive, or merged team - reload the page.",
       "pic_exists": "This project already has a PIC - change them to Backup or remove them first",
       "user_not_found": "No active account found",
       "role_not_allowed": "PIC must be a data-entry account; Backup must be data-entry or viewer",

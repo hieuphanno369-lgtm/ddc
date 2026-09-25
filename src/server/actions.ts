@@ -229,9 +229,16 @@ export async function createProjectAction(
   if (stageWeights && !validateStageWeights(stageWeights).ok) {
     return { ok: false, error: 'weights_invalid' };
   }
+  const dims = await repo.getDims();
   if (rest.factoryId != null) {
-    const active = (await repo.getDims()).factories.some((f) => f.id === rest.factoryId && f.isActive);
+    const active = dims.factories.some((f) => f.id === rest.factoryId && f.isActive);
     if (!active) return { ok: false, error: 'invalid_factory' };
+  }
+  if (!dims.customers.some((c) => c.id === rest.customerId && c.isActive && c.mergedIntoId == null)) {
+    return { ok: false, error: 'invalid_customer' };
+  }
+  if (!dims.teams.some((tm) => tm.id === rest.teamKdId && tm.isActive && tm.mergedIntoId == null)) {
+    return { ok: false, error: 'invalid_team' };
   }
 
   const rates = await repo.getExchangeRates();

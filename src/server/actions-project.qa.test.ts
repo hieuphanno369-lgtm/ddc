@@ -17,7 +17,7 @@ vi.mock('@/server/repo', async () => {
 vi.mock('@/lib/session', () => ({ getCurrentUser: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/session';
-import { saveMonthlyData } from '@/server/actions';
+import { createProjectAction, saveMonthlyData } from '@/server/actions';
 import { changeProjectCodeAction, saveStageWeightsAction, updateProjectAction } from '@/server/actions-project';
 
 const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.com.vn', role: 'admin', canViewFinance: true };
@@ -66,17 +66,39 @@ describe('Q8 - doi trong so KHONG tinh lai %TT cua thang da luu', () => {
   });
 });
 
-describe('G-4 - server KHONG tu ep VIET HOA (chi ProjectForm.tsx lam o client, onChange toUpperCase)', () => {
-  it('goi thang updateProjectAction voi ten chu thuong van duoc luu nguyen van (khong bi server uppercase)', async () => {
+describe('Q6/S-7 (vong sua 1) - server EP VIET HOA ten du an, khong con tin rieng client', () => {
+  it('goi thang updateProjectAction voi ten chu thuong -> luu VIET HOA TOAN BO', async () => {
     const res = await updateProjectAction(1, { projectName: 'ten du an chu thuong qa' });
     expect(res).toEqual({ ok: true });
-    expect(repo.getProject(1)!.projectName).toBe('ten du an chu thuong qa');
+    expect(repo.getProject(1)!.projectName).toBe('TEN DU AN CHU THUONG QA');
   });
 
   it('ten dung DUNG 160 ky tu qua updateProjectAction -> ok; 161 ky tu -> Invalid input (da co o test coder, kiem lai bien duoi)', async () => {
     const res160 = await updateProjectAction(1, { projectName: 'B'.repeat(160) });
     expect(res160).toEqual({ ok: true });
     expect(repo.getProject(1)!.projectName).toHaveLength(160);
+  });
+
+  it('updateProjectAction voi customerId khong ton tai -> invalid_customer (khong FK 500)', async () => {
+    const res = await updateProjectAction(1, { customerId: 999999 });
+    expect(res).toEqual({ ok: false, error: 'invalid_customer' });
+  });
+
+  it('updateProjectAction voi teamKdId khong ton tai -> invalid_team', async () => {
+    const res = await updateProjectAction(1, { teamKdId: 999999 });
+    expect(res).toEqual({ ok: false, error: 'invalid_team' });
+  });
+
+  it('createProjectAction voi CDT da gop vao CDT khac -> invalid_customer', async () => {
+    const fromId = repo.createDimValue('customer', 'CDT SE BI GOP QA');
+    const toId = repo.createDimValue('customer', 'CDT GOC QA');
+    repo.mergeDimValue('customer', fromId, toId);
+    const res = await createProjectAction({
+      projectName: 'DU AN CDT DA GOP', customerId: fromId, teamKdId: 1, marketCode: 'TN',
+      projectType: 'EPC', priority: 'P1', contractValue: 10, tonnage: 100,
+      plannedStartDate: '2026-10-01', plannedFinishDate: '2027-06-30', committedHandoverDate: '2027-07-31',
+    });
+    expect(res).toEqual({ ok: false, error: 'invalid_customer' });
   });
 });
 

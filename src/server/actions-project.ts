@@ -52,7 +52,7 @@ function revalidateProjectTags(): void {
 export async function updateProjectAction(
   projectId: number,
   patch: UpdateProjectPatch,
-): Promise<{ ok: true } | { ok: false; error: 'Forbidden' | 'Not found' | 'Invalid input' | 'invalid_factory' | ProfileRuleError }> {
+): Promise<{ ok: true } | { ok: false; error: 'Forbidden' | 'Not found' | 'Invalid input' | 'invalid_factory' | 'invalid_customer' | 'invalid_team' | ProfileRuleError }> {
   const user = await requireWriteProject(projectId);
   if (!user) return { ok: false, error: 'Forbidden' };
   const parsed = updateProjectSchema.safeParse({ projectId, patch });
@@ -60,9 +60,26 @@ export async function updateProjectAction(
   const project = await repo.getProject(projectId);
   if (!project) return { ok: false, error: 'Not found' };
 
-  if (parsed.data.patch.factoryId !== undefined && parsed.data.patch.factoryId != null) {
-    const active = (await repo.getDims()).factories.some((f) => f.id === parsed.data.patch.factoryId && f.isActive);
-    if (!active) return { ok: false, error: 'invalid_factory' };
+  if (
+    (parsed.data.patch.factoryId !== undefined && parsed.data.patch.factoryId != null)
+    || parsed.data.patch.customerId !== undefined
+    || parsed.data.patch.teamKdId !== undefined
+  ) {
+    const dims = await repo.getDims();
+    if (parsed.data.patch.factoryId !== undefined && parsed.data.patch.factoryId != null) {
+      const active = dims.factories.some((f) => f.id === parsed.data.patch.factoryId && f.isActive);
+      if (!active) return { ok: false, error: 'invalid_factory' };
+    }
+    if (parsed.data.patch.customerId !== undefined) {
+      if (!dims.customers.some((c) => c.id === parsed.data.patch.customerId && c.isActive && c.mergedIntoId == null)) {
+        return { ok: false, error: 'invalid_customer' };
+      }
+    }
+    if (parsed.data.patch.teamKdId !== undefined) {
+      if (!dims.teams.some((tm) => tm.id === parsed.data.patch.teamKdId && tm.isActive && tm.mergedIntoId == null)) {
+        return { ok: false, error: 'invalid_team' };
+      }
+    }
   }
 
   const rates = await repo.getExchangeRates();
