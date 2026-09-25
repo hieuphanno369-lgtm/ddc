@@ -6,6 +6,11 @@ PHAN QUYET: CAN SUA
 > Phạm vi: `git diff main...HEAD` (cfc1945..e6a9807, 19 commit, 93 file, +7607/-654), `ke-hoach.md` (ĐÃ CHỐT Q1–Q9 + 11mb),
 > `thay-doi.md`, `ket-qua-test.md` (XANH), `danh-gia-bao-mat.md` (ĐẠT), `CLAUDE.md`, `phien-B.md`.
 
+## Quyết định mới của chủ dự án (2026-09-25, chủ dự án xác nhận trực tiếp với điều phối viên)
+
+- **QĐ-10:** data-entry được xem và sửa Giá trị HĐ, nguyên tệ, giá trị phạt ở `/ho-so-du-an` **kể cả khi không có `canViewFinance`**. `/ho-so-du-an`, `createProjectAction`, `updateProjectAction` KHÔNG chặn theo `canViewFinance`. Nhóm tài chính bị che (doanh thu/chi phí/công nợ) không gồm 3 trường này. Báo B qua `phien-A.md`. Mục 3 (S-3) VẪN sửa: rủi ro là máy dùng chung, F6 đã chốt nháp không chứa số tiền.
+- **QĐ-11:** migration S-2 (mã CT không trùng) + S-6 (tối đa 1 PIC/dự án) **làm ngay trong P3A** → mục 6, 7 dưới đây (chuyển khỏi "Để sau").
+
 ## Cổng kiểm reviewer tự chạy lại
 
 - PowerShell `D:\_project\DDC_Control_Tower`: `npx tsc --noEmit` = 0; `npm test` = **149 file / 1652 test pass** (khớp Tester).
@@ -95,8 +100,57 @@ Trong lỗi Thấp, **S-3, S-4, S-7 vá ngay vòng này** (dễ, gọn trong fil
   `z.string().trim().min(1).max(PROJECT_NAME_MAX).transform((s) => s.toUpperCase()).optional()`. KHÔNG gỡ field hồ sơ khỏi schema (tránh vỡ test cũ).
 - **Xong khi:** ca `saveMonthlyData(1, '2026-09', { plannedFinishDate: 'abc' })` → `ok: false`, dự án không đổi; `actions.test.ts` / `actions-security.test.ts` vẫn xanh.
 
-**Cổng chung sau vòng sửa:** `npx tsc --noEmit` = 0; `npm test` ≥ 149 file / 1652 test + test mới, toàn bộ xanh; cập nhật `thay-doi.md`
-mục "Vòng sửa 1"; không đụng file cấm; trước khi sửa `vi.json`/`en.json`/`actions.ts` đọc `phien-B.md` (hiện B không giữ file nóng).
+### 6. (S-2, QĐ-11) Mã CT không trùng: migration + khoá + bắt xung đột
+
+- **Vị trí:** migration mới `prisma/migrations/20260925110000_p3a_unique_code_pic/migration.sql` + rollback
+  `prisma/rollback/20260925110000_p3a_unique_code_pic.down.sql` (A giữ schema/migrations — ghi "Đang giữ" phien-A.md);
+  `src/server/repo/prisma-repo-form.ts:31-104` (`isProjectCodeTaken`, `changeProjectCode`); `src/server/repo/prisma-repo.ts:1029-1080`
+  (`createProject`); `src/server/actions-project.ts:92-95`; `src/server/actions.ts:225-227`.
+- **Cách sửa:**
+  (a) Migration (comment không dấu, `BEGIN/COMMIT`): đầu file `DO $$ … RAISE EXCEPTION` nếu
+  `SELECT lower("currentAliasCode") FROM "dim_project" GROUP BY 1 HAVING count(*) > 1` có dòng (hiện 0);
+  `CREATE UNIQUE INDEX "dim_project_currentAliasCode_lower_key" ON "dim_project" (lower("currentAliasCode"));`
+  (b) Prisma 6 không biểu diễn index biểu thức: ghi comment `/// index lower(currentAliasCode) UNIQUE tao bang SQL tay o migration 20260925110000`
+  trên field trong `schema.prisma`; chạy `npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url <db tam>`,
+  ghi vào `thay-doi.md` diff có đề xuất DROP index không; nếu có thì ghi cảnh báo "không chạy `migrate dev` tự sinh, chỉ `migrate deploy`" ở `thay-doi.md` + đầu file migration.
+  (c) Index chỉ phủ `currentAliasCode`; còn chống trùng `masterCode` + alias cũ: trong `changeProjectCode` (prisma) đầu `$transaction`
+  `await tx.$executeRaw\`SELECT pg_advisory_xact_lock(hashtext(lower(${newCode})))\``, rồi kiểm lại trùng **bằng `tx`** (tách thân
+  `isProjectCodeTaken` thành helper nhận `client`); trùng → trả `'taken'` (kiểu trả `'changed' | 'unchanged' | 'not_found' | 'taken'` ở mock, prisma, types).
+  `createProject` có `currentAliasCode` → cùng khoá + kiểm lại trong 1 `$transaction` (gom `project.create` + `update` + `projectAlias.create`).
+  (d) Bắt `Prisma.PrismaClientKnownRequestError` `code === 'P2002'` ở `changeProjectCode`/`createProject` → `'taken'`; action map `'taken'` → `code_taken`;
+  `createProject` báo lỗi đồng bộ mock/prisma (vd `{ error: 'code_taken' }` hoặc lỗi riêng action bắt).
+  (e) Chặn mẫu `^M-\d+$` trong `isValidProjectCode` (`src/lib/project-code.ts:75`) — trừ khi trùng `masterCode` của chính dự án; kiểm ở
+  `changeProjectCodeAction` (schema giữ regex cũ); thêm key `projectForm.err.code_reserved` vi/en.
+  (f) Mock `changeProjectCode`/`createProject` tự kiểm trùng như trên, trả `'taken'`.
+  (g) Rollback: dòng đầu "revert code truoc"; `DROP INDEX IF EXISTS "dim_project_currentAliasCode_lower_key";` + xoá dòng `_prisma_migrations` (khuôn file down P3A đầu).
+  (h) `src/lib/schema-meta/docs.ts`: `currentAliasCode` "duy nhất, không phân biệt hoa thường"; `npm run docs:erd` nếu ERD đổi.
+- **Xong khi:** `npx prisma migrate deploy` chạy được trên `ddc_control_tower`; rollback rồi deploy lại vẫn được (ghi `thay-doi.md`); `migrate status` up to date.
+  `prisma-repo-form.test.ts`: `changeProjectCode` gọi `$executeRaw` (khoá) trong transaction; `tx` kiểm trùng true → `'taken'`, không gọi `projectAlias.create`;
+  P2002 giả lập → `'taken'`. `form.test.ts` (mock) ca trùng → `'taken'`. `actions-project.test.ts`: `changeProjectCodeAction(1, 'M-00099', …)` → `code_reserved`.
+
+### 7. (S-6, QĐ-11) Tối đa 1 PIC/dự án: partial unique index + audit cùng transaction
+
+- **Vị trí:** cùng migration mục 6; `src/server/repo/prisma-repo-form.ts:153-175` (`setProjectMember`, `removeProjectMember`);
+  `src/server/actions-project.ts:164-171`; `src/server/repo/mock-repo-form.ts` (`setProjectMember`).
+- **Cách sửa:**
+  (a) Migration: `DO $$ … RAISE EXCEPTION` nếu `SELECT "projectId" FROM "project_assignments" WHERE "roleInProject"='PIC' GROUP BY 1 HAVING count(*)>1`
+  có dòng (hiện 0); `CREATE UNIQUE INDEX "project_assignments_one_pic_key" ON "project_assignments" ("projectId") WHERE "roleInProject" = 'PIC';`
+  rollback thêm `DROP INDEX IF EXISTS "project_assignments_one_pic_key";`; comment tương tự 6(b) ở model `ProjectAssignment`.
+  (b) Prisma `setProjectMember`: gói `findUnique` + `update`/`create` + `audit(tx, …)` vào 1 `prisma.$transaction`; `roleInProject === 'PIC'` thì kiểm
+  trong `tx` đã có PIC khác chưa; bắt P2002 → `'pic_exists'` (kiểu trả `'added' | 'changed' | 'unchanged' | 'pic_exists'` ở mock, prisma, mọi chỗ gọi). Mock kiểm tương tự.
+  (c) `removeProjectMember` (prisma): `delete` + `audit(tx, …)` 1 transaction.
+  (d) `setProjectMemberAction` giữ kiểm trước (lỗi thân thiện), map `'pic_exists'` từ repo → `{ ok: false, error: 'pic_exists' }`.
+  (e) Seed I-2 (admin@ PIC 11 dự án) mỗi dự án 1 PIC → không vi phạm; không sửa seed.
+  (f) `docs.ts`: `project_assignments.roleInProject` "tối đa 1 PIC mỗi dự án - partial unique index".
+- **Xong khi:** `prisma-repo-form.test.ts`: `setProjectMember` chạy trong `$transaction`, gọi `auditLog.create`; P2002 giả lập → `'pic_exists'`.
+  `form.test.ts`: đổi ca `'pic trung khong bi chan o tang repo'` (`form.test.ts:393-397`) thành kỳ vọng `'pic_exists'`, vẫn 1 PIC — ghi trong
+  `thay-doi.md` là **đổi ý định có chủ đích** theo QĐ-11. `actions-members.test.ts` / `.qa.test.ts` vẫn xanh. Kiểm `mcp__postgres`: 2 index có mặt.
+
+**Cổng chung sau vòng sửa:** `npx tsc --noEmit` = 0; `npm test` ≥ 149 file / 1652 test + test mới, toàn bộ xanh; `npm run check:read` OK;
+`npx prisma migrate status` up to date; build kiểm compile (font mock); cập nhật `thay-doi.md` mục "Vòng sửa 1" (ghi QĐ-10, QĐ-11); không đụng
+file cấm; trước khi sửa `vi.json`/`en.json`/`actions.ts`/`prisma-repo.ts`/`schema.prisma`/`migrations` đọc `phien-B.md` rồi ghi "Đang giữ" `phien-A.md`.
+Có migration mới → ghi trong `phien-A.md`: **B phải `npx prisma migrate deploy` sau khi merge main**. Mục 6, 7 đụng dữ liệu + đồng thời →
+sau vòng sửa **gửi lại security-reviewer** rà S-2/S-6 trước khi reviewer CHỐT.
 
 ---
 
@@ -105,10 +159,8 @@ mục "Vòng sửa 1"; không đụng file cấm; trước khi sửa `vi.json`/`
 - **S-1 (Trung bình): BẮT BUỘC trong danh sách go-live P6.** Chuyển `importExcelAction`/`previewDailyImportAction` sang route handler
   (kiểm auth trước khi đọc body, đếm byte theo stream, 413, rate-limit); rồi trả `bodySizeLimit` về mặc định; reverse proxy
   `client_max_body_size 1m` cho `Next-Action`, chỉ `/api/import*` 11m; sửa chú thích sai `validation.ts:228`; kiểm end-to-end file 12MB, 50MB.
-- **S-2:** race đổi/tạo mã CT — advisory lock trong transaction, cân nhắc unique index `lower("currentAliasCode")`, chặn mẫu `^M-\d+$`.
-- **S-5 / S-6:** ghi đồng thời — `FOR UPDATE`/advisory lock theo `projectId` ở `replaceEquipmentPlans`/`replaceStageWeights`/`setProjectMember`;
-  partial unique index 1 PIC; audit cùng transaction.
-- **S-8:** `createProjectAction` chưa atomic — gom `createProjectWithSetup` 1 transaction.
+- **S-5:** ghi đồng thời kế hoạch thiết bị — advisory lock/`FOR UPDATE` theo `projectId` ở `replaceEquipmentPlans`; bắt P2002 ở `replaceStageWeights`. (S-2, S-6 đã chuyển lên mục 6, 7 theo QĐ-11.)
+- **S-8:** `createProjectAction` chưa atomic — mục 6 chỉ gom tạo dự án + alias; phần gán PIC/trọng số/mốc gom `createProjectWithSetup` sau.
 - **S-9:** dòng đầu file down migration "revert code trước, rồi mới chạy file này"; xuất danh sách CĐT `needsReview` trước rollback.
 - **Nhãn Giá trị HĐ khi đang quy đổi:** ô chỉ-đọc hiện số tính lại theo tỷ giá hiện tại, có thể lệch số đã chốt nếu admin sửa tỷ giá tháng đó;
   nên hiện `project.contractValue` khi không đụng các trường G-7.
@@ -122,11 +174,7 @@ mục "Vòng sửa 1"; không đụng file cấm; trước khi sửa `vi.json`/`
 
 ## Câu hỏi cho chủ dự án
 
-1. **Tài chính trên `/ho-so-du-an`.** Theo `phien-B.md`, P3B đang tạm ép data-entry luôn có `canViewFinance=true`, sẽ gỡ khi A chặn màn nhập liệu
-   theo `canViewFinance`. Trang `/ho-so-du-an` luôn hiện Giá trị HĐ, nguyên tệ, giá trị phạt cho data-entry. Khi B gỡ ràng buộc đó, data-entry
-   không có quyền tài chính có được xem/sửa 3 ô này không? Nếu không, cần 1 task (P3B hoặc phase kế): ẩn/khoá 3 ô + chặn ở server trong
-   `updateProjectAction`/`createProjectAction`.
-2. **S-2/S-6 cần migration mới** (unique index mã CT, partial unique 1 PIC). Làm ở phase nào? Bên giữ `schema.prisma` mới được tạo migration.
+Hai câu ở bản trước đã được chủ dự án trả lời (QĐ-10, QĐ-11). Không còn câu hỏi bỏ ngỏ chặn vòng sửa này.
 
 ---
-Kết luận: nền tảng P3A tốt, đúng quyết định đã chốt, test có giá trị. Còn 5 mục trên, nhỏ và gọn trong file P3A. Coder sửa xong, cổng xanh thì CHỐT được.
+Kết luận: mục 1–5 nhỏ, gọn trong file P3A; mục 6–7 (QĐ-11) có migration mới, cần security-reviewer rà lại. Cổng xanh + security ĐẠT thì CHỐT được.
