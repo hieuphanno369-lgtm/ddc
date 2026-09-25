@@ -43,6 +43,26 @@ describe('changeProjectCode (mock-repo)', () => {
     expect(rows.find((a) => a.aliasCode === 'CT-KHONG-ALIAS')?.effectiveFrom).toBe('2026-09-17');
   });
 
+  it('du an tao voi currentAliasCode -> dong luc tao dung todayIso(), doi ma dong dung khong mat lich su', () => {
+    const created = repo.createProject({
+      projectName: 'DU AN TEST ALIAS LUC TAO', customerId: 1, teamKdId: 1, marketCode: 'NoiBo',
+      projectType: 'Khac', priority: 'P2', contractValue: 10, tonnage: 100,
+      plannedStartDate: '2026-10-01', plannedFinishDate: '2027-06-30', committedHandoverDate: '2027-07-31',
+      currentAliasCode: 'CT-TAO-1',
+    }, 'admin@x');
+    const createdAlias = repo.getAliases(created.id).find((a) => a.aliasCode === 'CT-TAO-1')!;
+    expect(createdAlias.effectiveFrom).toBe('2026-09-16');
+    const res = repo.changeProjectCode(created.id, 'CT-TAO-2', 'doi ma sau khi tao', 'admin@x', todayIso());
+    expect(res).toBe('changed');
+    const rows = repo.getAliases(created.id);
+    expect(rows).toHaveLength(2);
+    const old = rows.find((a) => a.aliasCode === 'CT-TAO-1')!;
+    expect(old.effectiveFrom).toBe('2026-09-16');
+    expect(old.effectiveTo).toBe('2026-09-16');
+    const next = rows.find((a) => a.aliasCode === 'CT-TAO-2')!;
+    expect(next.effectiveFrom).toBe('2026-09-17');
+  });
+
   it('khong ton tai du an -> not_found', () => {
     expect(repo.changeProjectCode(99999, 'X', 'ly do', 'admin@x', todayIso())).toBe('not_found');
   });

@@ -1,7 +1,7 @@
 import { prisma } from '@/server/db';
 import { DEFAULT_STAGE_WEIGHTS, type StageInput } from '@/lib/stages';
 import { calcCpi, calcDayVariance, calcDurationPctComplete, calcEv, calcPv, calcSpi } from '@/lib/evm';
-import { endOfMonth } from '@/lib/clock';
+import { endOfMonth, todayIso } from '@/lib/clock';
 import { keyMsAuditText } from '@/lib/key-milestones';
 import { sumManpowerShifts } from '@/lib/shifts';
 import { entryPrismaRepo } from './prisma-repo-entry';
@@ -1069,7 +1069,7 @@ const coreRepo = {
           projectId: p.id,
           aliasCode: input.currentAliasCode,
           aliasType: 'Ma_CT',
-          effectiveFrom: p.createdAt,
+          effectiveFrom: new Date(`${todayIso()}T00:00:00Z`),
           effectiveTo: null,
           reason: 'Mã CT khi tạo dự án',
           approvedBy: changedBy,

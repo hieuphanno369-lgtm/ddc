@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node
 import { join } from 'node:path';
 import { DEFAULT_STAGE_WEIGHTS, type StageInput } from '@/lib/stages';
 import { calcDayVariance, calcDurationPctComplete, calcSpi } from '@/lib/evm';
-import { endOfMonth } from '@/lib/clock';
+import { endOfMonth, todayIso } from '@/lib/clock';
 import { keyMsAuditText } from '@/lib/key-milestones';
 import { sumManpowerShifts } from '@/lib/shifts';
 import { createReadMock } from './read-mock';
@@ -888,7 +888,7 @@ const coreRepo = {
         projectId: id,
         aliasCode: input.currentAliasCode,
         aliasType: 'Ma_CT',
-        effectiveFrom: now,
+        effectiveFrom: todayIso(),
         effectiveTo: null,
         reason: 'Mã CT khi tạo dự án',
         approvedBy: changedBy,
