@@ -158,3 +158,153 @@ compile + generate 3 trang tĩnh thành công. `git diff main...HEAD --stat` xá
    nhánh "chưa có alias nào" không thể tái hiện bằng dự án có sẵn. Tôi test nhánh này bằng 1 dự án vừa
    `createProject()` (chưa từng có dòng alias) thay vì "dự án 17" — hành vi `planAliasChange` vẫn đúng
    3 nhánh, chỉ khác project id dùng để minh hoạ.
+
+---
+
+# Vòng sửa 1 (reviewer vòng 1, `.bangiao/danh-gia.md` mục "CẦN SỬA TRƯỚC KHI CHỐT")
+
+Quyết định chủ dự án làm nền cho vòng sửa này (ghi ở `danh-gia.md` đầu file):
+- **QĐ-10**: data-entry được xem/sửa Giá trị HĐ, nguyên tệ, giá trị phạt ở `/ho-so-du-an` **kể cả khi
+  không có `canViewFinance`** — 3 trường này KHÔNG thuộc nhóm tài chính bị che theo `canViewFinance`.
+  `createProjectAction`/`updateProjectAction`/`/ho-so-du-an` không chặn theo `canViewFinance`. Mục 3
+  (F6 nháp) vẫn sửa vì rủi ro là máy dùng chung, không phải rủi ro thiếu quyền xem.
+- **QĐ-11**: migration S-2 (mã CT không trùng) + S-6 (tối đa 1 PIC/dự án) làm ngay trong P3A (mục 6, 7
+  dưới đây), chuyển từ "Để sau" trong bản đánh giá lần 1 sang bắt buộc vòng sửa này.
+
+| Mục | Nội dung | Commit |
+|---|---|---|
+| 1 | Alias tạo dự án dùng `todayIso()` thay vì giờ thật (`new Date()`) — tránh mất lịch sử khi có `DDC_FAKE_TODAY` | `e1f747a` |
+| 2 | `validateAliasChange` chặn client TRƯỚC khi gọi action (đổi mã CT thiếu lý do ≥5 ký tự / mã trống) | `531b3a0` |
+| 3 | (S-3) Nháp `ProjectForm` bỏ 3 trường tài chính (`contractValue`/`contractValueOriginal`/`penaltyValue`) qua `toProjectDraftForm()`; dọn nháp của người khác lúc mount | `c4771ef` |
+| 4 | (S-7) Server ép VIẾT HOA tên dự án (2 schema); `createProjectAction`/`updateProjectAction` kiểm `customerId`/`teamKdId` còn hiệu lực → `invalid_customer`/`invalid_team` | `9c2611f` |
+| 5 | (S-4) `saveMonthlyDataSchema`: `nullableDate` dùng `isoDate` (chặn `'abc'`), `projectName` giới hạn độ dài + ép hoa | `a3b09f8` |
+| 6 | (S-2, QĐ-11) Migration unique mã CT (`lower(currentAliasCode)`) + khoá advisory + bắt `P2002` | `481deb7` |
+| 7 | (S-6, QĐ-11) Partial unique index tối đa 1 PIC/dự án + audit cùng transaction | `a2cc2ea` |
+
+Chi tiết mục 1–5 xem 5 commit tương ứng (đã ghi thông điệp commit đầy đủ); dưới đây là chi tiết mục 6–7.
+
+## Mục 4 — chi tiết bổ sung (server ép VIẾT HOA + invalid_customer/invalid_team)
+`src/server/validation.ts`: `PROFILE_SHAPE.projectName` và `createProjectSchema.projectName` thêm
+`.transform((s) => s.toUpperCase())` (khớp client). `src/server/actions.ts` (`createProjectAction`) và
+`src/server/actions-project.ts` (`updateProjectAction`) gọi `repo.getDims()`, kiểm `customerId`/`teamKdId`
+còn `isActive` và chưa bị gộp (`mergedIntoId == null`) trước khi lưu → `invalid_customer`/`invalid_team`.
+Thêm 2 key i18n cùng tên (vi/en). Ca QA `actions-project.qa.test.ts:69-74` đã lật kỳ vọng: gửi tên chữ
+thường → lưu ra chữ hoa.
+
+## Mục 5 — chi tiết bổ sung (saveMonthlyData ngày ISO + tên giới hạn)
+`nullableDate` đổi từ `z.string()...` lỏng sang `isoDate.nullable().optional()` (dùng chung
+`isValidIsoDate`, chặn `'abc'` thay vì để lọt xuống `new Date()` ở Prisma). `projectName` trong
+`saveMonthlyDataSchema` thêm `.trim().min(1).max(PROJECT_NAME_MAX).transform(toUpperCase())`. KHÔNG gỡ
+field hồ sơ khỏi schema (tránh vỡ test cũ). **Phát hiện thêm ngoài phạm vi mục 5**: `saveMonthlyData`
+(`actions.ts`) trước đây destructure field hồ sơ từ **input thô** (`patch.projectName`...) thay vì từ
+`parsed.data.patch` đã qua Zod — nghĩa là ép hoa/validate ở schema không có tác dụng thật với đường ghi
+này. Đã đổi sang đọc từ `parsed.data.patch` để ép hoa/validate thật sự áp dụng.
+
+## Mục 6 (S-2, QĐ-11) — Migration unique mã CT + khoá + bắt xung đột
+- **Migration**: `prisma/migrations/20260925110000_p3a_unique_code_pic/migration.sql` — `DO $$...$$`
+  kiểm không có `currentAliasCode` trùng nhau (không phân biệt hoa thường) trước khi
+  `CREATE UNIQUE INDEX "dim_project_currentAliasCode_lower_key" ON "dim_project" (lower("currentAliasCode"))`.
+  Rollback: `prisma/rollback/20260925110000_p3a_unique_code_pic.down.sql` (`DROP INDEX IF EXISTS` +
+  xoá dòng `_prisma_migrations`).
+- **`schema.prisma`**: chú thích `/// index lower(currentAliasCode) UNIQUE tạo tay ở migration
+  20260925110000` trên field `currentAliasCode` (Prisma 6 không biểu diễn được index biểu thức).
+- **`prisma-repo-form.ts`**: tách thân `isProjectCodeTaken` thành `isProjectCodeTakenWith(client, code,
+  exceptProjectId)` (export) để gọi lại bằng `tx` bên trong transaction. `changeProjectCode`: đầu
+  transaction khoá `pg_advisory_xact_lock(hashtext(lower(newCode)))`, kiểm lại trùng bằng `tx` (chống
+  race — index chỉ phủ `currentAliasCode`, không phủ `masterCode`/alias cũ) → trả `'taken'`; bắt
+  `Prisma.PrismaClientKnownRequestError` `code === 'P2002'` → `'taken'`.
+- **`prisma-repo.ts`**: `createProject` bọc toàn bộ (tạo dự án tạm → khoá + kiểm trùng nếu có
+  `currentAliasCode` → gán mã thật → tạo dòng alias) trong 1 `$transaction`; trùng hoặc `P2002` → ném
+  `ProjectCodeTakenError` (lớp lỗi mới ở `project-code.ts`, dùng chung mock/prisma).
+- **`mock-repo.ts`/`mock-repo-form.ts`**: `isProjectCodeTakenIn(d, code, exceptProjectId)` (export, dùng
+  chung); `changeProjectCode` (mock) trả `'taken'` khi trùng; `createProject` (mock) ném
+  `ProjectCodeTakenError` khi `currentAliasCode` trùng.
+- **`project-code.ts`**: thêm `isReservedProjectCode(code, ownMasterCode?)` — chặn mẫu tự sinh
+  `^M-\d+$` (không phân biệt hoa thường) khi ĐỔI mã, **trừ khi** đó chính là `masterCode` của dự án
+  đang sửa (cho phép quay lại mã gốc). `changeProjectCodeAction` gọi hàm này TRƯỚC khi kiểm trùng, trả
+  `code_reserved` nếu vi phạm; kiểm ở tầng action (không sửa lại `isValidProjectCode`/schema hiện có,
+  đúng chỉ dẫn "schema giữ regex cũ").
+- **`actions.ts`**: `createProjectAction` bọc `repo.createProject(...)` trong `try/catch`, bắt
+  `ProjectCodeTakenError` → `{ ok: false, error: 'code_taken' }` (fallback chống race, phía trên vẫn
+  giữ `isProjectCodeTaken` fast-path).
+- **i18n**: `projectForm.err.code_reserved` (vi/en), đặt cạnh `code_taken`.
+- **`docs.ts`**: `currentAliasCode` — "duy nhất, không phân biệt hoa thường (index lower() tạo tay ở
+  migration 20260925110000)".
+- **QĐ-kỹ-thuật (tự quyết, không phải nghiệp vụ)**: bản kế hoạch cho 2 lựa chọn ở mục "(d)" cho
+  `createProject`: trả `{ error: 'code_taken' }` HOẶC ném lỗi riêng để action bắt. Tôi chọn **ném lỗi
+  riêng** (`ProjectCodeTakenError`) để giữ nguyên chữ ký trả về `Project` của `createProject` (12+ file
+  test/seed đang gọi trực tiếp và đọc `.id`) — tránh refactor diện rộng ngoài phạm vi vòng sửa. Ngược
+  lại `changeProjectCode` vẫn dùng kiểu trả `'taken'` như bản kế hoạch mô tả (không throw), vì hàm này
+  vốn đã trả union string.
+
+## Mục 7 (S-6, QĐ-11) — Partial unique index tối đa 1 PIC/dự án
+- **Migration (bổ sung vào CÙNG file mục 6)**: `DO $$...$$` kiểm không có dự án nào có > 1 PIC, rồi
+  `CREATE UNIQUE INDEX "project_assignments_one_pic_key" ON "project_assignments" ("projectId") WHERE
+  "roleInProject" = 'PIC'`. Rollback thêm `DROP INDEX IF EXISTS "project_assignments_one_pic_key"`.
+- **Chu trình đã chạy thật trên `ddc_control_tower` (chứng minh rollback/redeploy)**:
+  1. `npx prisma migrate deploy` — áp phần mã CT (mục 6), index `dim_project_currentAliasCode_lower_key`
+     có mặt (xác nhận qua `pg_indexes`).
+  2. `npx prisma db execute --file prisma/rollback/20260925110000_p3a_unique_code_pic.down.sql` — drop
+     index + xoá dòng `_prisma_migrations`; xác nhận index biến mất, dòng migration biến mất.
+  3. Sửa `migration.sql` + `.down.sql` thêm phần PIC (mục 7).
+  4. `npx prisma migrate deploy` lại — áp CẢ 2 phần (mã CT + PIC) trong 1 lần chạy.
+  5. `npx prisma migrate status` → **"Database schema is up to date!"**.
+  6. Query `pg_indexes`: **cả 2 index đều có mặt** —
+     `dim_project_currentAliasCode_lower_key` (btree, `lower("currentAliasCode")`) và
+     `project_assignments_one_pic_key` (btree, `("projectId")` `WHERE roleInProject = 'PIC'`).
+- **`migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma
+  --shadow-database-url <db tạm ddc_shadow_p3a>`**: chạy 2 lần (sau mục 6 một mình, và sau khi có đủ cả
+  2 index) — cả 2 lần đều ra **"No difference detected."** Nghĩa là Prisma **không đề xuất `DROP INDEX`**
+  cho các index tạo tay này khi so `migrations/` với `schema.prisma` (index biểu thức/partial không
+  được model hoá trong Prisma datamodel nên không bị coi là "thừa"). Không cần thêm cảnh báo
+  "đừng chạy `migrate dev`" vì không có đề xuất xoá nào xuất hiện — nhưng vẫn khuyến nghị chỉ dùng
+  `migrate deploy` cho migration này (không chạy `migrate dev` để tránh Prisma tự sinh migration mới
+  cố "đồng bộ" theo cách hiểu riêng của nó trong tương lai nếu hành vi này đổi ở version khác).
+- **`prisma-repo-form.ts`**: `setProjectMember`/`removeProjectMember` bọc trong `$transaction` cùng
+  `audit(tx, ...)`. `setProjectMember` gán PIC thì kiểm lại trong `tx` đã có PIC khác chưa (
+  `tx.projectAssignment.findFirst`) → `'pic_exists'`; bắt `P2002` → `'pic_exists'`.
+- **`mock-repo-form.ts`**: `setProjectMember` tự kiểm PIC trùng tương tự (đồng bộ hành vi mock/prisma),
+  trả `'pic_exists'`.
+- **`actions-project.ts`**: `setProjectMemberAction` giữ nguyên kiểm nhanh (fast-path, lỗi thân thiện)
+  ở trên; bắt thêm kết quả `'pic_exists'` từ `repo.setProjectMember` làm fallback chống race (2 request
+  gán PIC gần như đồng thời).
+- **`docs.ts`**: `project_assignments.roleInProject` — "tối đa 1 PIC mỗi dự án (partial unique index
+  tạo tay ở migration 20260925110000)".
+- **Seed I-2** (`admin@` làm PIC 11 dự án): mỗi dự án vẫn chỉ 1 PIC → migration deploy không vướng
+  (đã xác nhận qua bước 1/4 ở trên chạy thành công trên DB dev thật, không raise exception trùng PIC).
+  Không sửa seed.
+- **`form.test.ts` — đổi ý định có chủ đích (QĐ-11)**: ca `'pic trung khong bi chan o tang repo (luat
+  pic_exists nam o action)'` trước đây khẳng định **mock KHÔNG chặn** PIC trùng (luật chỉ nằm ở tầng
+  action) và kỳ vọng `'added'`. Sau QĐ-11 (partial unique index ở DB), mock cũng tự kiểm để đồng bộ hành
+  vi với Prisma thật — ca này đổi tên + kỳ vọng thành `'pic_exists'`. Đây là thay đổi Ý ĐỊNH kiểm thử có
+  chủ đích theo yêu cầu vòng sửa, không phải sửa lỗi.
+
+## Cổng sau vòng sửa 1 (cả 7 mục)
+- `npx tsc --noEmit` = 0 lỗi (chạy lại sau mỗi commit).
+- `npm test` = **149 file / 1676 test xanh** (mốc trước vòng sửa: 149 file / 1667 test — không tụt,
+  +9 test ở mục 6, +4 test ở mục 7 = +13; chênh với môc coder/tester gốc 139→149 file là do Tester đã
+  thêm 10 file `*.qa.test.ts` trước vòng sửa này).
+- `npm run check:read` = OK (17/17 hàm đọc khớp mock/Prisma trên `ddc_control_tower`).
+- `npx prisma migrate status` = up to date; 2 index mới đã xác nhận có mặt qua `pg_indexes`.
+- Không đụng file cấm (`PROGRESS.md`, `.serena/`, `app/globals.css`, `queries.ts`,
+  `project-queries.ts`, `admin/page.tsx`, `notify_*`, `read-mock.ts`, `read-prisma.ts`).
+- Câu `thay-doi.md:103-104` (mục 3 yêu cầu sửa nếu còn sai): đã đúng từ commit mục 3 (`c4771ef`) —
+  "DataEntryForm: nháp chỉ còn 6 field tiến độ... ProjectForm: nháp vẫn là hồ sơ (Task 8) nhưng trừ 3
+  trường tài chính..." — không còn câu sai cần sửa thêm ở vòng này.
+
+## Rủi ro Tester/Security nên soi kỹ thêm ở vòng sửa 1
+1. **Race điều kiện thật** (2 tab/2 người cùng đổi mã CT hoặc cùng gán PIC gần như đồng thời): logic
+   khoá `pg_advisory_xact_lock` + kiểm lại trong `tx` chỉ được test bằng mock Vitest (giả lập tuần tự),
+   CHƯA có test tích hợp 2 kết nối Postgres thật chạy song song (race thật). Khuyến nghị security-reviewer
+   rà lại theo đúng ghi chú ở `danh-gia.md` ("sau vòng sửa gửi lại security-reviewer rà S-2/S-6").
+2. **`ProjectCodeTakenError` là lớp lỗi mới** dùng `throw`/`catch` xuyên qua ranh giới repo → action —
+   khác với các hàm khác trong cùng file vẫn trả union string. Soi kỹ không có chỗ nào gọi
+   `repo.createProject()` mà thiếu `try/catch` (sẽ làm lộ lỗi 500 thay vì thông báo `code_taken`) —
+   đã kiểm `actions.ts` là nơi DUY NHẤT gọi `repo.createProject()` trong code nguồn (ngoài test/seed).
+3. **`migrate diff` "No difference detected"** cho 2 index tạo tay: đây là hành vi hiện tại của Prisma
+   6.19.3 (không model hoá index biểu thức/partial nên không so sánh) — không đảm bảo hành vi này giữ
+   nguyên ở version Prisma sau. Nếu nâng Prisma (xem `lenh-cho-A-2026-09-26.md` Phần 3, nâng Next kèm
+   khả năng nâng Prisma), chạy lại `migrate diff` để chắc chắn không có đề xuất `DROP INDEX` bất ngờ.
+4. **`isReservedProjectCode`** chỉ chặn ở `changeProjectCodeAction`, KHÔNG áp cho `currentAliasCode` lúc
+   TẠO mới dự án (`createProjectAction`) — nếu muốn chặn luôn ở tạo mới thì cần thêm ở `mục để sau`,
+   ngoài phạm vi vòng sửa 1 (bản kế hoạch chỉ yêu cầu ở `changeProjectCodeAction`).
