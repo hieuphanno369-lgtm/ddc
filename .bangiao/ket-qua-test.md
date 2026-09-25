@@ -1,4 +1,194 @@
-# ĐỎ
+# XANH
+
+## Vòng 2 (`git diff cdcafd5..HEAD`, 12 commit `fd27975`…`331ed17`) — XANH
+
+Kiểm lại P3B sau Vòng sửa 1 (`.bangiao/thay-doi.md` mục "Vòng sửa 1", vá T-1…T-5, L-1…L-6 theo
+`.bangiao/danh-gia-bao-mat.md`). Skill đã dùng: `ddc-tower:test-driven-development`,
+`ddc-tower:verification-before-completion`. Worktree `D:\_project\DDC_Control_Tower-B`, cổng 3001,
+DB `ddc_control_tower_b`. Không sửa code sản phẩm; chỉ đọc/kiểm sống qua Playwright MCP + chạy lại
+bộ cổng kiểm có sẵn của coder — không viết thêm file test mới (nhiệm vụ vòng này là xác nhận các
+mục sửa của Vòng sửa 1 sống được, không phải viết test mới; các test mới đã có sẵn trong Vòng sửa 1
+— `auth-access-recheck.test.ts`, `actions-user-finance.test.ts` mở rộng, `e2e/helpers/env.test.ts`,
+`notify-url.test.ts`/`webhook.test.ts`/`notify-message.test.ts`/`secret-box.test.ts` mở rộng — đều
+đã chạy trong `npm test` dưới đây).
+
+### 1. Cổng kiểm (đều XANH, chạy qua PowerShell, `D:\_project\DDC_Control_Tower-B`)
+
+| Cổng | Kết quả |
+|---|---|
+| `npx tsc --noEmit` | Sạch, exit 0 |
+| `npm test` | **139 file / 1602 test xanh**, exit 0 (khớp đúng số coder báo trong `thay-doi.md`) |
+| `npm run test:e2e` (cổng 3001, DB `ddc_control_tower_b`) | **21/21 xanh** (~1.5 phút), exit 0 |
+| `npm ls nodemailer` | Đúng 1 bản `10.0.10` (dedup qua `next-auth@4.24.7 overridden` lẫn root `overridden`) |
+| `npm audit` | 16 lỗ hổng (1 low, 6 moderate, 6 high, 3 critical) — **không còn dòng nào nhắc `nodemailer`** (đúng T-4; phần còn lại là N-1: `next`/`next-intl`/`postcss`/`uuid`/`xlsx`/`deepmerge-ts`/`esbuild`, ngoài phạm vi vòng sửa này) |
+| `git status` trước khi tôi bắt đầu | Sạch |
+
+Ghi chú kỹ thuật: lần đầu gọi `npm test`/`npx tsc --noEmit` qua `powershell.exe -NoProfile -Command`
+lồng trong Bash tool báo "Exit code 1" dù toàn bộ test in ra đều xanh — xác nhận đây là artefact của
+việc lồng shell (PowerShell UTF-16 stdout qua pipe Bash), không phải lỗi thật: chạy lại qua file
+`.ps1` riêng (không pipe) và đọc `$LASTEXITCODE` tường minh → `EXITCODE=0` cho cả hai lệnh.
+
+### 2. T-2 (đổi role không ghi đè `canViewFinance`) — kiểm sống qua UI Quản trị thật, XANH
+
+Dùng tài khoản `bod@daidung.com.vn` (đúng khuyến nghị của coder trong `thay-doi.md` — tránh nhánh
+ép-true của data-entry), theo dõi cả cột "Xem tài chính" lẫn `/vi/audit` sau mỗi bước:
+
+| Bước | Hành động | Cột "Xem tài chính" sau đó | Audit `user_roles.canViewFinance` |
+|---|---|---|---|
+| 0 | (seed) BOD | Có (true) | — |
+| 1 | Admin bấm nút tắt (Có→Không) | **Không** | `bod@daidung.com.vn true→false` (admin@daidung.com.vn) |
+| 2 | Đổi role BOD→**Chỉ xem** (viewer) | Không (không đổi, đúng — viewer luôn ép false, đã sẵn false nên không ghi audit mới) | (không có dòng mới — giá trị không đổi) |
+| 3 | Đổi role viewer→**BOD** | **Không** (giữ nguyên — ĐÂY LÀ ĐIỂM T-2 VÁ: trước vòng sửa sẽ nhảy lại `true`) | (không có dòng mới) |
+| 4 | Đổi role BOD→**Nhập liệu (PM/PIC)** (data-entry) | **Có** (ép true theo luật data-entry — đúng T-1) | `bod@daidung.com.vn false→true`, **`changedBy = "system"`** (không phải `admin@daidung.com.vn`) |
+| 5 | Đổi role data-entry→**BOD** | **Có** (giữ nguyên — đúng luật "khác role → giữ nguyên") | (không có dòng mới) |
+
+Cả hai chiều mô tả trong đề bài (BOD→viewer→BOD giữ `false`; BOD→data-entry→BOD giữ `true`) đều
+đúng luật đã chốt (`viewer`→false, `data-entry`→true, khác→giữ nguyên). Hoạt động Quản trị
+("Đổi quyền", "Đổi quyền xem tài chính") lẫn `audit_log` (bảng `user_roles`, field `canViewFinance`,
+`old→new`) đều ghi đúng, xác nhận trực tiếp trên `/vi/audit` (không suy luận qua code).
+
+**Phát hiện phụ (không chặn, mức thấp — trùng đúng L-10 mà security-reviewer ghi ở Vòng 2 của
+`danh-gia-bao-mat.md`, phát hiện độc lập trước khi tôi đọc file đó):** ở bước 4, dòng audit
+`canViewFinance` do `setUserRole` (repo) tự ghi khi đổi role bị gắn `changedBy = 'system'` thay vì
+email admin đang thao tác — vì `setUserRoleAction` (`src/server/actions.ts`, không thuộc phạm vi sửa
+P3B) gọi `repo.setUserRole(email, role, ...)` không truyền tham số `changedBy` thứ 4. Không sai dữ
+liệu (field/table/record/old→new đều đúng), chỉ sai người thực hiện trong audit — không chặn merge.
+
+Khôi phục: sau bước 5, `bod@daidung.com.vn` = role BOD, `canViewFinance = true` — đúng seed gốc nên
+không cần thao tác gì thêm trước khi `prisma db seed` ở bước dọn dẹp cuối.
+
+### 3. T-1 (data-entry không tắt được `canViewFinance`) — UI + server, XANH
+
+- **UI**: hàng `pm@daidung.com.vn` (role Nhập liệu/PM-PIC) ở bảng Quản trị hiển thị **Badge tĩnh**
+  "Có" (`admin.canViewFinanceOn`), không phải nút bấm — khác hẳn các hàng BOD/viewer có nút bấm
+  "Có"/"Không". Xác nhận qua `git diff` `UserEditor.tsx`: nhánh `u.role === 'data-entry'` render
+  `<Badge>` thay vì `<button onClick=...>`. Không có cách nào bấm tắt từ UI.
+- **Server**: `actions-user-finance.test.ts` (đã chạy trong `npm test` ở trên) có ca
+  `'[T-1] admin KHONG tat duoc quyen tai chinh cho data-entry -> DataEntryLocked, KHONG doi DB'` —
+  gọi thẳng `setUserCanViewFinanceAction('pm@daidung.com.vn', false)` (không qua UI) trả
+  `{ ok: false, error: 'DataEntryLocked' }`, **không phải lỗi 500/exception** — request hợp lệ về
+  mặt kiểu dữ liệu bị từ chối có chủ đích ở tầng nghiệp vụ. Ca `L-4` cùng file xác nhận thêm: giá trị
+  không phải boolean (`'true'`, `1`, `null`, `undefined`, `{}`, `[]`) đều trả `Invalid input`, không
+  đổi DB, không throw.
+
+### 4. T-5 (tắt quyền/khoá tài khoản có hiệu lực trong phiên đang mở, không cần đăng nhập lại) — kiểm sống, XANH
+
+Không dùng cách "đăng nhập lại" (đã được N-3/Q6 xác nhận ở Vòng 1) — kiểm đúng kịch bản đề bài yêu
+cầu: **phiên đang mở, không tương tác gì thêm, tự động mất quyền sau ngưỡng recheck**. Dùng
+`browser_run_code_unsafe` tạo 2 `BrowserContext` độc lập (cookie riêng, không dùng chung với tab
+admin) trong cùng trình duyệt Playwright MCP:
+
+- **Context A — `bod@daidung.com.vn`** (mật khẩu `Bod@12345`, tài khoản seed có sẵn trong
+  `src/data/seed/history.ts`): đăng nhập lúc server-time 17:09, `/vi/overview` hiện đủ số tiền
+  (BACKLOG 55 tỷ, Giá trị HĐ từng dự án…). Ngay sau đó, ở tab admin (context riêng), tắt
+  `canViewFinance` của `bod` (không đăng xuất `bod`, không chạm cookie của Context A). Đợi tới khi
+  đồng hồ vượt mốc 5 phút kể từ lúc đăng nhập (`ACCESS_RECHECK_INTERVAL_MS` trong `auth.ts`), rồi
+  điều hướng lại Context A tới `/vi/overview` **KHÔNG đăng nhập lại** → trang tải bình thường (vẫn ở
+  `/vi/overview`, không bị đá ra `/login`) nhưng **card "BACKLOG" biến mất, regex `/\d[\d.,]*\s?tỷ/`
+  không khớp gì trong toàn bộ `innerText`** — đúng hành vi N-3 kích hoạt giữa phiên, không cần đăng
+  nhập lại.
+- **Context B — `viewer@daidung.com.vn`** (mật khẩu `Viewer@12345`): đăng nhập cùng lúc. Ở tab admin,
+  bấm "Hoạt động"→khoá tài khoản viewer (`isActive=false`, activity log ghi "Khóa tài khoản"). Sau
+  cùng mốc >5 phút, điều hướng lại Context B tới `/vi/overview` **KHÔNG đăng nhập lại** →
+  **bị chuyển thẳng về `/login`** (session bị vô hiệu hoàn toàn qua nhánh `token.invalid` +
+  `session.user.email = null` trong `auth.ts`), đúng đặc tả "khoá tài khoản → phiên bị vô hiệu".
+
+Cả hai xác nhận đúng cơ chế `auth.ts` (`jwt` callback đọc lại `resolveAccess`/`findAccount` mỗi khi
+`Date.now() - token.accessCheckedAt > 5 phút`, không chỉ lúc đăng nhập) **sống trên trình duyệt
+thật**, không chỉ tin `auth-access-recheck.test.ts` (7 ca, cũng xanh trong `npm test`).
+
+### 5. N-3 hồi quy nhanh — XANH (không phát hiện hồi quy)
+
+- Diff Vòng 2 **không đụng** `finance-gate.ts`, `OverviewWidgets`, `ProjectTable`, `Watchlist`,
+  `charts.tsx`, `app/[locale]/(app)/{overview,projects/[id],alerts,report}/page.tsx`,
+  `app/api/{export,report/export}/route.ts` — toàn bộ test hồi quy N-3 có sẵn của coder vẫn xanh
+  trong `npm test`: `overview-finance-gate.test.ts`, `export-finance-gate.test.ts`,
+  `finance-gate-pages.test.ts`, `projects-detail-finance-gate.test.ts`, `finance-gate.test.ts`.
+- Kiểm sống bổ sung qua Context B (`viewer`, canViewFinance=false theo seed) trước khi khoá tài
+  khoản: `/vi/overview` không có chuỗi tiền; `/api/export` (gọi qua `viewerPage.request.get`, có
+  cookie viewer) trả **403** — khớp đúng e2e `08-finance-gate.spec.ts` ("export bi chan 403").
+  `/vi/report` bị chặn ở tầng role-guard (viewer không có quyền vào trang này, chuyển hướng về
+  `/vi/overview`) — hành vi có từ trước P3B, không phải N-3, không phải hồi quy.
+
+### 6. SSRF (L-1, dải IPv6 mới) + hint webhook (L-6) — kiểm sống qua UI Quản trị thật, XANH
+
+Tạo kênh webhook thật (`admin`, `/vi/admin` → "Kênh thông báo cảnh báo" → "Thêm kênh"):
+
+| URL nhập | Kết quả |
+|---|---|
+| `https://[::7f00:1]/x` (IPv4-compatible cũ = 127.0.0.1) | "Địa chỉ trỏ vào mạng nội bộ — bị chặn." |
+| `https://[2002:a9fe:a9fe::]/x` (6to4, nhúng 169.254.169.254) | "Địa chỉ trỏ vào mạng nội bộ — bị chặn." |
+| `https://[fec0::1]/x` (site-local cũ, RFC 3879) | "Địa chỉ trỏ vào mạng nội bộ — bị chặn." |
+| `https://example.invalid/hooks/T00000000/B00000000/verysecrettokenhere123456` | Lưu OK — hint hiển thị **`example.invalid/… (example.invalid)`** |
+
+Cả 3 dải mới ở `IPV6_BLOCKLIST`/`embeddedIPv4` (L-1) đều chặn đúng khi thao tác thật qua UI (không
+chỉ đọc `notify-url.test.ts`). Hint webhook (L-6) đúng định dạng `host/…` mới — **không có ký tự nào
+của `verysecrettokenhere123456` xuất hiện** trên UI/outerHTML. Đã xoá kênh test
+(`E2E-SSRF-test`) ngay sau khi kiểm xong (xác nhận dialog "Xóa kênh… Người nhận của kênh cũng bị
+xóa." → chấp nhận).
+
+### 7. Hồi quy trang — XANH
+
+- `/vi/projects/1` (admin): trang tải đủ, không vỡ. Console chỉ có 3 warning React
+  `defaultProps`/`recharts` (cảnh báo có sẵn từ trước P3B, cũng xuất hiện y hệt trong log `npm test`
+  ở `WeeklyManpowerStackChart.test.ts` — không phải lỗi do Vòng sửa 1 gây ra).
+- `/en/overview`, `/en/admin`: không tìm thấy `MISSING_MESSAGE` hay `notifyAdmin.` (khoá i18n rơi
+  ra ngoài) trong toàn bộ nội dung trang — 2 nhóm i18n mới (`financeGate`, `notifyAdmin`) dịch đủ ở
+  `en.json`.
+- `/vi/admin`: đã thao tác trực tiếp rất nhiều lần trong mục 2, 3, 6 ở trên (đổi role, tắt/bật
+  canViewFinance, khoá tài khoản, thêm/xoá kênh webhook) — không phát sinh lỗi trang, không có
+  exception nào trong console ngoài warning `recharts` đã biết.
+
+### 8. Đối chiếu với đánh giá bảo mật Vòng 2 (phát hiện giữa chừng, không phải do tôi tạo)
+
+Trong lúc tôi đang kiểm thử, `security-reviewer` đã cập nhật `.bangiao/danh-gia-bao-mat.md` với mục
+**"Vòng 2 — PHÁN QUYẾT BẢO MẬT: ĐẠT"** (12 commit `fd27975…331ed17`, cùng phạm vi diff tôi kiểm) —
+xác nhận độc lập T-1…T-5 "ĐÓNG", L-1…L-6 "đúng mô tả", chỉ còn L-8…L-12 mức thấp không chặn merge
+(trong đó L-10 trùng khớp chính xác phát hiện `changedBy='system'` tôi ghi ở mục 2 — tôi phát hiện
+trước khi đọc file này, không phải chép lại). Tôi **không sửa file này** (không thuộc phạm vi tester,
+không phải do tôi tạo ra) — chỉ ghi nhận ở đây để đối chiếu 2 nguồn kiểm độc lập (tôi: hành vi sống
+qua UI/Playwright MCP; security-reviewer: đọc mã tĩnh) cùng đi tới kết luận không có lỗi chặn merge.
+
+### 9. Trạng thái dọn dẹp
+
+- 2 `BrowserContext` phụ (Context A `bod`, Context B `viewer`) đã `context.close()` ngay sau khi kiểm
+  xong T-5 — không còn phiên nào treo trong trình duyệt Playwright MCP ngoài tab admin gốc.
+- Dev server cổng 3001 tôi tự khởi động (`npm run dev -- -p 3001`, `NEXTAUTH_URL=http://localhost:3001`
+  đặt riêng cho tiến trình con qua `$env:NEXTAUTH_URL` trước khi `Start-Process`, không đụng biến hệ
+  thống) đã dừng bằng `taskkill /PID 23960 /T /F` — xác nhận đủ 6 tiến trình cha-con (`cmd.exe` →
+  `conhost.exe` + `node.exe npm-cli.js` → `cmd.exe next dev` → `node.exe next/dist/bin/next` →
+  `node.exe start-server.js`) đều bị dừng, `Get-NetTCPConnection -LocalPort 3001` sau đó không còn
+  listener nào. Không đụng cổng 3000 (không có listener nào đang chạy ở đó tại thời điểm kiểm — không
+  phải do tôi).
+- `npx prisma db seed`: exit 0, "Seed xong: 17 dự án + 7 giai đoạn + 6 nhà thầu + 7 nhóm thiết bị + 10
+  hạng mục + 5 mốc chính" — DB `ddc_control_tower_b` về đúng seed gốc (4 tài khoản, không kênh thông
+  báo nào còn sót).
+- `git status` cuối: chỉ còn `.bangiao/danh-gia-bao-mat.md` (sửa bởi security-reviewer, không phải
+  tôi — không đụng vào) + `.bangiao/ket-qua-test.md` (file này). Không tạo/sửa file test hay file sản
+  phẩm nào. Không `npm install`, không `git stash`, không đụng `D:\_project\DDC_Control_Tower`.
+- Không có ảnh chụp màn hình mới cho Vòng 2 (dev server đã dừng ngay sau khi kiểm xong để tránh chiếm
+  cổng 3001 lâu hơn cần thiết) — toàn bộ bằng chứng ở trên là trích trực tiếp từ `innerText`/snapshot
+  DOM thật lúc kiểm (không phải suy luận từ code), giữ nguyên trong lịch sử thao tác của phiên này.
+
+### 10. Tóm tắt số liệu
+
+- Unit/integration (Vitest): **139 file / 1602 test xanh** (không đỏ, không skip).
+- E2E (Playwright): **21/21 xanh** (~1.5 phút).
+- `npx tsc --noEmit`: sạch. `npm ls nodemailer`: 1 bản `10.0.10`. `npm audit`: hết advisory
+  `nodemailer`.
+- Lỗi chặn merge: **không có**. Toàn bộ T-1…T-5 (Vòng 1 "CẦN SỬA") đã xác nhận đóng đúng bằng kiểm
+  thử sống (không chỉ đọc code/tin coder báo cáo). 1 phát hiện phụ mức thấp (audit `changedBy`
+  ='system' thay vì email admin khi đổi role kéo theo đổi `canViewFinance`) — không chặn merge, đã
+  được security-reviewer ghi nhận độc lập là L-10.
+
+**Khuyến nghị**: ĐẠT điều kiện merge về mặt kiểm thử (Vòng 2). Các mục L-8…L-12 (Teams escape `\`,
+hint lộ subdomain, `changedBy='system'`, chi tiết hiệu năng recheck, `servername`=IP khi host là IP)
+đều mức thấp, có thể vá cùng lượt tiện tay hoặc để lại — không cần chặn merge theo đúng phán quyết
+"ĐẠT" của security-reviewer Vòng 2.
+
+---
+
+## Vòng 1 (ĐỎ tại thời điểm đó — đã sửa hết ở "Vòng sửa 1", giữ nguyên bên dưới để tham khảo)
 
 Kiểm thử độc lập P3B (`feature/p3b-thong-bao`, `git diff d50db4c..HEAD`). Skill đã dùng:
 `ddc-tower:test-driven-development`, `ddc-tower:verification-before-completion`.
