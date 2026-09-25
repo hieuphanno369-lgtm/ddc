@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { useTranslations } from 'next-intl';
-import { Bar, CartesianGrid, Cell, ComposedChart, Line, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, CartesianGrid, Cell, ComposedChart, LabelList, Line, Tooltip, XAxis, YAxis } from 'recharts';
 import { TOOLTIP_STYLE } from '@/components/dashboard/charts';
 import { useChartTokens } from '@/components/dashboard/useChartTokens';
 import { formatDayMonth } from '@/lib/format';
@@ -115,7 +115,7 @@ export function WeeklyManpowerStackChart({ data, initialMonth }: { data: WeeklyC
         onPointerCancel={onPointerUp}
         onKeyDown={onKeyDown}
       >
-        <ComposedChart width={chartWidth} height={280} data={data.weeks} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+        <ComposedChart width={chartWidth} height={280} data={data.weeks} margin={{ top: 20, right: 8, left: -8, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
           <XAxis dataKey="label" tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} interval={0} />
           <YAxis tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} allowDecimals={false} />
@@ -127,19 +127,42 @@ export function WeeklyManpowerStackChart({ data, initialMonth }: { data: WeeklyC
               ))}
             </Bar>
           ))}
-          <Line type="monotone" dataKey="plannedAvg" name={t('manpowerCharts.plannedLine')} stroke={c.plan} strokeWidth={2} dot={false} />
+          {/* Bar rong o dinh chong: chi de vẽ nhãn tổng, luôn nằm trên cùng dù nhà thầu cuối = 0 */}
+          <Bar stackId="a" dataKey={() => 0} fill="transparent" isAnimationActive={false} legendType="none">
+            <LabelList
+              dataKey={(w: unknown) => weeklyLabelValues(w as WeekBucket).total ?? ''}
+              position="top"
+              offset={4}
+              style={{ fontSize: 10, fontWeight: 700, fill: c.label2 }}
+            />
+          </Bar>
+          <Line type="monotone" dataKey="plannedAvg" name={t('manpowerCharts.plannedLine')} stroke={c.plan} strokeWidth={2} dot={false} isAnimationActive={false}>
+            <LabelList
+              dataKey={(w: unknown) => weeklyLabelValues(w as WeekBucket).planned ?? ''}
+              position="top"
+              offset={8}
+              style={{ fontSize: 10, fill: c.plan }}
+            />
+          </Line>
         </ComposedChart>
       </div>
     </div>
   );
 }
 
-function weeklyTooltip(contractors: ContractorInfo[], t: ReturnType<typeof useTranslations>) {
+/** Nhãn số trên chart tuần: 0 -> null (không vẽ nhãn). */
+export function weeklyLabelValues(w: WeekBucket): { total: number | null; planned: number | null } {
+  return {
+    total: w.actualAvg > 0 ? w.actualAvg : null,
+    planned: w.plannedAvg > 0 ? w.plannedAvg : null,
+  };
+}
+
+export function weeklyTooltip(contractors: ContractorInfo[], t: ReturnType<typeof useTranslations>) {
   return ({ active, payload }: { active?: boolean; payload?: { payload?: WeekBucket }[] }) => {
     if (!active || !payload?.length) return null;
     const w = payload[0].payload;
     if (!w) return null;
-    const total = Object.values(w.actualByContractor).reduce((s, x) => s + x, 0);
     return (
       <div style={TOOLTIP_STYLE.contentStyle}>
         <div style={TOOLTIP_STYLE.labelStyle}>
@@ -149,7 +172,7 @@ function weeklyTooltip(contractors: ContractorInfo[], t: ReturnType<typeof useTr
         {contractors.map((ct) => (
           <div key={ct.id} style={TOOLTIP_STYLE.itemStyle}>{ct.name}: {w.actualByContractor[ct.id] ?? 0}</div>
         ))}
-        <div style={TOOLTIP_STYLE.itemStyle}>{t('manpowerCharts.total')}: {total}</div>
+        <div style={TOOLTIP_STYLE.itemStyle}>{t('manpowerCharts.total')}: {w.actualAvg}</div>
         <div style={TOOLTIP_STYLE.itemStyle}>{t('manpowerCharts.plannedLine')}: {w.plannedAvg}</div>
       </div>
     );
