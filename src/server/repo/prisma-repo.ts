@@ -5,11 +5,13 @@ import { endOfMonth } from '@/lib/clock';
 import { keyMsAuditText } from '@/lib/key-milestones';
 import { sumManpowerShifts } from '@/lib/shifts';
 import { entryPrismaRepo } from './prisma-repo-entry';
+import { formPrismaRepo } from './prisma-repo-form';
 import type {
   ActivityLogEntry,
   AlertLog,
   AuditLogEntry,
   Contractor,
+  CreateProjectInput,
   Customer,
   Currency,
   CurrencyCode,
@@ -511,13 +513,15 @@ const coreRepo = {
       .map((x) => ({ id: x.id, name: x.name }));
   },
 
-  async createDimValue(field: 'customer' | 'team', name: string): Promise<number> {
+  async createDimValue(field: 'customer' | 'team', name: string, opts?: { needsReview?: boolean; by?: string }): Promise<number> {
     const n = name.trim();
     const existing = await this.suggestDim(field, '');
     const match = existing.find((x) => x.name.toLowerCase() === n.toLowerCase());
     if (match) return match.id;
     if (field === 'customer') {
-      const c = await prisma.customer.create({ data: { name: n, group: 'Khác' } });
+      const c = await prisma.customer.create({
+        data: { name: n, group: 'Khác', needsReview: opts?.needsReview ?? false, createdBy: opts?.by ?? 'system' },
+      });
       return c.id;
     }
     const t = await prisma.teamKd.create({ data: { name: n, picName: '-' } });
@@ -549,7 +553,7 @@ const coreRepo = {
       if (!aliases.includes(from.name)) aliases.push(from.name);
       for (const a of from.aliases) if (!aliases.includes(a)) aliases.push(a);
       await prisma.customer.update({ where: { id: toId }, data: { aliases } });
-      await prisma.customer.update({ where: { id: fromId }, data: { isActive: false, mergedIntoId: toId } });
+      await prisma.customer.update({ where: { id: fromId }, data: { isActive: false, mergedIntoId: toId, needsReview: false } });
       return r.count;
     }
     const from = await prisma.teamKd.findUnique({ where: { id: fromId } });
@@ -1025,15 +1029,7 @@ const coreRepo = {
     await this.logAudit('dim_project', String(projectId), fields.join(','), '', note, changedBy);
   },
 
-  async createProject(
-    input: {
-      projectName: string; customerId: number; teamKdId: number; marketCode: Market;
-      projectType: ProjectType; priority: Priority; contractValue: number; tonnage?: number;
-      currencyCode?: CurrencyCode; contractDate?: string | null; plannedStartDate?: string | null;
-      plannedFinishDate?: string | null; committedHandoverDate?: string | null; penaltyValue?: number | null;
-    },
-    changedBy = 'system',
-  ): Promise<Project> {
+  async createProject(input: CreateProjectInput, changedBy = 'system'): Promise<Project> {
     const tmp = `TMP-${Date.now()}`;
     const created = await prisma.project.create({
       data: {
@@ -1052,7 +1048,12 @@ const coreRepo = {
         plannedStartDate: d8(input.plannedStartDate ?? null),
         plannedFinishDate: d8(input.plannedFinishDate ?? null),
         committedHandoverDate: d8(input.committedHandoverDate ?? null),
+        actualStartDate: d8(input.actualStartDate ?? null),
+        actualFinishDate: d8(input.actualFinishDate ?? null),
         penaltyValue: input.penaltyValue ?? null,
+        penalized: input.penalized ?? false,
+        factoryId: input.factoryId ?? null,
+        contractValueOriginal: input.contractValueOriginal ?? null,
         createdBy: changedBy,
         updatedBy: changedBy,
       },
@@ -1060,8 +1061,21 @@ const coreRepo = {
     const code = `M-${String(created.id).padStart(5, '0')}`;
     const p = await prisma.project.update({
       where: { id: created.id },
-      data: { masterCode: code, currentAliasCode: code },
+      data: { masterCode: code, currentAliasCode: input.currentAliasCode ?? code },
     });
+    if (input.currentAliasCode) {
+      await prisma.projectAlias.create({
+        data: {
+          projectId: p.id,
+          aliasCode: input.currentAliasCode,
+          aliasType: 'Ma_CT',
+          effectiveFrom: p.createdAt,
+          effectiveTo: null,
+          reason: 'Mã CT khi tạo dự án',
+          approvedBy: changedBy,
+        },
+      });
+    }
     await this.logAudit('dim_project', String(p.id), 'create', '', p.projectName, changedBy);
     return mapProject(p);
   },
@@ -1145,4 +1159,4 @@ const coreRepo = {
   },
 };
 
-export const repo = { ...coreRepo, ...entryPrismaRepo };
+export const repo = { ...coreRepo, ...entryPrismaRepo, ...formPrismaRepo };

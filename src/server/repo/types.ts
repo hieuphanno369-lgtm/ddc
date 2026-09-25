@@ -125,6 +125,30 @@ export interface Project {
   updatedBy: string;
 }
 
+/** P3A (Task 4): input tạo dự án - mở rộng từ input cũ để nhận đủ các trường hồ sơ mới. */
+export interface CreateProjectInput {
+  projectName: string;
+  customerId: number;
+  teamKdId: number;
+  marketCode: Market;
+  projectType: ProjectType;
+  priority: Priority;
+  contractValue: number;
+  tonnage?: number;
+  currencyCode?: CurrencyCode;
+  contractDate?: string | null;
+  plannedStartDate?: string | null;
+  plannedFinishDate?: string | null;
+  committedHandoverDate?: string | null;
+  penaltyValue?: number | null;
+  actualStartDate?: string | null;
+  actualFinishDate?: string | null;
+  penalized?: boolean;
+  factoryId?: number | null;
+  contractValueOriginal?: number | null;
+  currentAliasCode?: string;
+}
+
 export interface FactProgressMonthly {
   projectId: number;
   yearMonth: string; // 'YYYY-MM'
@@ -176,6 +200,13 @@ export interface ProjectStageWeight {
   projectId: number;
   stageCode: StageCode;
   weightPct: number;      // điểm phần trăm 0..100
+  applicable: boolean;
+}
+
+/** P3A (Task 4): 1 hàng trọng số gửi lên khi lưu (không có projectId - áp cho dự án đang sửa). */
+export interface StageWeightInput {
+  stageCode: StageCode;
+  weightPct: number;
   applicable: boolean;
 }
 
@@ -401,6 +432,16 @@ export interface ActivityLogEntry {
 export interface ProjectAssignment {
   projectId: number;
   userEmail: string;
+  roleInProject: 'PIC' | 'Backup';
+  assignedBy: string;
+  assignedAt: string;
+}
+
+/** P3A (G-17): 1 người phụ trách dự án - role = null khi tài khoản đã bị xoá. */
+export interface ProjectMember {
+  userEmail: string;
+  name: string;
+  role: Role | null;
   roleInProject: 'PIC' | 'Backup';
   assignedBy: string;
   assignedAt: string;
