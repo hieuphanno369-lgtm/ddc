@@ -1,16 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Prisma } from '@prisma/client';
 
 const {
-  projectFindUnique, projectUpdate, projectAliasFindMany, projectAliasCreate, projectAliasUpdate,
-  projectHistoryCreate, projectStageWeightFindMany, projectStageWeightDeleteMany, projectStageWeightCreateMany,
-  projectEquipmentPlanFindMany, projectEquipmentPlanDeleteMany, projectEquipmentPlanCreateMany,
-  auditCreate, transactionMock,
+  projectFindUnique, projectFindFirst, projectUpdate, projectAliasFindMany, projectAliasFindFirst,
+  projectAliasCreate, projectAliasUpdate, projectHistoryCreate, projectStageWeightFindMany,
+  projectStageWeightDeleteMany, projectStageWeightCreateMany, projectEquipmentPlanFindMany,
+  projectEquipmentPlanDeleteMany, projectEquipmentPlanCreateMany,
+  auditCreate, executeRaw, transactionMock,
 } = vi.hoisted(() => {
   const projectFindUnique = vi.fn(async () => ({
     id: 7, currentAliasCode: 'OLD-CODE', createdAt: new Date('2026-01-01T00:00:00Z'),
   }));
+  const projectFindFirst = vi.fn(async () => null as unknown);
   const projectUpdate = vi.fn(async (args: { where: { id: number }; data: Record<string, unknown> }) => ({ id: args.where.id, ...args.data }));
   const projectAliasFindMany = vi.fn(async () => [] as unknown[]);
+  const projectAliasFindFirst = vi.fn(async () => null as unknown);
   const projectAliasCreate = vi.fn(async () => ({}));
   const projectAliasUpdate = vi.fn(async () => ({}));
   const projectHistoryCreate = vi.fn(async () => ({}));
@@ -21,31 +25,35 @@ const {
   const projectEquipmentPlanDeleteMany = vi.fn(async () => ({ count: 0 }));
   const projectEquipmentPlanCreateMany = vi.fn(async () => ({ count: 0 }));
   const auditCreate = vi.fn(async () => ({}));
+  const executeRaw = vi.fn(async () => 1);
   const client = {
-    project: { findUnique: projectFindUnique, update: projectUpdate },
-    projectAlias: { findMany: projectAliasFindMany, create: projectAliasCreate, update: projectAliasUpdate },
+    project: { findUnique: projectFindUnique, findFirst: projectFindFirst, update: projectUpdate },
+    projectAlias: { findMany: projectAliasFindMany, findFirst: projectAliasFindFirst, create: projectAliasCreate, update: projectAliasUpdate },
     projectHistory: { create: projectHistoryCreate },
     projectStageWeight: { findMany: projectStageWeightFindMany, deleteMany: projectStageWeightDeleteMany, createMany: projectStageWeightCreateMany },
     projectEquipmentPlan: { findMany: projectEquipmentPlanFindMany, deleteMany: projectEquipmentPlanDeleteMany, createMany: projectEquipmentPlanCreateMany },
     auditLog: { create: auditCreate },
+    $executeRaw: executeRaw,
   };
   const transactionMock = vi.fn(async (fn: (tx: typeof client) => unknown) => fn(client));
   return {
-    projectFindUnique, projectUpdate, projectAliasFindMany, projectAliasCreate, projectAliasUpdate,
-    projectHistoryCreate, projectStageWeightFindMany, projectStageWeightDeleteMany, projectStageWeightCreateMany,
-    projectEquipmentPlanFindMany, projectEquipmentPlanDeleteMany, projectEquipmentPlanCreateMany,
-    auditCreate, transactionMock,
+    projectFindUnique, projectFindFirst, projectUpdate, projectAliasFindMany, projectAliasFindFirst,
+    projectAliasCreate, projectAliasUpdate, projectHistoryCreate, projectStageWeightFindMany,
+    projectStageWeightDeleteMany, projectStageWeightCreateMany, projectEquipmentPlanFindMany,
+    projectEquipmentPlanDeleteMany, projectEquipmentPlanCreateMany,
+    auditCreate, executeRaw, transactionMock,
   };
 });
 
 vi.mock('@/server/db', () => ({
   prisma: {
-    project: { findUnique: projectFindUnique, update: projectUpdate },
-    projectAlias: { findMany: projectAliasFindMany, create: projectAliasCreate, update: projectAliasUpdate },
+    project: { findUnique: projectFindUnique, findFirst: projectFindFirst, update: projectUpdate },
+    projectAlias: { findMany: projectAliasFindMany, findFirst: projectAliasFindFirst, create: projectAliasCreate, update: projectAliasUpdate },
     projectHistory: { create: projectHistoryCreate },
     projectStageWeight: { findMany: projectStageWeightFindMany, deleteMany: projectStageWeightDeleteMany, createMany: projectStageWeightCreateMany },
     projectEquipmentPlan: { findMany: projectEquipmentPlanFindMany, deleteMany: projectEquipmentPlanDeleteMany, createMany: projectEquipmentPlanCreateMany },
     auditLog: { create: auditCreate },
+    $executeRaw: executeRaw,
     $transaction: transactionMock,
   },
 }));
@@ -58,12 +66,17 @@ beforeEach(() => {
   projectAliasCreate.mockClear();
   projectAliasUpdate.mockClear();
   projectAliasFindMany.mockClear();
+  projectAliasFindFirst.mockClear();
+  projectAliasFindFirst.mockResolvedValue(null);
+  projectFindFirst.mockClear();
+  projectFindFirst.mockResolvedValue(null);
   projectHistoryCreate.mockClear();
   projectStageWeightDeleteMany.mockClear();
   projectStageWeightCreateMany.mockClear();
   projectEquipmentPlanFindMany.mockClear();
   projectEquipmentPlanDeleteMany.mockClear();
   projectEquipmentPlanCreateMany.mockClear();
+  executeRaw.mockClear();
 });
 
 describe('prisma-repo.changeProjectCode', () => {
@@ -71,6 +84,7 @@ describe('prisma-repo.changeProjectCode', () => {
     const res = await repo.changeProjectCode(7, 'NEW-CODE', 'ly do doi ma', 'admin@x', '2026-09-16');
     expect(res).toBe('changed');
     expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(executeRaw).toHaveBeenCalledTimes(1);
     expect(projectHistoryCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({ projectId: 7, by: 'admin@x', note: 'currentAliasCode: OLD-CODE → NEW-CODE' }),
     });
@@ -83,6 +97,21 @@ describe('prisma-repo.changeProjectCode', () => {
     const res = await repo.changeProjectCode(7, 'OLD-CODE', 'ly do', 'admin@x', '2026-09-16');
     expect(res).toBe('unchanged');
     expect(auditCreate).not.toHaveBeenCalled();
+  });
+
+  it('S-2: tx kiem trung (project.findFirst) -> "taken", khong goi projectAlias.create', async () => {
+    projectFindFirst.mockResolvedValueOnce({ id: 99 });
+    const res = await repo.changeProjectCode(7, 'DA-TON-TAI', 'ly do', 'admin@x', '2026-09-16');
+    expect(res).toBe('taken');
+    expect(executeRaw).toHaveBeenCalledTimes(1);
+    expect(projectAliasCreate).not.toHaveBeenCalled();
+    expect(projectHistoryCreate).not.toHaveBeenCalled();
+  });
+
+  it('S-2: P2002 gia lap khi update -> "taken"', async () => {
+    projectUpdate.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError('trung', { code: 'P2002', clientVersion: '6.19.3' }));
+    const res = await repo.changeProjectCode(7, 'NEW-CODE-2', 'ly do', 'admin@x', '2026-09-16');
+    expect(res).toBe('taken');
   });
 });
 

@@ -1,4 +1,5 @@
 import { prisma } from '@/server/db';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import { DEFAULT_STAGE_WEIGHTS, STAGE_ORDER } from '@/lib/stages';
 import { planAliasChange } from '@/lib/project-code';
 import { equipPlanAuditText } from '@/lib/equipment-plan';
@@ -10,6 +11,35 @@ import type { AuditLogEntry, EquipmentPlanInput, ProjectAlias, ProjectMember, Ro
 const dayStart = (s: string): Date => new Date(`${s}T00:00:00Z`);
 /** Date → 'YYYY-MM-DD' (cột @db.Date). */
 const day = (d: Date | null | undefined): string | null => (d ? d.toISOString().slice(0, 10) : null);
+
+type Tx = Prisma.TransactionClient | PrismaClient;
+
+/**
+ * S-2 (vòng sửa 1): thân `isProjectCodeTaken` tách nhận `client` để gọi lại bằng `tx` bên trong
+ * transaction (chống race khi đổi mã / tạo dự án) - so `trim()` không phân biệt hoa thường với
+ * masterCode/currentAliasCode của dự án khác, và alias của dự án khác. Dùng chung cho createProject
+ * (prisma-repo.ts) và changeProjectCode bên dưới.
+ */
+export async function isProjectCodeTakenWith(client: Tx, code: string, exceptProjectId: number | null): Promise<boolean> {
+  const target = code.trim();
+  const projectMatch = await client.project.findFirst({
+    where: {
+      ...(exceptProjectId != null ? { id: { not: exceptProjectId } } : {}),
+      OR: [
+        { masterCode: { equals: target, mode: 'insensitive' } },
+        { currentAliasCode: { equals: target, mode: 'insensitive' } },
+      ],
+    },
+  });
+  if (projectMatch) return true;
+  const aliasMatch = await client.projectAlias.findFirst({
+    where: {
+      ...(exceptProjectId != null ? { projectId: { not: exceptProjectId } } : {}),
+      aliasCode: { equals: target, mode: 'insensitive' },
+    },
+  });
+  return !!aliasMatch;
+}
 
 /** Chuỗi mô tả trọng số cho audit_log: "design:5,shop:10(x),…" - (x) = không áp dụng. */
 function stageWeightAuditText(rows: { stageCode: string; weightPct: number; applicable: boolean }[]): string {
@@ -29,78 +59,75 @@ function stageWeightAuditText(rows: { stageCode: string; weightPct: number; appl
 export const formPrismaRepo = {
   /** So `trim()` (không phân biệt hoa thường) với masterCode/currentAliasCode của dự án khác, và alias của dự án khác. */
   async isProjectCodeTaken(code: string, exceptProjectId: number | null): Promise<boolean> {
-    const target = code.trim();
-    const projectMatch = await prisma.project.findFirst({
-      where: {
-        ...(exceptProjectId != null ? { id: { not: exceptProjectId } } : {}),
-        OR: [
-          { masterCode: { equals: target, mode: 'insensitive' } },
-          { currentAliasCode: { equals: target, mode: 'insensitive' } },
-        ],
-      },
-    });
-    if (projectMatch) return true;
-    const aliasMatch = await prisma.projectAlias.findFirst({
-      where: {
-        ...(exceptProjectId != null ? { projectId: { not: exceptProjectId } } : {}),
-        aliasCode: { equals: target, mode: 'insensitive' },
-      },
-    });
-    return !!aliasMatch;
+    return isProjectCodeTakenWith(prisma, code, exceptProjectId);
   },
 
-  async changeProjectCode(projectId: number, newCode: string, reason: string, by: string, today: IsoDate): Promise<'changed' | 'unchanged' | 'not_found'> {
-    return prisma.$transaction(async (tx) => {
-      const p = await tx.project.findUnique({ where: { id: projectId } });
-      if (!p) return 'not_found';
-      if (newCode === p.currentAliasCode) return 'unchanged';
+  /**
+   * S-2 (vòng sửa 1): khoá advisory theo mã mới trong transaction rồi kiểm lại trùng bằng chính
+   * `tx` (chống race - index `dim_project_currentAliasCode_lower_key` chỉ phủ `currentAliasCode`,
+   * không phủ `masterCode`/alias cũ) - trùng thì trả `'taken'`. `P2002` (race hiếm, 2 request cùng
+   * hashtext) cũng map về `'taken'`.
+   */
+  async changeProjectCode(projectId: number, newCode: string, reason: string, by: string, today: IsoDate): Promise<'changed' | 'unchanged' | 'not_found' | 'taken'> {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const p = await tx.project.findUnique({ where: { id: projectId } });
+        if (!p) return 'not_found';
+        if (newCode === p.currentAliasCode) return 'unchanged';
 
-      const aliasRows = await tx.projectAlias.findMany({ where: { projectId } });
-      const aliases: ProjectAlias[] = aliasRows.map((a) => ({
-        id: a.id, projectId: a.projectId, aliasCode: a.aliasCode,
-        aliasType: a.aliasType as ProjectAlias['aliasType'],
-        effectiveFrom: day(a.effectiveFrom)!, effectiveTo: day(a.effectiveTo),
-        reason: a.reason, approvedBy: a.approvedBy,
-      }));
-      const plan = planAliasChange({
-        projectId, aliases, oldCode: p.currentAliasCode, newCode, today, reason, by,
-        projectCreatedAt: p.createdAt.toISOString(),
-      });
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(lower(${newCode})))`;
+        if (await isProjectCodeTakenWith(tx, newCode, projectId)) return 'taken';
 
-      if (plan.retypeId != null) {
-        await tx.projectAlias.update({ where: { id: plan.retypeId }, data: { aliasCode: newCode, reason, approvedBy: by } });
-      }
-      if (plan.closeId != null) {
-        await tx.projectAlias.update({ where: { id: plan.closeId }, data: { effectiveTo: dayStart(plan.closeTo!) } });
-      }
-      if (plan.insertOld) {
-        await tx.projectAlias.create({
-          data: {
-            projectId, aliasCode: plan.insertOld.aliasCode, aliasType: plan.insertOld.aliasType,
-            effectiveFrom: dayStart(plan.insertOld.effectiveFrom),
-            effectiveTo: plan.insertOld.effectiveTo ? dayStart(plan.insertOld.effectiveTo) : null,
-            reason: plan.insertOld.reason, approvedBy: plan.insertOld.approvedBy,
-          },
+        const aliasRows = await tx.projectAlias.findMany({ where: { projectId } });
+        const aliases: ProjectAlias[] = aliasRows.map((a) => ({
+          id: a.id, projectId: a.projectId, aliasCode: a.aliasCode,
+          aliasType: a.aliasType as ProjectAlias['aliasType'],
+          effectiveFrom: day(a.effectiveFrom)!, effectiveTo: day(a.effectiveTo),
+          reason: a.reason, approvedBy: a.approvedBy,
+        }));
+        const plan = planAliasChange({
+          projectId, aliases, oldCode: p.currentAliasCode, newCode, today, reason, by,
+          projectCreatedAt: p.createdAt.toISOString(),
         });
-      }
-      if (plan.insertNew) {
-        await tx.projectAlias.create({
-          data: {
-            projectId, aliasCode: plan.insertNew.aliasCode, aliasType: plan.insertNew.aliasType,
-            effectiveFrom: dayStart(plan.insertNew.effectiveFrom), effectiveTo: null,
-            reason: plan.insertNew.reason, approvedBy: plan.insertNew.approvedBy,
-          },
-        });
-      }
 
-      const old = p.currentAliasCode;
-      await tx.projectHistory.create({
-        data: { projectId, at: new Date(), by, note: `currentAliasCode: ${old} → ${newCode}`, snapshot: p as unknown as object },
+        if (plan.retypeId != null) {
+          await tx.projectAlias.update({ where: { id: plan.retypeId }, data: { aliasCode: newCode, reason, approvedBy: by } });
+        }
+        if (plan.closeId != null) {
+          await tx.projectAlias.update({ where: { id: plan.closeId }, data: { effectiveTo: dayStart(plan.closeTo!) } });
+        }
+        if (plan.insertOld) {
+          await tx.projectAlias.create({
+            data: {
+              projectId, aliasCode: plan.insertOld.aliasCode, aliasType: plan.insertOld.aliasType,
+              effectiveFrom: dayStart(plan.insertOld.effectiveFrom),
+              effectiveTo: plan.insertOld.effectiveTo ? dayStart(plan.insertOld.effectiveTo) : null,
+              reason: plan.insertOld.reason, approvedBy: plan.insertOld.approvedBy,
+            },
+          });
+        }
+        if (plan.insertNew) {
+          await tx.projectAlias.create({
+            data: {
+              projectId, aliasCode: plan.insertNew.aliasCode, aliasType: plan.insertNew.aliasType,
+              effectiveFrom: dayStart(plan.insertNew.effectiveFrom), effectiveTo: null,
+              reason: plan.insertNew.reason, approvedBy: plan.insertNew.approvedBy,
+            },
+          });
+        }
+
+        const old = p.currentAliasCode;
+        await tx.projectHistory.create({
+          data: { projectId, at: new Date(), by, note: `currentAliasCode: ${old} → ${newCode}`, snapshot: p as unknown as object },
+        });
+        await tx.project.update({ where: { id: projectId }, data: { currentAliasCode: newCode, updatedAt: new Date(), updatedBy: by } });
+        await audit(tx, 'dim_project_alias', String(projectId), 'aliasCode', old, newCode, by, reason);
+        return 'changed';
       });
-      await tx.project.update({ where: { id: projectId }, data: { currentAliasCode: newCode, updatedAt: new Date(), updatedBy: by } });
-      await audit(tx, 'dim_project_alias', String(projectId), 'aliasCode', old, newCode, by, reason);
-      return 'changed';
-    });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return 'taken';
+      throw e;
+    }
   },
 
   async replaceStageWeights(projectId: number, rows: StageWeightInput[], by: string): Promise<void> {

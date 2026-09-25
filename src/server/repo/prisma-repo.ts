@@ -1,11 +1,13 @@
 import { prisma } from '@/server/db';
+import { Prisma } from '@prisma/client';
 import { DEFAULT_STAGE_WEIGHTS, type StageInput } from '@/lib/stages';
 import { calcCpi, calcDayVariance, calcDurationPctComplete, calcEv, calcPv, calcSpi } from '@/lib/evm';
 import { endOfMonth, todayIso } from '@/lib/clock';
 import { keyMsAuditText } from '@/lib/key-milestones';
 import { sumManpowerShifts } from '@/lib/shifts';
+import { ProjectCodeTakenError } from '@/lib/project-code';
 import { entryPrismaRepo } from './prisma-repo-entry';
-import { formPrismaRepo } from './prisma-repo-form';
+import { formPrismaRepo, isProjectCodeTakenWith } from './prisma-repo-form';
 import type {
   ActivityLogEntry,
   AlertLog,
@@ -1030,54 +1032,72 @@ const coreRepo = {
   },
 
   async createProject(input: CreateProjectInput, changedBy = 'system'): Promise<Project> {
-    const tmp = `TMP-${Date.now()}`;
-    const created = await prisma.project.create({
-      data: {
-        masterCode: tmp,
-        currentAliasCode: tmp,
-        projectName: input.projectName,
-        customerId: input.customerId,
-        teamKdId: input.teamKdId,
-        marketCode: input.marketCode,
-        projectType: input.projectType,
-        priority: input.priority,
-        contractValue: input.contractValue,
-        tonnage: input.tonnage ?? 0,
-        currencyCode: input.currencyCode ?? 'VND',
-        contractDate: d8(input.contractDate ?? null),
-        plannedStartDate: d8(input.plannedStartDate ?? null),
-        plannedFinishDate: d8(input.plannedFinishDate ?? null),
-        committedHandoverDate: d8(input.committedHandoverDate ?? null),
-        actualStartDate: d8(input.actualStartDate ?? null),
-        actualFinishDate: d8(input.actualFinishDate ?? null),
-        penaltyValue: input.penaltyValue ?? null,
-        penalized: input.penalized ?? false,
-        factoryId: input.factoryId ?? null,
-        contractValueOriginal: input.contractValueOriginal ?? null,
-        createdBy: changedBy,
-        updatedBy: changedBy,
-      },
-    });
-    const code = `M-${String(created.id).padStart(5, '0')}`;
-    const p = await prisma.project.update({
-      where: { id: created.id },
-      data: { masterCode: code, currentAliasCode: input.currentAliasCode ?? code },
-    });
-    if (input.currentAliasCode) {
-      await prisma.projectAlias.create({
-        data: {
-          projectId: p.id,
-          aliasCode: input.currentAliasCode,
-          aliasType: 'Ma_CT',
-          effectiveFrom: new Date(`${todayIso()}T00:00:00Z`),
-          effectiveTo: null,
-          reason: 'Mã CT khi tạo dự án',
-          approvedBy: changedBy,
-        },
+    try {
+      const p = await prisma.$transaction(async (tx) => {
+        const tmp = `TMP-${Date.now()}`;
+        const created = await tx.project.create({
+          data: {
+            masterCode: tmp,
+            currentAliasCode: tmp,
+            projectName: input.projectName,
+            customerId: input.customerId,
+            teamKdId: input.teamKdId,
+            marketCode: input.marketCode,
+            projectType: input.projectType,
+            priority: input.priority,
+            contractValue: input.contractValue,
+            tonnage: input.tonnage ?? 0,
+            currencyCode: input.currencyCode ?? 'VND',
+            contractDate: d8(input.contractDate ?? null),
+            plannedStartDate: d8(input.plannedStartDate ?? null),
+            plannedFinishDate: d8(input.plannedFinishDate ?? null),
+            committedHandoverDate: d8(input.committedHandoverDate ?? null),
+            actualStartDate: d8(input.actualStartDate ?? null),
+            actualFinishDate: d8(input.actualFinishDate ?? null),
+            penaltyValue: input.penaltyValue ?? null,
+            penalized: input.penalized ?? false,
+            factoryId: input.factoryId ?? null,
+            contractValueOriginal: input.contractValueOriginal ?? null,
+            createdBy: changedBy,
+            updatedBy: changedBy,
+          },
+        });
+        const code = `M-${String(created.id).padStart(5, '0')}`;
+        // S-2 (vòng sửa 1): khoá advisory + kiểm lại trong `tx` trước khi gán currentAliasCode - chống
+        // race giữa 2 request tạo dự án cùng mã (index chỉ bắt được P2002, không bắt được trùng masterCode/alias cũ).
+        if (input.currentAliasCode) {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(lower(${input.currentAliasCode})))`;
+          if (await isProjectCodeTakenWith(tx, input.currentAliasCode, created.id)) {
+            throw new ProjectCodeTakenError(input.currentAliasCode);
+          }
+        }
+        const p = await tx.project.update({
+          where: { id: created.id },
+          data: { masterCode: code, currentAliasCode: input.currentAliasCode ?? code },
+        });
+        if (input.currentAliasCode) {
+          await tx.projectAlias.create({
+            data: {
+              projectId: p.id,
+              aliasCode: input.currentAliasCode,
+              aliasType: 'Ma_CT',
+              effectiveFrom: new Date(`${todayIso()}T00:00:00Z`),
+              effectiveTo: null,
+              reason: 'Mã CT khi tạo dự án',
+              approvedBy: changedBy,
+            },
+          });
+        }
+        return p;
       });
+      await this.logAudit('dim_project', String(p.id), 'create', '', p.projectName, changedBy);
+      return mapProject(p);
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new ProjectCodeTakenError(input.currentAliasCode ?? '');
+      }
+      throw e;
     }
-    await this.logAudit('dim_project', String(p.id), 'create', '', p.projectName, changedBy);
-    return mapProject(p);
   },
 
   async addAssignment(projectId: number, userEmail: string, roleInProject: 'PIC' | 'Backup' = 'PIC') {

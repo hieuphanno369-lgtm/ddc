@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { revalidateTag } from 'next/cache';
 import { historyMonths, todayIso } from '@/lib/clock';
 import { validateStageWeights } from '@/lib/stages';
-import { normalizeProjectCode } from '@/lib/project-code';
+import { isReservedProjectCode, normalizeProjectCode } from '@/lib/project-code';
 import { logActivity } from '@/lib/activity';
 import { requireRoleUser, requireWriteProject } from './action-guards';
 import { runAlertEngineSafe } from './alert-engine';
@@ -98,7 +98,7 @@ export async function changeProjectCodeAction(
   projectId: number,
   code: string,
   reason: string,
-): Promise<{ ok: true } | { ok: false; error: 'Forbidden' | 'Not found' | 'Invalid input' | 'code_taken' | 'unchanged' }> {
+): Promise<{ ok: true } | { ok: false; error: 'Forbidden' | 'Not found' | 'Invalid input' | 'code_taken' | 'code_reserved' | 'unchanged' }> {
   const user = await requireWriteProject(projectId);
   if (!user) return { ok: false, error: 'Forbidden' };
   const parsed = projectCodeSchema.safeParse({ projectId, code, reason });
@@ -107,11 +107,14 @@ export async function changeProjectCodeAction(
   if (!project) return { ok: false, error: 'Not found' };
 
   const normalized = normalizeProjectCode(parsed.data.code);
+  // S-2 (vòng sửa 1): chặn mẫu masterCode tự sinh ('M-00001') trừ khi đúng masterCode của chính dự án.
+  if (isReservedProjectCode(normalized, project.masterCode)) return { ok: false, error: 'code_reserved' };
   if (await repo.isProjectCodeTaken(normalized, projectId)) return { ok: false, error: 'code_taken' };
 
   const result = await repo.changeProjectCode(projectId, normalized, parsed.data.reason, user.email, todayIso());
   if (result === 'not_found') return { ok: false, error: 'Not found' };
   if (result === 'unchanged') return { ok: false, error: 'unchanged' };
+  if (result === 'taken') return { ok: false, error: 'code_taken' };
 
   await logActivity(user, 'change_project_code', `project ${projectId}`);
   revalidateProjectTags();

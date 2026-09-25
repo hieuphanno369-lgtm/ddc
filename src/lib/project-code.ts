@@ -14,6 +14,27 @@ export function isValidProjectCode(s: string): boolean {
   return t.length >= 1 && t.length <= PROJECT_CODE_MAX && PROJECT_CODE_RE.test(t);
 }
 
+/** (S-2, vòng sửa 1) Mẫu tự sinh cho masterCode lúc tạo dự án ('M-00001', không phân biệt hoa thường). */
+export const RESERVED_MASTER_CODE_RE = /^M-\d+$/i;
+
+/**
+ * Chặn gõ tay mã CT theo mẫu masterCode tự sinh khi ĐỔI mã (tránh trùng/giả mạo mã hệ thống),
+ * trừ khi đó chính là masterCode của dự án đang sửa (cho phép quay lại mã gốc).
+ */
+export function isReservedProjectCode(code: string, ownMasterCode?: string | null): boolean {
+  const t = normalizeProjectCode(code);
+  if (!RESERVED_MASTER_CODE_RE.test(t)) return false;
+  return !(ownMasterCode != null && t.toUpperCase() === ownMasterCode.toUpperCase());
+}
+
+/** (S-2, vòng sửa 1) Ném khi mã CT/alias đã bị dự án khác chiếm - dùng chung cho mock lẫn Prisma repo. */
+export class ProjectCodeTakenError extends Error {
+  constructor(public readonly code: string) {
+    super(`Mã CT đã tồn tại: ${code}`);
+    this.name = 'ProjectCodeTakenError';
+  }
+}
+
 export interface AliasChangePlan {
   closeId: number | null;
   closeTo: IsoDate | null;

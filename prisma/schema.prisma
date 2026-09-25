@@ -136,6 +136,7 @@ model ExchangeRate {
 model Project {
   id                    Int             @id @default(autoincrement())
   masterCode            String          @unique
+  /// index lower(currentAliasCode) UNIQUE tao bang SQL tay o migration 20260925110000
   currentAliasCode      String
   projectName           String
   customerId            Int

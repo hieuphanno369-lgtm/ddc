@@ -6,9 +6,10 @@ import { calcDayVariance, calcDurationPctComplete, calcSpi } from '@/lib/evm';
 import { endOfMonth, todayIso } from '@/lib/clock';
 import { keyMsAuditText } from '@/lib/key-milestones';
 import { sumManpowerShifts } from '@/lib/shifts';
+import { ProjectCodeTakenError } from '@/lib/project-code';
 import { createReadMock } from './read-mock';
 import { makeEntryMockRepo } from './mock-repo-entry';
-import { makeFormMockRepo } from './mock-repo-form';
+import { isProjectCodeTakenIn, makeFormMockRepo } from './mock-repo-form';
 import type {
   ActivityLogEntry,
   AlertLog,
@@ -848,6 +849,9 @@ const coreRepo = {
 
   createProject(input: CreateProjectInput, changedBy = 'system'): Project {
     const d = getData();
+    if (input.currentAliasCode && isProjectCodeTakenIn(d, input.currentAliasCode, null)) {
+      throw new ProjectCodeTakenError(input.currentAliasCode);
+    }
     const id = d.projects.reduce((m, p) => Math.max(m, p.id), 0) + 1;
     const code = `M-${String(id).padStart(5, '0')}`;
     const now = new Date().toISOString();

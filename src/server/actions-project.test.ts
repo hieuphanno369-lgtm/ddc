@@ -125,6 +125,19 @@ describe('changeProjectCodeAction', () => {
     expect(await changeProjectCodeAction(1, 'CT-NEW', 'abc')).toEqual({ ok: false, error: 'Invalid input' });
   });
 
+  it('S-2 (vong sua 1): go tay theo mau masterCode tu sinh (khong phai cua chinh du an) -> code_reserved', async () => {
+    login(ADMIN);
+    const res = await changeProjectCodeAction(1, 'M-00099', 'ly do doi ma hop le');
+    expect(res).toEqual({ ok: false, error: 'code_reserved' });
+  });
+
+  it('S-2: doi ve dung masterCode cua chinh du an -> khong bi chan la code_reserved', async () => {
+    login(ADMIN);
+    const p1 = repo.getProject(1)!;
+    const res = await changeProjectCodeAction(1, p1.masterCode, 'ly do doi ve ma goc');
+    expect(res).not.toEqual({ ok: false, error: 'code_reserved' });
+  });
+
   it('thanh cong -> getAliases(1) co dong moi tu 2026-09-17', async () => {
     login(ADMIN);
     const res = await changeProjectCodeAction(1, 'CT-THANH-CONG', 'ly do doi ma hop le');

@@ -1,8 +1,23 @@
+import type { RepoData } from '@/data/seed/history';
 import { DEFAULT_STAGE_WEIGHTS, STAGE_ORDER } from '@/lib/stages';
 import { planAliasChange } from '@/lib/project-code';
 import { equipPlanAuditText } from '@/lib/equipment-plan';
 import { audit, type EntryMockDeps } from './mock-repo-entry';
 import type { AuditLogEntry, EquipmentPlanInput, ProjectMember, StageWeightInput } from './types';
+
+/**
+ * S-2 (vòng sửa 1): thân `isProjectCodeTaken` tách nhận `d: RepoData` để dùng lại ở `createProject`
+ * (mock-repo.ts) - so `trim().toLowerCase()` với masterCode/currentAliasCode của dự án khác, và
+ * alias của dự án khác.
+ */
+export function isProjectCodeTakenIn(d: RepoData, code: string, exceptProjectId: number | null): boolean {
+  const target = code.trim().toLowerCase();
+  const projectMatch = d.projects.some(
+    (p) => p.id !== exceptProjectId && (p.masterCode.toLowerCase() === target || p.currentAliasCode.toLowerCase() === target),
+  );
+  if (projectMatch) return true;
+  return d.aliases.some((a) => a.projectId !== exceptProjectId && a.aliasCode.toLowerCase() === target);
+}
 
 /** Chuỗi mô tả trọng số cho audit_log: "design:5,shop:10(x),…" - (x) = không áp dụng. */
 function stageWeightAuditText(rows: { stageCode: string; weightPct: number; applicable: boolean }[]): string {
@@ -23,20 +38,16 @@ export function makeFormMockRepo({ getData, persist }: EntryMockDeps) {
   return {
     /** So `trim().toLowerCase()` với masterCode/currentAliasCode của dự án khác, và alias của dự án khác. */
     isProjectCodeTaken(code: string, exceptProjectId: number | null): boolean {
-      const d = getData();
-      const target = code.trim().toLowerCase();
-      const projectMatch = d.projects.some(
-        (p) => p.id !== exceptProjectId && (p.masterCode.toLowerCase() === target || p.currentAliasCode.toLowerCase() === target),
-      );
-      if (projectMatch) return true;
-      return d.aliases.some((a) => a.projectId !== exceptProjectId && a.aliasCode.toLowerCase() === target);
+      return isProjectCodeTakenIn(getData(), code, exceptProjectId);
     },
 
-    changeProjectCode(projectId: number, newCode: string, reason: string, by: string, today: string): 'changed' | 'unchanged' | 'not_found' {
+    /** S-2 (vòng sửa 1, QĐ-11): trùng mã (kể cả masterCode/alias cũ của dự án khác) -> `'taken'`. */
+    changeProjectCode(projectId: number, newCode: string, reason: string, by: string, today: string): 'changed' | 'unchanged' | 'not_found' | 'taken' {
       const d = getData();
       const p = d.projects.find((x) => x.id === projectId);
       if (!p) return 'not_found';
       if (newCode === p.currentAliasCode) return 'unchanged';
+      if (isProjectCodeTakenIn(d, newCode, projectId)) return 'taken';
 
       const aliases = d.aliases.filter((a) => a.projectId === projectId);
       const plan = planAliasChange({

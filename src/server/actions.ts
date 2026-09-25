@@ -7,6 +7,7 @@ import { getCurrentUser, type CurrentUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
 import { hashPassword, verifyPassword } from '@/lib/password';
 import { calcChainPctActual, findCurrentStage, normPct, validateStageWeights } from '@/lib/stages';
+import { ProjectCodeTakenError } from '@/lib/project-code';
 import { cellText, type CellValue } from '@/lib/daily-import';
 import { assertXlsxInflatedSize, readBoundedSheet } from './daily-import';
 import type { CreateProjectInput, CurrencyCode, KeyMilestoneInput, Market, Priority, Project, ProjectType, Role, StageCode, StageWeightInput } from './repo/types';
@@ -245,7 +246,15 @@ export async function createProjectAction(
   const rules = checkProfileRules(null, rest, rates);
   if (!rules.ok) return { ok: false, error: rules.error };
 
-  const p = await repo.createProject({ ...rest, ...rules.patch, currentAliasCode }, user.email);
+  let p: Project;
+  try {
+    p = await repo.createProject({ ...rest, ...rules.patch, currentAliasCode }, user.email);
+  } catch (e) {
+    // S-2 (vòng sửa 1): kiểm nhanh `isProjectCodeTaken` ở trên là fast-path; bắt lại ở đây để
+    // chống race (2 request tạo dự án cùng mã CT gần như đồng thời) - mock/prisma cùng ném lỗi này.
+    if (e instanceof ProjectCodeTakenError) return { ok: false, error: 'code_taken' };
+    throw e;
+  }
   if (user.role === 'data-entry') await repo.addAssignment(p.id, user.email, 'PIC');
   if (stageWeights) await repo.replaceStageWeights(p.id, stageWeights, user.email);
   if (keyMilestones?.length) await repo.replaceKeyMilestones(p.id, keyMilestones, user.email);

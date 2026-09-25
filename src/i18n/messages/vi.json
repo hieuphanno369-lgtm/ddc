@@ -1005,6 +1005,7 @@
       "date_order": "Sai thứ tự ngày",
       "fx": "Chưa quy đổi được nguyên tệ",
       "code_taken": "Mã này đã được dùng cho dự án khác",
+      "code_reserved": "Mã theo mẫu M-00001 dành riêng cho hệ thống - không thể gõ tay (trừ mã gốc của chính dự án)",
       "unchanged": "Mã không đổi",
       "date_required": "Ngày BĐ kế hoạch, HT kế hoạch và Bàn giao cam kết là bắt buộc",
       "date_plan_order": "Ngày BĐ kế hoạch phải trước Ngày HT kế hoạch",

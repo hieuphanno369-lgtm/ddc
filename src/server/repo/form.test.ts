@@ -78,6 +78,13 @@ describe('changeProjectCode (mock-repo)', () => {
     const hist = repo.getProjectHistory().find((h) => h.note.includes('currentAliasCode'));
     expect(hist?.note).toBe(`currentAliasCode: ${old} → CT-MOI-9`);
   });
+
+  it('S-2 (vong sua 1): doi sang ma da la currentAliasCode cua du an khac -> "taken"', () => {
+    const p2 = repo.getProject(2)!;
+    const res = repo.changeProjectCode(1, p2.currentAliasCode, 'ly do', 'admin@x', todayIso());
+    expect(res).toBe('taken');
+    expect(repo.getProject(1)!.currentAliasCode).not.toBe(p2.currentAliasCode);
+  });
 });
 
 describe('isProjectCodeTaken (mock-repo)', () => {

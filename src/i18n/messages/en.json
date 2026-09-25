@@ -1005,6 +1005,7 @@
       "date_order": "Dates out of order",
       "fx": "Cannot convert the foreign amount",
       "code_taken": "This code is used by another project",
+      "code_reserved": "Codes like M-00001 are reserved for the system - you cannot type it by hand (except the project's own original code)",
       "unchanged": "Code unchanged",
       "date_required": "Planned start, planned finish and committed handover are required",
       "date_plan_order": "Planned start must be before planned finish",

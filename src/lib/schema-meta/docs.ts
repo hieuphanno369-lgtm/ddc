@@ -133,7 +133,7 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
     fields: {
       id: 'khoá chính - khoá ghép cho mọi bảng fact',
       masterCode: 'mã surrogate nội bộ (M-00001), không đổi theo mã hợp đồng',
-      currentAliasCode: 'mã hiện hành đang dùng để gọi dự án',
+      currentAliasCode: 'mã hiện hành đang dùng để gọi dự án - duy nhất, không phân biệt hoa thường (index lower() tạo tay ở migration 20260925110000)',
       projectName: 'tên dự án',
       customerId: 'FK tới dim_customer.id',
       teamKdId: 'FK tới dim_team_kd.id',
