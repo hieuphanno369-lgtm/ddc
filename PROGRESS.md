@@ -3,6 +3,14 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P2B Bước 11 — T1 hiệu năng ĐẠT (Tài khoản B) — CHỐT + ĐÃ MERGE vào `main` (2026-09-25)
+Nhánh `feature/p2b-t1-hieu-nang`; hồ sơ `.bangiao/archive/p2b-t1-hieu-nang-2026-09-25/`. 120/120 file · 1396/1396 test.
+- 10.046.500 dòng / 517 dự án, `next start` thật, đo độc lập 2 bên: Tổng quan max 833 ms (quy trình có kiểm soát),
+  cold-start thật 941 ms, Chi tiết dự án lớn nhất ≤ 441 ms → **tiêu chí ≤1,5 s ĐẠT, KHÔNG cần migration/index**.
+- Gốc chậm là `summarize()` (JS) bị gọi 6–8 lần/lượt render `/overview`, không phải SQL → `requestMemo()` (React.cache
+  trong 1 request) cho `getProjectSummaries`; validate `month` ở /overview (N-2). Vá L-1/L-2/L-3 script perf.
+- Để sau: R-1/R-2/R-3 (guard perf), N-2b (whitelist filter /overview) — xem `danh-gia.md` trong archive.
+
 ### ✅ P2B — Biểu đồ & hiệu năng (Tài khoản B) — CHỐT + ĐÃ MERGE vào `main` (2026-09-25, sau P2A)
 Nhánh `feature/p2b-bieu-do`, dây chuyền ship đủ chặng (vòng 1 CAN SUA → vòng 2 CHỐT → vòng bổ sung KPI CHỐT; security ĐẠT
 cả 3 vòng). Hồ sơ: `.bangiao/archive/p2b-bieu-do-2026-09-25/`. Sau khi gộp P2A: `tsc` sạch, 119/119 file · 1378/1378 test.
