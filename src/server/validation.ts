@@ -6,6 +6,7 @@ import { DAILY_VALUE_MAX } from '@/lib/daily-entry';
 import { DAILY_IMPORT_MAX_DAYS } from '@/lib/daily-import';
 import { FX_CURRENCIES } from '@/lib/fx';
 import { currentMonth } from '@/lib/clock';
+import { IMPORT_MAX_BYTES } from '@/lib/import-limits';
 
 /**
  * Zod schema validate input mọi server action (spec §7.5 - không tin client).
@@ -154,7 +155,7 @@ export const commitImportSchema = z.object({
 // ---- Import Excel ----
 
 /** Giới hạn dung lượng 1 file import (10MB) - chặn ở action trước khi parse (chống DoS). */
-export const IMPORT_MAX_BYTES = 10 * 1024 * 1024;
+export { IMPORT_MAX_BYTES };
 
 /** H-1a (danh-gia.md vòng 1): giới hạn số dòng đọc ở `importExcelAction` (import SAP legacy) - chặn TRƯỚC khi dựng preview. */
 export const IMPORT_LEGACY_MAX_ROWS = 5000;

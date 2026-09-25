@@ -817,5 +817,9 @@
       "already_closed": "This alert is already closed.",
       "forbidden": "You are not allowed to close this alert."
     }
+  },
+  "importLimit": {
+    "note": "Max {mb}MB per file",
+    "tooBig": "File {name} exceeds {mb}MB - not uploaded."
   }
 }

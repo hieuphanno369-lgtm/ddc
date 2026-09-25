@@ -54,6 +54,8 @@ const CHANGED_SOURCES: Record<string, string> = {
   'WorkItemCompareChart': 'src/components/project/WorkItemCompareChart.tsx',
   'trang /admin': 'app/[locale]/(app)/admin/page.tsx',
   'ActivityViewer': 'src/components/admin/ActivityViewer.tsx',
+  'ImportPanel': 'src/components/form/ImportPanel.tsx',
+  'DailyImportBlock': 'src/components/form/DailyImportBlock.tsx',
 };
 
 describe('i18n: vi/en phủ key như nhau', () => {

@@ -817,5 +817,9 @@
       "already_closed": "Alert này đã được đóng.",
       "forbidden": "Bạn không có quyền đóng alert này."
     }
+  },
+  "importLimit": {
+    "note": "Tối đa {mb}MB mỗi tệp",
+    "tooBig": "Tệp {name} vượt quá {mb}MB - không gửi lên."
   }
 }
