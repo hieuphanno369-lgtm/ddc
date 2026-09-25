@@ -312,8 +312,13 @@ export function makeEntryMockRepo({ getData, persist }: EntryMockDeps) {
      * bất kể đóng/mở (K6), HOẶC đang có alert MỞ cùng (projectId, ruleCode). Trả số dòng tạo mới.
      */
     insertEngineAlerts(rows: NewEngineAlert[]): number {
+      return this.insertEngineAlertsReturningIds(rows).length;
+    },
+
+    /** Task 4 (P3B): giống `insertEngineAlerts` nhưng trả id các dòng TẠO MỚI (để xếp hàng gửi thông báo). */
+    insertEngineAlertsReturningIds(rows: NewEngineAlert[]): number[] {
       const d = getData();
-      let created = 0;
+      const ids: number[] = [];
       for (const r of rows) {
         const dup = d.alerts.some((a) => a.projectId === r.projectId && a.dedupeKey === r.dedupeKey);
         const openSameRule = d.alerts.some((a) => a.projectId === r.projectId && a.ruleCode === r.ruleCode && !a.closedAt);
@@ -326,10 +331,10 @@ export function makeEntryMockRepo({ getData, persist }: EntryMockDeps) {
           notifyChannel: null, notifySentAt: null, notifyError: null, notifyAttempts: 0,
         };
         d.alerts.push(entry);
-        created++;
+        ids.push(id);
       }
-      if (created > 0) persist();
-      return created;
+      if (ids.length > 0) persist();
+      return ids;
     },
 
     /**

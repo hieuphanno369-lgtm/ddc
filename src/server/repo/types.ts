@@ -430,12 +430,13 @@ export interface JobRunEntry {
   startedBy: string;
 }
 
-// ---- Nền thông báo P3B (kênh/người nhận) - P2A chưa có hàm repo/UI, chỉ chuẩn bị type ----
+// ---- Thông báo P3B (kênh/người nhận) ----
 export type NotifyKind = 'webhook' | 'email';
 export type AlertSeverity = 'Red' | 'Amber';
 
 export interface NotifyChannelSettings {
   webhookFormat?: 'generic' | 'slack' | 'teams'; // kind = webhook
+  webhookHost?: string; // host webhook (không bí mật) để admin nhận ra kênh
   smtpHost?: string;
   smtpPort?: number;
   smtpSecure?: boolean;
@@ -462,6 +463,37 @@ export interface NotifyRecipient {
   email: string;
   minSeverity: AlertSeverity;
   isEnabled: boolean;
+}
+
+/** undefined = giữ bí mật cũ; null = xoá; object = thay (đã mã hoá ở tầng action). */
+export interface NotifyChannelInput {
+  id?: number;
+  kind: NotifyKind;
+  name: string;
+  isEnabled: boolean;
+  minSeverity: AlertSeverity;
+  settings: NotifyChannelSettings;
+  secret?: { enc: string; hint: string } | null;
+}
+
+export interface NotifyRecipientInput {
+  id?: number;
+  channelId: number;
+  email: string;
+  minSeverity: AlertSeverity;
+  isEnabled: boolean;
+}
+
+/** CHỈ dùng trong server (dispatcher) - không bao giờ truyền cho client. */
+export interface NotifyChannelForSend extends NotifyChannel {
+  secretEnc: string | null;
+  recipients: NotifyRecipient[];
+}
+
+export interface NotifyFinish {
+  sentChannels: string | null;
+  sentAt: string | null;
+  error: string | null;
 }
 
 // ---- T11 (Task 8, P2A): engine cảnh báo ----

@@ -8,6 +8,7 @@ import { keyMsAuditText } from '@/lib/key-milestones';
 import { sumManpowerShifts } from '@/lib/shifts';
 import { createReadMock } from './read-mock';
 import { makeEntryMockRepo } from './mock-repo-entry';
+import { makeNotifyMockRepo, resetNotifyMock } from './mock-repo-notify';
 import type {
   ActivityLogEntry,
   AlertLog,
@@ -97,6 +98,7 @@ function getData(): RepoData {
 
 const coreRepo = {
   reset() {
+    resetNotifyMock();
     delete globalForData.__ddcRepoData;
     if (PERSIST_ENABLED) {
       try {
@@ -945,6 +947,13 @@ const coreRepo = {
   },
 };
 
-export const repo = { ...coreRepo, ...makeEntryMockRepo({ getData, persist }) };
-/** P2B: gộp read repo vào repo (mutate object gốc) - tầng trên chỉ import `repo` như cũ. */
-Object.assign(repo, createReadMock(getData));
+/**
+ * P2B/P3B: gộp read repo + repo thông báo vào repo qua `Object.assign` (mutate object gốc, tầng
+ * trên chỉ import `repo` như cũ) - dùng dạng gán lại (không phải statement rời) để kiểu tĩnh của
+ * `repo` gồm đủ cả 2 phần gộp (test import thẳng `./mock-repo` mới thấy được các hàm này).
+ */
+export const repo = Object.assign(
+  { ...coreRepo, ...makeEntryMockRepo({ getData, persist }) },
+  createReadMock(getData),
+  makeNotifyMockRepo({ getData, persist }),
+);

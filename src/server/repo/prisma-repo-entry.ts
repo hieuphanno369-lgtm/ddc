@@ -312,14 +312,19 @@ export const entryPrismaRepo = {
    * bất kể đóng/mở (K6), HOẶC đang có alert MỞ cùng (projectId, ruleCode). Trả số dòng tạo mới.
    */
   async insertEngineAlerts(rows: NewEngineAlert[]): Promise<number> {
-    let created = 0;
+    return (await this.insertEngineAlertsReturningIds(rows)).length;
+  },
+
+  /** Task 4 (P3B): giống `insertEngineAlerts` nhưng trả id các dòng TẠO MỚI (để xếp hàng gửi thông báo). */
+  async insertEngineAlertsReturningIds(rows: NewEngineAlert[]): Promise<number[]> {
+    const ids: number[] = [];
     for (const r of rows) {
       const openSameRule = await prisma.alertLog.findFirst({
         where: { projectId: r.projectId, ruleCode: r.ruleCode, closedAt: null },
       });
       if (openSameRule) continue;
       try {
-        await prisma.alertLog.create({
+        const row = await prisma.alertLog.create({
           data: {
             projectId: r.projectId, alertType: r.alertType, ruleTriggered: r.ruleTriggered, message: r.message,
             openedAt: new Date(r.openedAt), closedAt: null, owner: r.owner, action: '', deadline: r.deadline,
@@ -327,13 +332,13 @@ export const entryPrismaRepo = {
             notifyChannel: null, notifySentAt: null, notifyError: null, notifyAttempts: 0,
           },
         });
-        created++;
+        ids.push(row.id);
       } catch (e) {
         if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') continue;
         throw e;
       }
     }
-    return created;
+    return ids;
   },
 
   /**
