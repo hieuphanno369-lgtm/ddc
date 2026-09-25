@@ -14,6 +14,7 @@ import type { DashboardFilters, GroupBy } from '@/server/queries';
 import { getOverdueScorecard, type Scorecard } from '@/server/overdue-scorecard';
 import { formatTyd } from '@/lib/format';
 import { THRESHOLDS } from '@/lib/thresholds';
+import { maskGroupRows, maskProjectSummaries, safeListSort, type ListSort } from '@/lib/finance-gate';
 import { KpiCard } from './KpiCard';
 import { Watchlist } from './Watchlist';
 import { ProjectTable } from './ProjectTable';
@@ -27,8 +28,6 @@ const SCurve = dynamic(() => import('./charts').then((m) => m.SCurve), { ssr: fa
 const SpiCpiLine = dynamic(() => import('./charts').then((m) => m.SpiCpiLine), { ssr: false, loading: () => <CardSkeleton h={200} /> });
 const DrillDonut = dynamic(() => import('./DrillCharts').then((m) => m.DrillDonut), { ssr: false, loading: () => <CardSkeleton h={200} /> });
 const GroupByCard = dynamic(() => import('./DrillCharts').then((m) => m.GroupByCard), { ssr: false, loading: () => <CardSkeleton h={260} /> });
-
-type ListSort = 'priority' | 'name' | 'value' | 'spi' | 'pctActual';
 
 export async function AlertBanner({ month, filters }: { month: string; filters: DashboardFilters }) {
   const t = await getTranslations();
@@ -78,12 +77,22 @@ export async function StatusDonutCard({ month, filters }: { month: string; filte
   );
 }
 
-export async function GroupBarCard({ month, groupBy, filters }: { month: string; groupBy: GroupBy; filters: DashboardFilters }) {
+export async function GroupBarCard({
+  month,
+  groupBy,
+  filters,
+  canViewFinance,
+}: {
+  month: string;
+  groupBy: GroupBy;
+  filters: DashboardFilters;
+  canViewFinance: boolean;
+}) {
   const data = await loadTonnageByGroup(month, groupBy, filters);
   return (
     <Card>
       <CardBody>
-        <GroupByCard data={data} groupBy={groupBy} />
+        <GroupByCard data={maskGroupRows(data, canViewFinance)} groupBy={groupBy} showValue={canViewFinance} />
       </CardBody>
     </Card>
   );
@@ -148,9 +157,17 @@ export async function SCurveCard({ filters }: { filters: DashboardFilters }) {
   );
 }
 
-export async function WatchlistCard({ month, filters }: { month: string; filters: DashboardFilters }) {
+export async function WatchlistCard({
+  month,
+  filters,
+  canViewFinance,
+}: {
+  month: string;
+  filters: DashboardFilters;
+  canViewFinance: boolean;
+}) {
   const items = await loadWatchlist(month, filters);
-  return <Watchlist items={items} />;
+  return <Watchlist items={maskProjectSummaries(items, canViewFinance)} />;
 }
 
 export async function ProjectListCard({
@@ -159,13 +176,23 @@ export async function ProjectListCard({
   search,
   sort,
   page,
+  canViewFinance,
 }: {
   month: string;
   filters: DashboardFilters;
   search: string;
   sort: ListSort;
   page: number;
+  canViewFinance: boolean;
 }) {
-  const list = await loadProjectList({ month, filters, search, sort, page, pageSize: 10 });
-  return <ProjectTable items={list.items} total={list.total} page={list.page} totalPages={list.totalPages} />;
+  const list = await loadProjectList({ month, filters, search, sort: safeListSort(sort, canViewFinance), page, pageSize: 10 });
+  return (
+    <ProjectTable
+      items={maskProjectSummaries(list.items, canViewFinance)}
+      total={list.total}
+      page={list.page}
+      totalPages={list.totalPages}
+      canViewFinance={canViewFinance}
+    />
+  );
 }

@@ -6,6 +6,7 @@ import { formatDateTime } from '@/lib/format';
 import { type DashboardFilters, type GroupBy } from '@/server/queries';
 import { currentMonth, historyMonths, isValidYearMonth } from '@/lib/clock';
 import type { Market, Priority, ProjectType, Status } from '@/server/repo/types';
+import { safeListSort } from '@/lib/finance-gate';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { FilterBar } from '@/components/dashboard/FilterBar';
 import {
@@ -68,7 +69,8 @@ export default async function OverviewPage({
   const isAdmin = user?.role === 'admin';
   const canViewFinance = user?.canViewFinance ?? false;
   const search = p(searchParams, 'search');
-  const sort = (p(searchParams, 'sort') as 'priority' | 'name' | 'value' | 'spi' | 'pctActual') || 'priority';
+  const rawSort = (p(searchParams, 'sort') as 'priority' | 'name' | 'value' | 'spi' | 'pctActual') || 'priority';
+  const sort = safeListSort(rawSort, canViewFinance);
   const page = Number(p(searchParams, 'page')) || 1;
 
   return (
@@ -95,7 +97,7 @@ export default async function OverviewPage({
 
       <div className="g2">
         <Suspense fallback={<CardSkeleton h={260} />}>
-          <GroupBarCard month={month} groupBy={groupBy} filters={filters} />
+          <GroupBarCard month={month} groupBy={groupBy} filters={filters} canViewFinance={canViewFinance} />
         </Suspense>
         <Suspense fallback={<CardSkeleton h={220} />}>
           <StatusDonutCard month={month} filters={filters} />
@@ -123,11 +125,11 @@ export default async function OverviewPage({
       )}
 
       <Suspense fallback={<CardSkeleton h={300} />}>
-        <WatchlistCard month={month} filters={filters} />
+        <WatchlistCard month={month} filters={filters} canViewFinance={canViewFinance} />
       </Suspense>
 
       <Suspense fallback={<CardSkeleton h={300} />}>
-        <ProjectListCard month={month} filters={filters} search={search} sort={sort} page={page} />
+        <ProjectListCard month={month} filters={filters} search={search} sort={sort} page={page} canViewFinance={canViewFinance} />
       </Suspense>
     </>
   );

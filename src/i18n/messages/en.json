@@ -821,5 +821,10 @@
       "already_closed": "This alert is already closed.",
       "forbidden": "You are not allowed to close this alert."
     }
+  },
+  "financeGate": {
+    "tonnageByGroup": "Tonnage by {group}",
+    "tonnage": "Contract tonnage",
+    "alertHidden": "Overdue receivables alert (amount shown to finance users only)"
   }
 }

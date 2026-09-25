@@ -821,5 +821,10 @@
       "already_closed": "Alert này đã được đóng.",
       "forbidden": "Bạn không có quyền đóng alert này."
     }
+  },
+  "financeGate": {
+    "tonnageByGroup": "Lượng theo {group}",
+    "tonnage": "Khối lượng HĐ",
+    "alertHidden": "Cảnh báo công nợ quá hạn (số tiền chỉ hiện cho người có quyền tài chính)"
   }
 }
