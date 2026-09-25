@@ -26,11 +26,15 @@ describe('account management (mock repo)', () => {
     expect(repo.findAccount('X@DAIDUNG.COM.VN')?.role).toBe('bod');
   });
 
-  it('setUserRole suy finance từ role (viewer = không xem)', () => {
-    repo.createAccount(acct('y@daidung.com.vn'));
-    repo.setUserRole('y@daidung.com.vn', 'viewer', false);
+  it('setUserRole (T-2): viewer luôn tắt, data-entry luôn bật, vai trò khác giữ nguyên - bỏ qua cờ caller truyền', () => {
+    repo.createAccount(acct('y@daidung.com.vn', 'bod')); // canViewFinance = true (seed ban đầu)
+    repo.setUserRole('y@daidung.com.vn', 'viewer', true); // cờ true bị bỏ qua - viewer luôn tắt
     expect(repo.findAccount('y@daidung.com.vn')?.canViewFinance).toBe(false);
-    repo.setUserRole('y@daidung.com.vn', 'bod', true);
+    repo.setUserRole('y@daidung.com.vn', 'bod', false); // cờ false bị bỏ qua - vai trò khác giữ nguyên (false)
+    expect(repo.findAccount('y@daidung.com.vn')?.canViewFinance).toBe(false);
+    repo.setUserRole('y@daidung.com.vn', 'data-entry', false); // cờ false bị bỏ qua - data-entry luôn bật (T-1)
+    expect(repo.findAccount('y@daidung.com.vn')?.canViewFinance).toBe(true);
+    repo.setUserRole('y@daidung.com.vn', 'admin', false); // vai trò khác giữ nguyên (true)
     expect(repo.findAccount('y@daidung.com.vn')?.canViewFinance).toBe(true);
   });
 

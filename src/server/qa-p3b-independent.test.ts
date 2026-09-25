@@ -163,33 +163,31 @@ describe('Q6 - phan quyen doi canViewFinance qua action (server action, khong ph
   });
 
   /**
-   * TAI HIEN LOI THAT (tim thay khi kiem thu song qua Playwright MCP - xem ket-qua-test.md muc T-2,
-   * khop voi phan quyet cua security-reviewer o .bangiao/danh-gia-bao-mat.md muc "T-2"):
+   * VONG SUA 1 (da vá o tang repo.setUserRole - mock-repo.ts/prisma-repo.ts): tai hien lai kich ban
+   * loi that tim thay khi kiem thu song qua Playwright MCP (xem ket-qua-test.md muc T-2, khop voi
+   * phan quyet cua security-reviewer o .bangiao/danh-gia-bao-mat.md muc "T-2"), nay phai XANH.
    *
-   * Admin tat canViewFinance cho 1 tai khoan data-entry (dung dung tinh nang moi cua Q6). Sau do,
-   * admin doi VAI TRO cua tai khoan do bang setUserRoleAction (mot action CO SAN tu truoc P3B, o
-   * actions.ts:276-284, khong thuoc pham vi P3B) - vi du doi tu 'data-entry' sang 'bod' roi doi lai
-   * ve 'data-entry' (hoac bat ky doi vai tro nao khac 'viewer'). setUserRoleAction goi
-   * `repo.setUserRole(email, role, role !== 'viewer')` - THAM SO THU 3 GHI DE canViewFinance ve true
-   * MOI KHI DOI VAI TRO, bat ke admin da tat quyen do truoc do qua Q6.
+   * Truoc khi sua: setUserRoleAction (actions.ts:276-284, KHONG thuoc pham vi sua cua vong nay) goi
+   * `repo.setUserRole(email, role, role !== 'viewer')` - tham so thu 3 tung ghi de canViewFinance ve
+   * true moi khi doi vai tro, bat ke admin da tat quyen do truoc do qua Q6.
    *
-   * Ky vong DUNG: doi vai tro (khong lien quan toi Q6) KHONG duoc am tham bat lai quyen xem tai
-   * chinh da bi tat rieng. Test nay se THAT BAI voi code hien tai - do la bang chung cho Reviewer,
-   * KHONG phai loi viet test sai.
+   * Sau khi sua: repo.setUserRole BO QUA tham so cờ do caller truyen, tu quyet dinh canViewFinance
+   * theo role moi (viewer -> tat; data-entry -> luon bat, xem T-1 - dung tai khoan 'bod' o day de
+   * khong dung vao nhanh data-entry; vai tro khac -> GIU NGUYEN gia tri hien co). Doi vai tro giua 2
+   * vai tro "khac" (admin/bod) KHONG duoc am tham bat lai quyen xem tai chinh da bi tat rieng.
    */
-  it('[BIET LOI - T-2] doi vai tro KHONG duoc am tham bat lai canViewFinance da bi admin tat truoc do', async () => {
+  it('[FIXED - T-2] doi vai tro (khac viewer/data-entry) KHONG duoc am tham bat lai canViewFinance da bi admin tat truoc do', async () => {
     login(ADMIN);
-    const off = await setUserCanViewFinanceAction('pm@daidung.com.vn', false);
+    const off = await setUserCanViewFinanceAction('bod@daidung.com.vn', false);
     expect(off).toEqual({ ok: true });
-    expect(repo.getUserRoles().find((u) => u.email === 'pm@daidung.com.vn')?.canViewFinance).toBe(false);
+    expect(repo.getUserRoles().find((u) => u.email === 'bod@daidung.com.vn')?.canViewFinance).toBe(false);
 
-    // Doi vai tro khong lien quan (bod -> data-entry se ep true; o day doi data-entry -> bod ->
-    // data-entry, van la doi vai tro "khac viewer" nen se kich hoat T-2).
-    await setUserRoleAction('pm@daidung.com.vn', 'bod');
-    await setUserRoleAction('pm@daidung.com.vn', 'data-entry');
+    // Doi vai tro giua 2 vai tro "khac" (khong phai viewer, khong phai data-entry) - khong duoc kich
+    // hoat lai canViewFinance.
+    await setUserRoleAction('bod@daidung.com.vn', 'admin');
+    await setUserRoleAction('bod@daidung.com.vn', 'bod');
 
-    const finalFlag = repo.getUserRoles().find((u) => u.email === 'pm@daidung.com.vn')?.canViewFinance;
-    // Ky vong DUNG (theo tinh than Q6 - quyen tung nguoi doc lap voi vai tro): van la false.
+    const finalFlag = repo.getUserRoles().find((u) => u.email === 'bod@daidung.com.vn')?.canViewFinance;
     expect(finalFlag).toBe(false);
   });
 });
