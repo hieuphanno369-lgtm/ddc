@@ -27,3 +27,18 @@ export function need(key: string): string {
   if (!value) throw new Error(`Thieu ${key} trong .env - xem .env.example`);
   return value;
 }
+
+/**
+ * L-5 (danh-gia-bao-mat.md): DATABASE_URL phải trỏ ĐÚNG host/port/tên DB của worktree B
+ * (localhost:5433/ddc_control_tower_b) - không dùng `includes('/ddc_control_tower_b')` vì khớp
+ * nhầm cả `ddc_control_tower_b2` (hoặc bất kỳ tên nào chứa chuỗi con này) và không kiểm host/port.
+ */
+export function isExpectedDbUrl(dbUrl: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(dbUrl);
+  } catch {
+    return false;
+  }
+  return u.hostname === 'localhost' && u.port === '5433' && u.pathname === '/ddc_control_tower_b';
+}
