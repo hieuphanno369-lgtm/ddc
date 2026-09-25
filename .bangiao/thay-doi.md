@@ -112,9 +112,9 @@ npm run test:e2e
 
 1. **Q6 đã đổi cơ chế quyền tài chính**: `resolveAccess()` (`src/lib/auth.ts`) giờ đọc cột DB
    `user_roles.canViewFinance` TỪNG NGƯỜI (không còn suy từ role) — admin luôn `true` bất kể cột
-   DB; Quản trị (`UserEditor.tsx`) có nút bật/tắt cho từng tài khoản (trừ admin). Có hiệu lực ở
-   lần đăng nhập/refresh JWT kế tiếp của người bị đổi quyền (JWT callback chỉ gọi lại
-   `resolveAccess()` khi có `user` mới, tức lúc đăng nhập).
+   DB; Quản trị (`UserEditor.tsx`) có nút bật/tắt cho từng tài khoản (trừ admin; data-entry tạm luôn
+   bật — T-1). **Cập nhật sau Vòng sửa 1 (T-5):** callback `jwt` đọc lại quyền định kỳ (≤ ~5 phút) với
+   phiên đang mở, khoá/xoá tài khoản thì phiên bị vô hiệu — không cần đăng nhập lại.
 2. **P3B không đụng `DataEntryForm`/`nhap-lieu`/form dự án** (đúng Q7 đã chốt) — form nhập liệu vẫn
    hiện/nhận giá trị HĐ, AC/PV/EV, EAC/VAC cho `data-entry` dù Q6 mới thắt chặt quyền xem. **Đề
    nghị A gate phần nhập tài chính theo `canViewFinance` trong/sau P3A** (vì hiện tại data-entry

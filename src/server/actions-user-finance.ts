@@ -9,7 +9,8 @@ import { repo } from './repo';
 /**
  * Q6 (2026-09-25, chủ dự án chốt): bật/tắt quyền xem tài chính (`user_roles.canViewFinance`) cho TỪNG
  * tài khoản - chỉ admin, độc lập với role. Admin luôn xem được (không đọc cột này) - xem `resolveAccess()`
- * (src/lib/auth.ts). Có hiệu lực ở lần đăng nhập/refresh JWT kế tiếp của người bị đổi quyền.
+ * (src/lib/auth.ts). Có hiệu lực trong tối đa ~5 phút với phiên đang mở (T-5: callback `jwt` đọc lại
+ * quyền định kỳ), không cần người bị đổi quyền đăng nhập lại. Role data-entry tạm luôn true (T-1).
  */
 export async function setUserCanViewFinanceAction(
   email: string,
