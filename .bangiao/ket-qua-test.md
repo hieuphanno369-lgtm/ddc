@@ -121,3 +121,144 @@ Luu y mat khau seed da CHE theo yeu cau (`Admin@***`), khong ghi ro trong tai li
 
 Khong tim thay hoi quy hay loi hanh vi nao khac dung yeu cau. Tester khong sua bat ky file code
 nguon nao - chi tao 10 file `*.qa.test.ts` moi.
+
+---
+
+# Vong sua 1 (kiem thu doc lap sau khi coder sua 7 muc CAN SUA cua reviewer vong 1)
+
+KET QUA: XANH
+
+Pham vi: `git diff c360d84..HEAD` (7 commit sua loi + 1 commit docs), doi chieu tung muc "Xong khi"
+trong `.bangiao/danh-gia.md`. Skill da dung: `test-driven-development`, `verification-before-completion`
+(bat buoc theo lenh). Vi thay doi dung ca UI lan DB, da smoke that bang `mcp__playwright` (dev server
+that cong 3000) va kiem/chung minh rang buoc DB bang ket noi Prisma that toi `ddc_control_tower`
+(khong dung duoc `mcp__postgres` cho phan nay vi cong cu chi cho READ-ONLY, tu choi ca `BEGIN`).
+
+## Lenh da chay va ket qua
+
+- `npx tsc --noEmit` -> 0 loi.
+- `npm test` -> **154 file / 1716 test XANH** (moc truoc vong sua 1: 149 file / 1676 test theo
+  `.bangiao/thay-doi.md` cua coder - khong tut, tang dung bang 5 file / 40 test moi Tester them).
+- `npm run check:read` -> OK (17/17 ham doc khop mock/Prisma tren `ddc_control_tower`).
+- `npx prisma migrate status` -> "Database schema is up to date!" (8 migrations).
+- `pg_indexes` (qua `mcp__postgres`, read-only): xac nhan CA HAI index moi co mat dung dinh nghia:
+  `dim_project_currentAliasCode_lower_key` (UNIQUE btree tren `lower("currentAliasCode")`),
+  `project_assignments_one_pic_key` (UNIQUE btree tren `"projectId"` WHERE `roleInProject='PIC'`).
+
+## File test moi (Tester viet, khong sua code nguon), 5 file / 40 test case
+
+1. `src/server/repo/prisma-repo-create-project.qa.test.ts` (7 test) - **muc 1 + muc 6, tang prisma
+   CHUA tung co unit test truoc do** (chi duoc kiem qua mock-repo va smoke DB that): mock thang
+   `@/server/db` kieu `prisma-repo-save.test.ts`. Doi `DDC_FAKE_TODAY` sang mot moc XA (2031-03-20,
+   khac ca gio may that lan moc mac dinh 2026-09-16 cua `vitest.config.ts`) -> dong `dim_project_alias`
+   luc tao du an bam DUNG dong ho ao, khong dung `Date.now()`/`createdAt` that. `tx.project.findFirst`
+   hoac `tx.projectAlias.findFirst` tra ve trung -> nem `ProjectCodeTakenError`, KHONG goi
+   `project.update`/`projectAlias.create` (khong ghi du lieu nua chung nao roi moi bao loi). P2002 gia
+   lap tu `projectAlias.create` (race hiem 2 request gan nhu dong thoi) -> bat va nem lai thanh
+   `ProjectCodeTakenError`; loi Prisma KHAC P2002 (vd P2025) thi nem NGUYEN loi goc, khong bi nuot oan.
+2. `src/lib/project-code.qa.test.ts` (10 test) - **muc 6/S-2**: `isReservedProjectCode` chua co unit
+   test truc tiep nao truoc do (chi kiem gian tiep qua 1 ca trong `actions-project.test.ts`). Kiem day
+   du bien the: hoa/thuong, khoang trang thua, so it chu so (`M-1`), dung masterCode CHINH du an dang
+   sua thi KHONG bi chan, dung masterCode du an KHAC thi VAN bi chan, va cac dang KHONG khop mau
+   (`M-00099A`, `M00099`, `MM-00099`) thi KHONG bi chan oan.
+3. `src/server/repo/form-vong-sua-1.qa.test.ts` (8 test) - **muc 6-7 tang mock-repo, bien coder/tester
+   vong 1 chua cham**: `isProjectCodeTaken` trung MASTERCODE (khong chi currentAliasCode/alias) cua
+   du an khac; `createProject` (mock) voi `currentAliasCode` trung masterCode cua du an khac -> nem
+   `ProjectCodeTakenError`, danh sach du an KHONG doi; `changeProjectCode` doi sang dung masterCode cua
+   du an khac -> `'taken'`; `setProjectMember` tren du an MOI TAO (chua co PIC tu seed, khac voi ca
+   "du an 16 da co san PIC" ma coder da kiem) van bi chan dung khi gan PIC thu 2; doi chung Backup thu
+   2 van duoc phep (index chi ap PIC); ghi lai ranh gioi co chu dich la `isReservedProjectCode` CHUA
+   ap dung o `createProject`/`createProjectAction` (chi o `changeProjectCodeAction`, dung nhu
+   `thay-doi.md` da neu o phan "de sau").
+4. `src/lib/project-form-vong-sua-1.qa.test.ts` (6 test) - **muc 2**: bien duoi `validateAliasChange`
+   ma coder chua cham - chuoi toan khoang trang bi coi la rong (`'required'`), thu tu uu tien loi khi
+   nhieu dieu kien cung sai mot luc (rong ma tinh truoc reason ngan, dinh dang ma sai tinh truoc reason
+   ngan), ly do co khoang trang dau/cuoi duoc trim truoc khi dem do dai, va ghi lai 1 diem thiet ke: ham
+   nay so sanh ma moi/cu CO phan biet hoa thuong (khac tang server so khong phan biet hoa/thuong) -
+   khong phai loi, chi la 2 tang kiem khac muc dich (client hoi "co doi khong", server hoi "co trung ai
+   khong"), da ghi ro trong comment test de nguoi sau khoi nham la hoi quy.
+5. `src/server/actions-vong-sua-1.qa.test.ts` (9 test) - **muc 4 + muc 5**: `updateProjectAction` voi
+   `teamKdId`/`customerId` DA BI GOP (khong chi "khong ton tai") -> `invalid_team`/`invalid_customer`;
+   `createProjectAction` voi `teamKdId` da bi gop -> `invalid_team` (truoc do chi co ca customer);
+   `saveMonthlyData` voi `actualStartDate`/`committedHandoverDate`/`contractDate` sai dinh dang (khong
+   chi `plannedFinishDate` ma coder da kiem) -> tu choi, du an khong doi; xac nhan `actualFinishDate:
+   null` (xoa ngay) VAN hop le va luu duoc (nullableDate cho phep null).
+
+## Smoke UI that (Playwright, dev server that cong 3000) + doi chieu DB that
+
+- Dang nhap Admin (session co san tu phien truoc). Desktop 1440x900:
+  - **Muc 2**: mo `/vi/ho-so-du-an?project=1`, doi "Ma CT hien hanh" thanh gia tri moi, KHONG dien
+    "Ly do doi ma", bam "Luu thay doi" -> client chan NGAY: o Ma CT + o Ly do to do, hien dong chu
+    "Ly do doi ma phai co it nhat 5 ky tu" va banner "Con truong chua hop le - xem cac o to do";
+    KHONG action nao duoc goi. Kiem lai DB that (`mcp__postgres`): `dim_project.currentAliasCode`
+    cua id=1 van la `10626-008` (khong doi) - dung dung yeu cau "bao loi, khong luu".
+  - **Muc 3**: sau thao tac tren (form co thay doi, autosave nhap chay ngam), doc THAT localStorage
+    trinh duyet bang `browser_evaluate`: key `ddc_pform_v1_<ownerTag>_1` co JSON KHONG chua chuoi con
+    `"contractValue"` lan `"penaltyValue"` o dau nao (kiem bang `.not.toContain` tren chinh chuoi JSON
+    tho, khong phai doc field roi suy luan) - dung 100% yeu cau F6 tren du lieu nhap THAT, khong phai
+    mock.
+  - **Muc 4**: dieu huong sang `/vi/ho-so-du-an` (tao moi), go ten du an CHU THUONG
+    ("du an qa vong sua 1 chu thuong") -> UI tu dong hien VIET HOA ngay khi go; dien du 11/19 truong
+    bat buoc (khach hang VinGroup, team P.KD 01, thi truong Trong nuoc, loai hinh EPC, gia tri HD 10,
+    khoi luong 100, do uu tien P2, 3 ngay bat buoc) -> bam "Tao du an" -> chuyen sang `?project=19`.
+    Kiem DB that: `dim_project.projectName` id=19 = `'DU AN QA VONG SUA 1 CHU THUONG'` (VIET HOA toan
+    bo, dung tu server tra ve chu khong phai gia dinh tu UI).
+  - Anh chup: `05-doi-ma-CT-thieu-ly-do-loi-desktop-1440.png`,
+    `06-tao-du-an-ten-chu-thuong-thanh-VIET-HOA-desktop-1440.png` (`.bangiao/anh-test/vong-sua-1/`).
+- **Mobile 390x844**: `07-ho-so-du-an-mobile-390-vong-sua-1.png` - form xep chong doc, khong vo trang,
+  0 loi console (kiem bang `browser_console_messages`, ca muc `error` lan `warning` deu 0 dong moi).
+- **Don du lieu test sau khi xong**: du an id=19 (va toan bo du lieu lien quan: project_stage_weight,
+  audit_log) da duoc xoa sach bang script Prisma tam thoi (co kiem tra an toan so ten du an truoc khi
+  xoa), file script da xoa ngay sau khi chay, KHONG con trong repo. Da xoa key `ddc_pform_v1_*` khoi
+  localStorage trinh duyet. Du an id=18 (`DU AN QA SMOKE TEST PLAYWRIGHT DA SUA`) la du lieu con lai TU
+  VONG TRUOC (khong phai Tester tao ra o vong sua nay) - KHONG dong cham, da ghi lai o bao cao vong 1.
+
+## Kiem chung rang buoc DB that (muc 6, 7) bang transaction ROLLBACK
+
+`mcp__postgres` chi cho phep cau lenh READ-ONLY (thu `BEGIN; UPDATE ...; ROLLBACK;` bi tu choi ngay o
+buoc validate). De "thu INSERT/UPDATE vi pham trong transaction ROLLBACK" nhu yeu cau, da dung Prisma
+Client that (qua `DATABASE_URL` trong `.env`, ket noi `ddc_control_tower`) trong 1 script `tsx` tam
+thoi (xoa ngay sau khi chay, khong con trong repo), moi thu nghiem la 1 `$transaction` rieng, cuoi moi
+transaction CHU DONG nem loi de Prisma tu ROLLBACK:
+
+| Thu nghiem | Ket qua |
+|---|---|
+| Doi `currentAliasCode` du an 1 sang TRUNG CHINH XAC ma cua du an 2 (`10626-051`) | BI CHAN, `P2010` (loi tho tu unique index) |
+| Doi `currentAliasCode` du an 1 sang bien the VIET THUONG cua ma du an 18 (`ct-qa-smoke-01`) | BI CHAN, `P2010` (dung index `lower()`, khong phan biet hoa/thuong) |
+| Doi `currentAliasCode` du an 1 sang ma CHUA TUNG DUNG (doi chung, khong duoc chan oan) | THANH CONG (dung nhu ky vong) |
+| Them PIC thu 2 (`admin@...`) cho du an 1 (da co PIC `pm@...`) | BI CHAN, `P2010` (dung partial unique index) |
+| Them Backup thu 2 cho du an 1 (doi chung, index chi ap PIC) | THANH CONG (dung nhu ky vong, khong bi chan oan) |
+
+Sau khi TAT CA transaction ROLLBACK: `dim_project.currentAliasCode` id=1 van la `10626-008`
+(khong doi), `project_assignments` cua du an 1 van dung 2 dong nhu truoc (PIC + Backup) - xac nhan
+KHONG con du lieu ban nao trong DB sau khi thu nghiem.
+
+**Bo qua co ghi ro (khong bat buoc theo lenh)**: chua thu 2 ket noi Postgres THAT chay song song de
+quan sat khoa advisory (`pg_advisory_xact_lock`) chan race THAT giua 2 giao dich dong thoi - dung nhu
+`thay-doi.md` da tu nhan (`Rui ro Tester/Security nen soi ky them, muc 1`), day van la khoang trong
+chi duoc chung minh bang unit test (mock tuan tu), CHUA co test tich hop 2 ket noi that chay song song.
+De nghi Security-reviewer luu y diem nay khi ra soat lai S-2/S-6 nhu `danh-gia.md` da yeu cau.
+
+## Doi chieu tung muc "Xong khi" trong danh-gia.md
+
+- **Muc 1** (alias dong ho ao): dat qua unit test moi voi moc thoi gian gia XA hon ca thuc te lan moc
+  mac dinh test - chung minh doc lap voi ca gio may that lan `DDC_FAKE_TODAY` mac dinh cua bo test.
+- **Muc 2** (validateAliasChange chan client): dat qua smoke UI that + 6 test bien duoi moi.
+- **Muc 3** (F6 khong chua so tien): dat qua doc THAT localStorage trinh duyet, khong chi doc code.
+- **Muc 4** (VIET HOA + invalid_customer/team): dat qua smoke UI + DB that (tao du an moi) + 4 test
+  bien duoi moi (team da gop, ca 2 chieu create/update).
+- **Muc 5** (saveMonthlyData ngay ISO): dat qua 5 test moi tren cac truong ngay coder chua cham toi.
+- **Muc 6** (unique ma CT + khoa + P2002): dat qua kiem index that + transaction ROLLBACK that + 7+8
+  test unit moi (prisma mock + mock-repo) tren cac bien coder chua cham (trung masterCode, P2002 tu
+  layer khac, loi Prisma khac P2002 khong bi nuot oan).
+- **Muc 7** (partial unique 1 PIC): dat qua kiem index + transaction ROLLBACK that + test tren du an
+  MOI TAO (khong chi du an co san PIC tu seed).
+
+## Ket luan
+
+Khong phat hien hoi quy hay loi hanh vi nao trai voi "Xong khi" cua ca 7 muc trong `danh-gia.md`.
+Tester khong sua bat ky file code nguon nao - chi tao 5 file `*.qa.test.ts` moi va 2 script `tsx` tam
+thoi da xoa ngay sau khi dung (khong con dau vet trong repo). DB dev `ddc_control_tower` sach sau khi
+Tester don du lieu, chi con du an id=18 la di san tu vong truoc (khong phai cua vong sua nay).
+
+**KET QUA VONG SUA 1: XANH.**
