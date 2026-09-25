@@ -5,6 +5,7 @@ import type { JobName, JobTrigger } from './repo/types';
 import { repo } from './repo';
 import { refreshMonthRates } from './fx-rates';
 import { runAlertEngine } from './alert-engine';
+import { retryPendingNotifications } from './notify/dispatch';
 
 /** Chạy 1 job, luôn ghi job_run (running → ok/error) - KHÔNG BAO GIỜ throw. */
 export async function runJob(
@@ -23,6 +24,7 @@ export async function runJob(
         : { status: 'error', detail: `${r.error}: ${r.detail}` };
     } else {
       const r = await runAlertEngine({});
+      await retryPendingNotifications();
       result = { status: 'ok', detail: `checked=${r.checked} created=${r.created}` };
     }
     await repo.finishJobRun(id, result.status, result.detail);
@@ -66,6 +68,7 @@ export async function runDueJobs(trigger: 'lazy' | 'cron'): Promise<void> {
     if (isAlertsDailyDue(alertsRuns, today, new Date())) {
       await runJob('alerts_daily', trigger, 'system');
     }
+    await retryPendingNotifications();
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error('[jobs] runDueJobs loi (khong lam vo trang):', e);
