@@ -520,10 +520,12 @@ export function ProjectForm(p: ProjectFormProps) {
               </div>
               <div className="field" data-field="plannedFinishDate">
                 <span className="lb">{t('form.plannedFinish')}</span>
+                <HelpTip text={t('projectForm.tip.plannedFinish')} label={t('projectForm.tip.plannedFinish')} />
                 <input type="date" value={form.plannedFinishDate} onChange={(e) => set('plannedFinishDate', e.target.value)} className={inputCls('plannedFinishDate')} />
               </div>
               <div className="field" data-field="committedHandoverDate">
                 <span className="lb">{t('form.committedHandover')}</span>
+                <HelpTip text={t('projectForm.tip.committedHandover')} label={t('projectForm.tip.committedHandover')} alignRight />
                 <input type="date" value={form.committedHandoverDate} onChange={(e) => set('committedHandoverDate', e.target.value)} className={inputCls('committedHandoverDate')} />
               </div>
             </div>
@@ -531,10 +533,12 @@ export function ProjectForm(p: ProjectFormProps) {
             <div className="f4">
               <div className="field" data-field="actualStartDate">
                 <span className="lb">{t('form.actualStart')}</span>
+                <HelpTip text={t('projectForm.tip.actualStart')} label={t('projectForm.tip.actualStart')} />
                 <input type="date" value={form.actualStartDate} onChange={(e) => set('actualStartDate', e.target.value)} className={inputCls('actualStartDate')} />
               </div>
               <div className="field" data-field="actualFinishDate">
                 <span className="lb">{t('form.actualFinish')}</span>
+                <HelpTip text={t('projectForm.tip.actualFinish')} label={t('projectForm.tip.actualFinish')} />
                 <input type="date" value={form.actualFinishDate} onChange={(e) => set('actualFinishDate', e.target.value)} className={inputCls('actualFinishDate')} />
               </div>
               <Field label={t('projectForm.field.penalized')}>
@@ -547,6 +551,7 @@ export function ProjectForm(p: ProjectFormProps) {
               </Field>
               <div className="field">
                 <span className="lb">{t('form.penaltyValue')}</span>
+                <HelpTip text={t('projectForm.tip.penaltyValue')} label={t('projectForm.tip.penaltyValue')} alignRight />
                 <input type="number" step="0.1" value={fmtNum(form.penaltyValue)} onChange={(e) => set('penaltyValue', e.target.value)} className="inp" />
               </div>
             </div>

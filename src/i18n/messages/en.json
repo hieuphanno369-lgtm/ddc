@@ -1023,6 +1023,13 @@
       "forbidden": "You cannot edit this project.",
       "notFound": "Project not found.",
       "generic": "Save failed: {msg}"
+    },
+    "tip": {
+      "plannedFinish": "Internal target used to run the schedule. % Plan = days elapsed since Planned start ÷ total days from Planned start to Planned finish. The countdown on Project detail counts to 17:00 on this date. Not the same as Committed handover.",
+      "committedHandover": "Handover date stated in the contract. When 30 days or fewer remain and % Actual is below 100%, the project counts as Penalty risk and a Red alert is opened automatically.",
+      "actualStart": "Leave empty if work has not started; the project stays in Preparation. Once this date is set, the status becomes In progress.",
+      "actualFinish": "Fill in only after handover acceptance. The Completed status requires both this date and % Actual at 100%.",
+      "penaltyValue": "Estimated penalty amount (bn VND); can be entered before any penalty is applied. Currently stored in the profile only; not used for EAC, VAC, alerts or reports."
     }
   },
   "customerReview": {

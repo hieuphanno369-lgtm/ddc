@@ -1023,6 +1023,13 @@
       "forbidden": "Bạn không có quyền sửa dự án này.",
       "notFound": "Không tìm thấy dự án.",
       "generic": "Lưu thất bại: {msg}"
+    },
+    "tip": {
+      "plannedFinish": "Mốc nội bộ để chạy tiến độ. % Kế hoạch = số ngày đã trôi từ Ngày BĐ kế hoạch ÷ tổng số ngày từ BĐ đến HT kế hoạch. Đồng hồ đếm ngược ở Chi tiết dự án đếm tới 17:00 ngày này. Không nhầm với Bàn giao cam kết.",
+      "committedHandover": "Mốc ghi trong hợp đồng. Khi còn 30 ngày trở xuống tới mốc này mà % Thực tế chưa đạt 100%, dự án được tính là Nguy cơ phạt HĐ và hệ thống tự mở cảnh báo Đỏ.",
+      "actualStart": "Để trống nếu chưa khởi công, dự án ở trạng thái Chuẩn bị. Có ngày này thì trạng thái chuyển sang Đang triển khai.",
+      "actualFinish": "Chỉ điền khi đã nghiệm thu bàn giao. Trạng thái Hoàn thành chỉ bật khi có ngày này và % Thực tế đạt 100%.",
+      "penaltyValue": "Số tiền phạt ước tính (tỷ VNĐ), nhập được cả khi chưa bị phạt. Hiện chỉ lưu trong hồ sơ, chưa dùng để tính EAC, VAC, cảnh báo hay báo cáo."
     }
   },
   "customerReview": {
