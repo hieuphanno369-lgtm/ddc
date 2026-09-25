@@ -45,6 +45,7 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
       name: 'tên nhà máy',
       region: 'khu vực',
       capacityTonPerYear: 'công suất thiết kế (tấn/năm)',
+      isActive: 'false = ngừng dùng (không chọn được cho dự án mới, dữ liệu cũ vẫn giữ)',
     },
   },
   dim_currency: {
@@ -62,6 +63,7 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
       currencyCode: 'khoá ghép - FK tới dim_currency.code',
       yearMonth: "khoá ghép - 'YYYY-MM'",
       rateToVnd: 'tỷ giá quy đổi ra VND',
+      source: "nguồn tỷ giá - 'vcb' (tự lấy Vietcombank) | 'manual' (nhập tay)",
       updatedBy: 'người cập nhật gần nhất',
       updatedAt: 'thời điểm cập nhật gần nhất',
     },
@@ -102,7 +104,7 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
     kind: 'dim',
     desc: 'Ca làm việc - bảng mở rộng được, thêm ca mới chỉ cần INSERT (không cần migration).',
     fields: {
-      code: "khoá chính - mã ca ('morning', 'afternoon'…)",
+      code: "khoá chính - mã ca ('morning' = ca sáng, 'evening' = ca tối…)",
       nameVi: 'tên ca tiếng Việt',
       nameEn: 'tên ca tiếng Anh',
       sortOrder: 'thứ tự hiển thị',
@@ -248,6 +250,14 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
       owner: 'người phụ trách xử lý',
       action: 'hành động đã ghi khi đóng',
       deadline: 'hạn xử lý',
+      ruleCode: 'mã luật của engine cảnh báo sinh ra dòng này (null = dòng cũ/nhập tay)',
+      dedupeKey: 'khoá chống trùng - unique cùng projectId: 1 luật × 1 kỳ chỉ mở 1 cảnh báo',
+      closedBy: 'người đóng cảnh báo',
+      closeNote: 'ghi chú khi đóng (tuỳ chọn)',
+      notifyChannel: "kênh đã gửi thông báo, dạng 'webhook:1,email:2' (null = chưa gửi)",
+      notifySentAt: 'thời điểm gửi thông báo thành công',
+      notifyError: 'lỗi gửi thông báo gần nhất',
+      notifyAttempts: 'số lần đã thử gửi thông báo',
     },
   },
 
@@ -373,6 +383,8 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
       yearMonth: "khoá ghép - 'YYYY-MM'",
       factoryId: 'khoá ghép - FK tới dim_factory.id',
       tonnageProcessed: 'sản lượng đã xử lý trong tháng (tấn)',
+      updatedAt: 'thời điểm cập nhật gần nhất',
+      updatedBy: 'người cập nhật gần nhất',
     },
   },
   fact_value_chain_progress: {
@@ -424,6 +436,8 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
       shiftCode: 'khoá ghép - FK tới dim_shift.code',
       plannedHeadcount: 'nhân lực kế hoạch của ca đó',
       actualHeadcount: 'nhân lực thực tế của ca đó',
+      updatedAt: 'thời điểm cập nhật gần nhất (sửa ngày cũ ghi thêm audit_log)',
+      updatedBy: 'người cập nhật gần nhất',
     },
   },
   fact_daily_equipment_usage: {
@@ -437,6 +451,8 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
       workDate: 'khoá ghép - ngày sử dụng',
       qtyPlanned: 'số lượng kế hoạch (chiếc)',
       qtyActual: 'số lượng thực tế đã dùng (chiếc)',
+      updatedAt: 'thời điểm cập nhật gần nhất (sửa ngày cũ ghi thêm audit_log)',
+      updatedBy: 'người cập nhật gần nhất',
     },
   },
 
@@ -467,6 +483,7 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
       newValue: 'giá trị mới',
       changedBy: 'người sửa',
       changedAt: 'thời điểm sửa',
+      note: 'lý do sửa (bắt buộc khi sửa số của ngày cũ)',
     },
   },
   activity_log: {
@@ -481,6 +498,47 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
       ip: 'địa chỉ IP',
       userAgent: 'trình duyệt/thiết bị',
       createdAt: 'thời điểm thao tác',
+    },
+  },
+  job_run: {
+    kind: 'log',
+    desc: 'Nhật ký chạy job định kỳ (lấy tỷ giá hằng tháng, quét cảnh báo hằng ngày).',
+    fields: {
+      id: 'khoá chính',
+      jobName: "tên job - 'alerts_daily' | 'rates_monthly'",
+      trigger: "nguồn kích hoạt - 'cron' | 'lazy' | 'admin'",
+      status: "'running' | 'ok' | 'error'",
+      detail: 'chi tiết kết quả / lỗi',
+      startedAt: 'thời điểm bắt đầu',
+      finishedAt: 'thời điểm kết thúc (null = đang chạy)',
+      startedBy: 'người/hệ thống kích hoạt',
+    },
+  },
+  notify_channel: {
+    kind: 'support',
+    desc: 'Kênh gửi thông báo cảnh báo (webhook / email) - bí mật chỉ lưu dạng mã hoá.',
+    fields: {
+      id: 'khoá chính',
+      kind: 'webhook | email',
+      name: 'tên kênh',
+      isEnabled: 'true = đang bật gửi',
+      minSeverity: 'mức tối thiểu gửi - Red (chỉ Đỏ) | Amber (cả Vàng và Đỏ)',
+      settings: 'cấu hình không bí mật (JSON)',
+      secretEnc: 'bí mật (webhook URL / mật khẩu SMTP) mã hoá AES-256-GCM',
+      secretHint: 'gợi ý nhận diện bí mật (vd 4 ký tự cuối), không lộ giá trị',
+      updatedAt: 'thời điểm cập nhật gần nhất',
+      updatedBy: 'người cập nhật gần nhất',
+    },
+  },
+  notify_recipient: {
+    kind: 'support',
+    desc: 'Người nhận email theo kênh + mức độ tối thiểu.',
+    fields: {
+      id: 'khoá chính',
+      channelId: 'FK tới notify_channel.id',
+      email: 'địa chỉ email nhận (unique trong 1 kênh)',
+      minSeverity: 'mức tối thiểu nhận - Red | Amber',
+      isEnabled: 'true = đang nhận',
     },
   },
 };
@@ -502,6 +560,8 @@ export const ERD_LAYOUT: Record<string, ErdLayoutPos> = {
   dim_currency: { col: 0, row: 3 },
   dim_exchange_rate: { col: 0, row: 4 },
   user_roles: { col: 0, row: 5 },
+  notify_channel: { col: 0, row: 6 },
+  notify_recipient: { col: 0, row: 7 },
   // Cột 1
   dim_project_alias: { col: 1, row: 0 },
   project_sap_codes: { col: 1, row: 1 },
@@ -534,4 +594,5 @@ export const ERD_LAYOUT: Record<string, ErdLayoutPos> = {
   dim_date: { col: 4, row: 4 },
   audit_log: { col: 4, row: 5 },
   activity_log: { col: 4, row: 6 },
+  job_run: { col: 4, row: 7 },
 };

@@ -26,13 +26,19 @@ function login(user: CurrentUser | null) {
   (getCurrentUser as Mock).mockResolvedValue(user);
 }
 
-function excelForm(rows: Record<string, string>[]): FormData {
+function excelForm(rows: Record<string, string>[], fileName = 'import.xlsx'): FormData {
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(rows);
   XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
   const bytes = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
   const fd = new FormData();
-  fd.set('file', new File([bytes], 'import.xlsx'));
+  fd.set('file', new File([bytes], fileName));
+  return fd;
+}
+
+function csvForm(csv: string): FormData {
+  const fd = new FormData();
+  fd.set('file', new File([csv], 'import.csv', { type: 'text/csv' }));
   return fd;
 }
 
@@ -90,6 +96,67 @@ describe('importExcelAction - bao loi tung dong (khong con continue im lang)', (
 
     expect(res.ok).toBe(true);
     expect(res.preview![0]).toMatchObject({ status: 'invalid', reason: 'not_assigned', projectId: null });
+  });
+
+  it("nợ F4 (Task 9): file .xls -> loi schema, khong con nhan .xls", async () => {
+    login(ADMIN);
+    const res = (await importExcelAction(
+      excelForm([{ 'mã sap': 'SAP-EV-BSN-001', 'tên dự án': 'Du an hop le', '% TT': '50' }], 'import.xls'),
+    )) as { ok: boolean; error?: string };
+
+    expect(res).toEqual({ ok: false, error: 'Chỉ chấp nhận file .xlsx/.csv' });
+  });
+
+  it('nợ F4 (Task 9): file CSV 2 dong (header + 1 dong) -> preview dung rowNo', async () => {
+    login(ADMIN);
+    const csv = 'mã sap,tên dự án,% TT\nSAP-EV-BSN-001,Du an CSV,50\n';
+    const res = (await importExcelAction(csvForm(csv))) as Result;
+
+    expect(res.ok).toBe(true);
+    expect(res.preview).toHaveLength(1);
+    expect(res.preview![0]).toMatchObject({ rowNo: 2, status: 'mapped', reason: null });
+  });
+});
+
+describe('importExcelAction - chan file doc hai (H-1c)', () => {
+  it('sheet co XFD1 + A1048576 -> ok:false, khong treo, xong duoi 2s', async () => {
+    login(ADMIN);
+    const ExcelJS = (await import('exceljs')).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Sheet1');
+    ws.getCell('XFD1').value = 'x';
+    ws.getCell('A1048576').value = 'x';
+    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+    const fd = new FormData();
+    fd.set('file', new File([buf], 'evil.xlsx'));
+
+    const start = Date.now();
+    const res = (await importExcelAction(fd)) as { ok: boolean; error?: string };
+    const elapsed = Date.now() - start;
+
+    expect(res.ok).toBe(false);
+    expect(elapsed).toBeLessThan(2000);
+  });
+
+  it('(H-1b vong 2) entry NGOAI regex loc ten cu (xl/styles.xml) -> ok:false, Invalid file, duoi 2s', async () => {
+    login(ADMIN);
+    const ExcelJS = (await import('exceljs')).default;
+    const JSZip = (await import('jszip')).default;
+    const wb = new ExcelJS.Workbook();
+    wb.addWorksheet('Sheet1');
+    const tpl = Buffer.from(await wb.xlsx.writeBuffer());
+    const zip = await JSZip.loadAsync(tpl);
+    zip.file('xl/styles.xml', 'A'.repeat(30 * 1024 * 1024), { compression: 'DEFLATE', compressionOptions: { level: 9 } });
+    const buf = await zip.generateAsync({ type: 'nodebuffer' });
+    const fd = new FormData();
+    fd.set('file', new File([buf], 'evil.xlsx'));
+
+    const start = Date.now();
+    const res = (await importExcelAction(fd)) as { ok: boolean; error?: string };
+    const elapsed = Date.now() - start;
+
+    expect(res).toEqual({ ok: false, error: 'Invalid file' });
+    expect(elapsed).toBeLessThan(2000);
   });
 });
 

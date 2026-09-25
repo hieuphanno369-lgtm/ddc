@@ -8,8 +8,8 @@ const mock = createReadMock(() => data);
 // Seed mac dinh de auditLog/activityLog rong (chi sinh khi co mutation) - bom du lieu tay cho
 // cac test Buoc 6 (readLastAuditAt/readActivitySince/readAuditLogPage).
 data.auditLog.push(
-  { id: 1, tableName: 'dim_project', recordId: '1', field: 'x', oldValue: '', newValue: '', changedBy: 'u', changedAt: '2026-09-10T00:00:00.000Z' },
-  { id: 2, tableName: 'dim_project', recordId: '1', field: 'x', oldValue: '', newValue: '', changedBy: 'u', changedAt: '2026-09-20T00:00:00.000Z' },
+  { id: 1, tableName: 'dim_project', recordId: '1', field: 'x', oldValue: '', newValue: '', changedBy: 'u', changedAt: '2026-09-10T00:00:00.000Z', note: '' },
+  { id: 2, tableName: 'dim_project', recordId: '1', field: 'x', oldValue: '', newValue: '', changedBy: 'u', changedAt: '2026-09-20T00:00:00.000Z', note: 'ly do' },
 );
 data.activityLog.push(
   { id: 1, userEmail: 'a@x', userName: 'A', action: 'view', detail: '', ip: '', userAgent: '', createdAt: '2026-09-15T00:00:00.000Z' },
@@ -115,6 +115,7 @@ describe('read-mock', () => {
     expect(page.totalPages).toBe(2);
     expect(page.items).toHaveLength(1);
     expect(page.items[0].id).toBe(2);
+    expect(page.items[0].note).toBe('ly do'); // P2A them audit_log.note - khong duoc roi mat qua read repo
   });
 
   it('readAuditLogPage: since loc dung, khong con dong cu', async () => {

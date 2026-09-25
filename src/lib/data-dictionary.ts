@@ -31,7 +31,7 @@ export const DATA_DICTIONARY: DictSection[] = [
       { fieldVi: 'Loại hình', fieldEn: 'Project type', meaningVi: 'EPC, Sân vận động, Sân bay, Nhà xưởng, Cầu cảng, Cao tầng, Đóng tàu, Cầu giao thông, Khác.', meaningEn: 'EPC, Stadium, Airport, Factory, Port, High-rise, Shipyard, Bridge, Other.' },
       { fieldVi: 'Độ ưu tiên', fieldEn: 'Priority', meaningVi: 'P0 = quan trọng nhất, P3 = thấp nhất.', meaningEn: 'P0 = highest, P3 = lowest.' },
       { fieldVi: 'Thị trường', fieldEn: 'Market', meaningVi: 'Trong nước (TN), Xuất khẩu (XK), Nội bộ.', meaningEn: 'Domestic (TN), Export (XK), Internal.' },
-      { fieldVi: 'Tiền tệ', fieldEn: 'Currency', meaningVi: 'Đơn vị ghi giá trị hợp đồng. Dự án xuất khẩu có thể dùng USD/EUR/AUD/SAR.', meaningEn: 'Currency of the contract value. Export projects may use USD/EUR/AUD/SAR.' },
+      { fieldVi: 'Tiền tệ', fieldEn: 'Currency', meaningVi: 'Đơn vị ghi giá trị hợp đồng. Dự án xuất khẩu có thể dùng USD/EUR.', meaningEn: 'Currency of the contract value. Export projects may use USD/EUR.' },
       { fieldVi: 'Giá trị HĐ (BAC)', fieldEn: 'Contract value (BAC)', meaningVi: 'Tổng giá trị hợp đồng trước VAT (tỷ). Đây là mốc ngân sách BAC để tính EVM.', meaningEn: 'Total contract value before VAT (billion). This is the BAC budget baseline for EVM.', formulaVi: 'BAC = Giá trị hợp đồng', formulaEn: 'BAC = Contract value' },
       { fieldVi: 'Khối lượng (tấn)', fieldEn: 'Tonnage (ton)', meaningVi: 'Tổng khối lượng kết cấu thép phải gia công.', meaningEn: 'Total steel structure tonnage to fabricate.' },
       { fieldVi: 'Ngày ký HĐ', fieldEn: 'Contract date', meaningVi: 'Ngày ký kết hợp đồng.', meaningEn: 'Contract signing date.' },

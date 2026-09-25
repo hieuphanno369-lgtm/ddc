@@ -17,6 +17,7 @@ const ROW: AuditLogEntry = {
   newValue: '45',
   changedBy: 'admin@daidung.com.vn',
   changedAt: '2026-09-23T08:15:00.000Z',
+  note: '',
 };
 
 describe('AuditMiniTable (P1B Task 6)', () => {

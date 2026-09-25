@@ -25,7 +25,7 @@ export const contractors: Contractor[] = [
 /** Ca làm việc - bảng mở rộng được (thêm ca = INSERT, không migration). */
 export const shifts: Shift[] = [
   { code: 'morning', nameVi: 'Ca sáng', nameEn: 'Morning', sortOrder: 1, isActive: true },
-  { code: 'afternoon', nameVi: 'Ca chiều', nameEn: 'Afternoon', sortOrder: 2, isActive: true },
+  { code: 'evening', nameVi: 'Ca tối', nameEn: 'Evening', sortOrder: 2, isActive: true },
 ];
 
 /** 7 nhóm thiết bị đã chốt (Q8). */

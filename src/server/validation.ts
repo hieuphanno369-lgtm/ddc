@@ -2,6 +2,10 @@ import { z } from 'zod';
 import { THRESHOLDS } from '@/lib/thresholds';
 import { isValidIsoDate, isValidYearMonth } from '@/lib/clock';
 import { KEY_MS_MAX_ROWS, KEY_MS_NAME_MAX } from '@/lib/key-milestones';
+import { DAILY_VALUE_MAX } from '@/lib/daily-entry';
+import { DAILY_IMPORT_MAX_DAYS } from '@/lib/daily-import';
+import { FX_CURRENCIES } from '@/lib/fx';
+import { currentMonth } from '@/lib/clock';
 
 /**
  * Zod schema validate input mọi server action (spec §7.5 - không tin client).
@@ -41,7 +45,7 @@ const PROJECT_TYPE = [
   'Khac',
 ] as const;
 const PRIORITY = ['P0', 'P1', 'P2', 'P3'] as const;
-const CURRENCY = ['VND', 'USD', 'EUR', 'AUD', 'SAR'] as const;
+const CURRENCY = ['VND', 'USD', 'EUR'] as const;
 const STAGE_CODES = ['design', 'shop', 'procurement', 'fabrication', 'transport', 'erection', 'handover'] as const;
 
 export const saveMonthlyDataSchema = z.object({
@@ -80,6 +84,8 @@ export const saveMonthlyDataSchema = z.object({
     arCollected: nonNegative.optional(),
     arOutstanding: nonNegative.optional(),
     arOverdue: nonNegative.optional(),
+    factoryId: z.number().int().positive().nullable().optional(),
+    volumeTonnage: z.number().min(0).max(1_000_000).optional(),
   }),
 });
 
@@ -150,9 +156,12 @@ export const commitImportSchema = z.object({
 /** Giới hạn dung lượng 1 file import (10MB) - chặn ở action trước khi parse (chống DoS). */
 export const IMPORT_MAX_BYTES = 10 * 1024 * 1024;
 
-/** Chỉ nhận file bảng tính (.xlsx/.xls/.csv) trong giới hạn dung lượng. */
+/** H-1a (danh-gia.md vòng 1): giới hạn số dòng đọc ở `importExcelAction` (import SAP legacy) - chặn TRƯỚC khi dựng preview. */
+export const IMPORT_LEGACY_MAX_ROWS = 5000;
+
+/** Nợ F4 (P2A, Task 9): đọc bằng exceljs - không còn nhận .xls (chỉ .xlsx/.csv). */
 export const importFileSchema = z.object({
-  name: z.string().regex(/\.(xlsx|xls|csv)$/i, 'Chỉ chấp nhận file .xlsx/.xls/.csv'),
+  name: z.string().regex(/\.(xlsx|csv)$/i, 'Chỉ chấp nhận file .xlsx/.csv'),
   size: z.number().int().positive().max(IMPORT_MAX_BYTES, 'File vượt quá 10MB'),
 });
 
@@ -197,4 +206,87 @@ export const mergeDimSchema = z.object({
   field: z.enum(['customer', 'team']),
   fromId: z.number().int().positive(),
   toId: z.number().int().positive(),
+});
+
+// ---- G-18: nhà thầu tham gia dự án (Task 3, P2A) ----
+export const projectContractorSchema = z.object({
+  projectId: z.number().int().positive(),
+  contractorId: z.number().int().positive(),
+});
+
+export const createContractorSchema = z.object({
+  projectId: z.number().int().positive(),
+  name: z.string().trim().min(1).max(120),
+  scopeOfWork: z.string().trim().max(200),
+});
+
+/** Task 4 (P2A): nhân lực theo ca + thiết bị theo ngày. */
+const dailyValue = z.number().int().min(0).max(DAILY_VALUE_MAX);
+const manpowerCellSchema = z.object({
+  contractorId: z.number().int().positive(),
+  shiftCode: z.string().trim().min(1).max(20),
+  plannedHeadcount: dailyValue,
+  actualHeadcount: dailyValue,
+});
+const equipmentCellSchema = z.object({
+  contractorId: z.number().int().positive(),
+  equipmentId: z.number().int().positive(),
+  qtyPlanned: dailyValue,
+  qtyActual: dailyValue,
+});
+export const saveDailyResourcesSchema = z.object({
+  projectId: z.number().int().positive(),
+  workDate: z.string().refine(isValidIsoDate, 'Ngày phải dạng YYYY-MM-DD hợp lệ'),
+  manpower: z.array(manpowerCellSchema).max(500),
+  equipment: z.array(equipmentCellSchema).max(500),
+  reason: z.string().trim().max(500).optional(),
+});
+
+/** Task 5 (P2A): file import Excel nhân lực/thiết bị theo ngày - chỉ nhận .xlsx. */
+export const dailyImportFileSchema = z.object({
+  name: z.string().regex(/\.xlsx$/i, 'Chỉ chấp nhận file .xlsx'),
+  size: z.number().int().positive().max(IMPORT_MAX_BYTES, 'File vượt quá 10MB'),
+});
+
+/** T8 (Task 6, P2A): CRUD khu vực sản xuất / công suất. */
+export const factorySchema = z.object({
+  id: z.number().int().positive().optional(),
+  name: z.string().trim().min(1).max(120),
+  region: z.string().trim().max(60),
+  capacityTonPerYear: z.number().positive().max(10_000_000),
+});
+
+/** T6 (Task 7, P2A): tỷ giá tháng - chỉ USD/EUR, tháng không được ở tương lai. */
+export const saveExchangeRateSchema = z.object({
+  currencyCode: z.enum(FX_CURRENCIES),
+  yearMonth: yearMonth.refine((ym) => ym <= currentMonth(), 'Tháng không được ở tương lai'),
+  rateToVnd: z.number().positive().max(1_000_000),
+});
+
+export const deleteExchangeRateSchema = z.object({
+  currencyCode: z.enum(FX_CURRENCIES),
+  yearMonth,
+});
+
+/** Task 5 (P2A): commit các ngày đã xem trước từ import Excel. */
+export const commitDailyImportSchema = z.object({
+  projectId: z.number().int().positive(),
+  days: z
+    .array(
+      z.object({
+        workDate: z.string().refine(isValidIsoDate, 'Ngày phải dạng YYYY-MM-DD hợp lệ'),
+        manpower: z.array(manpowerCellSchema).max(500),
+        equipment: z.array(equipmentCellSchema).max(500),
+      }),
+    )
+    .min(1)
+    .max(DAILY_IMPORT_MAX_DAYS),
+  reason: z.string().trim().max(500).optional(),
+});
+
+/** T11 (Task 8, P2A): đóng alert - bắt buộc ghi hành động đã xử lý (Q12). */
+export const closeAlertSchema = z.object({
+  alertId: z.number().int().positive(),
+  action: z.string().trim().min(3).max(500),
+  note: z.string().trim().max(1000),
 });

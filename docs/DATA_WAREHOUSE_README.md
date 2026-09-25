@@ -40,6 +40,7 @@ erDiagram
     dim_stage ||--o{ fact_value_chain_progress : "stageCode"
     dim_factory ||--o{ fact_volume : "factoryId"
     dim_project ||--o{ fact_volume : "projectId"
+    notify_channel ||--o{ notify_recipient : "channelId"
     dim_project ||--o{ project_assignments : "projectId"
     dim_contractor ||--o{ project_contractor : "contractorId"
     dim_project ||--o{ project_contractor : "projectId"
@@ -76,6 +77,14 @@ erDiagram
       String owner
       String action
       String deadline
+      String ruleCode
+      String dedupeKey
+      String closedBy
+      String closeNote
+      String notifyChannel
+      DateTime notifySentAt
+      String notifyError
+      Int notifyAttempts
     }
     audit_log {
       Int id PK
@@ -86,6 +95,7 @@ erDiagram
       String newValue
       String changedBy
       DateTime changedAt
+      String note
     }
     dim_contractor {
       Int id PK
@@ -124,6 +134,7 @@ erDiagram
       String currencyCode PK,FK
       String yearMonth PK
       Float rateToVnd
+      String source
       String updatedBy
       DateTime updatedAt
     }
@@ -132,6 +143,7 @@ erDiagram
       String name
       String region
       Float capacityTonPerYear
+      Boolean isActive
     }
     dim_project {
       Int id PK
@@ -201,6 +213,8 @@ erDiagram
       Date workDate PK
       Int qtyPlanned
       Int qtyActual
+      DateTime updatedAt
+      String updatedBy
     }
     fact_daily_manpower {
       Int projectId PK,FK
@@ -209,6 +223,8 @@ erDiagram
       String shiftCode PK,FK
       Int plannedHeadcount
       Int actualHeadcount
+      DateTime updatedAt
+      String updatedBy
     }
     fact_financial {
       Int projectId PK,FK
@@ -286,6 +302,37 @@ erDiagram
       String yearMonth PK
       Int factoryId PK,FK
       Float tonnageProcessed
+      DateTime updatedAt
+      String updatedBy
+    }
+    job_run {
+      Int id PK
+      String jobName
+      String trigger
+      String status
+      String detail
+      DateTime startedAt
+      DateTime finishedAt
+      String startedBy
+    }
+    notify_channel {
+      Int id PK
+      NotifyKind kind
+      String name
+      Boolean isEnabled
+      AlertType minSeverity
+      Json settings
+      String secretEnc
+      String secretHint
+      DateTime updatedAt
+      String updatedBy
+    }
+    notify_recipient {
+      Int id PK
+      Int channelId FK
+      String email
+      AlertType minSeverity
+      Boolean isEnabled
     }
     project_assignments {
       Int projectId PK,FK

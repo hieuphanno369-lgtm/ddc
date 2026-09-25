@@ -450,7 +450,8 @@
     "lastUpdate": "Last Update DB",
     "deleteProject": "Delete project",
     "confirmDelete": "Delete this project? (hide from list, keep data)",
-    "deleted": "Project deleted"
+    "deleted": "Project deleted",
+    "delete": "Delete"
   },
   "auth": {
     "signIn": "Sign in",
@@ -572,7 +573,21 @@
     "lock_account": "Lock account",
     "unlock_account": "Unlock account",
     "add_photo": "Add site photo",
-    "delete_photo": "Delete site photo"
+    "delete_photo": "Delete site photo",
+    "save_exchange_rate": "Save exchange rate",
+    "delete_exchange_rate": "Delete exchange rate",
+    "save_factory": "Save factory",
+    "activate_factory": "Activate factory",
+    "deactivate_factory": "Deactivate factory",
+    "project_contractor_add": "Add contractor to project",
+    "project_contractor_remove": "Remove contractor from project",
+    "save_daily_resources": "Save daily resources",
+    "contractor_create": "Create contractor",
+    "commit_daily_import": "Commit daily import",
+    "create_dim": "Create dimension",
+    "rename_dim": "Rename dimension",
+    "merge_dim": "Merge dimensions",
+    "save_key_milestones": "Save key milestones"
   },
   "dataGuard": {
     "import": {
@@ -662,5 +677,145 @@
     "behind": "▼ Behind {days}d · −{pct}%",
     "ahead": "▲ Ahead {days}d · +{pct}%",
     "onTrack": "On track"
+  },
+  "contractorJoin": {
+    "title": "Participating contractors",
+    "empty": "No contractors yet — add one to enter manpower/equipment.",
+    "add": "Add contractor",
+    "create": "+ Create new contractor",
+    "remove": "Remove",
+    "confirmRemove": "Remove {name} from this project?",
+    "err": {
+      "has_data": "Cannot remove: this contractor already has manpower/equipment data here.",
+      "forbidden": "You are not allowed to edit this project.",
+      "generic": "Error: {msg}"
+    }
+  },
+  "dailyEntry": {
+    "step": "Manpower & Equipment",
+    "date": "Date",
+    "manpower": "Manpower by shift",
+    "equipment": "Equipment",
+    "contractor": "Contractor",
+    "planned": "Plan",
+    "actual": "Actual",
+    "dayTotal": "Day total",
+    "total": "Total",
+    "addEquipment": "+ Add equipment row",
+    "reason": "Reason for editing a past day",
+    "reasonHint": "Required (≥ 5 chars) when changing existing figures of a past day — stored in the audit log.",
+    "save": "Save {date}",
+    "saved": "Saved: {created} new · {updated} changed · {unchanged} unchanged",
+    "locked": "Month {month} is locked — read only.",
+    "outOfWindow": "This date is outside the allowed entry window.",
+    "err": {
+      "bad_number": "Invalid cell — whole numbers ≥ 0 only.",
+      "duplicate_equipment": "Duplicate equipment row (same contractor + equipment).",
+      "reason_required": "Enter a reason (at least 5 chars) to edit a past day.",
+      "actual_future": "Actual figures cannot be entered for a future date.",
+      "out_of_window": "Date outside the allowed window.",
+      "locked": "Month {month} is locked.",
+      "invalid_contractor": "A contractor is not in this project — reload the page.",
+      "invalid_shift": "Invalid shift — reload the page.",
+      "invalid_equipment": "Invalid equipment — reload the page.",
+      "forbidden": "You are not allowed to edit this project.",
+      "generic": "Save failed: {msg}"
+    }
+  },
+  "dailyImport": {
+    "title": "Import from Excel",
+    "template": "Download template",
+    "preview": "Preview",
+    "commit": "Save {n} days",
+    "summary": "{ok} valid rows · {invalid} invalid",
+    "rowNo": "Row",
+    "sheetCol": "Sheet",
+    "statusCol": "Status",
+    "sheet": {
+      "manpower": "Manpower",
+      "equipment": "Equipment"
+    },
+    "ok": "Valid",
+    "done": "Saved {days} days ({created} new · {updated} changed)",
+    "reason": {
+      "bad_date": "Unreadable date",
+      "out_of_window": "Date outside allowed window",
+      "unknown_contractor": "Contractor not in project",
+      "unknown_equipment": "Unknown equipment",
+      "bad_number": "Invalid number",
+      "actual_future": "Actual figure on a future date",
+      "duplicate": "Duplicate of a row above"
+    },
+    "err": {
+      "bad_file": "Unreadable or non-.xlsx file.",
+      "bad_header": "Sheet {sheet} has wrong headers — use the template.",
+      "too_many_rows": "File exceeds 5000 rows.",
+      "too_many_days": "File exceeds 62 days — split it."
+    }
+  },
+  "factoryAdmin": {
+    "title": "Production areas / Factories",
+    "name": "Area name",
+    "region": "Region",
+    "capacity": "Capacity (t/year)",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "deactivate": "Deactivate",
+    "activate": "Reactivate",
+    "add": "Add area",
+    "save": "Save",
+    "err": {
+      "duplicate_name": "Area name already exists.",
+      "invalid": "Invalid data (name required, capacity > 0)."
+    }
+  },
+  "volumeEntry": {
+    "factory": "Production area",
+    "none": "— Not set —",
+    "inactiveSuffix": "(inactive)",
+    "tonnage": "Monthly processed tonnage (t)",
+    "hint": "Recorded against the project's production area (Profile step).",
+    "noFactory": "Choose a production area in the Profile step before entering tonnage.",
+    "invalidFactory": "Invalid or inactive production area."
+  },
+  "fxRates": {
+    "title": "Monthly exchange rates",
+    "hint": "Vietcombank transfer-buy rate is fetched monthly; edit manually only on failure. Manual values are never overwritten.",
+    "month": "Month",
+    "source": {
+      "vcb": "VCB",
+      "manual": "Manual"
+    },
+    "fetchNow": "Fetch from Vietcombank now",
+    "lastRun": "Last fetch: {time} · {status}",
+    "never": "Never fetched",
+    "status": {
+      "ok": "success",
+      "error": "failed",
+      "running": "running"
+    },
+    "edit": "Edit",
+    "save": "Save",
+    "delete": "Delete",
+    "confirmDelete": "Delete {cur} rate for {month}?",
+    "fetchOk": "Fetched: {detail}",
+    "fetchErr": "Could not fetch rates: {detail}",
+    "missing": "Missing {currencies} rate for {month}.",
+    "missingLink": "Update",
+    "err": {
+      "invalid": "Rate must be > 0 and month not in the future."
+    }
+  },
+  "alertClose": {
+    "action": "Action taken",
+    "note": "Note (optional)",
+    "confirm": "Confirm close",
+    "cancel": "Cancel",
+    "err": {
+      "action_short": "Describe the action taken (at least 3 chars).",
+      "already_closed": "This alert is already closed.",
+      "forbidden": "You are not allowed to close this alert."
+    }
   }
 }

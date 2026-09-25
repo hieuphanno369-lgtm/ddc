@@ -3,6 +3,18 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P2A — Nhập liệu mới (Tài khoản A) — CHỐT + ĐÃ MERGE vào `main` (2026-09-25)
+Nhánh `feature/p2a-nhap-lieu`, dây chuyền ship đủ chặng (2 vòng sửa → reviewer v3 CHỐT, security v3 ĐẠT). Hồ sơ:
+`.bangiao/archive/p2a-nhap-lieu-2026-09-24/`. `tsc` sạch, 98/98 file · 1177/1177 test.
+- Ca tối thay ca chiều (mã `afternoon` → ca tối; chart đọc tên ca từ `dim_shift`); G-18 nhà thầu tham gia dự án.
+- Nhập nhân lực theo ca + thiết bị theo ngày (sửa ngày cũ bắt buộc lý do → `audit_log.note`) + import Excel/file mẫu.
+- T8 CRUD khu vực SX + sản lượng tháng; T6 tỷ giá tự lấy Vietcombank + sửa tay + dải nhắc; hạ tầng `job_run`/cron.
+- T11 engine cảnh báo R1–R7 (sau mỗi lần lưu + hằng ngày), đóng alert bắt buộc ghi hành động. F4: import Excel cũ → `exceljs` (bỏ `.xls`).
+- Migration `20260924150000_p2a_entry_foundation`: `job_run`, `notify_channel`, `notify_recipient` (nền P3B), cột mới ở
+  `alert_log`, `audit_log.note`, `dim_factory.isActive`, `dim_exchange_rate.source`, `updatedAt/updatedBy` 3 bảng fact.
+- **Chờ chủ dự án**: 3 câu hỏi (Task 10 form `project_equipment_plan`, jszip, trần import 20MB) — `danh-gia.md` trong archive.
+- **B sau khi kéo main**: `npx prisma migrate deploy` trên `ddc_control_tower_b` + checklist merge P2A↔P2B.
+
 ### ✅ P1A — Dữ liệu đúng (Tài khoản A) — CHỐT + ĐÃ MERGE vào `main` (2026-09-24)
 Nhánh `feature/p1a-du-lieu-dung`, dây chuyền ship đủ chặng (2 vòng CAN SUA → CHỐT ở reviewer vòng 3). Hồ sơ:
 `.bangiao/archive/p1a-du-lieu-dung-2026-09-24/`. `tsc` sạch, 838 test P1A (928/928 sau khi gộp P1B), `next build` (font mock) sạch.

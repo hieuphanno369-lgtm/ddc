@@ -1,12 +1,14 @@
 import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { repo } from '@/server/repo';
-import { currentMonth, historyMonths, todayIso } from '@/lib/clock';
+import { currentMonth, historyMonths, isValidIsoDate, todayIso } from '@/lib/clock';
+import { dailyDateWindow, isInWindow } from '@/lib/daily-entry';
 import { getCurrentUser, homeForRole } from '@/lib/session';
 import { DataEntryForm, type DataEntryStep } from '@/components/form/DataEntryForm';
+import { ResourceEntryPanel } from '@/components/form/ResourceEntryPanel';
 import { CreateProjectForm } from '@/components/form/CreateProjectForm';
 
-const STEPS: DataEntryStep[] = ['progress', 'finance', 'profile', 'extras'];
+const STEPS: DataEntryStep[] = ['progress', 'finance', 'profile', 'extras', 'resources'];
 
 export default async function NhapLieuPage({
   searchParams,
@@ -57,6 +59,24 @@ export default async function NhapLieuPage({
   const initialStep = typeof searchParams.step === 'string' && (STEPS as string[]).includes(searchParams.step)
     ? (searchParams.step as DataEntryStep) : undefined;
 
+  // Buoc "Nhan luc & Thiet bi" (B, P2A): ngay dang xem trong khoang cho phep theo role (Q2).
+  const entryWindow = dailyDateWindow(user.role, today);
+  const dateParam = typeof searchParams.date === 'string' ? searchParams.date : '';
+  const date = isValidIsoDate(dateParam) && isInWindow(dateParam, entryWindow) ? dateParam : today;
+  const members = project ? await repo.getContractors(project.id) : [];
+  const allContractors = await repo.getContractors();
+  const shifts = await repo.getShifts();
+  const equipments = await repo.getEquipments();
+  const manpower = project ? await repo.getDailyManpowerByShift(project.id, date, date) : [];
+  const dailyEquipment = project ? await repo.getDailyEquipment(project.id, date, date) : [];
+  const monthLocked = await repo.isMonthLocked(date.slice(0, 7));
+
+  // T8 (Task 6, P2A): sản lượng tháng của khu vực sản xuất chính của dự án.
+  const volumeTonnage =
+    project && project.factoryId != null
+      ? (await repo.getVolumes(project.id, month)).find((v) => v.factoryId === project.factoryId)?.tonnageProcessed ?? null
+      : null;
+
   return (
     <div className="mx-auto w-full max-w-5xl">
       <section className="mb-5">
@@ -89,10 +109,29 @@ export default async function NhapLieuPage({
             customers={dims.customers}
             teams={dims.teams}
             currencies={dims.currencies}
+            factories={dims.factories}
+            volumeTonnage={volumeTonnage}
             keyMilestones={keyMilestones}
             today={today}
             initialStep={initialStep}
             canEditFinance={user.role === 'admin'}
+            resourcesPanel={
+              <ResourceEntryPanel
+                key={date}
+                projectId={project.id}
+                masterCode={project.currentAliasCode}
+                date={date}
+                today={today}
+                entryWindow={entryWindow}
+                monthLocked={monthLocked}
+                members={members}
+                allContractors={allContractors}
+                shifts={shifts}
+                equipments={equipments}
+                manpower={manpower}
+                equipment={dailyEquipment}
+              />
+            }
           />
         )}
       </section>

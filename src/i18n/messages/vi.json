@@ -450,7 +450,8 @@
     "lastUpdate": "Cập nhật DB lần cuối",
     "deleteProject": "Xóa dự án",
     "confirmDelete": "Xóa dự án này? (ẩn khỏi danh sách, giữ data)",
-    "deleted": "Đã xóa dự án"
+    "deleted": "Đã xóa dự án",
+    "delete": "Xóa"
   },
   "auth": {
     "signIn": "Đăng nhập",
@@ -572,7 +573,21 @@
     "lock_account": "Khóa tài khoản",
     "unlock_account": "Mở khóa tài khoản",
     "add_photo": "Thêm ảnh hiện trường",
-    "delete_photo": "Xóa ảnh hiện trường"
+    "delete_photo": "Xóa ảnh hiện trường",
+    "save_exchange_rate": "Lưu tỷ giá",
+    "delete_exchange_rate": "Xoá tỷ giá",
+    "save_factory": "Lưu khu vực sản xuất",
+    "activate_factory": "Bật khu vực sản xuất",
+    "deactivate_factory": "Tắt khu vực sản xuất",
+    "project_contractor_add": "Thêm nhà thầu vào dự án",
+    "project_contractor_remove": "Gỡ nhà thầu khỏi dự án",
+    "save_daily_resources": "Lưu nhân lực/thiết bị ngày",
+    "contractor_create": "Tạo nhà thầu",
+    "commit_daily_import": "Import nhân lực/thiết bị ngày",
+    "create_dim": "Tạo danh mục",
+    "rename_dim": "Đổi tên danh mục",
+    "merge_dim": "Gộp danh mục",
+    "save_key_milestones": "Lưu mốc chính"
   },
   "dataGuard": {
     "import": {
@@ -662,5 +677,145 @@
     "behind": "▼ Chậm {days} ngày · −{pct}%",
     "ahead": "▲ Nhanh {days} ngày · +{pct}%",
     "onTrack": "Đúng tiến độ"
+  },
+  "contractorJoin": {
+    "title": "Nhà thầu tham gia",
+    "empty": "Chưa có nhà thầu tham gia — thêm nhà thầu để nhập nhân lực/thiết bị.",
+    "add": "Thêm nhà thầu",
+    "create": "+ Tạo nhà thầu mới",
+    "remove": "Gỡ",
+    "confirmRemove": "Gỡ {name} khỏi dự án?",
+    "err": {
+      "has_data": "Không gỡ được: nhà thầu đã có số liệu nhân lực/thiết bị ở dự án này.",
+      "forbidden": "Bạn không có quyền sửa dự án này.",
+      "generic": "Lỗi: {msg}"
+    }
+  },
+  "dailyEntry": {
+    "step": "Nhân lực & Thiết bị",
+    "date": "Ngày",
+    "manpower": "Nhân lực theo ca",
+    "equipment": "Thiết bị",
+    "contractor": "Nhà thầu",
+    "planned": "KH",
+    "actual": "TT",
+    "dayTotal": "Tổng ngày",
+    "total": "Tổng",
+    "addEquipment": "+ Thêm dòng thiết bị",
+    "reason": "Lý do sửa số ngày cũ",
+    "reasonHint": "Bắt buộc (≥ 5 ký tự) khi sửa số đã có của ngày trước hôm nay — ghi vào nhật ký thay đổi.",
+    "save": "Lưu ngày {date}",
+    "saved": "Đã lưu: {created} mới · {updated} sửa · {unchanged} không đổi",
+    "locked": "Tháng {month} đã khoá số liệu — không sửa được.",
+    "outOfWindow": "Ngày này ngoài khoảng được phép nhập/sửa.",
+    "err": {
+      "bad_number": "Có ô không hợp lệ — chỉ nhận số nguyên ≥ 0.",
+      "duplicate_equipment": "Trùng dòng thiết bị (cùng nhà thầu + thiết bị).",
+      "reason_required": "Nhập lý do (ít nhất 5 ký tự) khi sửa số của ngày cũ.",
+      "actual_future": "Không nhập số thực tế cho ngày trong tương lai.",
+      "out_of_window": "Ngày ngoài khoảng được phép nhập/sửa.",
+      "locked": "Tháng {month} đã khoá số liệu.",
+      "invalid_contractor": "Có nhà thầu không thuộc dự án — tải lại trang.",
+      "invalid_shift": "Ca làm việc không hợp lệ — tải lại trang.",
+      "invalid_equipment": "Thiết bị không hợp lệ — tải lại trang.",
+      "forbidden": "Bạn không có quyền sửa dự án này.",
+      "generic": "Lưu thất bại: {msg}"
+    }
+  },
+  "dailyImport": {
+    "title": "Nhập từ Excel",
+    "template": "Tải file mẫu",
+    "preview": "Xem trước",
+    "commit": "Ghi {n} ngày",
+    "summary": "{ok} dòng hợp lệ · {invalid} dòng lỗi",
+    "rowNo": "Dòng",
+    "sheetCol": "Sheet",
+    "statusCol": "Trạng thái",
+    "sheet": {
+      "manpower": "Nhân lực",
+      "equipment": "Thiết bị"
+    },
+    "ok": "Hợp lệ",
+    "done": "Đã ghi {days} ngày ({created} mới · {updated} sửa)",
+    "reason": {
+      "bad_date": "Ngày không đọc được",
+      "out_of_window": "Ngày ngoài khoảng được phép",
+      "unknown_contractor": "Nhà thầu không thuộc dự án",
+      "unknown_equipment": "Thiết bị không có trong danh mục",
+      "bad_number": "Số không hợp lệ",
+      "actual_future": "Có số thực tế cho ngày tương lai",
+      "duplicate": "Trùng dòng phía trên"
+    },
+    "err": {
+      "bad_file": "File không đọc được hoặc không phải .xlsx.",
+      "bad_header": "Sheet {sheet} sai tiêu đề cột — dùng file mẫu.",
+      "too_many_rows": "File quá 5000 dòng.",
+      "too_many_days": "File quá 62 ngày — tách nhỏ file."
+    }
+  },
+  "factoryAdmin": {
+    "title": "Khu vực / Nhà máy sản xuất",
+    "name": "Tên khu vực",
+    "region": "Vùng",
+    "capacity": "Công suất (tấn/năm)",
+    "status": "Trạng thái",
+    "active": "Đang dùng",
+    "inactive": "Ngừng dùng",
+    "deactivate": "Ngừng dùng",
+    "activate": "Dùng lại",
+    "add": "Thêm khu vực",
+    "save": "Lưu",
+    "err": {
+      "duplicate_name": "Tên khu vực đã tồn tại.",
+      "invalid": "Dữ liệu không hợp lệ (tên bắt buộc, công suất > 0)."
+    }
+  },
+  "volumeEntry": {
+    "factory": "Khu vực sản xuất",
+    "none": "— Chưa chọn —",
+    "inactiveSuffix": "(ngừng dùng)",
+    "tonnage": "Sản lượng gia công tháng (tấn)",
+    "hint": "Ghi vào khu vực sản xuất của dự án (bước Hồ sơ).",
+    "noFactory": "Chọn khu vực sản xuất ở bước Hồ sơ trước khi nhập sản lượng.",
+    "invalidFactory": "Khu vực không hợp lệ hoặc đã ngừng dùng."
+  },
+  "fxRates": {
+    "title": "Tỷ giá theo tháng",
+    "hint": "Tự lấy tỷ giá mua chuyển khoản Vietcombank mỗi tháng; chỉ sửa tay khi lỗi. Số nhập tay không bị ghi đè.",
+    "month": "Tháng",
+    "source": {
+      "vcb": "VCB",
+      "manual": "Nhập tay"
+    },
+    "fetchNow": "Lấy ngay từ Vietcombank",
+    "lastRun": "Lần lấy gần nhất: {time} · {status}",
+    "never": "Chưa lấy lần nào",
+    "status": {
+      "ok": "thành công",
+      "error": "lỗi",
+      "running": "đang chạy"
+    },
+    "edit": "Sửa",
+    "save": "Lưu",
+    "delete": "Xoá",
+    "confirmDelete": "Xoá tỷ giá {cur} tháng {month}?",
+    "fetchOk": "Đã lấy: {detail}",
+    "fetchErr": "Không lấy được tỷ giá: {detail}",
+    "missing": "Thiếu tỷ giá {currencies} tháng {month}.",
+    "missingLink": "Cập nhật",
+    "err": {
+      "invalid": "Tỷ giá phải là số > 0, tháng không ở tương lai."
+    }
+  },
+  "alertClose": {
+    "action": "Hành động đã xử lý",
+    "note": "Ghi chú (tuỳ chọn)",
+    "confirm": "Xác nhận đóng",
+    "cancel": "Huỷ",
+    "err": {
+      "action_short": "Nhập hành động đã xử lý (ít nhất 3 ký tự).",
+      "already_closed": "Alert này đã được đóng.",
+      "forbidden": "Bạn không có quyền đóng alert này."
+    }
   }
 }

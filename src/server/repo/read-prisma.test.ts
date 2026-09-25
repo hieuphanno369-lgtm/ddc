@@ -218,6 +218,17 @@ describe('read-prisma', () => {
       expect(r.totalPages).toBe(1);
     });
 
+    it('map giu cot note (P2A them audit_log.note - ly do sua ngay cu)', async () => {
+      auditLogCount.mockResolvedValueOnce(1);
+      auditLogFindMany.mockResolvedValueOnce([
+        { id: 7, tableName: 'fact_daily_manpower', recordId: '1', field: 'actualHeadcount', oldValue: '5', newValue: '6',
+          changedBy: 'u', changedAt: new Date('2026-09-20T00:00:00Z'), note: 'nhap sai' },
+      ]);
+      const r = await readRepoPrisma.readAuditLogPage({ since: null, page: 1, pageSize: 20 });
+      expect(r.items[0].note).toBe('nhap sai');
+      expect(r.items[0].changedAt).toBe('2026-09-20T00:00:00.000Z');
+    });
+
     it('since = null -> where rong (khong loc theo changedAt)', async () => {
       auditLogCount.mockResolvedValueOnce(0);
       auditLogFindMany.mockResolvedValueOnce([]);

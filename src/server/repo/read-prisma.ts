@@ -172,6 +172,7 @@ export const readRepoPrisma = {
         newValue: a.newValue,
         changedBy: a.changedBy,
         changedAt: a.changedAt.toISOString(),
+        note: a.note,
       })),
       total,
       page,

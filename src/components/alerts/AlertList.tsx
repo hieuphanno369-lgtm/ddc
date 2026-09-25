@@ -1,12 +1,11 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { closeAlertAction } from '@/server/actions';
 import type { AlertLog } from '@/server/repo/types';
 import { formatDate } from '@/lib/format';
 import { Badge, Dot } from '@/components/ui/Badge';
+import { CloseAlertForm } from './CloseAlertForm';
 
 type Row = AlertLog & { projectName: string };
 
@@ -14,17 +13,6 @@ export function AlertList({ alerts, canClose }: { alerts: Row[]; canClose: boole
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
-  const [busy, setBusy] = useState<number | null>(null);
-
-  async function close(id: number) {
-    setBusy(id);
-    try {
-      await closeAlertAction(id, 'Đã xử lý');
-      router.refresh();
-    } finally {
-      setBusy(null);
-    }
-  }
 
   if (alerts.length === 0) {
     return <p className="empty">{t('overview.noAlerts')}</p>;
@@ -60,14 +48,7 @@ export function AlertList({ alerts, canClose }: { alerts: Row[]; canClose: boole
               <td>{formatDate(a.deadline, locale)}</td>
               {canClose && (
                 <td className="num">
-                  <button
-                    onClick={() => close(a.id)}
-                    disabled={busy === a.id}
-                    className="btn ghost disabled:opacity-50"
-                    style={{ padding: '6px 12px', fontSize: 'var(--t-caption1)' }}
-                  >
-                    {t('alert.closeAlert')}
-                  </button>
+                  <CloseAlertForm alertId={a.id} onDone={() => router.refresh()} />
                 </td>
               )}
             </tr>

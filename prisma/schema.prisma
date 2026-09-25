@@ -58,6 +58,11 @@ enum StageCalcMode {
   volume
 }
 
+enum NotifyKind {
+  webhook
+  email
+}
+
 // ---- Dimension ----
 model Customer {
   id           Int      @id @default(autoincrement())
@@ -90,10 +95,11 @@ model TeamKd {
 }
 
 model Factory {
-  id                 Int    @id @default(autoincrement())
+  id                 Int     @id @default(autoincrement())
   name               String
   region             String
   capacityTonPerYear Float
+  isActive           Boolean @default(true)
 
   volumes  FactVolume[]
   projects Project[]
@@ -115,6 +121,7 @@ model ExchangeRate {
   currencyCode String
   yearMonth    String
   rateToVnd    Float
+  source       String    @default("manual") // 'vcb' | 'manual'
   updatedBy    String?
   updatedAt    DateTime?
 
@@ -328,6 +335,8 @@ model FactVolume {
   yearMonth        String
   factoryId        Int
   tonnageProcessed Float
+  updatedAt        DateTime @default(now()) @updatedAt
+  updatedBy        String   @default("system")
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   factory Factory @relation(fields: [factoryId], references: [id])
@@ -364,11 +373,21 @@ model AlertLog {
   owner         String
   action        String    @default("")
   deadline      String
+  ruleCode      String?
+  dedupeKey     String?
+  closedBy      String?
+  closeNote     String    @default("")
+  notifyChannel String? // P3B: danh sach kenh da gui, dang 'webhook:1,email:2'; null = chua gui
+  notifySentAt  DateTime?
+  notifyError   String?
+  notifyAttempts Int      @default(0)
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
+  @@unique([projectId, dedupeKey])
   @@index([projectId])
   @@index([openedAt])
+  @@index([notifySentAt])
   @@map("alert_log")
 }
 
@@ -381,6 +400,7 @@ model AuditLog {
   newValue  String
   changedBy String
   changedAt DateTime @default(now())
+  note      String   @default("")
 
   @@index([changedAt])
   @@index([tableName, recordId])
@@ -605,6 +625,8 @@ model FactDailyManpower {
   shiftCode        String
   plannedHeadcount Int      @default(0)
   actualHeadcount  Int      @default(0)
+  updatedAt        DateTime @default(now()) @updatedAt
+  updatedBy        String   @default("system")
 
   project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   // B-5: xem ghi chú ở ProjectContractor.contractor - Restrict thay Cascade để bảo vệ lịch sử
@@ -678,6 +700,8 @@ model FactDailyEquipmentUsage {
   workDate     DateTime @db.Date
   qtyPlanned   Int      @default(0)
   qtyActual    Int      @default(0)
+  updatedAt    DateTime @default(now()) @updatedAt
+  updatedBy    String   @default("system")
 
   project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   // B-5: xem ghi chú ở ProjectContractor.contractor - Restrict thay Cascade để bảo vệ lịch sử
@@ -688,4 +712,49 @@ model FactDailyEquipmentUsage {
   @@id([projectId, contractorId, equipmentId, workDate])
   @@index([projectId, workDate])
   @@map("fact_daily_equipment_usage")
+}
+
+/** Nhật ký chạy job định kỳ (tỷ giá, cảnh báo hằng ngày). */
+model JobRun {
+  id         Int       @id @default(autoincrement())
+  jobName    String    // 'alerts_daily' | 'rates_monthly'
+  trigger    String    // 'cron' | 'lazy' | 'admin'
+  status     String    // 'running' | 'ok' | 'error'
+  detail     String    @default("")
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  startedBy  String    @default("system")
+
+  @@index([jobName, startedAt])
+  @@map("job_run")
+}
+
+/** Nền thông báo P3B: 1 dòng = 1 kênh. Bí mật (webhook URL / mật khẩu SMTP) chỉ nằm trong secretEnc (AES-256-GCM). */
+model NotifyChannel {
+  id          Int               @id @default(autoincrement())
+  kind        NotifyKind
+  name        String
+  isEnabled   Boolean           @default(false)
+  minSeverity AlertType         @default(Red) // Red = chỉ gửi Đỏ; Amber = gửi cả Vàng và Đỏ
+  settings    Json              @default("{}") // phần KHÔNG bí mật, xem NotifyChannelSettings trong types.ts
+  secretEnc   String?
+  secretHint  String            @default("")
+  updatedAt   DateTime          @default(now()) @updatedAt
+  updatedBy   String            @default("system")
+  recipients  NotifyRecipient[]
+
+  @@map("notify_channel")
+}
+
+/** Người nhận email theo kênh + mức độ tối thiểu. */
+model NotifyRecipient {
+  id          Int           @id @default(autoincrement())
+  channelId   Int
+  email       String
+  minSeverity AlertType     @default(Red)
+  isEnabled   Boolean       @default(true)
+  channel     NotifyChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, email])
+  @@map("notify_recipient")
 }

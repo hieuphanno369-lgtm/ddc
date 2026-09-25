@@ -1,18 +1,22 @@
 'use server';
 
 import { revalidateTag } from 'next/cache';
-import * as XLSX from 'xlsx';
+import { Readable } from 'node:stream';
+import ExcelJS from 'exceljs';
 import { getCurrentUser, type CurrentUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
 import { hashPassword, verifyPassword } from '@/lib/password';
 import { calcChainPctActual, findCurrentStage, normPct } from '@/lib/stages';
+import { cellText, type CellValue } from '@/lib/daily-import';
+import { assertXlsxInflatedSize, readBoundedSheet } from './daily-import';
 import type { CurrencyCode, KeyMilestoneInput, Market, Priority, Project, ProjectType, Role, StageCode } from './repo/types';
 import { listTag, overviewTag, profileTag, trendTag } from './cache';
-import { addSapCodeSchema, changePasswordSchema, commitImportSchema, createAccountSchema, createDimSchema, createProjectSchema, deletePhotoSchema, importFileSchema, lockMonthSchema, mergeDimSchema, renameDimSchema, resetPasswordSchema, saveKeyMilestonesSchema, saveMonthlyDataSchema, userRoleSchema } from './validation';
+import { addSapCodeSchema, changePasswordSchema, closeAlertSchema, commitImportSchema, createAccountSchema, createDimSchema, createProjectSchema, deletePhotoSchema, importFileSchema, IMPORT_LEGACY_MAX_ROWS, lockMonthSchema, mergeDimSchema, renameDimSchema, resetPasswordSchema, saveKeyMilestonesSchema, saveMonthlyDataSchema, userRoleSchema } from './validation';
 import { repo } from './repo';
 import { deletePhotoFile } from '@/lib/uploads';
 import { addPhotoForUser } from './photo-service';
 import { historyMonths } from '@/lib/clock';
+import { runAlertEngineSafe } from './alert-engine';
 
 /** Chặn write theo role - viewer không được ghi, khóa số liệu chỉ Admin/Trưởng phòng. */
 async function requireRole(allowed: Role[]): Promise<CurrentUser | null> {
@@ -64,6 +68,8 @@ export async function saveMonthlyData(
     arCollected?: number;
     arOutstanding?: number;
     arOverdue?: number;
+    factoryId?: number | null;
+    volumeTonnage?: number;
   },
 ) {
   const user = await requireProject(projectId);
@@ -73,7 +79,8 @@ export async function saveMonthlyData(
   if (!['admin', 'bod'].includes(user.role) && FINANCE_FIELDS.some((f) => patch[f] != null)) {
     return { ok: false, error: 'Forbidden' };
   }
-  if (!(await repo.getProject(projectId))) return { ok: false, error: 'Not found' };
+  const project = await repo.getProject(projectId);
+  if (!project) return { ok: false, error: 'Not found' };
   const by = user.email;
   const parsed = saveMonthlyDataSchema.safeParse({ projectId, month, patch });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
@@ -104,7 +111,17 @@ export async function saveMonthlyData(
     arCollected,
     arOutstanding,
     arOverdue,
+    factoryId,
+    volumeTonnage,
   } = patch;
+
+  // T8 (Task 6, P2A): khu vực sản xuất + sản lượng tháng - kiểm TRƯỚC mọi ghi.
+  if (factoryId != null) {
+    const active = (await repo.getDims()).factories.some((f) => f.id === factoryId && f.isActive);
+    if (!active) return { ok: false, error: 'invalid_factory' };
+  }
+  const volumeTarget = factoryId !== undefined ? factoryId : project.factoryId;
+  if (volumeTonnage != null && volumeTarget == null) return { ok: false, error: 'no_factory' };
 
   const profilePatch: Partial<Project> = {};
   if (projectName) profilePatch.projectName = projectName;
@@ -124,6 +141,7 @@ export async function saveMonthlyData(
   if (actualFinishDate !== undefined) profilePatch.actualFinishDate = actualFinishDate;
   if (penaltyValue !== undefined) profilePatch.penaltyValue = penaltyValue;
   if (penalized !== undefined) profilePatch.penalized = penalized;
+  if (factoryId !== undefined) profilePatch.factoryId = factoryId;
 
   const profileChanged = Object.keys(profilePatch).length > 0;
   if (profileChanged) {
@@ -178,6 +196,11 @@ export async function saveMonthlyData(
     if (r === 'not_found') return { ok: false, error: 'Not found' };
   }
 
+  if (volumeTonnage != null && volumeTarget != null) {
+    await repo.saveVolume(projectId, month, volumeTarget, volumeTonnage, by);
+  }
+
+  await runAlertEngineSafe(projectId).catch(() => {});
   await logActivity(user, 'save_data', `project ${projectId} · ${month}`);
   revalidateTag(overviewTag(month));
   revalidateTag(trendTag);
@@ -343,13 +366,16 @@ export async function toggleAccountActiveAction(email: string, isActive: boolean
   return { ok: true };
 }
 
-export async function closeAlertAction(alertId: number, action: string) {
+export async function closeAlertAction(alertId: number, action: string, note = '') {
   const alert = (await repo.getAlerts()).find((a) => a.id === alertId);
   // Admin đóng mọi alert; data-entry chỉ alert dự án mình được gán (requireProject).
   // BOD (Trưởng phòng) cũng được đóng mọi alert - không phải PIC theo assignment nên xét riêng.
   const user = (await requireProject(alert?.projectId ?? -1)) ?? (await requireRole(['bod']));
   if (!user) return { ok: false, error: 'Forbidden' };
-  await repo.closeAlert(alertId, action, user.email);
+  const parsed = closeAlertSchema.safeParse({ alertId, action, note });
+  if (!parsed.success) return { ok: false, error: 'action_short' };
+  if (alert?.closedAt) return { ok: false, error: 'already_closed' };
+  await repo.closeAlert(alertId, parsed.data.action, user.email, parsed.data.note);
   await logActivity(user, 'close_alert', `alert ${alertId}`);
   for (const m of historyMonths()) revalidateTag(overviewTag(m));
   return { ok: true };
@@ -425,14 +451,40 @@ export async function importExcelAction(formData: FormData) {
   const file = formData.get('file') as File | null;
   if (!file) return { ok: false, error: 'No file' };
 
-  // Chặn trước khi parse: chỉ nhận .xlsx/.xls/.csv và size ≤ 10MB.
+  // Chặn trước khi parse: chỉ nhận .xlsx/.csv (nợ F4: bỏ .xls) và size ≤ 10MB.
   const fileParsed = importFileSchema.safeParse({ name: file.name, size: file.size });
   if (!fileParsed.success) return { ok: false, error: fileParsed.error.issues[0]?.message ?? 'Invalid file' };
 
-  const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, { type: 'array' });
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' });
+  // Nợ F4 (reviewer P1A): đọc bằng exceljs thay vì `xlsx` 0.18.5 (có lỗ hổng) - chỉ nhận .xlsx/.csv.
+  const buf = Buffer.from(await file.arrayBuffer());
+  const isCsv = /\.csv$/i.test(file.name);
+  // H-1b: CSV không phải zip, không cần chặn zip bomb; readBoundedSheet vẫn chặn dòng/cột cho cả 2.
+  if (!isCsv && !(await assertXlsxInflatedSize(buf))) return { ok: false, error: 'Invalid file' };
+  const wb = new ExcelJS.Workbook();
+  try {
+    if (isCsv) {
+      await wb.csv.read(Readable.from(buf));
+    } else {
+      await wb.xlsx.load(buf as unknown as ArrayBuffer);
+    }
+  } catch {
+    return { ok: false, error: 'Invalid file' };
+  }
+  // H-1a: đọc có giới hạn dòng/cột TRƯỚC mọi vòng lặp - không dùng ws.rowCount/ws.columnCount trực tiếp.
+  const bounded = readBoundedSheet(wb.worksheets[0], IMPORT_LEGACY_MAX_ROWS);
+  if (!bounded.ok) return { ok: false, error: 'File quá 5000 dòng hoặc quá 64 cột' };
+  if (bounded.header.length === 0) return { ok: false, error: 'Invalid file' };
+  const header: string[] = bounded.header.map((c) => cellText(c));
+  const raw: Record<string, unknown>[] = [];
+  const rowNos: number[] = [];
+  for (const row of bounded.rows) {
+    const record: Record<string, unknown> = {};
+    for (let c = 0; c < row.cells.length; c++) {
+      record[header[c] || `col${c + 1}`] = cellText(row.cells[c]);
+    }
+    raw.push(record);
+    rowNos.push(row.rowNo);
+  }
 
   const known = await repo.getSapCodes();
   // data-entry chỉ thấy preview dự án mình được gán - không lộ projectId ngoài assignment.
@@ -447,7 +499,7 @@ export async function importExcelAction(formData: FormData) {
     const sapCode = pick(r, ['mã sap', 'ma sap', 'sap code', 'sap', 'mã dự án', 'ma du an', 'code']);
     const projectName = pick(r, ['tên dự án', 'ten du an', 'project name', 'name', 'dự án', 'du an']);
     const pctRaw = pick(r, ['% tt', '% hoàn thành', '% hoan thanh', '%ht', 'pctactual', '% actual', 'actual']);
-    const rowNo = ((r as { __rowNum__?: number }).__rowNum__ ?? i + 1) + 1;
+    const rowNo = rowNos[i];
 
     // Dòng hoàn toàn trống - không tính, không hiện trong preview.
     if (!sapCode && !projectName && !pctRaw) continue;
@@ -511,6 +563,12 @@ export async function commitImportAction(month: string, rows: { projectId: numbe
   }
   if (await repo.isMonthLocked(month)) return { ok: false, error: 'locked' };
   const result = await repo.importMonthlyFacts(month, target, user.email);
+
+  const failedIds = new Set(result.failed.map((f) => f.projectId));
+  const importedProjectIds = [...new Set(target.filter((r) => !failedIds.has(r.projectId)).map((r) => r.projectId))];
+  for (const projectId of importedProjectIds) {
+    await runAlertEngineSafe(projectId).catch(() => {});
+  }
 
   await logActivity(user, 'commit_import', `${result.imported} rows`);
   revalidateTag(overviewTag(month));

@@ -113,6 +113,19 @@ describe('buildBaseForm', () => {
     expect(base.tonnage).toBe(String(created.tonnage));
     expect(base.currencyCode).toBe('USD');
   });
+
+  it('co factoryId cua du an + volumeTonnage tu tham so', () => {
+    const project = makeProject({ factoryId: 2 });
+    const base = buildBaseForm(project, undefined, undefined, [], 120);
+    expect(base.factoryId).toBe('2');
+    expect(base.volumeTonnage).toBe('120');
+  });
+
+  it('khong co factory / volume -> o rong', () => {
+    const base = buildBaseForm(makeProject({ factoryId: null }), undefined, undefined, []);
+    expect(base.factoryId).toBe('');
+    expect(base.volumeTonnage).toBe('');
+  });
 });
 
 const EMPTY_CHAIN: ValueChainProgress[] = [];
@@ -179,6 +192,27 @@ describe('buildSavePatch', () => {
     const form = { ...base, contractDate: '' };
     const patch = buildSavePatch(base, form, { canEditFinance: false });
     expect(patch.contractDate).toBeNull();
+  });
+
+  it("doi khu vuc ve '' -> factoryId: null", () => {
+    const base = { ...baseForm(), factoryId: '2' };
+    const form = { ...base, factoryId: '' };
+    const patch = buildSavePatch(base, form, { canEditFinance: false });
+    expect(patch.factoryId).toBeNull();
+  });
+
+  it('xoa san luong -> khong co key', () => {
+    const base = { ...baseForm(), volumeTonnage: '100' };
+    const form = { ...base, volumeTonnage: '' };
+    const patch = buildSavePatch(base, form, { canEditFinance: false });
+    expect(patch.volumeTonnage).toBeUndefined();
+  });
+
+  it('doi san luong -> co key so', () => {
+    const base = baseForm();
+    const form = { ...base, volumeTonnage: '150' };
+    const patch = buildSavePatch(base, form, { canEditFinance: false });
+    expect(patch.volumeTonnage).toBe(150);
   });
 });
 

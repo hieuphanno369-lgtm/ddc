@@ -3,6 +3,7 @@
  * Single source of truth cho types. Đổi sang Prisma/Supabase sau: giữ nguyên
  * các type này, chỉ swap phần repository impl.
  */
+import type { AlertCandidate } from '@/lib/alert-rules';
 
 export type Market = 'TN' | 'XK' | 'NoiBo';
 export type ProjectType =
@@ -17,7 +18,7 @@ export type ProjectType =
   | 'Khac';
 export type Priority = 'P0' | 'P1' | 'P2' | 'P3';
 export type Status = 'Chuan_bi' | 'Dang_trien_khai' | 'Hoan_thanh' | 'Tam_dung';
-export type CurrencyCode = 'VND' | 'USD' | 'EUR' | 'AUD' | 'SAR';
+export type CurrencyCode = 'VND' | 'USD' | 'EUR';
 
 /** Chuỗi giá trị DDC - theo đúng thứ tự Thiết kế → Shop → Gia công → Vận chuyển → Lắp dựng → Nghiệm thu. */
 export type StageCode =
@@ -52,6 +53,7 @@ export interface Factory {
   name: string;
   region: string;
   capacityTonPerYear: number;
+  isActive: boolean;
 }
 
 export interface Currency {
@@ -59,10 +61,15 @@ export interface Currency {
   name: string;
 }
 
+export type FxSource = 'vcb' | 'manual';
+
 export interface ExchangeRate {
   currencyCode: CurrencyCode;
   yearMonth: string; // 'YYYY-MM'
   rateToVnd: number;
+  source: FxSource;
+  updatedBy: string | null;
+  updatedAt: string | null;
 }
 
 export interface ProjectAlias {
@@ -342,6 +349,15 @@ export interface AlertLog {
   owner: string;
   action: string;
   deadline: string;
+  ruleCode: string | null;
+  dedupeKey: string | null;
+  closedBy: string | null;
+  closeNote: string;
+  /** P3B: danh sach kenh da gui, dang 'webhook:1,email:2'; null = chua gui. */
+  notifyChannel: string | null;
+  notifySentAt: string | null;
+  notifyError: string | null;
+  notifyAttempts: number;
 }
 
 export interface ProjectPhoto {
@@ -397,6 +413,63 @@ export interface AuditLogEntry {
   newValue: string;
   changedBy: string;
   changedAt: string;
+  note: string;
+}
+
+export type JobName = 'alerts_daily' | 'rates_monthly';
+export type JobTrigger = 'cron' | 'lazy' | 'admin';
+
+export interface JobRunEntry {
+  id: number;
+  jobName: JobName;
+  trigger: JobTrigger;
+  status: 'running' | 'ok' | 'error';
+  detail: string;
+  startedAt: string;
+  finishedAt: string | null;
+  startedBy: string;
+}
+
+// ---- Nền thông báo P3B (kênh/người nhận) - P2A chưa có hàm repo/UI, chỉ chuẩn bị type ----
+export type NotifyKind = 'webhook' | 'email';
+export type AlertSeverity = 'Red' | 'Amber';
+
+export interface NotifyChannelSettings {
+  webhookFormat?: 'generic' | 'slack' | 'teams'; // kind = webhook
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpSecure?: boolean;
+  smtpUser?: string;
+  fromAddress?: string; // kind = email
+}
+
+export interface NotifyChannel {
+  id: number;
+  kind: NotifyKind;
+  name: string;
+  isEnabled: boolean;
+  minSeverity: AlertSeverity;
+  settings: NotifyChannelSettings;
+  secretHint: string;
+  hasSecret: boolean; // KHÔNG bao giờ trả secretEnc ra UI
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export interface NotifyRecipient {
+  id: number;
+  channelId: number;
+  email: string;
+  minSeverity: AlertSeverity;
+  isEnabled: boolean;
+}
+
+// ---- T11 (Task 8, P2A): engine cảnh báo ----
+/** `AlertCandidate` (`src/lib/alert-rules.ts`) + phần engine tự gán (owner/deadline/openedAt). */
+export interface NewEngineAlert extends AlertCandidate {
+  owner: string;
+  deadline: string; // 'YYYY-MM-DD'
+  openedAt: string; // ISO timestamp
 }
 
 export interface SapQueueItem {
