@@ -1,4 +1,32 @@
-PHÁN QUYẾT BẢO MẬT: CẦN SỬA
+PHÁN QUYẾT BẢO MẬT: ĐẠT
+
+## Vòng 2 — `git diff cdcafd5..HEAD` (12 commit fd27975…331ed17) — ĐẠT
+
+> Do subagent security-reviewer (vai chỉ đọc) trả về; điều phối viên lưu. Skill `ddc-tower:security-review`; đọc mã nodemailer 10 + next-auth 4.24.7; `npm ls nodemailer`, `npm audit --omit=dev`.
+
+**T-1…T-5, L-1…L-6 đã đóng đúng gốc; không có lỗi mới mức trung/cao.**
+- **T-1 ĐÓNG (phương án tạm, chấp nhận):** `auth.ts:41-54` `alwaysOn(admin|data-entry)` cả 3 nhánh; `actions-user-finance.ts:29-33` trả `DataEntryLocked`; `UserEditor.tsx:133-137` chỉ badge; `setUserRole` ép data-entry true. Gọi thẳng action/race/dữ liệu cũ `false` đều vô hại. Hệ quả: data-entry luôn thấy số tiền nơi họ vào được (quyết định nghiệp vụ).
+- **T-2 ĐÓNG:** `prisma-repo.ts:634-648`, `mock-repo.ts:423-437` giữ cờ, viewer→false, data-entry→true, audit khi đổi (sót người thực hiện — L-10).
+- **T-3 ĐÓNG:** `email.ts:38-54` resolve 1 lần + kiểm mọi địa chỉ, ghim `host: targetIp` (58), `tls.servername` (69), EHLO cố định (67). nodemailer 10 với host IP bỏ DNS; `servername` áp cả TLS ngầm lẫn STARTTLS; không `rejectUnauthorized:false`. Q3 đúng.
+- **T-4 ĐÓNG:** `nodemailer@10.0.10 overridden`, next-auth dùng chung (deduped); audit không còn nodemailer; không dùng EmailProvider.
+- **T-5 ĐÓNG, chặt hơn thiết kế:** `auth.ts:159-177` re-check trong `jwt`; `session()` 181-186 `email=null` khi `token.invalid` → `getCurrentUser` null; mọi cổng quyền qua `getCurrentUser`. Lỗi DB → fail-closed; xoá/khoá → vô hiệu. App Router không ghi lại cookie → `accessCheckedAt` không lưu → sau 5 phút đầu mỗi request đều đọc DB (L-11).
+- **L-1** chặn thêm `2002::/16`, `64:ff9b:1::/48`, `fec0::/10`, `100::/64`, `::/96` (Teredo `2001::/32` chưa, khó khai thác). **L-2** `res.destroy()` + lookup trong `withTimeout`. **L-3** Slack đúng; Teams còn L-8. **L-4** kiểm boolean. **L-5** so khớp chính xác host/port/pathname; `testMatch '**/*.spec.ts'`. **L-6** hint dạng host (bản ghi cũ giữ hint cũ tới khi lưu lại); biến thể L-9. **L-7** để sau.
+
+### Thấp mới/còn sót (không chặn merge)
+- **L-8** `notify-message.ts:114` Teams không escape `\` → `\[Bấm\](http://evil\)` dựng lại link. Vá: escape `\` trước (`/([\[\]()*_`~#>])/g`) + test.
+- **L-9** `secret-box.ts:85` hint `${hostname}/…` lộ token ở subdomain (vd `eoabc123.m.pipedream.net`) → che nhãn đầu khi ≥3 nhãn.
+- **L-10** `actions.ts:281` không truyền `changedBy` → audit `canViewFinance` ghi `'system'`. Vá: truyền `user.email` (actions.ts do A giữ → A/lượt sau).
+- **L-11** `auth.ts:163-176` (a) 2 truy vấn/`getCurrentUser` sau 5 phút đầu; (b) `findAccount` OK nhưng `resolveAccess` lỗi → fallback `ROLE_SEED` có thể nâng quyền trong request đó; (c) `middleware.ts:36-37` đọc `token.role` cũ tới 8h (chỉ chuyển hướng sai, trang tự kiểm lại); (d) user không có trong `user_roles` bị đá sau 5 phút (Google chưa bật). Vá: dựng quyền thẳng từ `account`, bỏ fallback khi DB lỗi, cache ngắn 30–60 s.
+- **L-12** `email.ts:69` `servername` = IP khi host là IP (DEP0123) → chỉ đặt khi `!hostIsIp`. Khi lên cloud: thêm `fd00:ec2::254`, `100.100.100.200` vào blocklist SMTP.
+
+### N-1 (không tính phán quyết)
+`npm audit --omit=dev`: 11 (2 critical, 5 high) chủ yếu `next@14.2.35` (GHSA-p293-qw3h-jr36 RCE khi host Windows, GHSA-2xp9-vwfh-vxw4), `cookie <0.7` (next-auth), `deepmerge-ts` (prisma) → nhánh nâng Next riêng — **máy chủ đích Windows, nên ưu tiên**.
+
+**Kết luận vòng 2:** ĐẠT. Nên vá L-8 (+ L-10 khi A nhả `actions.ts`); L-9, L-11, L-12 vá sau/ghi nhận.
+
+---
+
+# Vòng 1 (giữ nguyên)
 
 # Đánh giá bảo mật P3B — thông báo webhook/email, N-3, Q6, e2e (`git diff d50db4c..HEAD`)
 
