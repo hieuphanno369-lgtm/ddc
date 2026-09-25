@@ -360,7 +360,7 @@
     "stepProgress": "Tiến độ tháng",
     "stepFinance": "Tài chính",
     "stepProfile": "Hồ sơ dự án",
-    "stepExtras": "Mã SAP & Ảnh",
+    "stepExtras": "Ảnh hiện trường",
     "preview": "Kết quả dự kiến",
     "stageSection": "Tiến độ theo 7 giai đoạn",
     "stageApplicable": "Áp dụng",
@@ -782,8 +782,8 @@
     "none": "— Chưa chọn —",
     "inactiveSuffix": "(ngừng dùng)",
     "tonnage": "Sản lượng gia công tháng (tấn)",
-    "hint": "Ghi vào khu vực sản xuất của dự án (bước Hồ sơ).",
-    "noFactory": "Chọn khu vực sản xuất ở bước Hồ sơ trước khi nhập sản lượng.",
+    "hint": "Ghi vào khu vực sản xuất của dự án (trang Tạo / Sửa dự án).",
+    "noFactory": "Chọn khu vực sản xuất ở trang Tạo / Sửa dự án trước khi nhập sản lượng.",
     "invalidFactory": "Khu vực không hợp lệ hoặc đã ngừng dùng."
   },
   "fxRates": {

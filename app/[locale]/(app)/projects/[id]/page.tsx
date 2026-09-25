@@ -269,7 +269,7 @@ export default async function ProjectDetailPage({
                 { label: t('common.today'), color: 'var(--danger)', line: true },
               ]} />
               {canEditMs && (
-                <Link href={`/nhap-lieu?project=${project.id}&step=profile#key-milestones`} className="btn ghost" style={{ padding: '6px 12px', fontSize: 'var(--t-caption1)' }}>
+                <Link href={`/ho-so-du-an?project=${project.id}#key-milestones`} className="btn ghost" style={{ padding: '6px 12px', fontSize: 'var(--t-caption1)' }}>
                   <IconDataEntry size={16} />{t('detail.keyMs.edit')}
                 </Link>
               )}

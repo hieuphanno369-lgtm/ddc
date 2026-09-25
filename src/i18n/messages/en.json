@@ -360,7 +360,7 @@
     "stepProgress": "Monthly progress",
     "stepFinance": "Finance",
     "stepProfile": "Project profile",
-    "stepExtras": "SAP & Photos",
+    "stepExtras": "Site photos",
     "preview": "Preview",
     "stageSection": "Progress by 7 stages",
     "stageApplicable": "Applicable",
@@ -782,8 +782,8 @@
     "none": "— Not set —",
     "inactiveSuffix": "(inactive)",
     "tonnage": "Monthly processed tonnage (t)",
-    "hint": "Recorded against the project's production area (Profile step).",
-    "noFactory": "Choose a production area in the Profile step before entering tonnage.",
+    "hint": "Recorded against the project's production area (Create / Edit project page).",
+    "noFactory": "Choose the production area on the Create / Edit project page before entering output.",
     "invalidFactory": "Invalid or inactive production area."
   },
   "fxRates": {

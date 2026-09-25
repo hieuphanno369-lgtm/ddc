@@ -214,10 +214,10 @@ describe('Task 6 - the "Cac moc chinh" + nut "Sua moc" theo vai tro', () => {
   it('admin thay the + link toi dung buoc Ho so', async () => {
     const out = await render();
     expect(out).toContain('detail.keyMs.title');
-    expect(out).toContain('href="/nhap-lieu?project=1&amp;step=profile#key-milestones"');
+    expect(out).toContain('href="/ho-so-du-an?project=1#key-milestones"');
   });
   it('bod va viewer KHONG thay nut sua', async () => {
-    expect(await render({}, '1', BOD)).not.toContain('step=profile');
-    expect(await render({}, '1', VIEWER)).not.toContain('step=profile');
+    expect(await render({}, '1', BOD)).not.toContain('ho-so-du-an');
+    expect(await render({}, '1', VIEWER)).not.toContain('ho-so-du-an');
   });
 });

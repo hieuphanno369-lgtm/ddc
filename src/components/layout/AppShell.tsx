@@ -21,6 +21,7 @@ import {
   IconHistory,
   IconMenu,
   IconOverview,
+  IconPlus,
   IconProject,
   IconReport,
   IconSchema,
@@ -39,6 +40,7 @@ const NAV: NavItem[] = [
   { href: '/overview', labelKey: 'nav.overview', icon: IconOverview, roles: ['admin', 'bod', 'viewer'] },
   { href: '/projects', labelKey: 'nav.projectDetail', icon: IconProject, roles: ['admin', 'bod', 'viewer', 'data-entry'] },
   { href: '/nhap-lieu', labelKey: 'nav.dataEntry', icon: IconDataEntry, roles: ['admin', 'data-entry'] },
+  { href: '/ho-so-du-an', labelKey: 'projectForm.nav', icon: IconPlus, roles: ['admin', 'data-entry'] },
 ];
 
 const OPERATIONS_NAV: NavItem[] = [

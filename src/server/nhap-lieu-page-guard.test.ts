@@ -29,12 +29,16 @@ vi.mock('@/server/repo', async () => {
   const mockRepo = await import('@/server/repo/mock-repo');
   return { repo: mockRepo.repo };
 });
-vi.mock('@/components/form/CreateProjectForm', () => ({ CreateProjectForm: () => null }));
 vi.mock('@/components/form/DataEntryForm', () => ({
   DataEntryForm: (props: { projectId: number; financial?: unknown; resourcesPanel?: { props: Record<string, unknown> } }) => {
     formProps.push(props);
     return null;
   },
+}));
+// Link của next-intl cần provider - thay bằng thẻ <a> để render tĩnh được (Task 9, P3A).
+vi.mock('@/i18n/navigation', () => ({
+  Link: (props: { href: string; children?: React.ReactNode; className?: string }) =>
+    React.createElement('a', { href: props.href, className: props.className }, props.children),
 }));
 
 import * as React from 'react';

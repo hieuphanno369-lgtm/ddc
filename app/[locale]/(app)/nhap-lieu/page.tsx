@@ -1,12 +1,12 @@
 import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
+import { Link } from '@/i18n/navigation';
 import { repo } from '@/server/repo';
 import { currentMonth, historyMonths, isValidIsoDate, todayIso } from '@/lib/clock';
 import { dailyDateWindow, isInWindow } from '@/lib/daily-entry';
 import { getCurrentUser, homeForRole } from '@/lib/session';
 import { DataEntryForm, type DataEntryStep } from '@/components/form/DataEntryForm';
 import { ResourceEntryPanel } from '@/components/form/ResourceEntryPanel';
-import { CreateProjectForm } from '@/components/form/CreateProjectForm';
 
 const STEPS: DataEntryStep[] = ['progress', 'finance', 'profile', 'extras', 'resources'];
 
@@ -50,11 +50,8 @@ export default async function NhapLieuPage({
     project && user.canViewFinance ? (await repo.getFinancial(project.id)).find((f) => f.yearMonth === month) : undefined;
   const chain = project ? await repo.getValueChain(project.id, month) : [];
   const alerts = project ? await repo.getAlerts(project.id) : [];
-  const aliases = project ? await repo.getAliases(project.id) : [];
-  const sapCodes = project ? await repo.getSapCodes(project.id) : [];
   const photos = project ? await repo.getPhotos(project.id) : [];
   const locked = await repo.isMonthLocked(month);
-  const keyMilestones = project ? await repo.getKeyMilestones(project.id) : [];
   const today = todayIso();
   const initialStep = typeof searchParams.step === 'string' && (STEPS as string[]).includes(searchParams.step)
     ? (searchParams.step as DataEntryStep) : undefined;
@@ -81,7 +78,7 @@ export default async function NhapLieuPage({
     <div className="mx-auto w-full max-w-5xl">
       <section className="mb-5">
         <div className="sect"><b>{t('form.sectionNew')}</b><i /></div>
-        <CreateProjectForm customers={dims.customers} teams={dims.teams} currencies={dims.currencies} today={today} />
+        <Link href="/ho-so-du-an?mode=new" className="btn">{t('form.newProject')}</Link>
       </section>
 
       <section>
@@ -99,8 +96,6 @@ export default async function NhapLieuPage({
             financial={user.canViewFinance ? financial : undefined}
             chain={chain}
             alerts={alerts}
-            aliases={aliases}
-            sapCodes={sapCodes}
             photos={photos}
             month={month}
             months={months}
@@ -111,7 +106,6 @@ export default async function NhapLieuPage({
             currencies={dims.currencies}
             factories={dims.factories}
             volumeTonnage={volumeTonnage}
-            keyMilestones={keyMilestones}
             today={today}
             initialStep={initialStep}
             canEditFinance={user.role === 'admin'}
