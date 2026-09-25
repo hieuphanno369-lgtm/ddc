@@ -6,7 +6,7 @@
  * Usage: PERF_EMAIL=... PERF_PASSWORD=... npx tsx scripts/perf/measure-pages.ts
  */
 import { addMonths, currentMonth } from '@/lib/clock';
-import { PERF_PREFIX } from '@/lib/perf-guard';
+import { assertPerfLocalBase, PERF_PREFIX } from '@/lib/perf-guard';
 import { prisma } from '@/server/db';
 
 const BASE = process.env.PERF_BASE ?? 'http://localhost:3001';
@@ -15,6 +15,13 @@ const PASSWORD = process.env.PERF_PASSWORD;
 
 if (!EMAIL || !PASSWORD) {
   console.error('[measure-pages] Thieu env PERF_EMAIL / PERF_PASSWORD.');
+  process.exit(1);
+}
+
+try {
+  assertPerfLocalBase(BASE, process.env.PERF_ALLOW_REMOTE === '1');
+} catch (err) {
+  console.error(err instanceof Error ? err.message : err);
   process.exit(1);
 }
 

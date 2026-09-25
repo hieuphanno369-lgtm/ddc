@@ -7,7 +7,10 @@
  */
 import { Prisma } from '@prisma/client';
 import { addDaysIso, todayIso } from '@/lib/clock';
-import { assertPerfDb, estimateRows, parsePerfArgs, PERF_ACTIVITY_EMAIL, PERF_PREFIX, PERF_USER } from '@/lib/perf-guard';
+import {
+  assertPerfConfirm, assertPerfDb, assertPerfHost, estimateRows, parsePerfArgs,
+  PERF_ACTIVITY_EMAIL, PERF_PREFIX, PERF_USER,
+} from '@/lib/perf-guard';
 import { prisma } from '@/server/db';
 
 const BATCH_PROJECTS = 50;
@@ -22,14 +25,19 @@ function fmt(n: number): string {
 async function main() {
   const opts = parsePerfArgs(process.argv.slice(2), todayIso());
 
-  const [{ current_database: currentDb }] = await prisma.$queryRaw<{ current_database: string }[]>(
-    Prisma.sql`SELECT current_database()`,
-  );
+  assertPerfConfirm(process.env.PERF_CONFIRM);
+
+  const [{ current_database: currentDb, inet_server_addr: inetServerAddr }] = await prisma.$queryRaw<
+    { current_database: string; inet_server_addr: string | null }[]
+  >(Prisma.sql`SELECT current_database(), host(inet_server_addr()) AS inet_server_addr`);
   assertPerfDb(currentDb);
-  console.log(`[perf-seed] DB = ${currentDb} (OK)`);
+  assertPerfHost(inetServerAddr, process.env.DATABASE_URL ?? '');
+  console.log(`[perf-seed] DB = ${currentDb} (OK, host=${inetServerAddr ?? 'unix socket'})`);
 
   console.log('[perf-seed] Don du lieu PERF cu (neu co)...');
-  await prisma.$executeRaw(Prisma.sql`DELETE FROM "dim_project" WHERE "masterCode" LIKE ${`${PERF_PREFIX}%`}`);
+  await prisma.$executeRaw(
+    Prisma.sql`DELETE FROM "dim_project" WHERE "masterCode" LIKE ${`${PERF_PREFIX}%`} AND "createdBy" = ${PERF_USER}`,
+  );
   await prisma.$executeRaw(Prisma.sql`DELETE FROM "audit_log" WHERE "changedBy" = ${PERF_USER}`);
   await prisma.$executeRaw(Prisma.sql`DELETE FROM "activity_log" WHERE "userEmail" = ${PERF_ACTIVITY_EMAIL}`);
 

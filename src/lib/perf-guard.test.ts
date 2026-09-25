@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { assertPerfDb, estimateRows, parsePerfArgs, PERF_DB } from './perf-guard';
+import {
+  assertPerfConfirm, assertPerfDb, assertPerfHost, assertPerfLocalBase, estimateRows,
+  isLoopbackDatabaseUrl, parsePerfArgs, PERF_DB,
+} from './perf-guard';
 
 const TODAY = '2026-09-24';
+const LOCAL_URL = `postgresql://postgres:x@localhost:5433/${PERF_DB}?schema=public`;
+const REMOTE_URL = `postgresql://postgres:x@10.0.0.5:5432/${PERF_DB}?schema=public`;
 
 describe('assertPerfDb', () => {
   it("'ddc_control_tower' (DB cua A) -> nem loi", () => {
@@ -14,6 +19,78 @@ describe('assertPerfDb', () => {
 
   it("'' (rong) -> nem loi", () => {
     expect(() => assertPerfDb('')).toThrow();
+  });
+});
+
+describe('isLoopbackDatabaseUrl', () => {
+  it('localhost -> true', () => {
+    expect(isLoopbackDatabaseUrl(LOCAL_URL)).toBe(true);
+  });
+
+  it('127.0.0.1 -> true', () => {
+    expect(isLoopbackDatabaseUrl(`postgresql://postgres:x@127.0.0.1:5433/${PERF_DB}`)).toBe(true);
+  });
+
+  it('IP xa -> false', () => {
+    expect(isLoopbackDatabaseUrl(REMOTE_URL)).toBe(false);
+  });
+
+  it('URL khong hop le -> false (khong nem)', () => {
+    expect(isLoopbackDatabaseUrl('khong-phai-url')).toBe(false);
+  });
+});
+
+describe('assertPerfHost', () => {
+  it('inet_server_addr = 127.0.0.1 -> khong nem', () => {
+    expect(() => assertPerfHost('127.0.0.1', REMOTE_URL)).not.toThrow();
+  });
+
+  it('inet_server_addr = null (unix socket) -> khong nem', () => {
+    expect(() => assertPerfHost(null, REMOTE_URL)).not.toThrow();
+  });
+
+  it('inet_server_addr xa nhung DATABASE_URL localhost -> khong nem (vi du ket noi qua tunnel)', () => {
+    expect(() => assertPerfHost('10.0.0.5', LOCAL_URL)).not.toThrow();
+  });
+
+  it('inet_server_addr xa va DATABASE_URL xa -> nem loi', () => {
+    expect(() => assertPerfHost('10.0.0.5', REMOTE_URL)).toThrow();
+  });
+});
+
+describe('assertPerfConfirm', () => {
+  it(`PERF_CONFIRM='${PERF_DB}' -> khong nem`, () => {
+    expect(() => assertPerfConfirm(PERF_DB)).not.toThrow();
+  });
+
+  it('PERF_CONFIRM sai -> nem loi', () => {
+    expect(() => assertPerfConfirm('sai-ten-db')).toThrow();
+  });
+
+  it('PERF_CONFIRM thieu (undefined) -> nem loi', () => {
+    expect(() => assertPerfConfirm(undefined)).toThrow();
+  });
+});
+
+describe('assertPerfLocalBase', () => {
+  it('http://localhost:3001 -> khong nem', () => {
+    expect(() => assertPerfLocalBase('http://localhost:3001', false)).not.toThrow();
+  });
+
+  it('http://127.0.0.1:3001 -> khong nem', () => {
+    expect(() => assertPerfLocalBase('http://127.0.0.1:3001', false)).not.toThrow();
+  });
+
+  it('host xa, allowRemote=false -> nem loi', () => {
+    expect(() => assertPerfLocalBase('http://example.com', false)).toThrow();
+  });
+
+  it('host xa, allowRemote=true -> khong nem', () => {
+    expect(() => assertPerfLocalBase('http://example.com', true)).not.toThrow();
+  });
+
+  it('URL khong hop le -> nem loi', () => {
+    expect(() => assertPerfLocalBase('khong-phai-url', false)).toThrow();
   });
 });
 
