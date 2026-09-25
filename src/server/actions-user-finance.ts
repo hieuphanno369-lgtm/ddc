@@ -19,6 +19,10 @@ export async function setUserCanViewFinanceAction(
   if (!user) return { ok: false, error: 'Forbidden' };
   const normalized = typeof email === 'string' ? email.trim().toLowerCase() : '';
   if (!normalized || !normalized.includes('@')) return { ok: false, error: 'Invalid input' };
+  // L-4 (danh-gia-bao-mat.md): canViewFinance khong duoc kiem kieu truoc day - gia tri khong phai
+  // boolean (vd chuoi/undefined tu payload gia mao) roi thang xuong repo.setUserCanViewFinance ->
+  // Prisma nem loi kieu du lieu -> 500 thay vi tra loi ro.
+  if (typeof canViewFinance !== 'boolean') return { ok: false, error: 'Invalid input' };
 
   // T-1 (danh-gia-bao-mat.md, phương án b tạm thời tới khi P3A gate form nhập liệu): role data-entry
   // luôn canViewFinance=true (xem resolveAccess trong auth.ts) - từ chối tắt ở đây để không tạo "cảm

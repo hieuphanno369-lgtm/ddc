@@ -77,6 +77,16 @@ describe('setUserCanViewFinanceAction - Q6', () => {
     expect(await setUserCanViewFinanceAction('khong-phai-email', true)).toEqual({ ok: false, error: 'Invalid input' });
   });
 
+  it('L-4 (danh-gia-bao-mat.md): canViewFinance khong phai boolean -> Invalid input, khong nem loi/500', async () => {
+    login(ADMIN);
+    for (const bad of ['true', 1, null, undefined, {}, []] as never[]) {
+      const res = await setUserCanViewFinanceAction('bod@daidung.com.vn', bad);
+      expect(res).toEqual({ ok: false, error: 'Invalid input' });
+    }
+    // Khong doi DB.
+    expect(repo.getUserRoles().find((u) => u.email === 'bod@daidung.com.vn')?.canViewFinance).toBe(true);
+  });
+
   it('bod, data-entry, viewer, chua dang nhap -> Forbidden', async () => {
     for (const u of [BOD, dataEntry('pm@daidung.com.vn'), VIEWER, null]) {
       login(u);
