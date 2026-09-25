@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildUpdatePatch, checkDateChain, countFilled, dateInput, emptyProjectForm, fxPreview, validateProjectForm,
-  type DateChainInput, type ProjectFormState,
+  buildUpdatePatch, checkDateChain, countFilled, dateInput, emptyProjectForm, fxPreview, validateAliasChange,
+  validateProjectForm, type DateChainInput, type ProjectFormState,
 } from './project-form';
 import type { ExchangeRate } from '@/server/repo/types';
 
@@ -137,6 +137,32 @@ describe('validateProjectForm - sua', () => {
     const emptyBase: ProjectFormState = { ...FULL_FORM, plannedStartDate: '' };
     const r = validateProjectForm(emptyBase, 'edit', emptyBase, RATES);
     expect(r.errors.plannedStartDate).toBeUndefined();
+  });
+});
+
+describe('validateAliasChange', () => {
+  it('ma khong doi -> null', () => {
+    expect(validateAliasChange(FULL_FORM, FULL_FORM, '')).toBeNull();
+  });
+
+  it('doi ma nhung xoa trong -> required', () => {
+    const f = { ...FULL_FORM, currentAliasCode: '' };
+    expect(validateAliasChange(FULL_FORM, f, 'ly do hop le')).toBe('required');
+  });
+
+  it('doi ma, ly do 4 ky tu (thieu 1) -> reason_short', () => {
+    const f = { ...FULL_FORM, currentAliasCode: 'CT-2' };
+    expect(validateAliasChange(FULL_FORM, f, '1234')).toBe('reason_short');
+  });
+
+  it('doi ma, ly do du 5 ky tu -> hop le (null)', () => {
+    const f = { ...FULL_FORM, currentAliasCode: 'CT-2' };
+    expect(validateAliasChange(FULL_FORM, f, '12345')).toBeNull();
+  });
+
+  it('doi ma sang dinh dang khong hop le -> code_invalid', () => {
+    const f = { ...FULL_FORM, currentAliasCode: 'CT MOI CO KHOANG TRANG' };
+    expect(validateAliasChange(FULL_FORM, f, 'ly do hop le')).toBe('code_invalid');
   });
 });
 

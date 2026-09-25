@@ -1001,6 +1001,7 @@
       "positive": "Phải lớn hơn 0",
       "too_long": "Tối đa {max} ký tự",
       "code_invalid": "Mã chỉ gồm chữ, số và . _ - /, không có khoảng trắng",
+      "reason_short": "Lý do đổi mã phải có ít nhất 5 ký tự",
       "date_order": "Sai thứ tự ngày",
       "fx": "Chưa quy đổi được nguyên tệ",
       "code_taken": "Mã này đã được dùng cho dự án khác",

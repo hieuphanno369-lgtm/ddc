@@ -10,7 +10,7 @@ import type {
 import type { AssignableUser, ProjectFormState } from '@/lib/project-form';
 import {
   FORM_COUNT_FIELDS, PROJECT_NAME_MAX, buildCreateInput, buildUpdatePatch, countFilled, emptyProjectForm,
-  fxPreview, projectFormFromProject, validateProjectForm,
+  fxPreview, projectFormFromProject, validateAliasChange, validateProjectForm,
 } from '@/lib/project-form';
 import { isValidProjectCode } from '@/lib/project-code';
 import { marketKey, typeKey } from '@/lib/labels';
@@ -93,6 +93,7 @@ export function ProjectForm(p: ProjectFormProps) {
   const [msErrors, setMsErrors] = useState<KeyMsErrors>({});
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ tone: 'ok' | 'bad'; text: string } | null>(null);
+  const [aliasReason, setAliasReason] = useState('');
   const [pendingDraft, setPendingDraft] = useState<Extract<ReturnType<typeof checkProjectDraft>, { kind: 'fresh' | 'stale' }> | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -174,6 +175,15 @@ export function ProjectForm(p: ProjectFormProps) {
   const errors = validation.errors;
   const dates = validation.dates;
   const inputCls = (key: keyof ProjectFormState) => `inp${errors[key] ? ' bad' : ''}`;
+  const codeChanged = mode === 'edit' && form.currentAliasCode !== base.currentAliasCode;
+  const aliasIssue = codeChanged ? validateAliasChange(base, form, aliasReason) : null;
+
+  function partialErrorMsg(error: string | undefined): string {
+    if (!error) return '';
+    if (error === 'Invalid input') return t('projectForm.err.invalid');
+    const key = `projectForm.err.${error}`;
+    return t.has(key) ? t(key) : error;
+  }
 
   const dirty =
     JSON.stringify(form) !== JSON.stringify(base) || weightsDirty || msDirty
@@ -231,17 +241,22 @@ export function ProjectForm(p: ProjectFormProps) {
       scrollToFirstError();
       return;
     }
+    if (aliasIssue) {
+      setMsg({ tone: 'bad', text: t('projectForm.err.invalid') });
+      const field = aliasIssue === 'reason_short' ? 'aliasReason' : 'currentAliasCode';
+      formRef.current?.querySelector<HTMLElement>(`[data-field="${field}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     setSaving(true);
     setMsg(null);
     try {
       const patch: UpdateProjectPatch = buildUpdatePatch(base, form, fx);
-      const codeChanged = form.currentAliasCode !== base.currentAliasCode;
       const done: string[] = [];
 
       if (Object.keys(patch).length > 0) {
         const res = await updateProjectAction(project.id, patch);
         if (!res.ok) {
-          setMsg({ tone: 'bad', text: t('projectForm.err.partial', { done: done.join(', ') || '-', failed: t('projectForm.part.profile'), msg: t.has(`projectForm.err.${res.error}`) ? t(`projectForm.err.${res.error}`) : res.error }) });
+          setMsg({ tone: 'bad', text: t('projectForm.err.partial', { done: done.join(', ') || '-', failed: t('projectForm.part.profile'), msg: partialErrorMsg(res.error) }) });
           return;
         }
         done.push(t('projectForm.part.profile'));
@@ -250,7 +265,7 @@ export function ProjectForm(p: ProjectFormProps) {
       if (codeChanged) {
         const res = await changeProjectCodeAction(project.id, form.currentAliasCode, aliasReason);
         if (!res.ok && res.error !== 'unchanged') {
-          setMsg({ tone: 'bad', text: t('projectForm.err.partial', { done: done.join(', ') || '-', failed: t('projectForm.part.code'), msg: t.has(`projectForm.err.${res.error}`) ? t(`projectForm.err.${res.error}`) : res.error }) });
+          setMsg({ tone: 'bad', text: t('projectForm.err.partial', { done: done.join(', ') || '-', failed: t('projectForm.part.code'), msg: partialErrorMsg(res.error) }) });
           return;
         }
         done.push(t('projectForm.part.code'));
@@ -259,7 +274,7 @@ export function ProjectForm(p: ProjectFormProps) {
       if (weightsDirty) {
         const res = await saveStageWeightsAction(project.id, weights);
         if (!res.ok) {
-          setMsg({ tone: 'bad', text: t('projectForm.err.partial', { done: done.join(', ') || '-', failed: t('projectForm.part.weights'), msg: t.has(`projectForm.err.${res.error}`) ? t(`projectForm.err.${res.error}`) : res.error }) });
+          setMsg({ tone: 'bad', text: t('projectForm.err.partial', { done: done.join(', ') || '-', failed: t('projectForm.part.weights'), msg: partialErrorMsg(res.error) }) });
           return;
         }
         done.push(t('projectForm.part.weights'));
@@ -268,7 +283,7 @@ export function ProjectForm(p: ProjectFormProps) {
       if (msDirty) {
         const res = await saveKeyMilestonesAction(project.id, normalizeKeyMilestones(msRows));
         if (!res.ok) {
-          setMsg({ tone: 'bad', text: t('projectForm.err.partial', { done: done.join(', ') || '-', failed: t('projectForm.part.milestones'), msg: 'error' in res ? res.error : '' }) });
+          setMsg({ tone: 'bad', text: t('projectForm.err.partial', { done: done.join(', ') || '-', failed: t('projectForm.part.milestones'), msg: 'error' in res ? partialErrorMsg(res.error) : '' }) });
           return;
         }
         done.push(t('projectForm.part.milestones'));
@@ -287,9 +302,6 @@ export function ProjectForm(p: ProjectFormProps) {
       setSaving(false);
     }
   }
-
-  const [aliasReason, setAliasReason] = useState('');
-  const codeChanged = mode === 'edit' && form.currentAliasCode !== base.currentAliasCode;
 
   const filled = countFilled(form);
   const total = FORM_COUNT_FIELDS.length;
@@ -381,15 +393,26 @@ export function ProjectForm(p: ProjectFormProps) {
               <div className="field" data-field="currentAliasCode">
                 <span className="lb">{t('projectForm.field.aliasCode')}</span>
                 <HelpTip text={t('projectForm.tipText.aliasCode')} label={t('projectForm.tipText.aliasCode')} />
-                <input value={form.currentAliasCode} onChange={(e) => set('currentAliasCode', e.target.value)} className={inputCls('currentAliasCode')} />
+                <input
+                  value={form.currentAliasCode}
+                  onChange={(e) => set('currentAliasCode', e.target.value)}
+                  className={`inp${errors.currentAliasCode || aliasIssue === 'required' ? ' bad' : ''}`}
+                />
                 <span className="hintline">{t('projectForm.field.aliasHint')}</span>
                 {errors.currentAliasCode && <p className="hintline" style={{ color: 'var(--danger)' }}>{t(`projectForm.err.${errors.currentAliasCode}`)}</p>}
+                {!errors.currentAliasCode && aliasIssue === 'required' && <p className="hintline" style={{ color: 'var(--danger)' }}>{t('projectForm.err.required')}</p>}
               </div>
               {codeChanged && (
                 <div className="field" data-field="aliasReason" style={{ gridColumn: 'span 2' }}>
                   <span className="lb">{t('projectForm.field.aliasReason')}</span>
-                  <input value={aliasReason} onChange={(e) => setAliasReason(e.target.value)} maxLength={300} className="inp" />
+                  <input
+                    value={aliasReason}
+                    onChange={(e) => setAliasReason(e.target.value)}
+                    maxLength={300}
+                    className={`inp${aliasIssue === 'reason_short' ? ' bad' : ''}`}
+                  />
                   <span className="hintline">{t('projectForm.field.aliasReasonHint')}</span>
+                  {aliasIssue === 'reason_short' && <p className="hintline" style={{ color: 'var(--danger)' }}>{t('projectForm.err.reason_short')}</p>}
                 </div>
               )}
               <div className="field" style={{ gridColumn: 'span 2' }} data-field="projectName">

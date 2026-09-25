@@ -229,6 +229,19 @@ export function validateProjectForm(
   return { ok: Object.keys(errors).length === 0, errors, dates, fx };
 }
 
+export type AliasChangeIssue = 'required' | 'reason_short' | 'code_invalid';
+
+/** Task 8: đổi mã CT bắt buộc lý do ≥ 5 ký tự - kiểm ở client trước khi gọi changeProjectCodeAction
+ *  (server đã kiểm, nhưng thiếu kiểm client khiến updateProjectAction lỡ ghi hồ sơ trước khi biết lỗi). */
+export function validateAliasChange(base: ProjectFormState, f: ProjectFormState, reason: string): AliasChangeIssue | null {
+  if (f.currentAliasCode === base.currentAliasCode) return null;
+  const trimmed = f.currentAliasCode.trim();
+  if (trimmed === '') return 'required';
+  if (!isValidProjectCode(trimmed)) return 'code_invalid';
+  if (reason.trim().length < 5) return 'reason_short';
+  return null;
+}
+
 export function buildCreateInput(f: ProjectFormState, fx: FxPreview): CreateProjectInput {
   return {
     projectName: f.projectName,

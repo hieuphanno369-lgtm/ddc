@@ -1001,6 +1001,7 @@
       "positive": "Must be greater than 0",
       "too_long": "Max {max} characters",
       "code_invalid": "Letters, digits and . _ - / only, no spaces",
+      "reason_short": "Reason for the code change must be at least 5 characters",
       "date_order": "Dates out of order",
       "fx": "Cannot convert the foreign amount",
       "code_taken": "This code is used by another project",
