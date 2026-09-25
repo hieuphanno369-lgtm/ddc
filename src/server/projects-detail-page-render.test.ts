@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { CurrentUser } from '@/lib/session';
 
 /**
@@ -53,10 +55,12 @@ async function render(searchParams: Record<string, string> = {}, projectId = '1'
 afterEach(() => vi.clearAllMocks());
 
 describe('Task 1 - 3 the "Trong tam" (%TT, SPI, CPI) dung canh nhau', () => {
-  it('dung 3 the .kpi.key, gan dung %TT/SPI/CPI', async () => {
+  it('dung 3 the .kpi.key, gan dung %TT/SPI/CPI, KHONG con tag "Trong tam" (vong bo sung P2B)', async () => {
     const out = await render();
-    const keys = [...out.matchAll(/class="kpi rise key"><span class="tag">kpi\.focusTag<\/span><div class="lb">([^<]+)<\/div>/g)].map((m) => m[1]);
+    const keys = [...out.matchAll(/class="kpi rise key"><div class="lb">([^<]+)<\/div>/g)].map((m) => m[1]);
     expect(keys).toEqual(['metric.pctActual', 'metric.spi', 'metric.cpi']);
+    expect(out).not.toContain('class="tag"');
+    expect(out).not.toContain('kpi.focusTag');
   });
   it('thu tu 6 the: %KH, %TT, SPI, CPI, Tong nhan luc, Tong thiet bi (P1B Task 1: thay EAC/VAC)', async () => {
     const out = await render();
@@ -114,6 +118,95 @@ describe('T13b - so tuyet doi (tan) canh % o chuoi gia tri (P1B Task 3, nhanh T)
   it('du an 1: co hien so tan KH/TT cho giai doan dinh luong', async () => {
     const out = await render();
     expect(out).toContain('valueChainAbs.ton');
+  });
+});
+
+describe('P2B Buoc 2 - T12b(a) chart nhan luc theo ca x nha thau', () => {
+  it('co the id="res-shift" + tieu de manpowerCharts.shiftTitle, van con anchor res-manpower', async () => {
+    const out = await render();
+    expect(out).toContain('id="res-shift"');
+    expect(out).toContain('manpowerCharts.shiftTitle');
+    expect(out).toContain('href="#res-manpower"');
+    expect(out).toContain('id="res-manpower"');
+  });
+});
+
+describe('P2B Buoc 3 - T12b(b) chart cot chong nhan luc theo tuan', () => {
+  it('co the id="res-weekly" + tieu de manpowerCharts.weeklyTitle, khong con detail.manpowerTrend', async () => {
+    const out = await render();
+    expect(out).toContain('id="res-weekly"');
+    expect(out).toContain('manpowerCharts.weeklyTitle');
+    expect(out).not.toContain('detail.manpowerTrend');
+  });
+});
+
+describe('P2B Buoc 4 - T14 Gantt thiet bi', () => {
+  it('co the id="eq-gantt" + tieu de equipmentGantt.title', async () => {
+    const out = await render();
+    expect(out).toContain('id="eq-gantt"');
+    expect(out).toContain('equipmentGantt.title');
+  });
+
+  it('du an 17 (chua co ke hoach thiet bi) -> equipmentGantt.noPlan', async () => {
+    const out = await render({}, '17');
+    expect(out).toContain('equipmentGantt.noPlan');
+  });
+});
+
+describe('Vong sua 1 muc 4 - the "Chuoi gia tri" rong het hang, bo the EVM (danh-gia.md)', () => {
+  it('khong con tieu de detail.evmMetrics va cac chi so pv/sv/cv/eac rieng', async () => {
+    const out = await render();
+    expect(out).not.toContain('detail.evmMetrics');
+    expect(out).not.toContain('metric.pv');
+    expect(out).not.toContain('metric.sv');
+    expect(out).not.toContain('metric.cv');
+    expect(out).not.toContain('metric.eac');
+  });
+
+  it('chip "Toan bo 7 giai doan" luon hien canh chip khau nghen (neu co)', async () => {
+    const out = await render();
+    expect(out).toContain('valueChainCard.allStages');
+  });
+
+  it('dong chan co Sigma trong so + cong thuc %TT trong class="chainfoot"', async () => {
+    const out = await render();
+    expect(out).toContain('class="chainfoot"');
+    expect(out).toContain('valueChainCard.footerWeight');
+    expect(out).toContain('valueChainCard.footerFormula');
+  });
+
+  it('2 cot rieng (stagecol): trai design/procurement/transport/handover, phai shop/fabrication/erection dung thu tu', async () => {
+    const out = await render();
+    expect([...out.matchAll(/class="stagecol"/g)]).toHaveLength(2);
+    const left = ['stage.design', 'stage.procurement', 'stage.transport', 'stage.handover'].map((k) => out.indexOf(`>${k}<`));
+    const right = ['stage.shop', 'stage.fabrication', 'stage.erection'].map((k) => out.indexOf(`>${k}<`));
+    expect(left.every((p) => p >= 0)).toBe(true);
+    expect(right.every((p) => p >= 0)).toBe(true);
+    expect([...left].sort((a, b) => a - b)).toEqual(left);
+    expect([...right].sort((a, b) => a - b)).toEqual(right);
+    // Cot phai bat dau ngay sau khi cot trai da liet ke xong (khong xen ke nhu STAGE_ORDER goc).
+    expect(Math.min(...right)).toBeGreaterThan(Math.max(...left));
+  });
+
+  it('thanh tien do (.stage .fill) phai la the block hoac co display ro rang trong CSS, khong duoc la the inline-mac-dinh (vd <i>) khi rule CSS khong khai bao display - neu khong thanh se luon rong 0x0 va khong bao gio hien mau/rong theo %, ke ca hang "khau nghen" (.stage.bt .fill) khong tô cam duoc nhu mock-up doi (danh-gia.md muc 4(a)/(d)). Xac nhan bang Playwright that tren http://localhost:3001/vi/projects/1: moi hang .bar chi thay nen xam var(--fill-2), khong co gradient --accent/--accent-2 hay cam #ffb340, bat ke pct = 33% hay 100%. Mock-up mockup-apple-glass.html dong 1364 dung <div class="fill">, khong phai <i>.', async () => {
+    const out = await render();
+    const fillTagMatch = out.match(/<(\w+) class="fill"/);
+    expect(fillTagMatch, 'khong tim thay phan tu class="fill" trong HTML render (StageRow)').not.toBeNull();
+    const tag = fillTagMatch![1];
+
+    const cssSrc = readFileSync(join(process.cwd(), 'app/globals.css'), 'utf-8');
+    const ruleMatch = cssSrc.match(/\.stage \.fill\{([^}]*)\}/);
+    expect(ruleMatch, 'khong tim thay rule ".stage .fill{...}" trong app/globals.css').not.toBeNull();
+    const hasExplicitDisplay = /display\s*:\s*(block|inline-block|flex|grid)/.test(ruleMatch![1]);
+
+    // The mac dinh la display:inline (khong ap dung width/height qua CSS) - phai doi the hoac
+    // CSS phai tu khai bao display khac inline thi width:NN% moi co tac dung.
+    const INLINE_DEFAULT_TAGS = new Set(['i', 'span', 'em', 'b', 'strong', 'a', 'u', 'small']);
+    const ok = !INLINE_DEFAULT_TAGS.has(tag) || hasExplicitDisplay;
+    expect(
+      ok,
+      `the="<${tag} class=\"fill\">" mac dinh display:inline nhung ".stage .fill" trong app/globals.css khong khai bao "display:" -> width:${'{'}pct${'}'}% vo tac dung, thanh tien do luon rong 0x0. Sua 1 trong 2: (1) doi <i> thanh <div> o app/[locale]/(app)/projects/[id]/page.tsx (ham StageRow, dong ~579), hoac (2) them "display:block" (hoac inline-block/flex) vao rule ".stage .fill" o app/globals.css (dong ~469). KHONG sua ca 2 file nay trong test - day la ghi nhan loi cho Reviewer, khong phai cho Tester.`,
+    ).toBe(true);
   });
 });
 

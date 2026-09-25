@@ -6,6 +6,7 @@ import { calcDayVariance, calcDurationPctComplete, calcSpi } from '@/lib/evm';
 import { endOfMonth } from '@/lib/clock';
 import { keyMsAuditText } from '@/lib/key-milestones';
 import { sumManpowerShifts } from '@/lib/shifts';
+import { createReadMock } from './read-mock';
 import { makeEntryMockRepo } from './mock-repo-entry';
 import type {
   ActivityLogEntry,
@@ -945,3 +946,5 @@ const coreRepo = {
 };
 
 export const repo = { ...coreRepo, ...makeEntryMockRepo({ getData, persist }) };
+/** P2B: gộp read repo vào repo (mutate object gốc) - tầng trên chỉ import `repo` như cũ. */
+Object.assign(repo, createReadMock(getData));

@@ -8,12 +8,13 @@ import { currentMonth, isValidYearMonth, todayIso } from '@/lib/clock';
 import { getCurrentUser } from '@/lib/session';
 import { requireProjectRead } from '@/server/authz';
 import { stageKey } from '@/lib/labels';
-import { STAGE_ORDER } from '@/lib/stages';
+import type { StageCode } from '@/server/repo/types';
 import { THRESHOLDS } from '@/lib/thresholds';
 import { calcScheduleGap } from '@/lib/evm';
+import { calcScheduleGap as calcKpiScheduleGap } from '@/lib/schedule-gap';
 import { buildPlanActualTimeline } from '@/lib/timeline';
 import { buildStageTimelineRows } from '@/lib/stage-timeline';
-import { stageTonnage, stageWeightLabel } from '@/lib/value-chain-view';
+import { VALUE_CHAIN_COLUMNS, chainFooterSummary, chainWeightTotalLabel, stagePctLabel, stageTonnage, stageWeightLabel } from '@/lib/value-chain-view';
 import { formatDate, formatDateTime, formatDayMonth, formatPct, formatRatio, formatTon as formatQty, formatTyd } from '@/lib/format';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Rise } from '@/components/ui/Rise';
@@ -22,6 +23,8 @@ import { MarketLabel, PriorityBadge, StatusBadge, TypeLabel } from '@/components
 import { Badge } from '@/components/ui/Badge';
 import { HelpTip } from '@/components/ui/HelpTip';
 import { PlanActualTimeline } from '@/components/project/PlanActualTimeline';
+import { StageSelectionProvider } from '@/components/project/StageSelectionContext';
+import { ValueChainModeChip } from '@/components/project/ValueChainModeChip';
 const SCurve = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SCurve), { ssr: false, loading: () => <div className="sk h-60" /> });
 const CountdownPanel = dynamic(() => import('@/components/project/CountdownPanel').then((m) => m.CountdownPanel), { ssr: false, loading: () => <div className="sk" style={{ width: 240, height: 88 }} /> });
 const ResourceBreakdownChart = dynamic(() => import('@/components/project/ResourceBreakdownChart').then((m) => m.ResourceBreakdownChart), { ssr: false, loading: () => <div className="sk h-60" /> });
@@ -29,11 +32,21 @@ const WeeklyTrackingCard = dynamic(() => import('@/components/project/WeeklyTrac
 const KeyMilestoneChart = dynamic(() => import('@/components/project/KeyMilestoneChart').then((m) => m.KeyMilestoneChart), { ssr: false, loading: () => <div className="sk h-60" /> });
 const StageExplorer = dynamic(() => import('@/components/project/StageExplorer').then((m) => m.StageExplorer), { ssr: false, loading: () => <div className="sk h-60" /> });
 const SpiCpiLine = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SpiCpiLine), { ssr: false, loading: () => <div className="sk h-60" /> });
-const ManpowerDailyChart = dynamic(
-  () => import('@/components/project/ManpowerDailyChart').then((m) => m.ManpowerDailyChart),
+const ShiftManpowerChart = dynamic(
+  () => import('@/components/project/ShiftManpowerChart').then((m) => m.ShiftManpowerChart),
   { ssr: false, loading: () => <div className="sk h-60" /> },
 );
-import { getManpowerDaily, getResourceBreakdown, getResourceSnapshot, getWeeklyTracking, getWorkItemComparison } from '@/server/project-queries';
+const WeeklyManpowerStackChart = dynamic(
+  () => import('@/components/project/WeeklyManpowerStackChart').then((m) => m.WeeklyManpowerStackChart),
+  { ssr: false, loading: () => <div className="sk h-60" /> },
+);
+const EquipmentGantt = dynamic(
+  () => import('@/components/project/EquipmentGantt').then((m) => m.EquipmentGantt),
+  { ssr: false, loading: () => <div className="sk h-60" /> },
+);
+import { getResourceBreakdown, getResourceSnapshot, getWeeklyTracking, getWorkItemComparison } from '@/server/project-queries';
+import { getShiftChartData, getWeeklyChartData } from '@/server/manpower-queries';
+import { getEquipmentGantt } from '@/server/equipment-gantt-queries';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { WhatIf } from '@/components/project/WhatIf';
 import { ProjectSwitcher } from '@/components/project/ProjectSwitcher';
@@ -70,7 +83,36 @@ export default async function ProjectDetailPage({
   const project = await repo.getProject(id);
   if (!project) notFound();
 
-  const summary = (await getProjectSummary(id, month))!;
+  // T1 Bước 6: gom mọi lệnh đọc ĐỘC LẬP (không phụ thuộc kết quả của nhau) vào 1 Promise.all -
+  // trang Chi tiết trước đây await tuần tự từng dòng (>20 round-trip nối tiếp).
+  const [
+    summaryOrNull, lastUpdate, facts, chain, financial, alerts, aliases, sapCodes, photos, dims,
+    resources, breakdown, tracking, keyMilestones, stageWeights, stageMilestones, compare,
+    projectsList, shiftChart, weekly, gantt,
+  ] = await Promise.all([
+    getProjectSummary(id, month),
+    repo.readLastAuditAt(),
+    repo.getFacts(id),
+    repo.getValueChain(id, month),
+    repo.getFinancial(id),
+    repo.getAlerts(id),
+    repo.getAliases(id),
+    repo.getSapCodes(id),
+    repo.getPhotos(id),
+    repo.getDims(),
+    getResourceSnapshot(id, month),
+    getResourceBreakdown(id, month),
+    getWeeklyTracking(id, month),
+    repo.getKeyMilestones(id),
+    repo.getStageWeights(id),
+    repo.getStageMilestones(id),
+    getWorkItemComparison(id, month),
+    repo.listProjects(),
+    getShiftChartData(id, locale),
+    getWeeklyChartData(id, project),
+    getEquipmentGantt(id, t('equipmentGantt.noWorkItem')),
+  ]);
+  const summary = summaryOrNull!;
   const today = todayIso();
   const timeline = buildPlanActualTimeline({
     plannedStart: project.plannedStartDate, plannedFinish: project.plannedFinishDate,
@@ -78,31 +120,37 @@ export default async function ProjectDetailPage({
   });
   const startDelay = timeline?.startDelayDays ?? null;
   const gap = summary.pctPlan != null ? calcScheduleGap(summary.pctPlan, summary.pctActual) : null;
-  const lastUpdate = (await repo.getAuditLog())[0]?.changedAt ?? null;
-  const facts = await repo.getFacts(id);
+  // Vong bo sung P2B: dong "Cham/Nhanh N ngay · ±x,x%" duoi the %TT hero - cong thuc rieng
+  // (gapDays quy doi ra ngay), khac voi `gap` phia tren (chi la diem % dung cho dong chan timeline).
+  const kpiScheduleGap = calcKpiScheduleGap(summary.pctPlan, summary.pctActual, project.plannedStartDate, project.plannedFinishDate);
+  const scheduleGapNote = kpiScheduleGap
+    ? {
+        direction: kpiScheduleGap.direction,
+        text: t(`kpiSchedule.${kpiScheduleGap.direction}`, {
+          days: Math.abs(kpiScheduleGap.gapDays),
+          pct: new Intl.NumberFormat(locale === 'vi' ? 'vi-VN' : 'en-US', {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          }).format(Math.abs(kpiScheduleGap.gapPct) * 100),
+        }),
+      }
+    : undefined;
   const latest = facts[facts.length - 1];
-  const chain = await repo.getValueChain(id, month);
-  const financial = await repo.getFinancial(id);
-  const alerts = await repo.getAlerts(id);
-  const aliases = await repo.getAliases(id);
-  const sapCodes = await repo.getSapCodes(id);
-  const photos = await repo.getPhotos(id);
-  const dims = await repo.getDims();
-  const resources = await getResourceSnapshot(id, month);
-  const manpowerDaily = await getManpowerDaily(id, month);
-  const breakdown = await getResourceBreakdown(id, month);
-  const tracking = await getWeeklyTracking(id, month);
-  const keyMilestones = await repo.getKeyMilestones(id);
   const canEditMs = user?.role === 'admin' || user?.role === 'data-entry';
-  const stageWeights = await repo.getStageWeights(id);
-  const stageRows = buildStageTimelineRows(await repo.getStageMilestones(id), stageWeights);
-  const compare = await getWorkItemComparison(id, month);
+  const stageRows = buildStageTimelineRows(stageMilestones, stageWeights);
   const customer = dims.customers.find((c) => c.id === project.customerId);
   const team = dims.teams.find((x) => x.id === project.teamKdId);
+  const switcherProjects = projectsList.map((p) => ({ id: p.id, name: p.projectName, code: p.currentAliasCode }));
 
   const sCurve = facts.map((f) => ({ month: f.yearMonth, pv: Math.round(f.pv), ev: Math.round(f.ev), ac: Math.round(f.ac) }));
   const trend = facts.map((f) => ({ month: f.yearMonth, spi: f.spi, cpi: f.cpi }));
   const bottleneck = chain.find((c) => c.stageCode === latest?.bottleneckStage);
+  const chainFooter = chainFooterSummary(chain, stageWeights);
+  // Dich san ten 7 giai doan cho ValueChainModeChip (client component, muc 4d) - tranh goi
+  // useTranslations phia client khi khong co NextIntlClientProvider (renderToStaticMarkup trong test).
+  const stageLabels = Object.fromEntries(
+    [...VALUE_CHAIN_COLUMNS[0], ...VALUE_CHAIN_COLUMNS[1]].map((s) => [s, t(stageKey[s])]),
+  ) as Record<StageCode, string>;
 
   return (
     <>
@@ -117,7 +165,7 @@ export default async function ProjectDetailPage({
         </div>
         <ProjectSwitcher
           currentId={project.id}
-          projects={(await repo.listProjects()).map((p) => ({ id: p.id, name: p.projectName, code: p.currentAliasCode }))}
+          projects={switcherProjects}
         />
       </div>
 
@@ -157,9 +205,9 @@ export default async function ProjectDetailPage({
       {/* 6 KPI - 3 the "Trong tam" (%TT, SPI, CPI) dung canh nhau nhu mock-up dong 646-649 */}
       <Rise className="kpis">
         <KpiCard label={t('metric.pctPlan')} value={formatPct(summary.pctPlan, locale)} delta={null} tone="neutral" icon={IconProject} />
-        <KpiCard label={t('metric.pctActual')} value={formatPct(summary.pctActual, locale)} delta={null} tone="neutral" hero heroTagLabel={t('kpi.focusTag')} icon={IconAlert} />
-        <KpiCard label={t('metric.spi')} value={formatRatio(summary.spi)} delta={null} tone={summary.spi != null && summary.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'} hero heroTagLabel={t('kpi.focusTag')} icon={IconTrend} />
-        <KpiCard label={t('metric.cpi')} value={formatRatio(summary.cpi)} delta={null} tone={summary.cpi != null && summary.cpi < THRESHOLDS.cpiWarn ? 'warn' : 'ok'} hero heroTagLabel={t('kpi.focusTag')} icon={IconMoney} />
+        <KpiCard label={t('metric.pctActual')} value={formatPct(summary.pctActual, locale)} delta={null} tone="neutral" hero scheduleGap={scheduleGapNote} icon={IconAlert} />
+        <KpiCard label={t('metric.spi')} value={formatRatio(summary.spi)} delta={null} tone={summary.spi != null && summary.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'} hero icon={IconTrend} />
+        <KpiCard label={t('metric.cpi')} value={formatRatio(summary.cpi)} delta={null} tone={summary.cpi != null && summary.cpi < THRESHOLDS.cpiWarn ? 'warn' : 'ok'} hero icon={IconMoney} />
         <KpiCard label={t('resourceKpi.manpowerTotal')}
           value={resources.manpowerAsOfDate ? formatQty(resources.manpowerActual, locale) : '-'}
           sub={resources.manpowerAsOfDate ? t('resourceKpi.asOf', { date: formatDayMonth(resources.manpowerAsOfDate) }) : t('detail.noDailyData')}
@@ -231,68 +279,129 @@ export default async function ProjectDetailPage({
         <CardBody><KeyMilestoneChart milestones={keyMilestones} today={today} /></CardBody>
       </Card>
 
-      {/* Value chain + EVM */}
-      <div className="g2">
-        <Card>
+      {/* Chuoi gia tri (mock-up dong 701-707): the rong het hang, khong con ghep EVM (chu du an
+          chot 2026-09-24, xem .bangiao/danh-gia.md muc 4) - EVM da hien o KPI/StageExplorer noi khac.
+          Bao trong StageSelectionProvider (muc 4d) de chip goc noi voi giai doan dang chon o
+          StageExplorer ben duoi, khong phai viet lai StageExplorer. */}
+      <StageSelectionProvider>
+        <Card className="valueChainCard">
           <CardHeader
             title={t('detail.valueChain')}
             action={
-              bottleneck ? (
-                <Badge tone="danger">
-                  {t('detail.bottleneck')}: {t(stageKey[bottleneck.stageCode])}
-                </Badge>
-              ) : undefined
+              <div className="flex flex-wrap items-center gap-2">
+                <ValueChainModeChip allStagesLabel={t('valueChainCard.allStages')} stageLabels={stageLabels} />
+                {bottleneck && (
+                  <Badge tone="danger">
+                    {t('detail.bottleneck')}: {t(stageKey[bottleneck.stageCode])}
+                  </Badge>
+                )}
+              </div>
             }
           />
           <CardBody>
             <div className="stagegrid">
-              {STAGE_ORDER.map((stage) => {
-                const v = chain.find((c) => c.stageCode === stage);
-                if (v && !v.applicable) return null;
-                const pct = v?.pctComplete ?? 0;
-                const isBottleneck = stage === latest?.bottleneckStage;
-                const tonnage = stageTonnage(compare, stage);
-                return (
-                  <div key={stage} className={`stage${isBottleneck ? ' bt' : ''}`} style={{ gridTemplateColumns: '116px 38px 1fr auto' }}>
-                    <span className="nm">{t(stageKey[stage])}</span>
-                    <span className="w">{stageWeightLabel(stageWeights, stage, locale)}</span>
-                    <div className="bar"><i className="fill" style={{ width: `${Math.round(pct * 100)}%` }} /></div>
-                    <span className="pc">
-                      {formatPct(pct, locale)}
-                      {tonnage && (
-                        <span className="text-label3" style={{ fontWeight: 500, marginLeft: 6, whiteSpace: 'nowrap' }}>
-                          {t('valueChainAbs.ton', { actual: formatQty(tonnage.actual, locale), planned: formatQty(tonnage.planned, locale) })}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                );
-              })}
+              {VALUE_CHAIN_COLUMNS.map((column, i) => (
+                <div key={i} className="stagecol">
+                  {column.map((stage) => {
+                    const v = chain.find((c) => c.stageCode === stage);
+                    if (v && !v.applicable) return null;
+                    const pct = v?.pctComplete ?? 0;
+                    const tonnage = stageTonnage(compare, stage);
+                    return (
+                      <StageRow
+                        key={stage}
+                        name={t(stageKey[stage])}
+                        weightLabel={stageWeightLabel(stageWeights, stage, locale)}
+                        pct={pct}
+                        pctLabel={stagePctLabel(pct, locale)}
+                        isBottleneck={stage === latest?.bottleneckStage}
+                        tonnageLabel={tonnage ? t('valueChainAbs.ton', { actual: formatQty(tonnage.actual, locale), planned: formatQty(tonnage.planned, locale) }) : null}
+                      />
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+            <div className="chainfoot">
+              <span>
+                {t('valueChainCard.footerWeight')}{' '}
+                <b style={{ color: chainFooter.weightOk ? 'var(--label)' : 'var(--warn)' }}>{chainWeightTotalLabel(chainFooter.weightTotal, locale)}</b>
+                {' · '}{t('valueChainCard.footerFormula')}
+              </span>
+              <span style={{ fontWeight: 750, color: 'var(--label)', fontSize: 'var(--t-footnote)' }}>{stagePctLabel(chainFooter.pctTotal, locale)}</span>
             </div>
           </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader title={t('detail.evmMetrics')} />
-          <CardBody>
-            <table className="tbl">
-              <tbody>
-                <EvmRow label={t('metric.pv')} value={formatTyd(latest?.pv, locale)} />
-                <EvmRow label={t('metric.ev')} value={formatTyd(latest?.ev, locale)} />
-                <EvmRow label={t('metric.ac')} value={formatTyd(latest?.ac, locale)} />
-                <EvmRow label={t('metric.sv')} value={formatTyd(latest ? latest.ev - latest.pv : null, locale)} />
-                <EvmRow label={t('metric.cv')} value={formatTyd(latest ? latest.ev - latest.ac : null, locale)} />
-                <EvmRow label={t('metric.spi')} value={formatRatio(summary.spi)} />
-                <EvmRow label={t('metric.cpi')} value={formatRatio(summary.cpi)} />
-                <EvmRow label={t('metric.eac')} value={formatTyd(summary.eac, locale)} />
-              </tbody>
-            </table>
-          </CardBody>
+        <StageExplorer rows={stageRows} compare={compare} today={today} locale={locale} />
+      </StageSelectionProvider>
+
+      {/* Tang 4 - Huy dong nguon luc (mock-up dong 759-767) */}
+      <div className="g2">
+        <Card id="res-manpower" style={{ scrollMarginTop: 72 }}>
+          <CardHeader
+            title={t('detail.res.manTitle')}
+            titleExtra={<span className="chip c-plain">{t('detail.res.manual')}</span>}
+            action={<Legend items={[{ label: t('detail.planned'), color: 'var(--s-plan)' }, { label: t('detail.actual'), color: 'var(--s-third)' }]} />}
+          />
+          <CardBody><ResourceBreakdownChart rows={breakdown.manpower} kind="manpower" /></CardBody>
+        </Card>
+        <Card id="res-equipment" style={{ scrollMarginTop: 72 }}>
+          <CardHeader
+            title={t('detail.res.eqpTitle')}
+            titleExtra={<span className="chip c-plain">{t('detail.res.manual')}</span>}
+            action={<Legend items={[{ label: t('detail.planned'), color: 'var(--s-plan)' }, { label: t('detail.actual'), color: 'var(--s-cost)' }]} />}
+          />
+          <CardBody><ResourceBreakdownChart rows={breakdown.equipment} kind="equipment" /></CardBody>
         </Card>
       </div>
 
-      <StageExplorer rows={stageRows} compare={compare} today={today} locale={locale} />
+      {tracking ? (
+        <WeeklyTrackingCard data={tracking} locale={locale} />
+      ) : (
+        <Card>
+          <CardHeader title={t('detail.track.title')} />
+          <CardBody><p className="empty">{t('detail.noDailyData')}</p></CardBody>
+        </Card>
+      )}
 
+      {/* T12b(a) - chart nhan luc theo ca x nha thau */}
+      <Card id="res-shift" style={{ scrollMarginTop: 72 }}>
+        <CardHeader
+          title={t('manpowerCharts.shiftTitle')}
+          titleExtra={<HelpTip text={t('manpowerCharts.shiftHelp')} label={t('common.explain')} />}
+        />
+        <CardBody><ShiftManpowerChart data={shiftChart} initialMonth={month} /></CardBody>
+      </Card>
+
+      {/* T12b(b) - chart cot chong nhan luc theo tuan x nha thau, dat cuoi trang theo yeu cau */}
+      <Card id="res-weekly" style={{ scrollMarginTop: 72 }}>
+        <CardHeader
+          title={t('manpowerCharts.weeklyTitle')}
+          titleExtra={<HelpTip text={t('manpowerCharts.weeklyHelp')} label={t('common.explain')} />}
+        />
+        <CardBody>
+          {weekly ? <WeeklyManpowerStackChart data={weekly} initialMonth={month} /> : <p className="empty">{t('manpowerCharts.noData')}</p>}
+        </CardBody>
+      </Card>
+
+      {/* T14 - Gantt thiet bi theo tung chiec */}
+      <Card id="eq-gantt" style={{ scrollMarginTop: 72 }} className="overflow-visible">
+        <CardHeader
+          title={t('equipmentGantt.title')}
+          subtitle={gantt ? `${formatDate(gantt.planFrom, locale)} - ${formatDate(gantt.planTo, locale)}` : undefined}
+          titleExtra={<HelpTip text={t('equipmentGantt.help')} label={t('common.explain')} />}
+          action={gantt ? (
+            <Legend items={[
+              ...gantt.legend.map((l) => ({ label: l.name, color: l.color })),
+              { label: t('equipmentGantt.legendUsed'), color: 'var(--label2)' },
+            ]} />
+          ) : undefined}
+        />
+        <CardBody>{gantt ? <EquipmentGantt model={gantt} /> : <p className="empty">{t('equipmentGantt.noPlan')}</p>}</CardBody>
+      </Card>
+
+      {/* Cum xu huong + ho so dat cuoi trang theo yeu cau chu du an 2026-09-24 */}
       {/* Charts */}
       <div className="g2">
         <Card>
@@ -445,43 +554,6 @@ export default async function ProjectDetailPage({
           )}
         </CardBody>
       </Card>
-
-      {/* Tang 4 - Huy dong nguon luc (mock-up dong 759-767) */}
-      <div className="g2">
-        <Card id="res-manpower" style={{ scrollMarginTop: 72 }}>
-          <CardHeader
-            title={t('detail.res.manTitle')}
-            titleExtra={<span className="chip c-plain">{t('detail.res.manual')}</span>}
-            action={<Legend items={[{ label: t('detail.planned'), color: 'var(--s-plan)' }, { label: t('detail.actual'), color: 'var(--s-third)' }]} />}
-          />
-          <CardBody><ResourceBreakdownChart rows={breakdown.manpower} kind="manpower" /></CardBody>
-        </Card>
-        <Card id="res-equipment" style={{ scrollMarginTop: 72 }}>
-          <CardHeader
-            title={t('detail.res.eqpTitle')}
-            titleExtra={<span className="chip c-plain">{t('detail.res.manual')}</span>}
-            action={<Legend items={[{ label: t('detail.planned'), color: 'var(--s-plan)' }, { label: t('detail.actual'), color: 'var(--s-cost)' }]} />}
-          />
-          <CardBody><ResourceBreakdownChart rows={breakdown.equipment} kind="equipment" /></CardBody>
-        </Card>
-      </div>
-
-      {tracking ? (
-        <WeeklyTrackingCard data={tracking} locale={locale} />
-      ) : (
-        <Card>
-          <CardHeader title={t('detail.track.title')} />
-          <CardBody><p className="empty">{t('detail.noDailyData')}</p></CardBody>
-        </Card>
-      )}
-
-      {/* Biểu đồ nhân lực KH vs TT - đặt cuối trang theo yêu cầu */}
-      <Card>
-        <CardHeader title={t('detail.manpowerTrend')} />
-        <CardBody>
-          <ManpowerDailyChart data={manpowerDaily} />
-        </CardBody>
-      </Card>
     </>
   );
 }
@@ -509,12 +581,21 @@ function TimelineItem({
   );
 }
 
-function EvmRow({ label, value }: { label: string; value: string }) {
+/** 1 hàng giai đoạn trong thẻ "Chuỗi giá trị" (mock-up dòng 701-707): tên · chip trọng số · thanh
+ * · %HT; `tonnageLabel` (nếu có) là dòng chữ nhỏ màu xám ngay dưới thanh, ghim vào cột thanh (cột 3). */
+function StageRow({
+  name, weightLabel, pct, pctLabel, isBottleneck, tonnageLabel,
+}: {
+  name: string; weightLabel: string; pct: number; pctLabel: string; isBottleneck: boolean; tonnageLabel: string | null;
+}) {
   return (
-    <tr>
-      <td>{label}</td>
-      <td className="num" style={{ fontWeight: 600 }}>{value}</td>
-    </tr>
+    <div className={`stage${isBottleneck ? ' bt' : ''}`} style={{ gridTemplateColumns: '116px 38px 1fr auto' }}>
+      <span className="nm">{name}</span>
+      <span className="w">{weightLabel}</span>
+      <div className="bar"><i className="fill" style={{ width: `${Math.round(pct * 100)}%` }} /></div>
+      <span className="pc">{pctLabel}</span>
+      {tonnageLabel && <span className="stagesub" style={{ gridColumn: 3 }}>{tonnageLabel}</span>}
+    </div>
   );
 }
 

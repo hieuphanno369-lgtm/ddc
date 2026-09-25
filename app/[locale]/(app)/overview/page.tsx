@@ -44,7 +44,7 @@ export default async function OverviewPage({
   const user = await getCurrentUser();
   const t = await getTranslations();
   const locale = await getLocale();
-  const lastUpdate = (await repo.getAuditLog())[0]?.changedAt ?? null;
+  const lastUpdate = await repo.readLastAuditAt();
   const dims = await repo.getDims();
 
   const month = p(searchParams, 'month') === 'all' ? 'all' : p(searchParams, 'month') || currentMonth();

@@ -242,11 +242,19 @@
     backdrop-filter:blur(var(--mat-regular)) saturate(var(--mat-sat));
     border:.5px solid var(--glass-stroke);box-shadow:var(--e2),var(--inner-hi);
     will-change:transform}
+  /* Vong bo sung P2B: nhan xuong toi da 2 dong, khong ellipsis (truoc do 1 dong + "..." lam cat
+     chu vd "TONG SO NHAN LUC"). min-height danh du 2 dong de .vl (so chinh) thang hang giua cac
+     the cung hang du nhan dai/ngan khac nhau. padding-right:30px chua cho .ic (26px, goc tren
+     phai) o the thuong; the .key (hero) khong co icon nen ghi de padding-right:0 o duoi. */
   .kpi .lb{font-size:var(--t-caption2);font-weight:700;letter-spacing:.025em;text-transform:uppercase;
-    color:var(--label3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:30px}
+    color:var(--label3);white-space:normal;word-break:break-word;line-height:1.3;
+    min-height:calc(var(--t-caption2) * 2.6);padding-right:30px}
   .kpi .vl{font-size:var(--t-title1);font-weight:700;letter-spacing:var(--tr-large);line-height:var(--lh-tight);margin-top:6px}
   .kpi .sb{margin-top:6px;font-size:var(--t-caption1);color:var(--label2);min-height:18px;
     display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* Vong bo sung P2B: dong "Cham/Nhanh N ngay · ±x,x%" - cho xuong dong thay vi cat "..."
+     o the hep (2 cot mobile), vi so % o cuoi dong la thong tin quan trong khong duoc cat mat. */
+  .kpi .sb.gap{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.3;flex-direction:column;align-items:flex-start;gap:1px}
   .kpi .ic{position:absolute;right:13px;top:13px;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
     background:var(--fill);color:var(--label3);transition:all var(--dur-fast) var(--ease-std)}
   .kpi .ic svg{width:15px;height:15px}
@@ -255,28 +263,14 @@
   .kpi.key{border-color:transparent;color:#fff;
     background:linear-gradient(158deg,var(--accent-2) 0%,var(--accent) 46%,var(--accent-deep) 100%);
     box-shadow:var(--e3), inset 0 .5px 0 rgba(255,255,255,.34)}
-  .kpi.key .lb{color:rgba(255,255,255,.76)}
+  /* Vong bo sung P2B: bo tag "Trong tam"/.tag (chu vang tren the hero, thay bang dong
+     "Cham/Nhanh N ngay" o KpiCard.tsx) - the hero van giu nen gradient navy noi bat, chi bo
+     chu tag. Khong con tag/icon chiem goc tren phai nen .lb khong can chua padding-right nua
+     (fix "khoang trong thua"); container-query rieng cho .tag (ban CAN SUA #1 cu) cung khong
+     con can thiet. */
+  .kpi.key .lb{color:rgba(255,255,255,.76);padding-right:0}
   .kpi.key .sb{color:rgba(255,255,255,.78)}
-  .kpi.key .tag{position:absolute;right:13px;top:13px;font-size:9px;font-weight:800;letter-spacing:.06em;
-    text-transform:uppercase;color:#3b2b00;background:var(--gold);border-radius:6px;padding:3px 7px}
   .kpi.key .chip{background:rgba(255,255,255,.95)}
-
-  /* Fix CAN SUA #1: padding-right:30px (dong tren) chi du cho icon .ic 26px
-     dung o the thuong. The .key (hero) thay icon bang tag chu ".tag" - voi
-     nhan dai nhu "Tre tien do"/"Behind Schedule", tag de vao dung vung chu
-     khi BE RONG THE (khong phai viewport) nho hon ~210px. Dung sat mep
-     @media(max-width:680px) se lot vung 1181-1450px o luoi 6 cot (KPI-1
-     reviewer chi ra): viewport rong nhung the van hep vi 6 cot, hoac sidebar
-     thu gon 68px lam viewport-check sai lech. Dung @container (container-type
-     dat tren chinh .kpi.key) de bat dung theo be rong THE thuc te, dung o moi
-     so cot/viewport/trang thai sidebar. Nguong 210px = K_max~186px (en) + bien
-     an toan, da do overlapX that bang Chrome DevTools Protocol (headless) -
-     xem .bangiao/thay-doi.md. */
-  .kpi.key{container-type:inline-size}
-  @container (max-width: 210px){
-    .kpi.key .tag{position:static;display:inline-block;margin:0 0 6px}
-    .kpi.key .lb{padding-right:0}
-  }
 
   /* Bien the so cot - app co luoi 5 / 4 / 2 thay vi luon 6 */
   .kpis.k5 { grid-template-columns: repeat(5, 1fr); }
@@ -466,12 +460,18 @@
   .stage .w{font-size:10px;font-weight:750;color:var(--label3);background:var(--fill);border-radius:6px;
     padding:2px 0;text-align:center}
   .stage .bar{height:10px;border-radius:5px;background:var(--fill-2);overflow:hidden}
-  .stage .fill{height:100%;border-radius:5px;background:linear-gradient(90deg,var(--accent-2),var(--accent));
+  .stage .fill{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--accent-2),var(--accent));
     transition:width var(--dur-slow) var(--ease-ios)}
   .stage.bt .fill{background:linear-gradient(90deg,#ffb340,var(--warn))}
   .stage .pc{font-size:var(--t-caption1);font-weight:700;text-align:right}
   .chainfoot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:11px;
     padding-top:11px;border-top:.5px solid var(--sep);font-size:var(--t-caption1);color:var(--label2)}
+
+  /* --- P2B vong sua 1 muc 4: the "Chuoi gia tri" rong het hang (danh-gia.md muc 4) - 2 cot
+     trai/phai render rieng (VALUE_CHAIN_COLUMNS) nen chi can xep doc trong tung cot, khong dung
+     grid-auto-flow (de khong vo thu tu khi 1 giai doan "khong ap dung" bi an) --- */
+  .stagecol{display:flex;flex-direction:column;gap:2px}
+  .stage .stagesub{grid-column:3;font-size:10px;color:var(--label3);margin-top:1px}
 
   /* --- Task 9: Bieu do (mockup-apple-glass.html dong 379-390, copy nguyen van) --- */
   /* Q5=(a): KHONG ship .hud (widget do fps) - bo hoan toan, khong dua vao app that. */

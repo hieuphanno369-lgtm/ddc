@@ -450,7 +450,8 @@
     "lastUpdate": "Cập nhật DB lần cuối",
     "deleteProject": "Xóa dự án",
     "confirmDelete": "Xóa dự án này? (ẩn khỏi danh sách, giữ data)",
-    "deleted": "Đã xóa dự án"
+    "deleted": "Đã xóa dự án",
+    "delete": "Xóa"
   },
   "auth": {
     "signIn": "Đăng nhập",
@@ -638,6 +639,44 @@
     "rangeAll": "Tất cả",
     "prev": "Trang trước",
     "next": "Trang sau"
+  },
+  "manpowerCharts": {
+    "shiftTitle": "Nhân lực theo ca · theo nhà thầu",
+    "shiftHelp": "Mỗi nhà thầu 1 nhóm cột, mỗi ca 1 cột. Chiều cao = nhân lực thực tế trung bình mỗi ngày có số liệu của ca đó trong tháng.",
+    "month": "Tháng",
+    "noDataMonth": "Chưa có số liệu nhân lực tháng {month}",
+    "tipLine": "TT {actual} · KH {planned} ({pct}) · {days} ngày",
+    "weeklyTitle": "Nhân lực theo tuần · theo nhà thầu",
+    "weeklyHelp": "Cột = nhân lực thực tế trung bình mỗi ngày trong tuần, chồng theo nhà thầu. Tuần đầu/cuối dự án không đủ 7 ngày thì chia cho số ngày thực có. Ngày không nhập số liệu tính là 0.",
+    "allMonths": "Toàn dự án",
+    "plannedLine": "KH (TB/ngày)",
+    "weekOf": "Tuần {from} - {to}",
+    "days": "{n} ngày",
+    "scrollHint": "Kéo ngang hoặc dùng phím ← → để xem toàn bộ timeline",
+    "noData": "Chưa có số liệu nhân lực theo ngày",
+    "total": "Tổng TT"
+  },
+  "equipmentGantt": {
+    "title": "Tiến độ sử dụng thiết bị theo tuần",
+    "help": "Mỗi hàng là 1 chiếc thiết bị. Thanh nhạt = kế hoạch sử dụng, màu theo hạng mục; ô đậm trên thanh = ngày thực tế có dùng (lấy từ số liệu thiết bị hằng ngày, gán cho các chiếc theo số thứ tự).",
+    "noPlan": "Chưa có kế hoạch thiết bị cho dự án này",
+    "noWorkItem": "Chưa gán hạng mục",
+    "legendUsed": "Ô đậm = ngày có dùng",
+    "tipWorkItem": "Hạng mục",
+    "tipPlan": "Kế hoạch",
+    "tipPlanDays": "Số ngày KH",
+    "tipUsedDays": "Ngày có dùng",
+    "unplanned": "{n} lượt thiết bị-ngày có dùng nhưng nằm ngoài kế hoạch (không vẽ)"
+  },
+  "valueChainCard": {
+    "allStages": "Toàn bộ 7 giai đoạn",
+    "footerWeight": "Σ trọng số",
+    "footerFormula": "%TT = Σ(trọng số × %HT giai đoạn)"
+  },
+  "kpiSchedule": {
+    "behind": "▼ Chậm {days} ngày · −{pct}%",
+    "ahead": "▲ Nhanh {days} ngày · +{pct}%",
+    "onTrack": "Đúng tiến độ"
   },
   "contractorJoin": {
     "title": "Nhà thầu tham gia",

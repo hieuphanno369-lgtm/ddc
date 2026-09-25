@@ -1,6 +1,13 @@
 import { IconArrowDown, IconArrowUp, type IconProps } from '@/components/icons';
+import type { ScheduleGapDirection } from '@/lib/schedule-gap';
 
 export type KpiTone = 'neutral' | 'ok' | 'warn' | 'danger';
+
+export interface KpiScheduleGapNote {
+  /** Da dich san (vd t('kpiSchedule.behind', {days, pct})) - KpiCard khong tu dich. */
+  text: string;
+  direction: ScheduleGapDirection;
+}
 
 export interface KpiCardProps {
   label: string;
@@ -10,19 +17,16 @@ export interface KpiCardProps {
   deltaSuffix?: string;
   tone?: KpiTone;
   invertDelta?: boolean;
-  /** true -> the "Trong tam": nen gradient navy + tag vang, khong hien icon. */
+  /** true -> the "Trong tam": nen gradient navy, khong hien icon. */
   hero?: boolean;
-  /**
-   * Chu tren tag vang khi hero=true (vd. da dich san "Trong tam"/"Focus").
-   * KpiCard KHONG tu dich: component nay phai o lai dang sync (khong 'use client',
-   * khong async) de renderToStaticMarkup trong test render trang van dung duoc
-   * khi long trong cay Server Component - nen ben goi (da co t() san) tu tinh
-   * chu roi truyen xuong.
-   */
-  heroTagLabel?: string;
   icon: (p: IconProps) => React.ReactNode;
   /** Dong phu thu 2, hien duoi `sub` (vd "KH 520 · 6 nha thau"). */
   note?: string;
+  /**
+   * Dong "Cham/Nhanh N ngay · ±x,x%" so voi tien do KH, hien duoi cung the %TT hero
+   * (Vong bo sung P2B). Mau theo direction - xem SCHEDULE_GAP_COLOR.
+   */
+  scheduleGap?: KpiScheduleGapNote;
   /** Co -> ca the la <a href> (anchor cuon toi chart), them class "tap" (da co CSS: globals.css:253). */
   href?: string;
 }
@@ -35,6 +39,19 @@ const TONE_VALUE: Record<KpiTone, string> = {
   danger: 'var(--danger)',
 };
 
+/**
+ * Mau dong "Cham/Nhanh N ngay · ±x,x%" tren nen gradient navy cua the hero. Khong dung
+ * --danger/--ok mac dinh: o theme sang 2 token do la mau toi, doc kem tren navy - cung ly do
+ * heroAlert (dong tren) dung --gold thay --warn/--danger. --gold dung lai cho "cham" (canh
+ * bao); "nhanh" dung token rieng --mint (app/tokens.css) - mot gia tri xanh sang co dinh (khong
+ * doi theo theme, giong --gold) du sang de doc tren navy.
+ */
+const SCHEDULE_GAP_COLOR: Record<ScheduleGapDirection, React.CSSProperties | undefined> = {
+  behind: { color: 'var(--gold)' },
+  ahead: { color: 'var(--mint)' },
+  onTrack: undefined,
+};
+
 export function KpiCard({
   label,
   value,
@@ -44,9 +61,9 @@ export function KpiCard({
   tone = 'neutral',
   invertDelta = false,
   hero = false,
-  heroTagLabel,
   icon: Icon,
   note,
+  scheduleGap,
   href,
 }: KpiCardProps) {
   const deltaUp = (delta ?? 0) > 0;
@@ -59,9 +76,7 @@ export function KpiCard({
 
   const body = (
     <>
-      {hero ? (
-        <span className="tag">{heroTagLabel}</span>
-      ) : (
+      {!hero && (
         <div className="ic">
           <Icon size={15} />
         </div>
@@ -72,6 +87,7 @@ export function KpiCard({
         {value}
       </div>
 
+      {(hasDelta || sub || !scheduleGap) && (
       <div className="sb">
         {hasDelta ? (
           <>
@@ -82,13 +98,25 @@ export function KpiCard({
             {deltaSuffix && <span>{deltaSuffix}</span>}
           </>
         ) : (
-          !sub && <span>-</span>
+          !sub && !scheduleGap && <span>-</span>
         )}
         {sub && <span>{sub}</span>}
       </div>
+      )}
       {note && (
         <div className="sb">
           <span>{note}</span>
+        </div>
+      )}
+      {scheduleGap && (
+        // class "gap" rieng: cho phep xuong dong o the hep (globals.css) thay vi cat "..." -
+        // dong nay co so % quan trong, cat mat la sai yeu cau "doc ro tren nen navy".
+        <div className="sb gap" style={SCHEDULE_GAP_COLOR[scheduleGap.direction]}>
+          {/* 2 dong co dinh: "▼ Cham 56 ngay" / "−19,3%" (tach o " · " cua chuoi i18n), moi dong nowrap -
+              the 6 cot hep khong chua noi 1 dong, xuong dong o giua trong lech nen xep doc cho gon. */}
+          {scheduleGap.text.split(' · ').map((part, i) => (
+            <span key={i} style={{ whiteSpace: 'nowrap' }}>{part}</span>
+          ))}
         </div>
       )}
     </>

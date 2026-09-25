@@ -450,7 +450,8 @@
     "lastUpdate": "Last Update DB",
     "deleteProject": "Delete project",
     "confirmDelete": "Delete this project? (hide from list, keep data)",
-    "deleted": "Project deleted"
+    "deleted": "Project deleted",
+    "delete": "Delete"
   },
   "auth": {
     "signIn": "Sign in",
@@ -638,6 +639,44 @@
     "rangeAll": "All",
     "prev": "Previous page",
     "next": "Next page"
+  },
+  "manpowerCharts": {
+    "shiftTitle": "Manpower by shift · by contractor",
+    "shiftHelp": "One column group per contractor, one column per shift. Height = average actual headcount per recorded day of that shift in the month.",
+    "month": "Month",
+    "noDataMonth": "No manpower data for {month}",
+    "tipLine": "Actual {actual} · Plan {planned} ({pct}) · {days} days",
+    "weeklyTitle": "Weekly manpower · by contractor",
+    "weeklyHelp": "Bars = average actual headcount per day of the week, stacked by contractor. The first/last project week is divided by its actual number of days. Days without data count as 0.",
+    "allMonths": "Whole project",
+    "plannedLine": "Plan (avg/day)",
+    "weekOf": "Week {from} - {to}",
+    "days": "{n} days",
+    "scrollHint": "Drag or use ← → keys to see the whole timeline",
+    "noData": "No daily manpower data yet",
+    "total": "Total actual"
+  },
+  "equipmentGantt": {
+    "title": "Weekly equipment usage schedule",
+    "help": "Each row is one equipment unit. Light bar = planned usage, coloured by work item; solid cells = days actually used (from daily equipment data, assigned to units in unit-number order).",
+    "noPlan": "No equipment plan for this project yet",
+    "noWorkItem": "No work item",
+    "legendUsed": "Solid = day used",
+    "tipWorkItem": "Work item",
+    "tipPlan": "Plan",
+    "tipPlanDays": "Planned days",
+    "tipUsedDays": "Days used",
+    "unplanned": "{n} equipment-days used outside the plan (not drawn)"
+  },
+  "valueChainCard": {
+    "allStages": "All 7 stages",
+    "footerWeight": "Σ weight",
+    "footerFormula": "Actual % = Σ(weight × stage actual %)"
+  },
+  "kpiSchedule": {
+    "behind": "▼ Behind {days}d · −{pct}%",
+    "ahead": "▲ Ahead {days}d · +{pct}%",
+    "onTrack": "On track"
   },
   "contractorJoin": {
     "title": "Participating contractors",

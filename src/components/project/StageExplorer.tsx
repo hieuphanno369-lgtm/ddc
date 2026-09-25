@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import type { StageCode } from '@/server/repo/types';
 import type { IsoDate } from '@/lib/clock';
@@ -13,12 +12,14 @@ import { Legend } from '@/components/ui/Legend';
 import { StageTimelineChart } from './StageTimelineChart';
 import { WorkItemCompareChart } from './WorkItemCompareChart';
 import { varianceColor, varianceText } from './stageText';
+import { useStageSelection } from './StageSelectionContext';
 
 /** Thẻ "Timeline của 7 giai đoạn" (mock-up dòng 710-714) + thẻ "Biểu đồ so sánh" (mock-up dòng 716-720), dùng chung `selected`. */
 export function StageExplorer({ rows, compare, today, locale }: { rows: StageTimelineRow[]; compare: WorkItemCompare; today: IsoDate; locale: string }) {
   const t = useTranslations();
-  const [selected, setSelected] = useState<StageCode | null>(null);
-  const toggle = (c: StageCode) => setSelected((s) => (s === c ? null : c));
+  // Vong sua 1 muc 4d: state chon giai doan lay tu StageSelectionContext (dung chung voi chip
+  // the "Chuoi gia tri") thay vi useState rieng - ngoai Provider van hoat dong nho fallback cuc bo.
+  const { selected, toggle } = useStageSelection();
   const sel = rows.find((r) => r.stageCode === selected) ?? null;
   const cmpStage: StageCode = selected ?? 'fabrication';
   const cmpRows = compare[cmpStage] ?? [];

@@ -1,11 +1,62 @@
 import type { ProjectStageWeight, StageCode } from '@/server/repo/types';
 import type { WorkItemCompare } from '@/lib/stage-timeline';
+import { STAGE_ORDER, calcChainPctActual, validateStageWeights, type StageInput } from '@/lib/stages';
+
+function formatWeightPoints(value: number, locale: string): string {
+  return `${new Intl.NumberFormat(locale === 'vi' ? 'vi-VN' : 'en-US', { maximumFractionDigits: 1 }).format(value)}%`;
+}
 
 /** Nhãn cột trọng số: "40%", "33,3%" (vi) / "33.3%" (en); không có dòng hoặc applicable=false -> "-". */
 export function stageWeightLabel(weights: ProjectStageWeight[], code: StageCode, locale: string): string {
   const w = weights.find((x) => x.stageCode === code);
   if (!w || !w.applicable) return '-';
-  return `${new Intl.NumberFormat(locale === 'vi' ? 'vi-VN' : 'en-US', { maximumFractionDigits: 1 }).format(w.weightPct)}%`;
+  return formatWeightPoints(w.weightPct, locale);
+}
+
+/** %HT cố định 1 chữ số thập phân: "100,0%" (vi) / "100.0%" (en) - khác `formatPct` (0-2 chữ số). */
+export function stagePctLabel(pct: number, locale: string): string {
+  return new Intl.NumberFormat(locale === 'vi' ? 'vi-VN' : 'en-US', {
+    style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1,
+  }).format(pct);
+}
+
+/**
+ * Lưới 2 cột thẻ "Chuỗi giá trị" (mock-up `mockup-apple-glass.html` dòng 701-707, ảnh mẫu chủ dự
+ * án 2026-09-24): trái = Thiết kế/Vật tư/Vận chuyển/Nghiệm thu & BG, phải = Shop Drawing/Gia
+ * công/Lắp dựng - đúng thứ tự hiển thị trong mock-up, KHÔNG phải thứ tự xen kẽ của `STAGE_ORDER`.
+ */
+export const VALUE_CHAIN_COLUMNS: readonly [readonly StageCode[], readonly StageCode[]] = [
+  ['design', 'procurement', 'transport', 'handover'],
+  ['shop', 'fabrication', 'erection'],
+];
+
+type ChainStageRow = { stageCode: StageCode; pctComplete: number; applicable: boolean };
+
+/** Đủ 7 giai đoạn theo `STAGE_ORDER`, thiếu dòng -> applicable=true/pctComplete=0 (khớp cách mỗi
+ * hàng trong thẻ tự suy `v?.pctComplete ?? 0` khi không có dòng chain). */
+function chainStageInputs(chain: ChainStageRow[]): StageInput[] {
+  return STAGE_ORDER.map((code) => {
+    const v = chain.find((c) => c.stageCode === code);
+    return { stageCode: code, pctComplete: v?.pctComplete ?? 0, applicable: v?.applicable ?? true };
+  });
+}
+
+export interface ChainFooterSummary { weightTotal: number; weightOk: boolean; pctTotal: number }
+
+/**
+ * Dòng chân thẻ "Chuỗi giá trị": Σ trọng số thật từ `project_stage_weight` (không ghi cứng 100 -
+ * `weightOk=false` khi lệch, để tô cảnh báo) + %TT = Σ(trọng số × %HT giai đoạn), tính bằng đúng
+ * `calcChainPctActual`/`validateStageWeights` của `src/lib/stages.ts` (nhất quán với wizard nhập liệu).
+ */
+export function chainFooterSummary(chain: ChainStageRow[], weights: ProjectStageWeight[]): ChainFooterSummary {
+  const v = validateStageWeights(weights);
+  const pctTotal = calcChainPctActual(chainStageInputs(chain), weights);
+  return { weightTotal: v.total, weightOk: v.ok, pctTotal };
+}
+
+/** Nhãn Σ trọng số ở dòng chân, dùng chung định dạng số với `stageWeightLabel`. */
+export function chainWeightTotalLabel(weightTotal: number, locale: string): string {
+  return formatWeightPoints(weightTotal, locale);
 }
 
 /** Σ KH/TT (tấn) của giai đoạn định lượng từ getWorkItemComparison; giai đoạn thủ công hoặc không có hạng mục -> null. */

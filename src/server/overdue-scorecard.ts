@@ -14,13 +14,13 @@ export interface Scorecard {
  */
 export async function getOverdueScorecard(month: string, filters: DashboardFilters): Promise<Scorecard> {
   const ids = await getScopedProjectIds(filters);
-  const cur = await repo.getFinancialForMonth(month);
+  const cur = await repo.readFinancialSnapshots(month);
   const value = cur.filter((f) => ids.has(f.projectId)).reduce((sum, f) => sum + f.arOverdue, 0);
 
   if (month === 'all' || !isValidYearMonth(month)) {
     return { value, delta: null };
   }
-  const prev = await repo.getFinancialForMonth(prevMonth(month));
+  const prev = await repo.readFinancialSnapshots(prevMonth(month));
   if (cur.length === 0 || prev.length === 0) {
     return { value, delta: null };
   }

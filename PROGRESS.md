@@ -3,6 +3,22 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P2B — Biểu đồ & hiệu năng (Tài khoản B) — CHỐT + ĐÃ MERGE vào `main` (2026-09-25, sau P2A)
+Nhánh `feature/p2b-bieu-do`, dây chuyền ship đủ chặng (vòng 1 CAN SUA → vòng 2 CHỐT → vòng bổ sung KPI CHỐT; security ĐẠT
+cả 3 vòng). Hồ sơ: `.bangiao/archive/p2b-bieu-do-2026-09-25/`. Sau khi gộp P2A: `tsc` sạch, 119/119 file · 1378/1378 test.
+- T12b: chart nhân lực theo ca × nhà thầu (mặc định tháng hiện tại) + chart cột chồng theo tuần (kéo toàn timeline, lọc
+  tháng = cuộn tới + làm mờ, đường KH tổng, tuần lẻ chia số ngày thực có). T14 Gantt thiết bị từng chiếc (màu theo hạng
+  mục, ô đậm = ngày dùng thật; dùng ngoài KH đếm vào chú thích).
+- T1-code: read repo `src/server/repo/read-*.ts` (SQL tổng hợp, `DISTINCT ON`), bỏ N+1 Tổng quan/report, lọc log trong DB,
+  trang Chi tiết đọc song song; seed 10 triệu dòng + `perf:bench`/`perf:pages`. **T1 CHƯA chứng minh ≤1,5 s** — đo lại ở
+  Bước 11 (index/bảng tổng hợp, làm sau khi P2A nhả khoá schema) theo `hieu-nang.md` mục 4b trong archive.
+- T4: ERD/từ điển sinh từ `Prisma.dmmf` + `schema-meta/docs.ts` (test chống lệch: thêm bảng/cột mà quên mô tả → đỏ);
+  `npm run docs:erd` cập nhật `docs/DATA_WAREHOUSE_README.md`.
+- Chủ dự án thêm: thẻ Chuỗi giá trị theo mock-up (bỏ thẻ EVM, dòng chân Σ trọng số/%TT), dời cụm S-curve→Ảnh xuống cuối
+  trang Chi tiết; KPI bỏ tag "Trọng tâm", %TT có dòng "Chậm/Nhanh N ngày" + "±x,x%", nhãn scorecard xuống 2 dòng.
+- Để sau: vá L-1/L-2/L-3 script perf trước `perf:seed` kế tiếp; N-3 (S-curve/What-if hiện cho người không có quyền tài
+  chính) chờ chủ dự án; dọn key i18n thừa `kpi.focusTag`, `detail.manpowerTrend`, `detail.evmMetrics`.
+
 ### ✅ P2A — Nhập liệu mới (Tài khoản A) — CHỐT + ĐÃ MERGE vào `main` (2026-09-25)
 Nhánh `feature/p2a-nhap-lieu`, dây chuyền ship đủ chặng (2 vòng sửa → reviewer v3 CHỐT, security v3 ĐẠT). Hồ sơ:
 `.bangiao/archive/p2a-nhap-lieu-2026-09-24/`. `tsc` sạch, 98/98 file · 1177/1177 test.
