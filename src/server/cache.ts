@@ -12,6 +12,7 @@ import {
   type GroupBy,
   type ProjectListParams,
 } from './queries';
+import { getTopPriority } from './top-priority-queries';
 
 /**
  * Tag cache hẹp cho overview (plan §7b.13): revalidateTag thay vì revalidatePath toàn cục.
@@ -66,6 +67,12 @@ export const loadSCurve = (filters: DashboardFilters) =>
 
 export const loadWatchlist = (month: string, filters: DashboardFilters) =>
   unstable_cache(async () => getWatchlist(month, filters), ['watch', key(month, filters)], {
+    tags: [overviewTag(month), profileTag],
+    revalidate: TTL,
+  })();
+
+export const loadTopPriority = (month: string, filters: DashboardFilters) =>
+  unstable_cache(async () => getTopPriority(month, filters), ['top-p0', key(month, filters)], {
     tags: [overviewTag(month), profileTag],
     revalidate: TTL,
   })();
