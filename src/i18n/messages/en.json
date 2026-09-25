@@ -863,6 +863,165 @@
         "project_assignments": "Owners",
         "project_equipment_plan": "Equipment plan"
       }
+    },
+    "nav": "Create / Edit project",
+    "movedHint": "Project profile, SAP codes and key milestones have moved to the Create / Edit project page.",
+    "openForm": "Open project profile",
+    "title": {
+      "new": "Create new project",
+      "edit": "Update project · {name}"
+    },
+    "mode": {
+      "new": "New",
+      "edit": "Update project"
+    },
+    "selectProject": "Project",
+    "steps": {
+      "lead": {
+        "new": "6 steps to create",
+        "edit": "6 editable groups"
+      },
+      "s1": "Identity",
+      "s2": "Contract value",
+      "s3": "Dates",
+      "s4": "Key milestones",
+      "s5": "7-stage weights",
+      "s6": "Links & assignment",
+      "hint": "Hover the ? next to a field for an explanation"
+    },
+    "sec": {
+      "identity": {
+        "title": "Project identity",
+        "sub": "Code & name - traced for the whole lifecycle"
+      },
+      "value": {
+        "title": "Contract value & quantity",
+        "sub": "Basis for BAC, PV, EV"
+      },
+      "dates": {
+        "title": "Dates",
+        "sub": "Source of % Plan and contract penalty risk"
+      },
+      "weights": {
+        "title": "Value chain - 7-stage weights",
+        "sub": "Must total exactly 100%"
+      },
+      "links": {
+        "title": "Links & assignment",
+        "sub": "SAP codes, owners, contractors"
+      }
+    },
+    "field": {
+      "masterCode": "Master code",
+      "masterAuto": "Generated on save",
+      "masterHint": "Generated on save · read-only",
+      "aliasCode": "Current contract code",
+      "aliasHint": "Changing it adds a new entry to the code history",
+      "aliasReason": "Reason for the change",
+      "aliasReasonHint": "Required when changing the code (min 5 characters)",
+      "nameHint": "Full name per contract · max {max} characters",
+      "originalValue": "Original-currency value",
+      "originalHint": "Leave empty if the contract is in VND",
+      "contractValueHint": "bn VND · before VAT",
+      "penalized": "Penalty applied?",
+      "penalizedOn": "Penalty applied",
+      "penalizedOff": "No penalty"
+    },
+    "priority": {
+      "P0": "P0 - Strategic",
+      "P1": "P1 - Large",
+      "P2": "P2 - Standard",
+      "P3": "P3 - Small"
+    },
+    "fx": {
+      "converted": "Converted at the {cur} rate for {ym}: {rate} VND · fixed on save",
+      "noDate": "Enter the contract date to convert at that month's rate",
+      "noRate": "No {cur} rate for {ym} yet - ask an admin to add it under Admin › Monthly exchange rates"
+    },
+    "dateCheck": {
+      "ok": "Dates are consistent · planned duration {n} days",
+      "empty": "Enter planned start and finish to check the dates",
+      "note": "% Plan is calculated from planned start - finish; no manual entry needed.",
+      "plan_order": "Planned start must be before planned finish",
+      "handover_before_finish": "Committed handover is earlier than planned finish - check the contract",
+      "contract_after_start": "Contract date is after planned start",
+      "actual_order": "Actual finish is before actual start",
+      "startDelay": "Started {n} days late vs plan (can still be saved)"
+    },
+    "links": {
+      "sap": "Linked SAP codes",
+      "sapAdd": "+ Add SAP code",
+      "sapDocType": "Document type",
+      "sapDuplicate": "SAP code is already linked to a project",
+      "sapConfirmRemove": "Remove SAP code {code} from this project?",
+      "members": "Owners (PIC / Backup)",
+      "memberAdd": "+ Add person",
+      "roleInProject": "Role",
+      "noPic": "No PIC yet",
+      "membersAdminOnly": "Only admins can add or remove owners.",
+      "memberConfirmRemove": "Remove {name} from the project? They will lose access to it.",
+      "afterCreate": "Save the project first, then link SAP codes, owners and contractors."
+    },
+    "tipText": {
+      "masterCode": "Generated on save and never changes. The contract code may change many times; the master code stays so progress history is never lost, while each contract code is kept as an alias with an effective period.",
+      "aliasCode": "The code used with the client. Changing it does not overwrite: the old code is valid until today, the new one from tomorrow, and both stay in the code history.",
+      "customer": "Type to search by name. Not found? Choose + Add: the new customer is usable at once and is queued for an admin to approve or merge.",
+      "projectType": "Project type, used to filter and group projects.",
+      "contractValue": "Before VAT, in bn VND. This is the BAC - PV, EV, EAC and VAC are all based on it. Foreign-currency contracts: enter the original amount next to it; it is converted at the contract month's rate and then kept fixed, regardless of later rates.",
+      "tonnage": "Total structural steel quantity per contract, in tonnes.",
+      "priority": "P0 - Strategic, P1 - Large, P2 - Standard, P3 - Small. Used to filter projects; the Overview list sorts P0 first by default.",
+      "sap": "A project can have several SAP codes (one per order / sub-contract). Excel import finds projects by SAP code; unknown codes go to the queue on the Import page.",
+      "members": "Data-entry users assigned as PIC or Backup can edit this project; viewer accounts assigned as Backup can only view it. Automatic alerts are assigned to the PIC.",
+      "contractors": "This list feeds the Manpower by contractor and Weekly tracking views on Project detail. Contractors missing here cannot have manpower entered."
+    },
+    "count": "{n}/{total} fields filled",
+    "required": "Required",
+    "btn": {
+      "create": "Create project",
+      "save": "Save changes",
+      "draft": "Save draft",
+      "cancel": "Cancel"
+    },
+    "confirmDiscard": "Discard unsaved changes?",
+    "saved": {
+      "created": "Project created",
+      "updated": "Changes saved"
+    },
+    "part": {
+      "profile": "profile",
+      "code": "contract code",
+      "weights": "weights",
+      "milestones": "key milestones"
+    },
+    "err": {
+      "partial": "Saved: {done}. Not saved: {failed} - {msg}",
+      "invalid": "Some fields are invalid - see the red cells",
+      "required": "Required",
+      "positive": "Must be greater than 0",
+      "too_long": "Max {max} characters",
+      "code_invalid": "Letters, digits and . _ - / only, no spaces",
+      "date_order": "Dates out of order",
+      "fx": "Cannot convert the foreign amount",
+      "code_taken": "This code is used by another project",
+      "unchanged": "Code unchanged",
+      "date_required": "Planned start, planned finish and committed handover are required",
+      "date_plan_order": "Planned start must be before planned finish",
+      "date_handover_before_finish": "Committed handover is earlier than planned finish - check the contract",
+      "date_contract_after_start": "Contract date is after planned start",
+      "date_actual_order": "Actual finish is before actual start",
+      "tonnage_required": "Steel tonnage must be greater than 0",
+      "name_too_long": "Project name max 160 characters",
+      "fx_contract_date_required": "Enter the contract date to convert the foreign amount",
+      "fx_rate_missing": "No exchange rate for the contract month",
+      "weights_invalid": "Invalid weights (must total 100%)",
+      "invalid_factory": "Invalid or inactive production area.",
+      "pic_exists": "This project already has a PIC - change them to Backup or remove them first",
+      "user_not_found": "No active account found",
+      "role_not_allowed": "PIC must be a data-entry account; Backup must be data-entry or viewer",
+      "not_member": "This person is not on the project",
+      "forbidden": "You cannot edit this project.",
+      "notFound": "Project not found.",
+      "generic": "Save failed: {msg}"
     }
   }
 }

@@ -1,0 +1,517 @@
+'use client';
+
+import { useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
+import type {
+  Contractor, Currency, Customer, ExchangeRate, Factory, Project, ProjectKeyMilestone, ProjectSapCode,
+  ProjectStageWeight, ProjectType, StageWeightInput, TeamKd,
+} from '@/server/repo/types';
+import type { AssignableUser, ProjectFormState } from '@/lib/project-form';
+import {
+  FORM_COUNT_FIELDS, PROJECT_NAME_MAX, buildCreateInput, buildUpdatePatch, countFilled, emptyProjectForm,
+  fxPreview, projectFormFromProject, validateProjectForm,
+} from '@/lib/project-form';
+import { isValidProjectCode } from '@/lib/project-code';
+import { marketKey, typeKey } from '@/lib/labels';
+import { fmtNum, formatTon, toTitleCase } from '@/lib/format';
+import { STAGE_ORDER, DEFAULT_STAGE_WEIGHTS, validateStageWeights } from '@/lib/stages';
+import {
+  normalizeKeyMilestones, toKeyMilestoneDraft, validateKeyMilestones, type KeyMilestoneDraft, type KeyMsErrors,
+} from '@/lib/key-milestones';
+import { createDimValueAction, saveKeyMilestonesAction } from '@/server/actions';
+import { changeProjectCodeAction, updateProjectAction, saveStageWeightsAction, type UpdateProjectPatch } from '@/server/actions-project';
+import { createProjectAction } from '@/server/actions';
+import { Combobox } from './Combobox';
+import { KeyMilestoneEditor } from './KeyMilestoneEditor';
+import { StageWeightEditor } from './StageWeightEditor';
+import { ProjectLinksSection } from './ProjectLinksSection';
+import { HelpTip } from '@/components/ui/HelpTip';
+import { Switch } from '@/components/ui/Switch';
+import type { IsoDate } from '@/lib/clock';
+import type { ProjectMember } from '@/server/repo/types';
+
+const TYPES: ProjectType[] = ['EPC', 'San_van_dong', 'San_bay', 'Nha_xuong', 'Cau_cang', 'Cao_tang', 'Dong_tau', 'Cau_giao_thong', 'Khac'];
+const PRIORITIES = ['P0', 'P1', 'P2', 'P3'] as const;
+const MARKETS = ['TN', 'XK', 'NoiBo'] as const;
+
+export interface ProjectFormProps {
+  mode: 'new' | 'edit';
+  project: Project | null;
+  projects: { id: number; name: string; code: string }[];
+  customers: Customer[];
+  teams: TeamKd[];
+  currencies: Currency[];
+  factories: Factory[];
+  exchangeRates: ExchangeRate[];
+  sapCodes: ProjectSapCode[];
+  stageWeights: ProjectStageWeight[];
+  keyMilestones: ProjectKeyMilestone[];
+  members: ProjectMember[];
+  assignableUsers: AssignableUser[] | null;
+  contractorMembers: Contractor[];
+  allContractors: Contractor[];
+  ownerEmail: string;
+  today: IsoDate;
+}
+
+function weightsFromProps(rows: ProjectStageWeight[]): StageWeightInput[] {
+  return STAGE_ORDER.map((code) => {
+    const row = rows.find((r) => r.stageCode === code);
+    return row ? { stageCode: row.stageCode, weightPct: row.weightPct, applicable: row.applicable } : { stageCode: code, weightPct: 0, applicable: false };
+  });
+}
+
+function Field({ label, hint, children }: { label: string; hint?: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div className="field">
+      <span className="lb">{label}</span>
+      {hint && <HelpTip text={hint} label={hint} />}
+      {children}
+    </div>
+  );
+}
+
+export function ProjectForm(p: ProjectFormProps) {
+  const {
+    mode, project, projects, customers, teams, currencies, factories, exchangeRates, sapCodes, stageWeights,
+    keyMilestones, members, assignableUsers, contractorMembers, allContractors, ownerEmail, today,
+  } = p;
+  const t = useTranslations();
+  const locale = useLocale();
+  const router = useRouter();
+
+  const base = useMemo(() => (project ? projectFormFromProject(project) : emptyProjectForm()), [project]);
+  const [form, setForm] = useState<ProjectFormState>(base);
+  const [weights, setWeights] = useState<StageWeightInput[]>(() => (project ? weightsFromProps(stageWeights) : [...DEFAULT_STAGE_WEIGHTS]));
+  const [weightsDirty, setWeightsDirty] = useState(false);
+  const [msRows, setMsRows] = useState<KeyMilestoneDraft[]>(() => keyMilestones.map(toKeyMilestoneDraft));
+  const [msDirty, setMsDirty] = useState(false);
+  const [msErrors, setMsErrors] = useState<KeyMsErrors>({});
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ tone: 'ok' | 'bad'; text: string } | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
+
+  function set<K extends keyof ProjectFormState>(key: K, value: ProjectFormState[K]) {
+    setForm((f) => ({ ...f, [key]: value }));
+    setMsg(null);
+  }
+
+  const fx = fxPreview(form, exchangeRates);
+  const validation = validateProjectForm(form, mode, mode === 'edit' ? base : null, exchangeRates);
+  const errors = validation.errors;
+  const dates = validation.dates;
+  const inputCls = (key: keyof ProjectFormState) => `inp${errors[key] ? ' bad' : ''}`;
+
+  const dirty =
+    JSON.stringify(form) !== JSON.stringify(base) || weightsDirty || msDirty
+    || (mode === 'edit' && Object.keys(msErrors).length > 0);
+
+  function scrollToFirstError() {
+    const firstKey = Object.keys(errors)[0];
+    if (!firstKey) return;
+    formRef.current?.querySelector<HTMLElement>(`[data-field="${firstKey}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function handleCancel() {
+    if (dirty && !window.confirm(t('projectForm.confirmDiscard'))) return;
+    setForm(base);
+    setWeights(project ? weightsFromProps(stageWeights) : [...DEFAULT_STAGE_WEIGHTS]);
+    setWeightsDirty(false);
+    setMsRows(keyMilestones.map(toKeyMilestoneDraft));
+    setMsDirty(false);
+    setMsErrors({});
+    setMsg(null);
+  }
+
+  async function handleSaveNew() {
+    if (!validation.ok) {
+      setMsg({ tone: 'bad', text: t('projectForm.err.invalid') });
+      scrollToFirstError();
+      return;
+    }
+    setSaving(true);
+    setMsg(null);
+    try {
+      const res = await createProjectAction({
+        ...buildCreateInput(form, fx),
+        keyMilestones: msRows.length ? normalizeKeyMilestones(msRows) : undefined,
+        stageWeights: weights,
+      });
+      if (res.ok) {
+        setMsg({ tone: 'ok', text: t('projectForm.saved.created') });
+        router.replace(`?project=${res.id}`);
+        router.refresh();
+      } else {
+        const key = `projectForm.err.${res.error}`;
+        setMsg({ tone: 'bad', text: t.has(key) ? t(key) : t('projectForm.err.generic', { msg: res.error }) });
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSaveEdit() {
+    if (!project) return;
+    if (!validation.ok) {
+      setMsg({ tone: 'bad', text: t('projectForm.err.invalid') });
+      scrollToFirstError();
+      return;
+    }
+    setSaving(true);
+    setMsg(null);
+    try {
+      const patch: UpdateProjectPatch = buildUpdatePatch(base, form, fx);
+      const codeChanged = form.currentAliasCode !== base.currentAliasCode;
+      const done: string[] = [];
+
+      if (Object.keys(patch).length > 0) {
+        const res = await updateProjectAction(project.id, patch);
+        if (!res.ok) {
+          setMsg({ tone: 'bad', text: t('projectForm.err.partial', { done: done.join(', ') || '-', failed: t('projectForm.part.profile'), msg: t.has(`projectForm.err.${res.error}`) ? t(`projectForm.err.${res.error}`) : res.error }) });
+          return;
+        }
+        done.push(t('projectForm.part.profile'));
+      }
+
+      if (codeChanged) {
+        const res = await changeProjectCodeAction(project.id, form.currentAliasCode, aliasReason);
+        if (!res.ok && res.error !== 'unchanged') {
+          setMsg({ tone: 'bad', text: t('projectForm.err.partial', { done: done.join(', ') || '-', failed: t('projectForm.part.code'), msg: t.has(`projectForm.err.${res.error}`) ? t(`projectForm.err.${res.error}`) : res.error }) });
+          return;
+        }
+        done.push(t('projectForm.part.code'));
+      }
+
+      if (weightsDirty) {
+        const res = await saveStageWeightsAction(project.id, weights);
+        if (!res.ok) {
+          setMsg({ tone: 'bad', text: t('projectForm.err.partial', { done: done.join(', ') || '-', failed: t('projectForm.part.weights'), msg: t.has(`projectForm.err.${res.error}`) ? t(`projectForm.err.${res.error}`) : res.error }) });
+          return;
+        }
+        done.push(t('projectForm.part.weights'));
+      }
+
+      if (msDirty) {
+        const res = await saveKeyMilestonesAction(project.id, normalizeKeyMilestones(msRows));
+        if (!res.ok) {
+          setMsg({ tone: 'bad', text: t('projectForm.err.partial', { done: done.join(', ') || '-', failed: t('projectForm.part.milestones'), msg: 'error' in res ? res.error : '' }) });
+          return;
+        }
+        done.push(t('projectForm.part.milestones'));
+      }
+
+      if (done.length === 0) {
+        setMsg({ tone: 'ok', text: t('dataGuard.save.noChange') });
+        return;
+      }
+      setMsg({ tone: 'ok', text: t('projectForm.saved.updated') });
+      setWeightsDirty(false);
+      setMsDirty(false);
+      router.refresh();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const [aliasReason, setAliasReason] = useState('');
+  const codeChanged = mode === 'edit' && form.currentAliasCode !== base.currentAliasCode;
+
+  const filled = countFilled(form);
+  const total = FORM_COUNT_FIELDS.length;
+
+  return (
+    <div ref={formRef}>
+      <div className="card rise overflow-visible">
+        <div className="hd">
+          <h3>{mode === 'new' ? t('projectForm.title.new') : t('projectForm.title.edit', { name: project?.projectName ?? '' })}</h3>
+          <div className="seg">
+            <button type="button" className={mode === 'new' ? 'on' : ''} onClick={() => router.push('?mode=new')}>
+              {t('projectForm.mode.new')}
+            </button>
+            <button
+              type="button"
+              className={mode === 'edit' ? 'on' : ''}
+              disabled={projects.length === 0}
+              onClick={() => router.push(`?project=${project?.id ?? projects[0]?.id}`)}
+            >
+              {t('projectForm.mode.edit')}
+            </button>
+          </div>
+        </div>
+        {mode === 'edit' && projects.length > 1 && (
+          <div className="bd">
+            <select value={project?.id} onChange={(e) => router.push(`?project=${e.target.value}`)} className="inp">
+              {projects.map((pr) => (
+                <option key={pr.id} value={pr.id}>{pr.code} - {pr.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div className="msdetail">
+          <b>{mode === 'new' ? t('projectForm.steps.lead.new') : t('projectForm.steps.lead.edit')}</b>
+          {(['s1', 's2', 's3', 's4', 's5', 's6'] as const).map((s) => (
+            <span key={s} className="k">{t(`projectForm.steps.${s}`)}</span>
+          ))}
+          <span className="hint">{t('projectForm.steps.hint')}</span>
+        </div>
+      </div>
+
+      <div className="card rise overflow-visible">
+        <div className="bd" style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+          {/* Mục 1: Định danh */}
+          <div className="fsec">
+            <div className="h"><span className="n">1</span><h4>{t('projectForm.sec.identity.title')}</h4><p>{t('projectForm.sec.identity.sub')}</p></div>
+            <div className="f4">
+              <Field label={t('projectForm.field.masterCode')}>
+                <input className="inp ro" readOnly value={mode === 'new' ? t('projectForm.field.masterAuto') : project?.masterCode ?? ''} />
+                <span className="hintline">{t('projectForm.field.masterHint')}</span>
+              </Field>
+              <div className="field" data-field="currentAliasCode">
+                <span className="lb">{t('projectForm.field.aliasCode')}</span>
+                <HelpTip text={t('projectForm.tipText.aliasCode')} label={t('projectForm.tipText.aliasCode')} />
+                <input value={form.currentAliasCode} onChange={(e) => set('currentAliasCode', e.target.value)} className={inputCls('currentAliasCode')} />
+                <span className="hintline">{t('projectForm.field.aliasHint')}</span>
+                {errors.currentAliasCode && <p className="hintline" style={{ color: 'var(--danger)' }}>{t(`projectForm.err.${errors.currentAliasCode}`)}</p>}
+              </div>
+              {codeChanged && (
+                <div className="field" data-field="aliasReason" style={{ gridColumn: 'span 2' }}>
+                  <span className="lb">{t('projectForm.field.aliasReason')}</span>
+                  <input value={aliasReason} onChange={(e) => setAliasReason(e.target.value)} maxLength={300} className="inp" />
+                  <span className="hintline">{t('projectForm.field.aliasReasonHint')}</span>
+                </div>
+              )}
+              <div className="field" style={{ gridColumn: 'span 2' }} data-field="projectName">
+                <span className="lb">{t('form.projectName')}</span>
+                <input
+                  value={form.projectName}
+                  maxLength={PROJECT_NAME_MAX}
+                  onChange={(e) => set('projectName', e.target.value.toUpperCase())}
+                  className={inputCls('projectName')}
+                />
+                <span className="hintline">{t('projectForm.field.nameHint', { max: PROJECT_NAME_MAX })}</span>
+                {errors.projectName && <p className="hintline" style={{ color: 'var(--danger)' }}>{t(`projectForm.err.${errors.projectName}`)}</p>}
+              </div>
+            </div>
+            <div style={{ height: 14 }} />
+            <div className="f4">
+              <div className="field" data-field="customerId">
+                <span className="lb">{t('form.customer')}</span>
+                <HelpTip text={t('projectForm.tipText.customer')} label={t('projectForm.tipText.customer')} />
+                <Combobox
+                  value={form.customerId}
+                  onChange={(v) => set('customerId', v)}
+                  options={customers.map((c) => ({ value: String(c.id), label: c.name }))}
+                  allowCreate
+                  createLabel={t('common.add')}
+                  onCreate={async (name) => {
+                    const res = await createDimValueAction('customer', toTitleCase(name));
+                    return res.ok ? String(res.id) : '';
+                  }}
+                  className="inp"
+                />
+              </div>
+              <Field label={t('form.teamKd')}>
+                <Combobox
+                  value={form.teamKdId}
+                  onChange={(v) => set('teamKdId', v)}
+                  options={teams.map((x) => ({ value: String(x.id), label: x.name }))}
+                  allowCreate
+                  createLabel={t('common.add')}
+                  onCreate={async (name) => {
+                    const res = await createDimValueAction('team', name);
+                    return res.ok ? String(res.id) : '';
+                  }}
+                  className="inp"
+                />
+              </Field>
+              <Field label={t('common.market')}>
+                <Combobox value={form.marketCode} onChange={(v) => set('marketCode', v)} options={MARKETS.map((m) => ({ value: m, label: t(marketKey[m]) }))} className="inp" />
+              </Field>
+              <div className="field" data-field="projectType">
+                <span className="lb">{t('form.projectType')}</span>
+                <HelpTip text={t('projectForm.tipText.projectType')} label={t('projectForm.tipText.projectType')} alignRight />
+                <Combobox value={form.projectType} onChange={(v) => set('projectType', v)} options={TYPES.map((ty) => ({ value: ty, label: t(typeKey[ty]) }))} className="inp" />
+              </div>
+            </div>
+          </div>
+
+          {/* Mục 2: Giá trị */}
+          <div className="fsec">
+            <div className="h"><span className="n">2</span><h4>{t('projectForm.sec.value.title')}</h4><p>{t('projectForm.sec.value.sub')}</p></div>
+            <div className="f4">
+              <div className="field" data-field="contractValue">
+                <span className="lb">{t('form.contractValue')}</span>
+                <HelpTip text={t('projectForm.tipText.contractValue')} label={t('projectForm.tipText.contractValue')} />
+                <input
+                  type="number" step="0.001"
+                  readOnly={fx.kind === 'converted'}
+                  value={fx.kind === 'converted' ? fx.value : fmtNum(form.contractValue)}
+                  onChange={(e) => set('contractValue', e.target.value)}
+                  className={fx.kind === 'converted' ? 'inp ro' : inputCls('contractValue')}
+                />
+                <span className="hintline">{t('projectForm.field.contractValueHint')}</span>
+                {errors.contractValue && <p className="hintline" style={{ color: 'var(--danger)' }}>{t(`projectForm.err.${errors.contractValue}`)}</p>}
+              </div>
+              <div className="field" data-field="contractValueOriginal">
+                <span className="lb">{t('projectForm.field.originalValue')}</span>
+                <div className="inline">
+                  <select value={form.currencyCode} onChange={(e) => set('currencyCode', e.target.value)} className="inp" style={{ width: 96 }}>
+                    {currencies.map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}
+                  </select>
+                  <input
+                    disabled={form.currencyCode === 'VND'}
+                    value={form.contractValueOriginal}
+                    onChange={(e) => set('contractValueOriginal', e.target.value)}
+                    className="inp"
+                  />
+                </div>
+                {fx.kind === 'vnd' && <span className="hintline">{t('projectForm.field.originalHint')}</span>}
+                {fx.kind === 'converted' && <span className="hintline">{t('projectForm.fx.converted', { cur: form.currencyCode, ym: fx.ym, rate: formatTon(fx.rate, locale) })}</span>}
+                {fx.kind === 'no_date' && <span className="hintline" style={{ color: 'var(--danger)' }}>{t('projectForm.fx.noDate')}</span>}
+                {fx.kind === 'no_rate' && <span className="hintline" style={{ color: 'var(--danger)' }}>{t('projectForm.fx.noRate', { cur: form.currencyCode, ym: fx.ym })}</span>}
+              </div>
+              <div className="field" data-field="tonnage">
+                <span className="lb">{t('common.tonnage')}</span>
+                <HelpTip text={t('projectForm.tipText.tonnage')} label={t('projectForm.tipText.tonnage')} />
+                <input type="number" step="0.1" value={fmtNum(form.tonnage)} onChange={(e) => set('tonnage', e.target.value)} className={inputCls('tonnage')} />
+                {errors.tonnage && <p className="hintline" style={{ color: 'var(--danger)' }}>{t(`projectForm.err.${errors.tonnage}`)}</p>}
+              </div>
+              <div className="field">
+                <span className="lb">{t('form.priority')}</span>
+                <HelpTip text={t('projectForm.tipText.priority')} label={t('projectForm.tipText.priority')} alignRight />
+                <Combobox value={form.priority} onChange={(v) => set('priority', v)} options={PRIORITIES.map((pr) => ({ value: pr, label: t(`projectForm.priority.${pr}`) }))} className="inp" />
+              </div>
+            </div>
+            <div style={{ height: 14 }} />
+            <div className="f4">
+              <Field label={t('volumeEntry.factory')}>
+                <select value={form.factoryId} onChange={(e) => set('factoryId', e.target.value)} className="inp">
+                  <option value="">{t('volumeEntry.none')}</option>
+                  {factories.map((f) => (
+                    <option key={f.id} value={f.id} disabled={!f.isActive}>{f.name}{f.isActive ? '' : ` ${t('volumeEntry.inactiveSuffix')}`}</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+          </div>
+
+          {/* Mục 3: Mốc thời gian */}
+          <div className="fsec">
+            <div className="h"><span className="n">3</span><h4>{t('projectForm.sec.dates.title')}</h4><p>{t('projectForm.sec.dates.sub')}</p></div>
+            <div className="f4">
+              <Field label={t('form.contractDate')}>
+                <input type="date" value={form.contractDate} onChange={(e) => set('contractDate', e.target.value)} className="inp" />
+              </Field>
+              <div className="field" data-field="plannedStartDate">
+                <span className="lb">{t('form.plannedStart')}</span>
+                <input type="date" value={form.plannedStartDate} onChange={(e) => set('plannedStartDate', e.target.value)} className={inputCls('plannedStartDate')} />
+              </div>
+              <div className="field" data-field="plannedFinishDate">
+                <span className="lb">{t('form.plannedFinish')}</span>
+                <input type="date" value={form.plannedFinishDate} onChange={(e) => set('plannedFinishDate', e.target.value)} className={inputCls('plannedFinishDate')} />
+              </div>
+              <div className="field" data-field="committedHandoverDate">
+                <span className="lb">{t('form.committedHandover')}</span>
+                <input type="date" value={form.committedHandoverDate} onChange={(e) => set('committedHandoverDate', e.target.value)} className={inputCls('committedHandoverDate')} />
+              </div>
+            </div>
+            <div style={{ height: 14 }} />
+            <div className="f4">
+              <div className="field" data-field="actualStartDate">
+                <span className="lb">{t('form.actualStart')}</span>
+                <input type="date" value={form.actualStartDate} onChange={(e) => set('actualStartDate', e.target.value)} className={inputCls('actualStartDate')} />
+              </div>
+              <div className="field" data-field="actualFinishDate">
+                <span className="lb">{t('form.actualFinish')}</span>
+                <input type="date" value={form.actualFinishDate} onChange={(e) => set('actualFinishDate', e.target.value)} className={inputCls('actualFinishDate')} />
+              </div>
+              <Field label={t('projectForm.field.penalized')}>
+                <div className="inline" style={{ height: 38 }}>
+                  <Switch checked={form.penalized} onChange={(v) => set('penalized', v)} label={t('projectForm.field.penalized')} />
+                  <span style={{ color: form.penalized ? 'var(--danger)' : 'var(--label2)' }}>
+                    {form.penalized ? t('projectForm.field.penalizedOn') : t('projectForm.field.penalizedOff')}
+                  </span>
+                </div>
+              </Field>
+              <div className="field">
+                <span className="lb">{t('form.penaltyValue')}</span>
+                <input type="number" step="0.1" value={fmtNum(form.penaltyValue)} onChange={(e) => set('penaltyValue', e.target.value)} className="inp" />
+              </div>
+            </div>
+            <div style={{ height: 12 }} />
+            <div className={`sumbar ${dates.hard.length > 0 ? 'bad' : dates.totalPlanDays != null ? 'good' : ''}`}>
+              {dates.hard.length > 0 && <span>⚠ {dates.hard.map((c) => t(`projectForm.dateCheck.${c}`)).join(' · ')}</span>}
+              {dates.hard.length === 0 && dates.totalPlanDays != null && (
+                <span>
+                  ✓ {t('projectForm.dateCheck.ok', { n: dates.totalPlanDays })}
+                  {dates.startDelayDays != null && dates.startDelayDays > 0 ? ` · ${t('projectForm.dateCheck.startDelay', { n: dates.startDelayDays })}` : ''}
+                </span>
+              )}
+              {dates.hard.length === 0 && dates.totalPlanDays == null && <span>{t('projectForm.dateCheck.empty')}</span>}
+              <span>{t('projectForm.dateCheck.note')}</span>
+            </div>
+          </div>
+
+          {/* Mục 4: Các mốc chính */}
+          <div className="fsec">
+            <div className="h"><span className="n">4</span><h4>{t('form.keyMs.title')}</h4></div>
+            <KeyMilestoneEditor
+              id="key-milestones"
+              value={msRows}
+              today={today}
+              errors={msErrors}
+              onChange={(rows) => {
+                setMsRows(rows);
+                setMsDirty(true);
+                setMsErrors(validateKeyMilestones(rows).errors);
+                setMsg(null);
+              }}
+            />
+          </div>
+
+          {/* Mục 5: Trọng số */}
+          <div className="fsec">
+            <div className="h"><span className="n">5</span><h4>{t('projectForm.sec.weights.title')}</h4><p>{t('projectForm.sec.weights.sub')}</p></div>
+            <StageWeightEditor
+              value={weights}
+              onChange={(rows) => { setWeights(rows); setWeightsDirty(true); setMsg(null); }}
+              onApplyPreset={() => { setWeights([...DEFAULT_STAGE_WEIGHTS]); setWeightsDirty(true); }}
+            />
+          </div>
+
+          {/* Mục 6: Liên kết */}
+          <div className="fsec">
+            <div className="h"><span className="n">6</span><h4>{t('projectForm.sec.links.title')}</h4><p>{t('projectForm.sec.links.sub')}</p></div>
+            {mode === 'new' || !project ? (
+              <p className="hintline">{t('projectForm.links.afterCreate')}</p>
+            ) : (
+              <ProjectLinksSection
+                projectId={project.id}
+                sapCodes={sapCodes}
+                members={members}
+                assignableUsers={assignableUsers}
+                contractorMembers={contractorMembers}
+                allContractors={allContractors}
+              />
+            )}
+          </div>
+        </div>
+
+        {msg && <div className="bd"><p className={`sumbar ${msg.tone === 'ok' ? 'good' : 'bad'}`}>{msg.text}</p></div>}
+
+        <div className="stickybar">
+          <button type="button" className="btn" disabled={saving} onClick={mode === 'new' ? handleSaveNew : handleSaveEdit}>
+            {mode === 'new' ? t('projectForm.btn.create') : t('projectForm.btn.save')}
+          </button>
+          <button type="button" className="btn ghost" disabled>{t('projectForm.btn.draft')}</button>
+          <button type="button" className="btn ghost" onClick={handleCancel}>{t('projectForm.btn.cancel')}</button>
+          <div className="inline" style={{ marginLeft: 'auto', fontSize: 'var(--t-caption1)', color: 'var(--label3)' }}>
+            <span className="req">*</span> {t('projectForm.required')} · {t('projectForm.count', { n: filled, total })}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  );
+}

@@ -863,6 +863,165 @@
         "project_assignments": "Người phụ trách",
         "project_equipment_plan": "Kế hoạch thiết bị"
       }
+    },
+    "nav": "Tạo / Sửa dự án",
+    "movedHint": "Hồ sơ dự án, mã SAP và các mốc chính đã chuyển sang trang Tạo / Sửa dự án.",
+    "openForm": "Mở hồ sơ dự án",
+    "title": {
+      "new": "Tạo dự án mới",
+      "edit": "Cập nhật dự án · {name}"
+    },
+    "mode": {
+      "new": "Tạo mới",
+      "edit": "Cập nhật dự án"
+    },
+    "selectProject": "Dự án",
+    "steps": {
+      "lead": {
+        "new": "6 bước tạo hồ sơ",
+        "edit": "6 nhóm thông tin có thể sửa"
+      },
+      "s1": "Định danh",
+      "s2": "Giá trị HĐ",
+      "s3": "Mốc thời gian",
+      "s4": "Các mốc chính",
+      "s5": "Trọng số 7 giai đoạn",
+      "s6": "Liên kết & phân công",
+      "hint": "Rê chuột vào dấu ? ở mỗi trường để xem giải thích"
+    },
+    "sec": {
+      "identity": {
+        "title": "Định danh dự án",
+        "sub": "Mã & tên - dùng để truy vết suốt vòng đời"
+      },
+      "value": {
+        "title": "Giá trị hợp đồng & khối lượng",
+        "sub": "Cơ sở tính BAC, PV, EV"
+      },
+      "dates": {
+        "title": "Mốc thời gian",
+        "sub": "Nguồn tính % Kế hoạch và rủi ro phạt hợp đồng"
+      },
+      "weights": {
+        "title": "Chuỗi giá trị - trọng số 7 giai đoạn",
+        "sub": "Tổng phải đúng 100%"
+      },
+      "links": {
+        "title": "Liên kết & phân công",
+        "sub": "Mã SAP, người phụ trách, nhà thầu"
+      }
+    },
+    "field": {
+      "masterCode": "Mã gốc (master code)",
+      "masterAuto": "Tự sinh khi lưu",
+      "masterHint": "Tự sinh khi lưu · không sửa được",
+      "aliasCode": "Mã CT hiện hành",
+      "aliasHint": "Đổi mã sẽ tạo bản ghi mới trong Lịch sử mã dự án",
+      "aliasReason": "Lý do đổi mã",
+      "aliasReasonHint": "Bắt buộc khi đổi mã (ít nhất 5 ký tự)",
+      "nameHint": "Tên đầy đủ theo hợp đồng · tối đa {max} ký tự",
+      "originalValue": "Giá trị nguyên tệ",
+      "originalHint": "Bỏ trống nếu hợp đồng ký bằng VNĐ",
+      "contractValueHint": "tỷ VNĐ · trước VAT",
+      "penalized": "Đã bị phạt hợp đồng?",
+      "penalizedOn": "Đã bị phạt hợp đồng",
+      "penalizedOff": "Chưa bị phạt"
+    },
+    "priority": {
+      "P0": "P0 - Trọng điểm",
+      "P1": "P1 - Lớn",
+      "P2": "P2 - Thường",
+      "P3": "P3 - Nhỏ"
+    },
+    "fx": {
+      "converted": "Quy đổi theo tỷ giá {cur} tháng {ym}: {rate} VNĐ · chốt khi lưu",
+      "noDate": "Nhập Ngày ký HĐ để quy đổi theo tỷ giá tháng ký",
+      "noRate": "Chưa có tỷ giá {cur} tháng {ym} - nhờ quản trị viên nhập ở Quản trị › Tỷ giá theo tháng"
+    },
+    "dateCheck": {
+      "ok": "Chuỗi ngày hợp lệ · tổng thời gian kế hoạch {n} ngày",
+      "empty": "Nhập Ngày BĐ và HT kế hoạch để kiểm chuỗi ngày",
+      "note": "% Kế hoạch được tính tự động từ cặp BĐ - HT kế hoạch, không cần nhập tay.",
+      "plan_order": "Ngày BĐ kế hoạch phải trước Ngày HT kế hoạch",
+      "handover_before_finish": "Bàn giao cam kết đang sớm hơn Ngày HT kế hoạch - kiểm tra lại hợp đồng",
+      "contract_after_start": "Ngày ký hợp đồng đang sau Ngày BĐ kế hoạch",
+      "actual_order": "Ngày HT thực tế đang trước Ngày BĐ thực tế",
+      "startDelay": "Khởi công trễ {n} ngày so với kế hoạch (vẫn lưu được)"
+    },
+    "links": {
+      "sap": "Mã SAP liên kết",
+      "sapAdd": "+ Thêm mã SAP",
+      "sapDocType": "Loại chứng từ",
+      "sapDuplicate": "Mã SAP đã gắn với một dự án",
+      "sapConfirmRemove": "Gỡ mã SAP {code} khỏi dự án?",
+      "members": "Người phụ trách (PIC / Backup)",
+      "memberAdd": "+ Thêm người",
+      "roleInProject": "Vai trò",
+      "noPic": "Dự án chưa có PIC",
+      "membersAdminOnly": "Chỉ quản trị viên thêm/gỡ người phụ trách.",
+      "memberConfirmRemove": "Gỡ {name} khỏi dự án? Người này sẽ mất quyền với dự án.",
+      "afterCreate": "Lưu dự án trước, rồi gắn mã SAP, người phụ trách và nhà thầu."
+    },
+    "tipText": {
+      "masterCode": "Hệ thống tự sinh khi lưu, không bao giờ đổi. Mã CT ngoài thực tế có thể đổi nhiều lần; mã gốc giữ nguyên để không mất lịch sử tiến độ, còn mỗi mã CT được lưu thành bí danh có hiệu lực theo thời gian.",
+      "aliasCode": "Mã đang dùng để trao đổi với chủ đầu tư. Đổi mã ở đây không ghi đè: mã cũ có hiệu lực đến hôm nay, mã mới có hiệu lực từ ngày mai, cả hai đều nằm trong Lịch sử mã.",
+      "customer": "Gõ để tìm theo tên. Không thấy thì chọn + Thêm: chủ đầu tư mới dùng được ngay và vào danh sách chờ quản trị viên duyệt hoặc gộp.",
+      "projectType": "Loại hình công trình, dùng để lọc và phân nhóm dự án.",
+      "contractValue": "Nhập trước VAT, đơn vị tỷ VNĐ. Đây là BAC - PV, EV, EAC, VAC đều tính từ số này. Hợp đồng ngoại tệ: nhập giá trị nguyên tệ ở ô bên cạnh, hệ thống quy đổi theo tỷ giá tháng ký hợp đồng và giữ nguyên số đã quy đổi, không đổi theo tỷ giá sau này.",
+      "tonnage": "Tổng khối lượng kết cấu thép theo hợp đồng, đơn vị tấn.",
+      "priority": "P0 - Trọng điểm, P1 - Lớn, P2 - Thường, P3 - Nhỏ. Dùng để lọc danh sách dự án; danh sách ở Tổng quan mặc định xếp P0 lên đầu.",
+      "sap": "Một dự án có thể gắn nhiều mã SAP (mỗi đơn hàng / hợp đồng phụ một mã). Import Excel dùng mã SAP để tìm dự án; mã chưa gắn dự án nào sẽ vào hàng chờ ở trang Import.",
+      "members": "Tài khoản Nhập liệu được gán (PIC hoặc Backup) sửa được số liệu dự án này; tài khoản Xem được gán Backup chỉ xem được. Cảnh báo tự sinh giao cho PIC.",
+      "contractors": "Danh sách này đổ thẳng vào bảng Nhân lực theo nhà thầu và Tracking theo tuần ở Chi tiết dự án. Thiếu nhà thầu ở đây thì không nhập được số nhân lực của họ."
+    },
+    "count": "{n}/{total} trường đã điền",
+    "required": "Bắt buộc",
+    "btn": {
+      "create": "Tạo dự án",
+      "save": "Lưu thay đổi",
+      "draft": "Lưu nháp",
+      "cancel": "Hủy"
+    },
+    "confirmDiscard": "Bỏ các thay đổi chưa lưu?",
+    "saved": {
+      "created": "Đã tạo dự án",
+      "updated": "Đã lưu thay đổi"
+    },
+    "part": {
+      "profile": "hồ sơ",
+      "code": "mã CT",
+      "weights": "trọng số",
+      "milestones": "các mốc chính"
+    },
+    "err": {
+      "partial": "Đã lưu: {done}. Chưa lưu: {failed} - {msg}",
+      "invalid": "Còn trường chưa hợp lệ - xem các ô tô đỏ",
+      "required": "Bắt buộc",
+      "positive": "Phải lớn hơn 0",
+      "too_long": "Tối đa {max} ký tự",
+      "code_invalid": "Mã chỉ gồm chữ, số và . _ - /, không có khoảng trắng",
+      "date_order": "Sai thứ tự ngày",
+      "fx": "Chưa quy đổi được nguyên tệ",
+      "code_taken": "Mã này đã được dùng cho dự án khác",
+      "unchanged": "Mã không đổi",
+      "date_required": "Ngày BĐ kế hoạch, HT kế hoạch và Bàn giao cam kết là bắt buộc",
+      "date_plan_order": "Ngày BĐ kế hoạch phải trước Ngày HT kế hoạch",
+      "date_handover_before_finish": "Bàn giao cam kết đang sớm hơn Ngày HT kế hoạch - kiểm tra lại hợp đồng",
+      "date_contract_after_start": "Ngày ký hợp đồng đang sau Ngày BĐ kế hoạch",
+      "date_actual_order": "Ngày HT thực tế đang trước Ngày BĐ thực tế",
+      "tonnage_required": "Khối lượng thép phải lớn hơn 0",
+      "name_too_long": "Tên dự án tối đa 160 ký tự",
+      "fx_contract_date_required": "Nhập Ngày ký HĐ để quy đổi nguyên tệ",
+      "fx_rate_missing": "Chưa có tỷ giá tháng ký hợp đồng",
+      "weights_invalid": "Trọng số chưa hợp lệ (tổng phải 100%)",
+      "invalid_factory": "Khu vực không hợp lệ hoặc đã ngừng dùng.",
+      "pic_exists": "Dự án đã có PIC - đổi PIC cũ sang Backup hoặc gỡ trước",
+      "user_not_found": "Không tìm thấy tài khoản đang hoạt động",
+      "role_not_allowed": "PIC phải là tài khoản Nhập liệu; Backup phải là tài khoản Nhập liệu hoặc Xem",
+      "not_member": "Người này không thuộc dự án",
+      "forbidden": "Bạn không có quyền sửa dự án này.",
+      "notFound": "Không tìm thấy dự án.",
+      "generic": "Lưu thất bại: {msg}"
     }
   }
 }

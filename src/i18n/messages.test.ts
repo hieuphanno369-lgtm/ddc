@@ -57,6 +57,9 @@ const CHANGED_SOURCES: Record<string, string> = {
   'ImportPanel': 'src/components/form/ImportPanel.tsx',
   'DailyImportBlock': 'src/components/form/DailyImportBlock.tsx',
   'StageWeightEditor': 'src/components/form/StageWeightEditor.tsx',
+  'ProjectForm': 'src/components/form/ProjectForm.tsx',
+  'ProjectLinksSection': 'src/components/form/ProjectLinksSection.tsx',
+  'trang /ho-so-du-an': 'app/[locale]/(app)/ho-so-du-an/page.tsx',
 };
 
 describe('i18n: vi/en phủ key như nhau', () => {
