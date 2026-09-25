@@ -103,6 +103,14 @@ for (const [addr, prefix] of [
   ['fe80::', 10],
   ['ff00::', 8],
   ['2001:db8::', 32],
+  // L-1 (danh-gia-bao-mat.md): 6to4 (RFC 3056, nhung dia chi IPv4 tuy y), NAT64 local-use (RFC 8215,
+  // khac 64:ff9b::/96 da xu ly qua embeddedIPv4), site-local cu (RFC 3879, da deprecated nhung van
+  // duoc mot so stack chap nhan), discard-only (RFC 6666) - deu la ngo/tunnel co the lach ra IP noi
+  // bo, chan thang ca dai thay vi co gang giai ma tung dang.
+  ['2002::', 16],
+  ['64:ff9b:1::', 48],
+  ['fec0::', 10],
+  ['100::', 64],
 ] as const) {
   IPV6_BLOCKLIST.addSubnet(addr, prefix, 'ipv6');
 }
@@ -124,6 +132,12 @@ for (const [addr, prefix] of [
   ['::1', 128],
   ['fe80::', 10],
   ['ff00::', 8],
+  // L-1: chặn giống IPV6_BLOCKLIST (không chỉ webhook) - 6to4/NAT64 local-use/site-local
+  // cũ/discard-only đều có thể lách ra IP nội bộ, không phải "private" bình thường (Q3=a).
+  ['2002::', 16],
+  ['64:ff9b:1::', 48],
+  ['fec0::', 10],
+  ['100::', 64],
 ] as const) {
   SMTP_IPV6_BLOCKLIST.addSubnet(addr, prefix, 'ipv6');
 }
@@ -172,12 +186,16 @@ function ipv6ToBytes(ip: string): number[] | null {
   return bytes;
 }
 
-/** IPv4 nhúng trong IPv6 (::ffff:a.b.c.d dạng chuẩn/NAT64 64:ff9b::/96) - trả 'a.b.c.d' hoặc null. */
+/** IPv4 nhúng trong IPv6 (::ffff:a.b.c.d dạng chuẩn/NAT64 64:ff9b::/96/IPv4-compatible ::/96) - trả 'a.b.c.d' hoặc null. */
 function embeddedIPv4(bytes: number[]): string | null {
   const mappedPrefix = bytes.slice(0, 10).every((b) => b === 0) && bytes[10] === 0xff && bytes[11] === 0xff;
   const nat64Prefix = [0x00, 0x64, 0xff, 0x9b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
   const isNat64 = bytes.slice(0, 12).every((b, i) => b === nat64Prefix[i]);
-  if (mappedPrefix || isNat64) return bytes.slice(12).join('.');
+  // L-1 (danh-gia-bao-mat.md): ::/96 - dạng "IPv4-compatible" cũ (RFC 4291, khác ::ffff:/96 mapped ở
+  // trên vì không có 2 byte 0xff) - 96 bit đầu = 0, 32 bit cuối là địa chỉ IPv4 trực tiếp (vd
+  // ::7f00:1 = 127.0.0.1). Trùng ::  và ::1 (đã chặn thẳng) nhưng vô hại khi kiểm lại.
+  const isIpv4Compatible = bytes.slice(0, 12).every((b) => b === 0);
+  if (mappedPrefix || isNat64 || isIpv4Compatible) return bytes.slice(12).join('.');
   return null;
 }
 

@@ -25,6 +25,26 @@ function stripBrackets(hostname: string): string {
 const defaultLookup: LookupFn = (host) => dnsPromises.lookup(host, { all: true, verbatim: true });
 
 /**
+ * L-2 (danh-gia-bao-mat.md): dns.lookup KHÔNG tự có timeout - bọc lại bằng timeoutMs (cùng ngân
+ * sách với timeout kết nối/HTTP) để tránh treo vô hạn nếu resolver chậm/không phản hồi.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout')), ms);
+    promise.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e: unknown) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
+
+/**
  * Gửi 1 webhook - ghim thẳng vào IP đã kiểm chống SSRF (K3, ke-hoach.md P3B): phân giải DNS 1 lần,
  * kiểm MỌI địa chỉ trả về, kết nối thẳng tới địa chỉ đã kiểm (chống DNS rebinding), không theo redirect.
  * KHÔNG bao giờ throw, KHÔNG console.log URL (có thể chứa bí mật ở query string).
@@ -40,6 +60,7 @@ export async function sendWebhook(rawUrl: string, body: string, deps: WebhookDep
 
   const hostname = stripBrackets(url.hostname);
   const hostIsIp = net.isIP(hostname) !== 0;
+  const timeoutMs = deps.timeoutMs ?? WEBHOOK_TIMEOUT_MS;
 
   let targetIp: string;
   if (hostIsIp) {
@@ -48,8 +69,11 @@ export async function sendWebhook(rawUrl: string, body: string, deps: WebhookDep
     const lookup = deps.lookup ?? defaultLookup;
     let addrs: Array<{ address: string; family: number }>;
     try {
-      addrs = await lookup(hostname);
-    } catch {
+      // L-2: bọc lookup trong cùng timeoutMs - trước đây DNS chậm/treo có thể chờ vô hạn, ngoài
+      // vùng bảo vệ của timer bên dưới (chỉ tính từ lúc bắt đầu request HTTP).
+      addrs = await withTimeout(lookup(hostname), timeoutMs);
+    } catch (e) {
+      if (e instanceof Error && e.message === 'timeout') return { ok: false, error: 'timeout' };
       return { ok: false, error: 'dns_failed' };
     }
     if (!addrs || addrs.length === 0) return { ok: false, error: 'dns_failed' };
@@ -59,7 +83,6 @@ export async function sendWebhook(rawUrl: string, body: string, deps: WebhookDep
 
   const isHttps = url.protocol === 'https:';
   const requestFn = deps.request ?? (isHttps ? https.request : http.request);
-  const timeoutMs = deps.timeoutMs ?? WEBHOOK_TIMEOUT_MS;
 
   return new Promise<SendResult>((resolve) => {
     let settled = false;
@@ -87,8 +110,11 @@ export async function sendWebhook(rawUrl: string, body: string, deps: WebhookDep
     if (isHttps && !hostIsIp) options.servername = hostname;
 
     const req = requestFn(options as never, (res: http.IncomingMessage) => {
-      res.resume();
+      // L-2: không đọc/rút body (không cần dùng tới) - res.resume() trước đây rút body VÔ HẠN,
+      // không còn bị ràng buộc bởi `timer` (đã bị clear ngay khi done() chạy) nên server độc hại có
+      // thể giữ kết nối mở, stream dữ liệu mãi. Đóng thẳng response ngay khi đã đọc status.
       const status = res.statusCode ?? 0;
+      res.destroy();
       if (status >= 200 && status < 300) done({ ok: true });
       else done({ ok: false, error: `http_${status}` });
     });

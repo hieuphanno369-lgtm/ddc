@@ -95,6 +95,7 @@ describe('webhook.ts - khong theo redirect, ghim IP da kiem (tiem lookup/request
         statusCode: 301,
         headers: { location: 'https://attacker.invalid/steal' },
         resume: vi.fn(),
+        destroy: vi.fn(), // L-2 (danh-gia-bao-mat.md): sendWebhook nay goi res.destroy() thay res.resume()
         on: vi.fn(),
       };
       queueMicrotask(() => cb(res));

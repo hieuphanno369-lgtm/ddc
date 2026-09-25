@@ -10,6 +10,7 @@ function fakeRequest(script: {
   respondStatus?: number;
   neverRespond?: boolean;
   emitError?: boolean;
+  onResDestroy?: () => void;
 }) {
   const calls: Record<string, unknown>[] = [];
   const request = vi.fn((options: Record<string, unknown>, callback?: (res: unknown) => void) => {
@@ -29,7 +30,7 @@ function fakeRequest(script: {
         }
         if (script.neverRespond) return;
         queueMicrotask(() => {
-          callback?.({ statusCode: script.respondStatus ?? 200, resume: () => {} });
+          callback?.({ statusCode: script.respondStatus ?? 200, resume: () => {}, destroy: script.onResDestroy ?? (() => {}) });
         });
       }),
       destroy: vi.fn(),
@@ -74,6 +75,14 @@ describe('sendWebhook - phan giai DNS, kiem MOI dia chi', () => {
     const res = await sendWebhook('https://hooks.example.com/x', '{}', { request, lookup, policy: NO_ALLOW });
     expect(res).toEqual({ ok: false, error: 'dns_failed' });
   });
+
+  it('L-2 (danh-gia-bao-mat.md): lookup cham hon timeoutMs -> timeout, request KHONG duoc goi', async () => {
+    const lookup = vi.fn(() => new Promise<never>(() => {})); // khong bao gio resolve/reject
+    const { request, calls } = fakeRequest({});
+    const res = await sendWebhook('https://hooks.example.com/x', '{}', { request, lookup, policy: NO_ALLOW, timeoutMs: 30 });
+    expect(res).toEqual({ ok: false, error: 'timeout' });
+    expect(calls).toHaveLength(0);
+  });
 });
 
 describe('sendWebhook - ghim IP da kiem, gui thanh cong', () => {
@@ -88,6 +97,17 @@ describe('sendWebhook - ghim IP da kiem, gui thanh cong', () => {
     expect(calls[0].servername).toBe('example.com');
     expect((calls[0].headers as Record<string, string>).Host).toBe('example.com');
     expect(calls[0].method).toBe('POST');
+  });
+
+  it('L-2: response duoc destroy() ngay sau khi doc status (khong resume()/rut body vo han)', async () => {
+    const lookup = vi.fn(async () => [{ address: '93.184.216.34', family: 4 }]);
+    const onResDestroy = vi.fn();
+    const { request } = fakeRequest({ respondStatus: 200, onResDestroy });
+
+    const res = await sendWebhook('https://example.com/hook', '{}', { request, lookup, policy: NO_ALLOW });
+
+    expect(res).toEqual({ ok: true });
+    expect(onResDestroy).toHaveBeenCalledTimes(1);
   });
 
   it('request tra 302 -> http_302 (khong theo redirect)', async () => {

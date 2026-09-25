@@ -96,6 +96,17 @@ describe('isBlockedIp', () => {
   it('NAT64 nhung IPv4 loopback -> true', () => {
     expect(isBlockedIp('64:ff9b::7f00:1')).toBe(true);
   });
+
+  it.each([
+    '::7f00:1', // ::/96 IPv4-compatible (RFC 4291 cu) = 127.0.0.1
+    '::a00:1', // = 10.0.0.1
+    '2002::1', // 6to4 (RFC 3056)
+    '64:ff9b:1::1', // NAT64 local-use (RFC 8215)
+    'fec0::1', // site-local cu (RFC 3879, deprecated)
+    '100::1', // discard-only (RFC 6666)
+  ])('L-1: dai IPv6 con thieu (danh-gia-bao-mat.md) bi chan -> true: %s', (ip) => {
+    expect(isBlockedIp(ip)).toBe(true);
+  });
 });
 
 describe('isBlockedSmtpIp - Q3=(a) cho private, chan loopback/link-local/metadata', () => {
@@ -109,5 +120,15 @@ describe('isBlockedSmtpIp - Q3=(a) cho private, chan loopback/link-local/metadat
 
   it('link-local metadata 169.254.169.254 -> true', () => {
     expect(isBlockedSmtpIp('169.254.169.254')).toBe(true);
+  });
+
+  it.each([
+    '::7f00:1', // ::/96 IPv4-compatible = 127.0.0.1 (loopback nhung qua bien the IPv6)
+    '2002::1', // 6to4
+    '64:ff9b:1::1', // NAT64 local-use
+    'fec0::1', // site-local cu
+    '100::1', // discard-only
+  ])('L-1: dai IPv6 con thieu bi chan (khong duoc coi la "private") -> true: %s', (ip) => {
+    expect(isBlockedSmtpIp(ip)).toBe(true);
   });
 });
