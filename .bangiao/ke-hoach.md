@@ -439,6 +439,8 @@ Thêm 3 nhóm MỚI ở **cuối file** (sau nhóm cuối hiện có, hiện là
 
 ### Bước 10: T2 — thẻ "Top dự án trọng điểm" lên Tổng quan (sau Bước 9)
 
+> **BẮT BUỘC (tester bước 1–8):** `getTopPriority` trả `ProjectSummary` thô → `TopPriorityCard` PHẢI gọi `maskProjectSummaries` (như `WatchlistCard`) theo `canViewFinance`, có test N-3 (không lộ contractValue/eac/vac).
+
 **Files:** Create `src/components/dashboard/TopPriorityList.tsx`, `src/components/dashboard/TopPriorityList.test.ts`; Modify `src/components/dashboard/OverviewWidgets.tsx`, `app/[locale]/(app)/overview/page.tsx`, `src/server/overview-finance-gate.test.ts`, `src/i18n/messages.test.ts`; Delete `src/components/dashboard/Watchlist.tsx`, `src/components/dashboard/Watchlist.test.ts`.
 
 **Produces:**
