@@ -111,7 +111,8 @@ function escapeSlackMrkdwn(s: string): string {
  * de du lieu nguoi dung khong the chen link/dinh dang gia.
  */
 function escapeTeamsMarkdown(s: string): string {
-  return s.replace(/([[\]()*_])/g, '\\$1');
+  // L-8: escape ca chinh dau "\" - neu khong, dau vao "\[" thanh "\\[" va markdown doc lai duoc "[".
+  return s.replace(/([\\[\]()*_`~#>])/g, '\\$1');
 }
 
 export function webhookPayload(format: 'generic' | 'slack' | 'teams', n: AlertNotice): string {

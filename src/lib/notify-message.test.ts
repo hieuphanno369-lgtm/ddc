@@ -154,4 +154,15 @@ describe('webhookPayload', () => {
     expect(payload.text).toContain('\\*bold\\*');
     expect(payload.text).toContain('\\_italic\\_');
   });
+
+  it("L-8: 'teams' escape ca dau \\ - dau vao da co '\\[' khong dung lai duoc link", () => {
+    const n = noticeFromAlert(
+      { ...ALERT_BASE, owner: String.raw`\[Bam\](http://evil.invalid\)` },
+      'Dự án Y',
+      undefined,
+    );
+    const payload = JSON.parse(webhookPayload('teams', n));
+    // "\" goc -> "\\", "[" -> "\[" ... : moi ky tu markdown deu con 1 "\" ngay truoc (so le) -> khong tao link.
+    expect(payload.text).toContain(String.raw`\\\[Bam\\\]\(http://evil.invalid\\\)`);
+  });
 });

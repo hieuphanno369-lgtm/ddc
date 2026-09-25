@@ -66,7 +66,8 @@ export async function sendEmail(cfg: SmtpConfig, to: string[], subject: string, 
     // EHLO/HELO: không để nodemailer tự lấy os.hostname() (tránh lộ tên máy nội bộ).
     name: 'DDC-Control-Tower/1',
     // servername (SNI) = hostname gốc để cert TLS được kiểm đúng dù kết nối thẳng bằng IP.
-    tls: { minVersion: 'TLSv1.2', servername: cfg.host },
+    // L-12: RFC 6066 khong cho SNI la IP (Node canh bao DEP0123) - host la IP thi khong dat servername.
+    tls: hostIsIp ? { minVersion: 'TLSv1.2' } : { minVersion: 'TLSv1.2', servername: cfg.host },
   });
 
   try {
