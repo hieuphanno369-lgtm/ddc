@@ -967,7 +967,7 @@
       "masterCode": "Hệ thống tự sinh khi lưu, không bao giờ đổi. Mã CT ngoài thực tế có thể đổi nhiều lần; mã gốc giữ nguyên để không mất lịch sử tiến độ, còn mỗi mã CT được lưu thành bí danh có hiệu lực theo thời gian.",
       "aliasCode": "Mã đang dùng để trao đổi với chủ đầu tư. Đổi mã ở đây không ghi đè: mã cũ có hiệu lực đến hôm nay, mã mới có hiệu lực từ ngày mai, cả hai đều nằm trong Lịch sử mã.",
       "customer": "Gõ để tìm theo tên. Không thấy thì chọn + Thêm: chủ đầu tư mới dùng được ngay và vào danh sách chờ quản trị viên duyệt hoặc gộp.",
-      "projectType": "Loại hình công trình, dùng để lọc và phân nhóm dự án.",
+      "projectType": "Loại hình công trình, dùng để lọc và phân nhóm dự án. Khi tạo dự án, loại này quyết định bộ trọng số 7 giai đoạn điền sẵn ở mục 5; chọn sai vẫn sửa được trọng số thủ công.",
       "contractValue": "Nhập trước VAT, đơn vị tỷ VNĐ. Đây là BAC - PV, EV, EAC, VAC đều tính từ số này. Hợp đồng ngoại tệ: nhập giá trị nguyên tệ ở ô bên cạnh, hệ thống quy đổi theo tỷ giá tháng ký hợp đồng và giữ nguyên số đã quy đổi, không đổi theo tỷ giá sau này.",
       "tonnage": "Tổng khối lượng kết cấu thép theo hợp đồng, đơn vị tấn.",
       "priority": "P0 - Trọng điểm, P1 - Lớn, P2 - Thường, P3 - Nhỏ. Dùng để lọc danh sách dự án; danh sách ở Tổng quan mặc định xếp P0 lên đầu.",

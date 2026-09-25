@@ -967,7 +967,7 @@
       "masterCode": "Generated on save and never changes. The contract code may change many times; the master code stays so progress history is never lost, while each contract code is kept as an alias with an effective period.",
       "aliasCode": "The code used with the client. Changing it does not overwrite: the old code is valid until today, the new one from tomorrow, and both stay in the code history.",
       "customer": "Type to search by name. Not found? Choose + Add: the new customer is usable at once and is queued for an admin to approve or merge.",
-      "projectType": "Project type, used to filter and group projects.",
+      "projectType": "Project type, used to filter and group projects. When creating a project it decides the pre-filled 7-stage weights in section 5; you can still edit the weights manually.",
       "contractValue": "Before VAT, in bn VND. This is the BAC - PV, EV, EAC and VAC are all based on it. Foreign-currency contracts: enter the original amount next to it; it is converted at the contract month's rate and then kept fixed, regardless of later rates.",
       "tonnage": "Total structural steel quantity per contract, in tonnes.",
       "priority": "P0 - Strategic, P1 - Large, P2 - Standard, P3 - Small. Used to filter projects; the Overview list sorts P0 first by default.",

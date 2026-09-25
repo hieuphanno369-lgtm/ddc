@@ -16,6 +16,7 @@ import { isValidProjectCode } from '@/lib/project-code';
 import { marketKey, typeKey } from '@/lib/labels';
 import { fmtNum, formatDateTime, formatTon, toTitleCase } from '@/lib/format';
 import { STAGE_ORDER, DEFAULT_STAGE_WEIGHTS, validateStageWeights } from '@/lib/stages';
+import { presetWeightsFor } from '@/lib/stage-weight-presets';
 import {
   normalizeKeyMilestones, toKeyMilestoneDraft, validateKeyMilestones, type KeyMilestoneDraft, type KeyMsErrors,
 } from '@/lib/key-milestones';
@@ -102,6 +103,15 @@ export function ProjectForm(p: ProjectFormProps) {
   function set<K extends keyof ProjectFormState>(key: K, value: ProjectFormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
     setMsg(null);
+  }
+
+  // G-6 (Q1, ĐÃ CHỐT): đổi Loại dự án lúc TẠO mới, chưa tự sửa trọng số tay -> điền lại bảng trọng số
+  // theo loại. Chế độ SỬA không tự đổi (Q1-b).
+  function setProjectType(value: string) {
+    set('projectType', value);
+    if (mode === 'new' && !weightsDirty) {
+      setWeights(presetWeightsFor(value as ProjectType | ''));
+    }
   }
 
   function saveDraftNow() {
@@ -432,7 +442,7 @@ export function ProjectForm(p: ProjectFormProps) {
               <div className="field" data-field="projectType">
                 <span className="lb">{t('form.projectType')}</span>
                 <HelpTip text={t('projectForm.tipText.projectType')} label={t('projectForm.tipText.projectType')} alignRight />
-                <Combobox value={form.projectType} onChange={(v) => set('projectType', v)} options={TYPES.map((ty) => ({ value: ty, label: t(typeKey[ty]) }))} className="inp" />
+                <Combobox value={form.projectType} onChange={setProjectType} options={TYPES.map((ty) => ({ value: ty, label: t(typeKey[ty]) }))} className="inp" />
               </div>
             </div>
           </div>
@@ -577,7 +587,7 @@ export function ProjectForm(p: ProjectFormProps) {
             <StageWeightEditor
               value={weights}
               onChange={(rows) => { setWeights(rows); setWeightsDirty(true); setMsg(null); }}
-              onApplyPreset={() => { setWeights([...DEFAULT_STAGE_WEIGHTS]); setWeightsDirty(true); }}
+              onApplyPreset={() => { setWeights(presetWeightsFor(form.projectType as ProjectType | '')); setWeightsDirty(true); }}
             />
           </div>
 
