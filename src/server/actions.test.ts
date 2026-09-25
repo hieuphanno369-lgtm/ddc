@@ -302,3 +302,28 @@ describe('saveMonthlyData - T11 (Task 8, P2A): engine canh bao', () => {
     }
   });
 });
+
+describe('saveMonthlyData - S-4 (P3A vong sua 1): ngay ISO + ten co gioi han, ep VIET HOA', () => {
+  it('plannedFinishDate sai dinh dang -> Invalid input, du an khong doi', async () => {
+    login(ADMIN);
+    const before = repo.getProject(1)!;
+    const res = await saveMonthlyData(1, YM, { plannedFinishDate: 'abc' });
+    expect(res.ok).toBe(false);
+    expect(repo.getProject(1)).toEqual(before);
+  });
+
+  it('plannedFinishDate dung dinh dang ISO van luu duoc', async () => {
+    login(ADMIN);
+    const finish = repo.getProject(1)!.plannedFinishDate!;
+    const res = await saveMonthlyData(1, YM, { plannedFinishDate: finish });
+    expect(res).toEqual({ ok: true });
+  });
+
+  it('projectName rong hoac qua 160 ky tu -> tu choi; chu thuong -> luu VIET HOA', async () => {
+    login(ADMIN);
+    expect((await saveMonthlyData(1, YM, { projectName: '   ' })).ok).toBe(false);
+    expect((await saveMonthlyData(1, YM, { projectName: 'x'.repeat(161) })).ok).toBe(false);
+    expect(await saveMonthlyData(1, YM, { projectName: 'ten moi s4' })).toEqual({ ok: true });
+    expect(repo.getProject(1)!.projectName).toBe('TEN MOI S4');
+  });
+});

@@ -24,8 +24,8 @@ import { EQUIP_NOTE_MAX, EQUIP_PLAN_MAX_ROWS, EQUIP_UNIT_MAX } from '@/lib/equip
 const yearMonth = z.string().refine(isValidYearMonth, 'yearMonth phải dạng YYYY-MM hợp lệ (tháng 01-12)');
 const pct = z.number().min(0).max(THRESHOLDS.pctInputMax);
 const nonNegative = z.number().min(0);
-const nullableDate = z.string().nullable().optional();
 const isoDate = z.string().refine(isValidIsoDate, 'Ngày phải dạng YYYY-MM-DD hợp lệ');
+const nullableDate = isoDate.nullable().optional();
 export const keyMilestoneRowSchema = z.object({
   name: z.string().trim().min(1).max(KEY_MS_NAME_MAX),
   plannedDate: isoDate,
@@ -66,7 +66,7 @@ export const saveMonthlyDataSchema = z.object({
       .optional(),
     ac: nonNegative.optional(),
     equipmentActual: nonNegative.optional(),
-    projectName: z.string().optional(),
+    projectName: z.string().trim().min(1).max(PROJECT_NAME_MAX).transform((s) => s.toUpperCase()).optional(),
     customerId: z.number().int().positive().optional(),
     teamKdId: z.number().int().positive().optional(),
     marketCode: z.enum(MARKET).optional(),

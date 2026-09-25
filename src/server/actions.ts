@@ -114,7 +114,7 @@ export async function saveMonthlyData(
     arOverdue,
     factoryId,
     volumeTonnage,
-  } = patch;
+  } = parsed.data.patch; // S-4: dùng bản đã parse (tên VIẾT HOA, ngày ISO), không dùng input thô
 
   // T8 (Task 6, P2A): khu vực sản xuất + sản lượng tháng - kiểm TRƯỚC mọi ghi.
   if (factoryId != null) {
