@@ -14,5 +14,9 @@ declare module 'next-auth/jwt' {
   interface JWT {
     role?: Role;
     canViewFinance?: boolean;
+    /** T-5 (danh-gia-bao-mat.md): mốc lần cuối đọc lại quyền từ DB (Date.now(), ms). */
+    accessCheckedAt?: number;
+    /** T-5: true = tài khoản bị khoá/không còn trong DB - callback session() vô hiệu session. */
+    invalid?: boolean;
   }
 }
