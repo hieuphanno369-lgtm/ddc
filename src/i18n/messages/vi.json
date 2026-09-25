@@ -1023,5 +1023,15 @@
       "notFound": "Không tìm thấy dự án.",
       "generic": "Lưu thất bại: {msg}"
     }
+  },
+  "customerReview": {
+    "pending": "Chờ duyệt",
+    "approve": "Duyệt",
+    "hint": "Chủ đầu tư mới do người nhập liệu tạo - bấm Duyệt để giữ, hoặc Merge vào khách hàng có sẵn.",
+    "err": {
+      "not_pending": "Chủ đầu tư này đã được duyệt.",
+      "not_found": "Không tìm thấy chủ đầu tư.",
+      "generic": "Lỗi: {msg}"
+    }
   }
 }

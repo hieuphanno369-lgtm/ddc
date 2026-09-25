@@ -1023,5 +1023,15 @@
       "notFound": "Project not found.",
       "generic": "Save failed: {msg}"
     }
+  },
+  "customerReview": {
+    "pending": "Pending review",
+    "approve": "Approve",
+    "hint": "New customers created by data-entry users - Approve to keep, or Merge into an existing customer.",
+    "err": {
+      "not_pending": "This customer is already approved.",
+      "not_found": "Customer not found.",
+      "generic": "Error: {msg}"
+    }
   }
 }
