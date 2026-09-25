@@ -117,11 +117,41 @@ describe('webhookPayload', () => {
     expect(payload.event).toBe('alert.opened');
   });
 
-  it("'slack' parse ra { text }", () => {
+  it("'slack' parse ra { text } (L-3: & < > da bi escape - ALERT_BASE co san '>' trong ruleTriggered)", () => {
     const n = noticeFromAlert(ALERT_BASE, 'Dự án X', undefined);
     const payload = JSON.parse(webhookPayload('slack', n));
     expect(typeof payload.text).toBe('string');
-    expect(payload.text).toContain(noticeSubject(n));
-    expect(payload.text).toContain(noticeText(n));
+    // noticeSubject/noticeText CHUA escape (ham rieng, dung chung cho email/teams) - so sanh sau khi
+    // tu escape & < > giong logic that trong webhookPayload('slack', ...).
+    const escape = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    expect(payload.text).toContain(escape(noticeSubject(n)));
+    expect(payload.text).toContain(escape(noticeText(n)));
+  });
+
+  it("L-3 (danh-gia-bao-mat.md): 'slack' escape & < > (chan <!channel>, link gia <http://evil|Bam vao day>)", () => {
+    const n = noticeFromAlert(
+      { ...ALERT_BASE, owner: '<!channel> & <http://evil.invalid|Bam vao day>' },
+      'Dự án <script>',
+      undefined,
+    );
+    const payload = JSON.parse(webhookPayload('slack', n));
+    expect(payload.text).not.toContain('<!channel>');
+    expect(payload.text).not.toContain('<script>');
+    expect(payload.text).toContain('&lt;!channel&gt;');
+    expect(payload.text).toContain('&lt;script&gt;');
+    expect(payload.text).toContain('&amp;');
+  });
+
+  it("L-3: 'teams' escape [ ] ( ) * _ (chan chen link/dinh dang gia qua ten du an/nguoi phu trach)", () => {
+    const n = noticeFromAlert(
+      { ...ALERT_BASE, owner: '[Click](http://evil.invalid) *bold* _italic_' },
+      'Dự án Y',
+      undefined,
+    );
+    const payload = JSON.parse(webhookPayload('teams', n));
+    expect(payload.text).not.toContain('[Click](http://evil.invalid)');
+    expect(payload.text).toContain('\\[Click\\]\\(http://evil.invalid\\)');
+    expect(payload.text).toContain('\\*bold\\*');
+    expect(payload.text).toContain('\\_italic\\_');
   });
 });

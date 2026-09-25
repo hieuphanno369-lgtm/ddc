@@ -97,7 +97,26 @@ export function noticeText(n: AlertNotice): string {
   return lines.join('\n');
 }
 
+/**
+ * L-3 (danh-gia-bao-mat.md): Slack mrkdwn coi &, <, > la ky tu dac biet (vd `<!channel>` de dinh
+ * danh moi nguoi, `<http://evil|Bam vao day>` de gia mao link) - phai escape truoc khi dua du lieu
+ * nguoi dung (ten du an, luat, message, nguoi phu trach...) vao message text.
+ */
+function escapeSlackMrkdwn(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * L-3: Teams (MessageCard) render markdown - `[]()` tao link, `*`/`_` tao in dam/in nghieng. Escape
+ * de du lieu nguoi dung khong the chen link/dinh dang gia.
+ */
+function escapeTeamsMarkdown(s: string): string {
+  return s.replace(/([[\]()*_])/g, '\\$1');
+}
+
 export function webhookPayload(format: 'generic' | 'slack' | 'teams', n: AlertNotice): string {
   if (format === 'generic') return JSON.stringify({ event: 'alert.opened', alert: n });
-  return JSON.stringify({ text: `${noticeSubject(n)}\n${noticeText(n)}` });
+  const combined = `${noticeSubject(n)}\n${noticeText(n)}`;
+  const text = format === 'slack' ? escapeSlackMrkdwn(combined) : escapeTeamsMarkdown(combined);
+  return JSON.stringify({ text });
 }
