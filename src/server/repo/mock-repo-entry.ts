@@ -331,6 +331,20 @@ export function makeEntryMockRepo({ getData, persist }: EntryMockDeps) {
       if (created > 0) persist();
       return created;
     },
+
+    /**
+     * Q6 (2026-09-25, chủ dự án chốt): Quản trị bật/tắt quyền xem tài chính cho TỪNG tài khoản (độc lập
+     * với role) - đọc bởi `resolveAccess()` (src/lib/auth.ts). false = not_found.
+     */
+    setUserCanViewFinance(email: string, canViewFinance: boolean, by: string): boolean {
+      const d = getData();
+      const u = d.userRoles.find((x) => x.email === email.toLowerCase());
+      if (!u) return false;
+      auditMock(d, 'user_roles', u.email, 'canViewFinance', String(u.canViewFinance), String(canViewFinance), by);
+      u.canViewFinance = canViewFinance;
+      persist();
+      return true;
+    },
   };
 }
 

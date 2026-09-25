@@ -26,21 +26,28 @@ const roleSeed: Record<string, Role> = (process.env.ROLE_SEED ?? '')
     return acc;
   }, {});
 
-/** Quyền: đọc từ user_roles (DB) hoặc mock store, fallback ROLE_SEED env. */
+/**
+ * Quyền: đọc từ user_roles (DB) hoặc mock store, fallback ROLE_SEED env.
+ * Q6 (2026-09-25, chủ dự án chốt): canViewFinance đọc theo TỪNG người từ cột DB `user_roles.canViewFinance`
+ * (Quản trị bật/tắt được - xem `setUserCanViewFinanceAction`), KHÔNG còn suy từ role. Admin luôn xem được
+ * bất kể cột DB. Có hiệu lực ở lần đăng nhập/refresh JWT kế tiếp (callback `jwt` chỉ gọi lại hàm này khi
+ * có `user` mới, tức là lúc đăng nhập - xem `authOptions.callbacks.jwt`).
+ */
 export async function resolveAccess(email: string): Promise<{ role: Role; canViewFinance: boolean }> {
   const seedRole = roleSeed[email.toLowerCase()] ?? 'viewer';
-  const fallback: { role: Role; canViewFinance: boolean } = { role: seedRole, canViewFinance: seedRole !== 'viewer' };
+  const fallback: { role: Role; canViewFinance: boolean } = { role: seedRole, canViewFinance: seedRole === 'admin' };
   if (process.env.DATABASE_URL) {
     try {
       const row = await prisma.userRole.findUnique({ where: { email: email.toLowerCase() } });
-      if (row) return { role: row.role as Role, canViewFinance: row.role !== 'viewer' };
+      if (row) return { role: row.role as Role, canViewFinance: row.role === 'admin' ? true : row.canViewFinance };
     } catch {
       /* ignore */
     }
     return fallback;
   }
   const u = repo.getUserRoles().find((x) => x.email === email.toLowerCase());
-  return u ? { role: u.role, canViewFinance: u.role !== 'viewer' } : fallback;
+  if (!u) return fallback;
+  return { role: u.role, canViewFinance: u.role === 'admin' ? true : u.canViewFinance };
 }
 
 async function findAccount(email: string): Promise<UserAccount | null> {

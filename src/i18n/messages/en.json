@@ -451,7 +451,10 @@
     "deleteProject": "Delete project",
     "confirmDelete": "Delete this project? (hide from list, keep data)",
     "deleted": "Project deleted",
-    "delete": "Delete"
+    "delete": "Delete",
+    "canViewFinanceOn": "Yes",
+    "canViewFinanceOff": "No",
+    "canViewFinanceAlways": "Always (Admin)"
   },
   "auth": {
     "signIn": "Sign in",
@@ -587,7 +590,8 @@
     "create_dim": "Create dimension",
     "rename_dim": "Rename dimension",
     "merge_dim": "Merge dimensions",
-    "save_key_milestones": "Save key milestones"
+    "save_key_milestones": "Save key milestones",
+    "set_can_view_finance": "Change finance view permission"
   },
   "dataGuard": {
     "import": {

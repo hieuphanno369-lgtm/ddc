@@ -451,7 +451,10 @@
     "deleteProject": "Xóa dự án",
     "confirmDelete": "Xóa dự án này? (ẩn khỏi danh sách, giữ data)",
     "deleted": "Đã xóa dự án",
-    "delete": "Xóa"
+    "delete": "Xóa",
+    "canViewFinanceOn": "Có",
+    "canViewFinanceOff": "Không",
+    "canViewFinanceAlways": "Luôn xem (Admin)"
   },
   "auth": {
     "signIn": "Đăng nhập",
@@ -587,7 +590,8 @@
     "create_dim": "Tạo danh mục",
     "rename_dim": "Đổi tên danh mục",
     "merge_dim": "Gộp danh mục",
-    "save_key_milestones": "Lưu mốc chính"
+    "save_key_milestones": "Lưu mốc chính",
+    "set_can_view_finance": "Đổi quyền xem tài chính"
   },
   "dataGuard": {
     "import": {

@@ -335,4 +335,17 @@ export const entryPrismaRepo = {
     }
     return created;
   },
+
+  /**
+   * Q6 (2026-09-25, chủ dự án chốt): Quản trị bật/tắt quyền xem tài chính cho TỪNG tài khoản (độc lập
+   * với role) - đọc bởi `resolveAccess()` (src/lib/auth.ts). false = not_found (không có tài khoản này).
+   */
+  async setUserCanViewFinance(email: string, canViewFinance: boolean, by: string): Promise<boolean> {
+    const e = email.toLowerCase();
+    const existing = await prisma.userRole.findUnique({ where: { email: e } });
+    if (!existing) return false;
+    await prisma.userRole.update({ where: { email: e }, data: { canViewFinance } });
+    await audit(prisma, 'user_roles', e, 'canViewFinance', String(existing.canViewFinance), String(canViewFinance), by);
+    return true;
+  },
 };
