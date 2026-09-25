@@ -101,8 +101,10 @@ compile + generate 3 trang tĩnh thành công. `git diff main...HEAD --stat` xá
 ## Task 10 — F6 bản nháp an toàn + xoá khi đăng xuất
 - `src/lib/drafts.ts`, `src/lib/project-draft.ts` (mới). `dataEntryState.ts`: `DRAFT_VERSION` 2→3,
   `DRAFT_FIELDS` chỉ còn `pctPlan/ac/equipmentActual/volumeTonnage/stagePct/stageApplicable` —
-  **số tài chính và toàn bộ hồ sơ KHÔNG BAO GIỜ vào localStorage nữa**. `draftKey` đổi chữ ký, gắn
-  thêm `ownerTag` (băm FNV-1a từ email) vào khoá localStorage.
+  **DataEntryForm: nháp chỉ còn 6 field tiến độ, không hồ sơ, không số tài chính**. `ProjectForm`:
+  nháp vẫn là hồ sơ (Task 8) nhưng **trừ 3 trường tài chính** `contractValue`/`contractValueOriginal`/
+  `penaltyValue` (`toProjectDraftForm()` ở `project-draft.ts`, vòng sửa 1 mục 3/S-3). `draftKey` đổi
+  chữ ký, gắn thêm `ownerTag` (băm FNV-1a từ email) vào khoá localStorage.
 - `restoreDraft`/`restoreProjectDraft` chỉ áp field khai báo, bỏ key lạ trong JSON (chống dữ liệu cũ/
   bị chỉnh tay chèn field tài chính).
 - **Task 10 - Tester soi kỹ**: `SettingsMenu.tsx`/`ChangePasswordModal.tsx` gọi

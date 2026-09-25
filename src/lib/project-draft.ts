@@ -4,12 +4,15 @@ import type { Project, StageWeightInput } from '@/server/repo/types';
 
 export const PROJECT_DRAFT_VERSION = 1;
 
+/** F6 (S-3): nháp KHÔNG BAO GIỜ chứa số tài chính - máy dùng chung đọc được qua DevTools/localStorage. */
+export type ProjectDraftForm = Omit<ProjectFormState, 'contractValue' | 'contractValueOriginal' | 'penaltyValue'>;
+
 export interface ProjectDraft {
   v: 1;
   savedAt: string;
   projectCreatedAt: string | null;
   projectUpdatedAt: string | null;
-  form: ProjectFormState;
+  form: ProjectDraftForm;
   keyMilestones: KeyMilestoneDraft[];
   stageWeights: StageWeightInput[];
 }
@@ -18,10 +21,17 @@ export function projectDraftKey(ownerTag: string, projectId: number | null): str
   return `ddc_pform_v1_${ownerTag}_${projectId ?? 'new'}`;
 }
 
-const PROJECT_FORM_STRING_KEYS: Exclude<keyof ProjectFormState, 'penalized'>[] = [
-  'currentAliasCode', 'projectName', 'customerId', 'teamKdId', 'marketCode', 'projectType', 'contractValue',
-  'currencyCode', 'contractValueOriginal', 'tonnage', 'priority', 'factoryId', 'contractDate', 'plannedStartDate',
-  'plannedFinishDate', 'committedHandoverDate', 'actualStartDate', 'actualFinishDate', 'penaltyValue',
+/** F6 (S-3): bỏ 3 trường tài chính trước khi ghi nháp vào localStorage. */
+export function toProjectDraftForm(f: ProjectFormState): ProjectDraftForm {
+  const { contractValue, contractValueOriginal, penaltyValue, ...rest } = f;
+  void contractValue; void contractValueOriginal; void penaltyValue;
+  return rest;
+}
+
+const PROJECT_FORM_STRING_KEYS: Exclude<keyof ProjectFormState, 'penalized' | 'contractValue' | 'contractValueOriginal' | 'penaltyValue'>[] = [
+  'currentAliasCode', 'projectName', 'customerId', 'teamKdId', 'marketCode', 'projectType',
+  'currencyCode', 'tonnage', 'priority', 'factoryId', 'contractDate', 'plannedStartDate',
+  'plannedFinishDate', 'committedHandoverDate', 'actualStartDate', 'actualFinishDate',
 ];
 
 /**

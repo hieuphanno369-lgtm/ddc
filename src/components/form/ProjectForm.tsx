@@ -20,8 +20,8 @@ import { presetWeightsFor } from '@/lib/stage-weight-presets';
 import {
   normalizeKeyMilestones, toKeyMilestoneDraft, validateKeyMilestones, type KeyMilestoneDraft, type KeyMsErrors,
 } from '@/lib/key-milestones';
-import { draftOwnerTag } from '@/lib/drafts';
-import { checkProjectDraft, projectDraftKey, restoreProjectDraft, type ProjectDraft } from '@/lib/project-draft';
+import { draftOwnerTag, purgeForeignDrafts } from '@/lib/drafts';
+import { checkProjectDraft, projectDraftKey, restoreProjectDraft, toProjectDraftForm, type ProjectDraft } from '@/lib/project-draft';
 import { createDimValueAction, saveKeyMilestonesAction } from '@/server/actions';
 import { changeProjectCodeAction, updateProjectAction, saveStageWeightsAction, type UpdateProjectPatch } from '@/server/actions-project';
 import { createProjectAction } from '@/server/actions';
@@ -121,7 +121,7 @@ export function ProjectForm(p: ProjectFormProps) {
       savedAt: new Date().toISOString(),
       projectCreatedAt: project?.createdAt ?? null,
       projectUpdatedAt: project?.updatedAt ?? null,
-      form,
+      form: toProjectDraftForm(form),
       keyMilestones: msRows,
       stageWeights: weights,
     };
@@ -129,8 +129,14 @@ export function ProjectForm(p: ProjectFormProps) {
     setMsg({ tone: 'ok', text: t('form.draftSaved') });
   }
 
-  // Chạy 1 lần khi mount: soi bản nháp - KHÔNG BAO GIỜ tự áp, chỉ hiện banner để người dùng chọn.
+  // Chạy 1 lần khi mount: dọn nháp của người khác dùng chung máy trước, rồi soi bản nháp của mình -
+  // KHÔNG BAO GIỜ tự áp, chỉ hiện banner để người dùng chọn.
   useEffect(() => {
+    try {
+      purgeForeignDrafts(localStorage, ownerTag);
+    } catch {
+      // localStorage có thể bị chặn (chế độ riêng tư) - không chặn luồng mở form.
+    }
     const check = checkProjectDraft(localStorage.getItem(draftStorageKey), project);
     if (check.kind === 'foreign') {
       localStorage.removeItem(draftStorageKey);
@@ -157,7 +163,7 @@ export function ProjectForm(p: ProjectFormProps) {
           savedAt: new Date().toISOString(),
           projectCreatedAt: project?.createdAt ?? null,
           projectUpdatedAt: project?.updatedAt ?? null,
-          form,
+          form: toProjectDraftForm(form),
           keyMilestones: msRows,
           stageWeights: weights,
         };
