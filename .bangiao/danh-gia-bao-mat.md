@@ -1,4 +1,4 @@
-KET LUAN BAO MAT: DAT
+KET LUAN BAO MAT: CAN SUA (vong sua 1: F-1)
 
 # Đánh giá bảo mật P3A (Form Tạo/Sửa dự án): `feature/p3a-form-tao-sua` so với `main`
 
@@ -133,3 +133,37 @@ KET LUAN BAO MAT: DAT
 | S-9 | Thấp | `prisma/rollback/20260925100000_p3a_customer_review.down.sql` | Để sau |
 
 Không phát hiện nào **chặn merge**. Reviewer nên đưa S-1 vào danh sách bắt buộc của P6 (go-live), và S-2, S-5, S-6 vào nợ xử lý ghi đồng thời.
+
+---
+
+## Vòng sửa 1: rà lại mục 3-7 (S-2, S-3, S-4, S-6, S-7)
+
+> Security-reviewer chỉ đọc, 2026-09-25; điều phối viên chép vào file này.
+> Phạm vi: `git diff e6a9807..HEAD` (`e1f747a`...`a2cc2ea`, docs `677f7c5`).
+> Skill: `ddc-tower:security-review`.
+> DB kiểm bằng `mcp__postgres` (chỉ đọc) trên `ddc_control_tower`.
+
+PHAN QUYET BAO MAT VONG SUA 1: CAN SUA
+
+### Kết quả theo từng điểm
+
+- **Migration và rollback (mục 6-7): đạt.** `BEGIN/COMMIT`, có `DO $$ ... RAISE EXCEPTION` kiểm trùng trước mỗi index; rollback `DROP INDEX IF EXISTS` + xoá dòng `_prisma_migrations`, chạy lại được.
+- `pg_indexes` trên DB thật: `dim_project_currentAliasCode_lower_key` = `UNIQUE btree (lower("currentAliasCode"))`; `project_assignments_one_pic_key` = `UNIQUE btree ("projectId") WHERE "roleInProject" = 'PIC'`.
+- Dữ liệu hiện có sạch (18 dự án): không mã `M-\d+` lệch masterCode, không alias trùng mã dự án khác.
+- **Khoá advisory: đạt.** Cả `changeProjectCode` (`prisma-repo-form.ts:78`) và `createProject` (`prisma-repo.ts:1069`) dùng cùng khoá `pg_advisory_xact_lock(hashtext(lower(<mã>)))`, kiểm trùng lại bằng `tx`; READ COMMITTED nên sau khi chờ khoá thấy bản ghi đã commit. Va chạm `hashtext` chỉ gây chờ, không gây sai. Không thấy vòng khoá gây deadlock.
+- **SQL raw: đạt.** Tagged template `$executeRaw`, tham số hoá, không `$executeRawUnsafe`.
+- **P2002: đạt** (kèm N-1). Chỉ bắt `P2002`, lỗi khác ném lại.
+- **`ProjectCodeTakenError`: đạt.** Action map sang chuỗi cố định `code_taken`, không trả message ra client.
+- **Chặn `M-\d+` ở đường ĐỔI mã: đạt** (trim, cờ `/i`, Unicode bị `PROJECT_CODE_RE` chặn, số 0 đứng đầu vẫn bị chặn).
+- **PIC (mục 7): đạt.** Ghi + `audit(tx, ...)` cùng transaction, kiểm PIC bằng `tx`, index partial chặn race, P2002 → `pic_exists`, action giữ `requireRoleUser(['admin'])`.
+- **S-3, S-4, S-7: đã đóng.** Không hồi quy authz ở các action đổi.
+
+### Phát hiện
+
+- **F-1 (Trung, chặn CHỐT):** mẫu mã tự sinh `M-\d+` chỉ bị chặn khi ĐỔI mã; `createProjectAction` (`actions.ts:225-229`) không gọi `isReservedProjectCode`, và `createProject` (`prisma-repo.ts:1068-1083`) nhánh không nhập mã không khoá, không kiểm trùng khi gán `currentAliasCode = masterCode`.
+  Khai thác: tạo dự án với `currentAliasCode: 'M-00025'` → (a) dự án id 25 sau này tạo không nhập mã nhận `code_taken` oan; (b) nếu kẻ chiếm mã đổi sang mã khác trước, `M-00025` nằm ở alias lịch sử, dự án id 25 được tạo cùng mã mà DB không báo (vi phạm Q4).
+  Cách sửa: (a) `createProjectAction` trả `code_reserved` khi `isReservedProjectCode(currentAliasCode, null)`, mock đồng bộ; (b) test `'m-00099'` và có khoảng trắng hai đầu → `code_reserved`; (c) phòng thủ nhiều lớp: nhánh không nhập mã cũng khoá theo `code` + `isProjectCodeTakenWith(tx, code, created.id)`, trùng thì ném lỗi rõ.
+- **N-1 (Thấp):** P2002 map chung, không đọc `meta.target` (`prisma-repo-form.ts:211` báo nhầm `pic_exists` khi 2 admin cùng thêm 1 Backup; `prisma-repo.ts:1096` mọi P2002 thành `ProjectCodeTakenError`). Sửa: chỉ map khi `meta.target` chứa đúng tên index, còn lại ném lại.
+- **N-2 (Thấp):** nháp cũ trước bản vá còn 3 trường tài chính trong localStorage (không còn được đọc vào form). Sửa tuỳ chọn: tăng `PROJECT_DRAFT_VERSION` hoặc xoá nháp còn khoá tài chính lúc mount.
+
+Kết luận: mục 3, 4, 5, 7 đạt; mục 6 còn F-1. Vá F-1 là đủ chuyển ĐẠT, không cần rà lại toàn bộ.
