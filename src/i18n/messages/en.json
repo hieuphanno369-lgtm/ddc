@@ -828,5 +828,41 @@
   "importLimit": {
     "note": "Max {mb}MB per file",
     "tooBig": "File {name} exceeds {mb}MB - not uploaded."
+  },
+  "projectForm": {
+    "weights": {
+      "colStage": "Stage",
+      "colWeight": "Weight",
+      "colApplicable": "Applies",
+      "colMax": "Max contribution",
+      "ok": "Weights total 100% - valid. Project % Actual = Σ(weight × stage % complete) ÷ Σ weights.",
+      "bad": "Weights total {sum}% - must be exactly 100% to save. Off by {diff}%.",
+      "empty": "At least one stage must apply.",
+      "note": "Turn off \"Applies\" for stages the project does not have - then redistribute the weights.",
+      "nextSave": "New weights apply from the next monthly progress save; saved months are not recalculated.",
+      "applyPreset": "Apply the default set for this project type"
+    },
+    "audit": {
+      "title": "Change trail",
+      "chip": "append-only",
+      "note": "Every save snapshots the previous profile as a new version instead of overwriting - so historical figures do not change when you edit the contract value.",
+      "time": "Time",
+      "user": "Changed by",
+      "table": "Area",
+      "field": "Field",
+      "old": "Old value",
+      "new": "New value",
+      "empty": "No changes yet",
+      "tbl": {
+        "dim_project": "Profile",
+        "dim_project_alias": "Contract code",
+        "project_key_milestone": "Key milestones",
+        "project_sap_codes": "SAP codes",
+        "project_stage_weight": "Weights",
+        "project_contractor": "Contractors",
+        "project_assignments": "Owners",
+        "project_equipment_plan": "Equipment plan"
+      }
+    }
   }
 }

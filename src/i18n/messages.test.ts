@@ -56,6 +56,7 @@ const CHANGED_SOURCES: Record<string, string> = {
   'ActivityViewer': 'src/components/admin/ActivityViewer.tsx',
   'ImportPanel': 'src/components/form/ImportPanel.tsx',
   'DailyImportBlock': 'src/components/form/DailyImportBlock.tsx',
+  'StageWeightEditor': 'src/components/form/StageWeightEditor.tsx',
 };
 
 describe('i18n: vi/en phủ key như nhau', () => {

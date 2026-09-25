@@ -828,5 +828,41 @@
   "importLimit": {
     "note": "Tối đa {mb}MB mỗi tệp",
     "tooBig": "Tệp {name} vượt quá {mb}MB - không gửi lên."
+  },
+  "projectForm": {
+    "weights": {
+      "colStage": "Giai đoạn",
+      "colWeight": "Trọng số",
+      "colApplicable": "Áp dụng",
+      "colMax": "Đóng góp tối đa",
+      "ok": "Tổng trọng số 100% - hợp lệ. % Thực tế của dự án = Σ(trọng số × %HT từng giai đoạn) ÷ Σ trọng số.",
+      "bad": "Tổng trọng số đang là {sum}% - phải đúng 100% mới lưu được. Lệch {diff}%.",
+      "empty": "Phải có ít nhất 1 giai đoạn áp dụng.",
+      "note": "Bỏ \"Áp dụng\" nếu dự án không có giai đoạn đó - nhớ chia lại trọng số cho các giai đoạn còn lại.",
+      "nextSave": "Trọng số mới áp dụng từ lần lưu tiến độ tháng kế tiếp; % Thực tế các tháng đã lưu không tự tính lại.",
+      "applyPreset": "Áp bộ mặc định theo loại dự án"
+    },
+    "audit": {
+      "title": "Dấu vết thay đổi",
+      "chip": "append-only",
+      "note": "Mỗi lần lưu, hệ thống chụp lại toàn bộ hồ sơ cũ thành một phiên bản mới thay vì ghi đè - nên số liệu lịch sử không đổi khi bạn sửa giá trị hợp đồng.",
+      "time": "Thời điểm",
+      "user": "Người sửa",
+      "table": "Nội dung",
+      "field": "Trường",
+      "old": "Giá trị cũ",
+      "new": "Giá trị mới",
+      "empty": "Chưa có thay đổi nào",
+      "tbl": {
+        "dim_project": "Hồ sơ",
+        "dim_project_alias": "Mã CT",
+        "project_key_milestone": "Các mốc chính",
+        "project_sap_codes": "Mã SAP",
+        "project_stage_weight": "Trọng số",
+        "project_contractor": "Nhà thầu",
+        "project_assignments": "Người phụ trách",
+        "project_equipment_plan": "Kế hoạch thiết bị"
+      }
+    }
   }
 }
