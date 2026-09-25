@@ -129,3 +129,62 @@ npm run test:e2e
 
 Không có câu hỏi nghiệp vụ mới phát sinh trong P3B — Q1–Q8 trong `ke-hoạch.md` đã đủ để làm hết cả
 9 Task + Q6.
+
+## Vòng sửa 1 (bảo mật, `.bangiao/danh-gia-bao-mat.md` T-1…T-5, L-1…L-6)
+
+Sửa theo phán quyết "CẦN SỬA" của security-reviewer + test độc lập của tester (`ket-qua-test.md`,
+test `[BIET LOI - T-2]` từng đỏ có chủ đích). Mỗi mục 1 commit riêng, `git diff a231a0e..HEAD`.
+
+| Mục | Commit | File chính | Test mới/sửa | Lệch so với mô tả gốc |
+|---|---|---|---|---|
+| **T-2** | `fd27975` | `src/server/repo/{mock-repo,prisma-repo}.ts` (`setUserRole`) | `account.test.ts`, `qa-p3b-independent.test.ts` (ca `[BIET LOI - T-2]` → `[FIXED - T-2]`, đổi mục tiêu sang tài khoản `bod` để không đụng nhánh force-true của data-entry) | Không đụng `actions.ts` (đúng ràng buộc) — sửa ở tầng repo, bỏ qua cờ `canViewFinance` caller truyền, tự quyết theo role mới. |
+| **T-1** | `b9db654` | `src/lib/auth.ts` (`resolveAccess`), `src/server/actions-user-finance.ts`, `src/components/admin/UserEditor.tsx` | `auth-finance-access.test.ts`, `actions-user-finance.test.ts` | Phương án b (điều phối chọn): data-entry luôn `canViewFinance=true` — **tạm thời tới khi A gate xong `DataEntryForm`/`nhap-lieu` theo `canViewFinance`** (xem "Lưu ý cho A" bên dưới). |
+| **T-3** | `17dbf47` | `src/server/notify/email.ts` | `email.test.ts` | Đúng mô tả: ghim IP đã resolve+kiểm cho `host`, `tls.servername`=hostname gốc, `name` EHLO cố định (không lộ `os.hostname()`). |
+| **T-4** | `e0a3f69` | `package.json` (`nodemailer` ^10.0.10 + `overrides`) | — (không cần test riêng, `npm audit` là bằng chứng) | Cài qua `npm install` bình thường — mạng máy này ra được `registry.npmjs.org`, không cần `NODE_EXTRA_CA_CERTS` (vấn đề SELF_SIGNED_CERT chỉ gặp với Google Font lúc build, không phải npm registry). Không `--force`/`--legacy-peer-deps`. |
+| **T-5** | `68a8f0b` | `src/lib/auth.ts` (callback `jwt`/`session`), `src/types/next-auth.d.ts` | `auth-access-recheck.test.ts` (mới, 7 ca) | Giả lập thời gian qua `token.accessCheckedAt` (số ms) thay vì fake timers — đơn giản hơn, tránh lệ thuộc `vi.useFakeTimers()` vào toàn bộ chuỗi `await` bên trong callback. |
+| **L-1/L-2** | `7cbb5e4` | `src/lib/notify-url.ts`, `src/server/notify/webhook.ts` | `notify-url.test.ts`, `webhook.test.ts`, `qa-p3b-independent.test.ts` (thêm `destroy` vào fake response) | Đúng mô tả: thêm `::/96`, `64:ff9b:1::/48`, `2002::/16`, `fec0::/10`, `100::/64` vào cả `IPV6_BLOCKLIST` lẫn `SMTP_IPV6_BLOCKLIST`; `res.destroy()` thay `res.resume()`; bọc `lookup()` trong `withTimeout()`. |
+| **L-3** | `53f830f` | `src/lib/notify-message.ts` | `notify-message.test.ts` (sửa 1 ca có sẵn — `ALERT_BASE` vốn có `'>'` hợp lệ trong `ruleTriggered`, nay bị escape đúng theo Slack) | Đúng mô tả: escape `& < >` (Slack), `[]()*_` (Teams), áp cho toàn bộ text đã ghép (không riêng từng field). |
+| **L-4** | `63e6544` | `src/server/actions-user-finance.ts` | `actions-user-finance.test.ts` | Đúng mô tả. |
+| **L-5** | `200f395`, `069e32e` | `e2e/helpers/env.ts` (`isExpectedDbUrl`), `e2e/global-setup.ts`, `vitest.config.ts`, `playwright.config.ts` | `e2e/helpers/env.test.ts` (mới, 6 ca) | Thêm `vitest.config.ts` include `e2e/**/*.test.ts` để unit-test được — kéo theo Playwright (mặc định khớp cả `.test.ts`) tự nhặt nhầm file mới, phải thêm `testMatch: '**/*.spec.ts'` ở `playwright.config.ts` (commit `069e32e`, phát hiện khi chạy `npm run test:e2e`). `reuseExistingServer: true` **GIỮ NGUYÊN** (phần "cân nhắc" của L-5) — không đổi vì có thể ảnh hưởng quy trình dev lặp lại e2e cục bộ, không phải lỗi bảo mật rõ ràng cần vá ngay. |
+| **L-6** | `f695410` | `src/lib/secret-box.ts` (đổi tên `secretHint`→`secretHintForUrl`, đổi cách tính), `src/server/actions-notify.ts` | `secret-box.test.ts`, `actions-notify.test.ts`, `e2e/07-admin.spec.ts` (hint hiển thị đổi `'••••hook'`→`'example.invalid/…'`) | Đúng mô tả: hint webhook nay là `host + '/…'` thay vì 4 ký tự cuối URL. Cập nhật thêm mô tả cột `secretHint` ở `src/lib/schema-meta/docs.ts` cho khớp hành vi mới (không phải file nóng, chỉ sửa dòng mô tả, không đụng cấu trúc bảng/ERD). |
+
+**Điểm chưa làm** (đúng phạm vi được giao — không tự ý mở rộng):
+- **T-1 vẫn cần A xử lý**: `DataEntryForm`/`nhap-lieu` chưa gate theo `canViewFinance` — B chỉ khoá
+  tạm bằng cách ép `canViewFinance=true` cho data-entry ở tầng quyền (`resolveAccess` +
+  `setUserCanViewFinanceAction`), **không sửa** `nhap-lieu/page.tsx`/`DataEntryForm.tsx` (file A
+  đang giữ/sửa trong P3A).
+- **L-7** (xoay khoá `NOTIFY_SECRET_KEY`) — để sau theo đúng kế hoạch (`v1:kid:` / khoá dự phòng).
+- `reuseExistingServer: true` trong `playwright.config.ts` — chỉ ghi nhận đã "cân nhắc" (đúng chữ
+  dùng của security-reviewer), không đổi (xem lý do ở bảng trên).
+
+### Cổng kiểm (Vòng sửa 1)
+
+- `npx tsc --noEmit` (PowerShell, `D:\_project\DDC_Control_Tower-B`): sạch, sau mỗi commit.
+- `npm test`: từ 136 file/1558 test (trước vòng sửa) → **139 file / 1602 test xanh** (thêm
+  `qa-p3b-independent.test.ts` — 11 ca, trong đó ca `[BIET LOI - T-2]` đã chuyển XANH — cộng
+  `auth-access-recheck.test.ts`, `e2e/helpers/env.test.ts`, và các ca mới trong các file test có
+  sẵn).
+- `npm run test:e2e` (cổng 3001, DB `ddc_control_tower_b`): **21/21 xanh** (~3.4 phút), chạy sau
+  cùng khi toàn bộ 11 mục đã commit.
+- `npm audit`: **không còn advisory `nodemailer`** (16 lỗ hổng còn lại — `next`, `next-intl`,
+  `postcss` (qua `next`), `uuid` (qua `exceljs`), `xlsx`, `deepmerge-ts` (qua `prisma` dev),
+  `esbuild` (qua `vite` dev) — đều thuộc N-1, xử lý ở nhánh nâng Next riêng, không thuộc vòng sửa
+  này).
+
+### Chỗ Tester nên soi kỹ
+
+1. **T-2/T-1 tương tác nhau**: `setUserRole` (repo) nay tự ép `canViewFinance` theo role
+   (`viewer`→false, `data-entry`→true, khác→giữ nguyên) — kiểm kỹ đường "đổi role qua lại nhiều lần"
+   không làm quyền tài chính "trôi" khỏi ý admin đặt (test `qa-p3b-independent.test.ts` dùng tài
+   khoản `bod`, không phải `data-entry`, để tránh nhầm 2 quy tắc).
+2. **T-5**: callback `jwt` giờ có nhánh "không có `user`" chạy `findAccount`/`resolveAccess` mỗi lần
+   `getServerSession()` được gọi nếu token đã cũ >5 phút — kiểm hiệu năng không xấu đi rõ rệt khi
+   duyệt nhiều trang liên tiếp (mỗi request page đều gọi `getCurrentUser()`).
+3. **L-6**: `secretHint` hiển thị trên UI Quản trị đổi định dạng (`host/…` thay vì `••••XXXX`) — nếu
+   test cũ nào ngoài phạm vi commit này còn gõ cứng `'••••'` + ký tự cuối URL, sẽ đỏ.
+4. **L-5**: `vitest.config.ts` nay chạy thêm `e2e/**/*.test.ts` — nếu sau này ai thêm `.test.ts` mới
+   trong `e2e/` mà lỡ import thứ gì chỉ chạy được trong trình duyệt (Playwright `page`, v.v.) test đó
+   sẽ đỏ ở `npm test` (không phải lỗi logic, chỉ là đặt sai chỗ — nên là `.spec.ts`).
+5. **T-4**: đã xác nhận `npm ls nodemailer` chỉ còn 1 bản `10.0.10` (deduped, kể cả nhánh phụ thuộc
+   qua `next-auth`) và `prisma generate` vẫn ra client `6.19.3` bình thường — nhưng nếu Tester chạy
+   lại `npm install` trên máy khác, nên `npm ls nodemailer` lại cho chắc.
