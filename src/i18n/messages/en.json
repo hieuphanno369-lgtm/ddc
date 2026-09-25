@@ -587,7 +587,11 @@
     "create_dim": "Create dimension",
     "rename_dim": "Rename dimension",
     "merge_dim": "Merge dimensions",
-    "save_key_milestones": "Save key milestones"
+    "save_key_milestones": "Save key milestones",
+    "update_project": "Update project profile",
+    "change_project_code": "Change contract code",
+    "save_stage_weights": "Save stage weights",
+    "remove_sap": "Remove SAP code"
   },
   "dataGuard": {
     "import": {

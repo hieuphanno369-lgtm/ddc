@@ -6,10 +6,10 @@ import ExcelJS from 'exceljs';
 import { getCurrentUser, type CurrentUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
 import { hashPassword, verifyPassword } from '@/lib/password';
-import { calcChainPctActual, findCurrentStage, normPct } from '@/lib/stages';
+import { calcChainPctActual, findCurrentStage, normPct, validateStageWeights } from '@/lib/stages';
 import { cellText, type CellValue } from '@/lib/daily-import';
 import { assertXlsxInflatedSize, readBoundedSheet } from './daily-import';
-import type { CurrencyCode, KeyMilestoneInput, Market, Priority, Project, ProjectType, Role, StageCode } from './repo/types';
+import type { CreateProjectInput, CurrencyCode, KeyMilestoneInput, Market, Priority, Project, ProjectType, Role, StageCode, StageWeightInput } from './repo/types';
 import { listTag, overviewTag, profileTag, trendTag } from './cache';
 import { addSapCodeSchema, changePasswordSchema, closeAlertSchema, commitImportSchema, createAccountSchema, createDimSchema, createProjectSchema, deletePhotoSchema, importFileSchema, IMPORT_LEGACY_MAX_ROWS, lockMonthSchema, mergeDimSchema, renameDimSchema, resetPasswordSchema, saveKeyMilestonesSchema, saveMonthlyDataSchema, userRoleSchema } from './validation';
 import { repo } from './repo';
@@ -17,6 +17,7 @@ import { deletePhotoFile } from '@/lib/uploads';
 import { addPhotoForUser } from './photo-service';
 import { historyMonths } from '@/lib/clock';
 import { runAlertEngineSafe } from './alert-engine';
+import { checkProfileRules } from './project-profile-rules';
 
 /** Chặn write theo role - viewer không được ghi, khóa số liệu chỉ Admin/Trưởng phòng. */
 async function requireRole(allowed: Role[]): Promise<CurrentUser | null> {
@@ -145,7 +146,10 @@ export async function saveMonthlyData(
 
   const profileChanged = Object.keys(profilePatch).length > 0;
   if (profileChanged) {
-    await repo.saveProjectProfile(projectId, profilePatch, by);
+    const rates = await repo.getExchangeRates();
+    const rules = checkProfileRules(project, profilePatch, rates);
+    if (!rules.ok) return { ok: false, error: rules.error };
+    await repo.saveProjectProfile(projectId, rules.patch, by);
   }
 
   let derivedPctActual: number | undefined;
@@ -210,31 +214,35 @@ export async function saveMonthlyData(
 }
 
 /** Tạo dự án mới - data-entry tự gán làm PIC. */
-export async function createProjectAction(input: {
-  projectName: string;
-  customerId: number;
-  teamKdId: number;
-  marketCode: Market;
-  projectType: ProjectType;
-  priority: Priority;
-  contractValue: number;
-  tonnage?: number;
-  currencyCode?: CurrencyCode;
-  contractDate?: string | null;
-  plannedStartDate?: string | null;
-  plannedFinishDate?: string | null;
-  committedHandoverDate?: string | null;
-  penaltyValue?: number | null;
-  keyMilestones?: KeyMilestoneInput[];
-}) {
+export async function createProjectAction(
+  input: CreateProjectInput & { keyMilestones?: KeyMilestoneInput[]; stageWeights?: StageWeightInput[] },
+) {
   const user = await requireRole(['admin', 'data-entry']);
   if (!user) return { ok: false, error: 'Forbidden' };
   const parsed = createProjectSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
-  const { keyMilestones, ...projectInput } = parsed.data;
-  const p = await repo.createProject(projectInput, user.email);
+  const { keyMilestones, stageWeights, currentAliasCode, ...rest } = parsed.data;
+
+  if (currentAliasCode && (await repo.isProjectCodeTaken(currentAliasCode, null))) {
+    return { ok: false, error: 'code_taken' };
+  }
+  if (stageWeights && !validateStageWeights(stageWeights).ok) {
+    return { ok: false, error: 'weights_invalid' };
+  }
+  if (rest.factoryId != null) {
+    const active = (await repo.getDims()).factories.some((f) => f.id === rest.factoryId && f.isActive);
+    if (!active) return { ok: false, error: 'invalid_factory' };
+  }
+
+  const rates = await repo.getExchangeRates();
+  const rules = checkProfileRules(null, rest, rates);
+  if (!rules.ok) return { ok: false, error: rules.error };
+
+  const p = await repo.createProject({ ...rest, ...rules.patch, currentAliasCode }, user.email);
   if (user.role === 'data-entry') await repo.addAssignment(p.id, user.email, 'PIC');
+  if (stageWeights) await repo.replaceStageWeights(p.id, stageWeights, user.email);
   if (keyMilestones?.length) await repo.replaceKeyMilestones(p.id, keyMilestones, user.email);
+  await runAlertEngineSafe(p.id).catch(() => {});
   await logActivity(user, 'create_project', p.projectName);
   revalidateTag(profileTag);
   revalidateTag(trendTag);

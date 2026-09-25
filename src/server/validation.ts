@@ -7,6 +7,8 @@ import { DAILY_IMPORT_MAX_DAYS } from '@/lib/daily-import';
 import { FX_CURRENCIES } from '@/lib/fx';
 import { currentMonth } from '@/lib/clock';
 import { IMPORT_MAX_BYTES } from '@/lib/import-limits';
+import { PROJECT_NAME_MAX } from '@/lib/project-form';
+import { isValidProjectCode, PROJECT_CODE_MAX } from '@/lib/project-code';
 
 /**
  * Zod schema validate input mọi server action (spec §7.5 - không tin client).
@@ -90,22 +92,83 @@ export const saveMonthlyDataSchema = z.object({
   }),
 });
 
-export const createProjectSchema = z.object({
-  projectName: z.string().trim().min(1),
+/** P3A (Task 5): bảng trọng số 7 giai đoạn gửi từ form - đủ 7 mã khác nhau. */
+export const stageWeightRowsSchema = z
+  .array(
+    z.object({
+      stageCode: z.enum(STAGE_CODES),
+      weightPct: z.number().min(0).max(100),
+      applicable: z.boolean(),
+    }),
+  )
+  .length(7)
+  .refine((arr) => new Set(arr.map((s) => s.stageCode)).size === 7, { message: 'stageCode phải đủ 7 giai đoạn khác nhau' });
+
+/** P3A (Task 5): các trường hồ sơ dùng chung cho tạo mới VÀ sửa (G-4/7/8/11/12). */
+const PROFILE_SHAPE = {
+  projectName: z.string().trim().min(1).max(PROJECT_NAME_MAX),
   customerId: z.number().int().positive(),
   teamKdId: z.number().int().positive(),
   marketCode: z.enum(MARKET),
   projectType: z.enum(PROJECT_TYPE),
   priority: z.enum(PRIORITY),
   contractValue: z.number().positive(),
-  tonnage: nonNegative.optional(),
+  tonnage: nonNegative,
+  currencyCode: z.enum(CURRENCY),
+  contractValueOriginal: z.number().positive().nullable(),
+  contractDate: isoDate.nullable(),
+  plannedStartDate: isoDate.nullable(),
+  plannedFinishDate: isoDate.nullable(),
+  committedHandoverDate: isoDate.nullable(),
+  actualStartDate: isoDate.nullable(),
+  actualFinishDate: isoDate.nullable(),
+  penaltyValue: z.number().min(0).nullable(),
+  penalized: z.boolean(),
+  factoryId: z.number().int().positive().nullable(),
+};
+
+/** P3A (Task 5): patch hồ sơ khi SỬA dự án (`updateProjectAction`) - chỉ nhận field đã khai báo. */
+export const updateProjectSchema = z.object({
+  projectId: z.number().int().positive(),
+  patch: z.object(PROFILE_SHAPE).partial().strict(),
+});
+
+/** P3A (Task 5, G-3): đổi mã CT hiện hành. */
+export const projectCodeSchema = z.object({
+  projectId: z.number().int().positive(),
+  code: z.string().trim().min(1).max(PROJECT_CODE_MAX).refine(isValidProjectCode, 'Mã CT không hợp lệ'),
+  reason: z.string().trim().min(5).max(300),
+});
+
+/** P3A (Task 5): gỡ 1 mã SAP khỏi dự án. */
+export const removeSapSchema = z.object({
+  projectId: z.number().int().positive(),
+  sapCodeId: z.number().int().positive(),
+});
+
+export const createProjectSchema = z.object({
+  projectName: z.string().trim().min(1).max(PROJECT_NAME_MAX),
+  customerId: z.number().int().positive(),
+  teamKdId: z.number().int().positive(),
+  marketCode: z.enum(MARKET),
+  projectType: z.enum(PROJECT_TYPE),
+  priority: z.enum(PRIORITY),
+  contractValue: z.number().positive(),
+  tonnage: z.number().positive(),
   currencyCode: z.enum(CURRENCY).optional(),
-  contractDate: nullableDate,
-  plannedStartDate: nullableDate,
-  plannedFinishDate: nullableDate,
-  committedHandoverDate: nullableDate,
+  contractDate: isoDate.nullable().optional(),
+  plannedStartDate: isoDate,
+  plannedFinishDate: isoDate,
+  committedHandoverDate: isoDate,
+  actualStartDate: isoDate.nullable().optional(),
+  actualFinishDate: isoDate.nullable().optional(),
   penaltyValue: z.number().min(0).nullable().optional(),
+  penalized: z.boolean().optional(),
+  factoryId: z.number().int().positive().nullable().optional(),
+  contractValueOriginal: z.number().positive().nullable().optional(),
+  currentAliasCode: z.string().trim().min(1).max(PROJECT_CODE_MAX).refine(isValidProjectCode, 'Mã CT không hợp lệ').optional(),
   keyMilestones: z.array(keyMilestoneRowSchema).max(KEY_MS_MAX_ROWS).optional(),
+  stageWeights: stageWeightRowsSchema.optional(),
 });
 
 export const addSapCodeSchema = z.object({

@@ -83,14 +83,21 @@ describe('Mục 5 - 4 trường ngày: chỉ còn gửi từ step "Hồ sơ dự
     contractValue: 1000,
   };
 
-  it('createProjectSchema vẫn hợp lệ khi form tạo mới KHÔNG gửi 4 trường ngày', () => {
-    const r = createProjectSchema.safeParse(required);
+  // P3A (Task 5, G-8): tonnage + 3 trong 4 ngày (BĐ/HT kế hoạch, Bàn giao cam kết) nay BẮT BUỘC
+  // lúc tạo dự án - nguồn tính % Kế hoạch không còn được bỏ trống. Chỉ Ngày ký HĐ vẫn tuỳ chọn.
+  it('createProjectSchema BAT BUOC tonnage + 3 ngay ke hoach/ban giao khi tao du an', () => {
+    expect(createProjectSchema.safeParse(required).success).toBe(false);
+    const r = createProjectSchema.safeParse({
+      ...required,
+      tonnage: 500,
+      plannedStartDate: '2026-10-01',
+      plannedFinishDate: '2027-06-30',
+      committedHandoverDate: '2027-07-31',
+    });
     expect(r.success).toBe(true);
     if (r.success) {
       expect(r.data.contractDate).toBeUndefined();
-      expect(r.data.plannedStartDate).toBeUndefined();
-      expect(r.data.plannedFinishDate).toBeUndefined();
-      expect(r.data.committedHandoverDate).toBeUndefined();
+      expect(r.data.plannedStartDate).toBe('2026-10-01');
     }
   });
 
@@ -191,7 +198,10 @@ describe('saveKeyMilestonesSchema', () => {
   ])('tu choi: %s', (_, row) => expect(saveKeyMilestonesSchema.safeParse({ projectId: 1, rows: [row] }).success).toBe(false));
   it('tu choi > 50 dong', () => expect(saveKeyMilestonesSchema.safeParse({ projectId: 1, rows: Array(51).fill(ok) }).success).toBe(false));
   it('createProjectSchema nhan keyMilestones tuy chon', () => {
-    const base = { projectName: 'X', customerId: 1, teamKdId: 1, marketCode: 'TN', projectType: 'EPC', priority: 'P1', contractValue: 1 };
+    const base = {
+      projectName: 'X', customerId: 1, teamKdId: 1, marketCode: 'TN', projectType: 'EPC', priority: 'P1', contractValue: 1,
+      tonnage: 100, plannedStartDate: '2026-10-01', plannedFinishDate: '2027-06-30', committedHandoverDate: '2027-07-31',
+    };
     expect(createProjectSchema.safeParse(base).success).toBe(true);
     expect(createProjectSchema.safeParse({ ...base, keyMilestones: [ok] }).success).toBe(true);
     expect(createProjectSchema.safeParse({ ...base, keyMilestones: [{ ...ok, name: '' }] }).success).toBe(false);

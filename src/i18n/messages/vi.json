@@ -587,7 +587,11 @@
     "create_dim": "Tạo danh mục",
     "rename_dim": "Đổi tên danh mục",
     "merge_dim": "Gộp danh mục",
-    "save_key_milestones": "Lưu mốc chính"
+    "save_key_milestones": "Lưu mốc chính",
+    "update_project": "Sửa hồ sơ dự án",
+    "change_project_code": "Đổi mã CT",
+    "save_stage_weights": "Lưu trọng số giai đoạn",
+    "remove_sap": "Gỡ mã SAP"
   },
   "dataGuard": {
     "import": {

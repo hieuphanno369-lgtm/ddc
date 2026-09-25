@@ -69,6 +69,7 @@ describe('createProjectAction voi keyMilestones', () => {
   const base = {
     projectName: 'DU AN TEST', customerId: 1, teamKdId: 1, marketCode: 'TN' as const,
     projectType: 'EPC' as const, priority: 'P1' as const, contractValue: 10,
+    tonnage: 100, plannedStartDate: '2026-10-01', plannedFinishDate: '2027-06-30', committedHandoverDate: '2027-07-31',
   };
 
   it('kem keyMilestones -> du an moi co 1 moc', async () => {
