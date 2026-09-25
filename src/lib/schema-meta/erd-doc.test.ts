@@ -24,7 +24,8 @@ describe('toMermaid', () => {
 describe('docs/DATA_WAREHOUSE_README.md muc 1 (ERD) dong bo voi schema that', () => {
   it('doan giua ERD:BEGIN/ERD:END khop voi toMermaid(...) hien tai', () => {
     const readmePath = resolve(__dirname, '../../../docs/DATA_WAREHOUSE_README.md');
-    const content = readFileSync(readmePath, 'utf-8');
+    // Chuan hoa CRLF -> LF: checkout tren Windows (core.autocrlf=true) doi README sang CRLF.
+    const content = readFileSync(readmePath, 'utf-8').replace(/\r\n/g, '\n');
     const beginIdx = content.indexOf(BEGIN);
     const endIdx = content.indexOf(END);
     expect(beginIdx, `khong tim thay dau moc ${BEGIN}`).toBeGreaterThan(-1);
