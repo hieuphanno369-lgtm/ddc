@@ -23,16 +23,17 @@ import { STAGE_ORDER, calcChainPctActual, findCurrentStage, normPct } from '@/li
 import { THRESHOLDS } from '@/lib/thresholds';
 import { fmtNum, formatDateTime, formatPct, formatRatio } from '@/lib/format';
 import { closeAlertAction, deletePhotoAction, lockMonthAction, saveMonthlyData } from '@/server/actions';
+import { draftOwnerTag, purgeForeignDrafts } from '@/lib/drafts';
 import {
   buildBaseForm,
   buildSavePatch,
   checkDraft,
+  draftFieldsEqual,
   draftKey,
-  formsEqual,
-  legacyDraftKey,
   makeStamp,
   restoreDraft,
   saveErrorKind,
+  toDraftForm,
   type DraftCheck,
   type FormState,
 } from './dataEntryState';
@@ -67,6 +68,7 @@ interface Props {
   initialStep?: DataEntryStep;
   canEditFinance: boolean;
   resourcesPanel: React.ReactNode;
+  ownerEmail: string;
 }
 
 export function DataEntryForm({
@@ -91,10 +93,12 @@ export function DataEntryForm({
   initialStep,
   canEditFinance,
   resourcesPanel,
+  ownerEmail,
 }: Props) {
   const t = useTranslations();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const ownerTag = useMemo(() => draftOwnerTag(ownerEmail), [ownerEmail]);
 
   const base = useMemo(
     () => buildBaseForm(project, fact, financial, chain, volumeTonnage),
@@ -112,12 +116,12 @@ export function DataEntryForm({
   const [saving, setSaving] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Chạy 1 lần khi mount: dọn bản nháp v1 cũ (không bao giờ áp), rồi soi bản nháp v2 hiện có.
+  // Chạy 1 lần khi mount: dọn bản nháp v1/v2 và bản nháp của người khác, rồi soi bản nháp v3 hiện có.
   useEffect(() => {
-    localStorage.removeItem(legacyDraftKey(projectId, month));
-    const check = checkDraft(localStorage.getItem(draftKey(projectId, month)), stamp);
+    purgeForeignDrafts(localStorage, ownerTag);
+    const check = checkDraft(localStorage.getItem(draftKey(ownerTag, projectId, month)), stamp);
     if (check.kind === 'foreign') {
-      localStorage.removeItem(draftKey(projectId, month));
+      localStorage.removeItem(draftKey(ownerTag, projectId, month));
     } else if (check.kind === 'fresh' || check.kind === 'stale') {
       setPendingDraft(check);
     }
@@ -129,12 +133,12 @@ export function DataEntryForm({
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       if (pendingDraft) return;
-      if (formsEqual(form, base)) {
-        localStorage.removeItem(draftKey(projectId, month));
+      if (draftFieldsEqual(form, base)) {
+        localStorage.removeItem(draftKey(ownerTag, projectId, month));
       } else {
         localStorage.setItem(
-          draftKey(projectId, month),
-          JSON.stringify({ v: 2, savedAt: new Date().toISOString(), stamp, form }),
+          draftKey(ownerTag, projectId, month),
+          JSON.stringify({ v: 3, savedAt: new Date().toISOString(), stamp, form: toDraftForm(form) }),
         );
       }
     }, 800);
@@ -197,7 +201,7 @@ export function DataEntryForm({
     try {
       const res = await saveMonthlyData(projectId, month, patch);
       if (res.ok) {
-        localStorage.removeItem(draftKey(projectId, month));
+        localStorage.removeItem(draftKey(ownerTag, projectId, month));
         setSaveErr(undefined);
         router.refresh();
         setSaved(true);
@@ -297,7 +301,7 @@ export function DataEntryForm({
             <button
               className="btn ghost"
               onClick={() => {
-                localStorage.removeItem(draftKey(projectId, month));
+                localStorage.removeItem(draftKey(ownerTag, projectId, month));
                 setPendingDraft(null);
               }}
             >

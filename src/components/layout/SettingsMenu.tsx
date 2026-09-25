@@ -7,6 +7,7 @@ import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import type { CurrentUser } from '@/lib/session';
 import type { Role } from '@/server/repo/types';
 import { nextActiveIndex } from '@/lib/list-nav';
+import { clearDraftsOnLogout } from '@/lib/drafts';
 import {
   IconAdmin,
   IconBook,
@@ -150,6 +151,7 @@ export function SettingsMenu({ user }: { user: CurrentUser }) {
   }
 
   function logout() {
+    clearDraftsOnLogout(window.localStorage);
     signOut({ redirect: true, callbackUrl: '/login' });
   }
 

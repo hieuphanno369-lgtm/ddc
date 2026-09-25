@@ -101,6 +101,7 @@ export default async function NhapLieuPage({
             months={months}
             locked={locked}
             canLock={user.role === 'admin'}
+            ownerEmail={user.email}
             customers={dims.customers}
             teams={dims.teams}
             currencies={dims.currencies}

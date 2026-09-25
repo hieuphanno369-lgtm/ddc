@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { changePasswordAction } from '@/server/actions';
 import { IconClose } from '@/components/icons';
 import { PasswordInput } from '@/components/ui/PasswordInput';
+import { clearDraftsOnLogout } from '@/lib/drafts';
 
 export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
   const t = useTranslations();
@@ -32,7 +33,8 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
     const res = await changePasswordAction(current, next);
     setBusy(false);
     if (res.ok) {
-      // đổi xong → đăng xuất, bắt đăng nhập lại bằng mật khẩu mới
+      // đổi xong → đăng xuất, bắt đăng nhập lại bằng mật khẩu mới (F6: xoá nháp như logout thường).
+      clearDraftsOnLogout(window.localStorage);
       await signOut({ redirect: true, callbackUrl: '/' });
     } else if (res.error === 'current') {
       setMsg(t('auth.currentWrong'));

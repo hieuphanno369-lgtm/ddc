@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import type {
@@ -14,11 +14,13 @@ import {
 } from '@/lib/project-form';
 import { isValidProjectCode } from '@/lib/project-code';
 import { marketKey, typeKey } from '@/lib/labels';
-import { fmtNum, formatTon, toTitleCase } from '@/lib/format';
+import { fmtNum, formatDateTime, formatTon, toTitleCase } from '@/lib/format';
 import { STAGE_ORDER, DEFAULT_STAGE_WEIGHTS, validateStageWeights } from '@/lib/stages';
 import {
   normalizeKeyMilestones, toKeyMilestoneDraft, validateKeyMilestones, type KeyMilestoneDraft, type KeyMsErrors,
 } from '@/lib/key-milestones';
+import { draftOwnerTag } from '@/lib/drafts';
+import { checkProjectDraft, projectDraftKey, restoreProjectDraft, type ProjectDraft } from '@/lib/project-draft';
 import { createDimValueAction, saveKeyMilestonesAction } from '@/server/actions';
 import { changeProjectCodeAction, updateProjectAction, saveStageWeightsAction, type UpdateProjectPatch } from '@/server/actions-project';
 import { createProjectAction } from '@/server/actions';
@@ -90,12 +92,72 @@ export function ProjectForm(p: ProjectFormProps) {
   const [msErrors, setMsErrors] = useState<KeyMsErrors>({});
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ tone: 'ok' | 'bad'; text: string } | null>(null);
+  const [pendingDraft, setPendingDraft] = useState<Extract<ReturnType<typeof checkProjectDraft>, { kind: 'fresh' | 'stale' }> | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const ownerTag = useMemo(() => draftOwnerTag(ownerEmail), [ownerEmail]);
+  const draftStorageKey = useMemo(() => projectDraftKey(ownerTag, project?.id ?? null), [ownerTag, project?.id]);
 
   function set<K extends keyof ProjectFormState>(key: K, value: ProjectFormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
     setMsg(null);
   }
+
+  function saveDraftNow() {
+    const payload: ProjectDraft = {
+      v: 1,
+      savedAt: new Date().toISOString(),
+      projectCreatedAt: project?.createdAt ?? null,
+      projectUpdatedAt: project?.updatedAt ?? null,
+      form,
+      keyMilestones: msRows,
+      stageWeights: weights,
+    };
+    localStorage.setItem(draftStorageKey, JSON.stringify(payload));
+    setMsg({ tone: 'ok', text: t('form.draftSaved') });
+  }
+
+  // Chạy 1 lần khi mount: soi bản nháp - KHÔNG BAO GIỜ tự áp, chỉ hiện banner để người dùng chọn.
+  useEffect(() => {
+    const check = checkProjectDraft(localStorage.getItem(draftStorageKey), project);
+    if (check.kind === 'foreign') {
+      localStorage.removeItem(draftStorageKey);
+    } else if (check.kind === 'fresh' || check.kind === 'stale') {
+      setPendingDraft(check);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Tự lưu nháp sau 800ms khi có thay đổi - bỏ qua khi còn banner nháp chờ quyết định.
+  // Lưu ý: đổi "Các mốc chính"/trọng số không làm đổi `project.updatedAt` (2 bảng cấu hình riêng),
+  // nên checkProjectDraft có thể không bắt được "stale" cho 2 phần này - chấp nhận được vì nháp
+  // chỉ áp khi người dùng tự bấm "Khôi phục".
+  useEffect(() => {
+    if (pendingDraft) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      const unchanged = JSON.stringify(form) === JSON.stringify(base) && !weightsDirty && !msDirty;
+      if (unchanged) {
+        localStorage.removeItem(draftStorageKey);
+      } else {
+        const payload: ProjectDraft = {
+          v: 1,
+          savedAt: new Date().toISOString(),
+          projectCreatedAt: project?.createdAt ?? null,
+          projectUpdatedAt: project?.updatedAt ?? null,
+          form,
+          keyMilestones: msRows,
+          stageWeights: weights,
+        };
+        localStorage.setItem(draftStorageKey, JSON.stringify(payload));
+      }
+    }, 800);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, weights, msRows, weightsDirty, msDirty, pendingDraft, draftStorageKey]);
 
   const fx = fxPreview(form, exchangeRates);
   const validation = validateProjectForm(form, mode, mode === 'edit' ? base : null, exchangeRates);
@@ -139,6 +201,7 @@ export function ProjectForm(p: ProjectFormProps) {
         stageWeights: weights,
       });
       if (res.ok) {
+        localStorage.removeItem(draftStorageKey);
         setMsg({ tone: 'ok', text: t('projectForm.saved.created') });
         router.replace(`?project=${res.id}`);
         router.refresh();
@@ -205,6 +268,7 @@ export function ProjectForm(p: ProjectFormProps) {
         setMsg({ tone: 'ok', text: t('dataGuard.save.noChange') });
         return;
       }
+      localStorage.removeItem(draftStorageKey);
       setMsg({ tone: 'ok', text: t('projectForm.saved.updated') });
       setWeightsDirty(false);
       setMsDirty(false);
@@ -256,6 +320,43 @@ export function ProjectForm(p: ProjectFormProps) {
           <span className="hint">{t('projectForm.steps.hint')}</span>
         </div>
       </div>
+
+      {pendingDraft && (
+        <div className="sumbar">
+          <p>{t('dataGuard.draft.found', { time: formatDateTime(pendingDraft.draft.savedAt) })}</p>
+          {pendingDraft.kind === 'stale' && <p>{t('dataGuard.draft.stale')}</p>}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                setForm(restoreProjectDraft(base, pendingDraft.draft));
+                if (pendingDraft.draft.stageWeights.length === 7) {
+                  setWeights(pendingDraft.draft.stageWeights);
+                  setWeightsDirty(true);
+                }
+                if (pendingDraft.draft.keyMilestones.length > 0) {
+                  setMsRows(pendingDraft.draft.keyMilestones);
+                  setMsDirty(true);
+                }
+                setPendingDraft(null);
+              }}
+            >
+              {t('dataGuard.draft.restore')}
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => {
+                localStorage.removeItem(draftStorageKey);
+                setPendingDraft(null);
+              }}
+            >
+              {t('dataGuard.draft.discard')}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="card rise overflow-visible">
         <div className="bd" style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -504,7 +605,7 @@ export function ProjectForm(p: ProjectFormProps) {
           <button type="button" className="btn" disabled={saving} onClick={mode === 'new' ? handleSaveNew : handleSaveEdit}>
             {mode === 'new' ? t('projectForm.btn.create') : t('projectForm.btn.save')}
           </button>
-          <button type="button" className="btn ghost" disabled>{t('projectForm.btn.draft')}</button>
+          <button type="button" className="btn ghost" onClick={saveDraftNow}>{t('projectForm.btn.draft')}</button>
           <button type="button" className="btn ghost" onClick={handleCancel}>{t('projectForm.btn.cancel')}</button>
           <div className="inline" style={{ marginLeft: 'auto', fontSize: 'var(--t-caption1)', color: 'var(--label3)' }}>
             <span className="req">*</span> {t('projectForm.required')} · {t('projectForm.count', { n: filled, total })}

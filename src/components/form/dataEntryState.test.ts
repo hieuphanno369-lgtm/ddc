@@ -7,10 +7,12 @@ import {
   buildSavePatch,
   checkDraft,
   DRAFT_VERSION,
+  draftFieldsEqual,
   formsEqual,
   restoreDraft,
   saveErrorKind,
   toDateInput,
+  toDraftForm,
   type DraftStamp,
   type FormState,
   type StoredDraft,
@@ -236,6 +238,10 @@ describe('checkDraft', () => {
     const raw = JSON.stringify({ ...draftOf(current), v: 1 });
     expect(checkDraft(raw, current)).toEqual({ kind: 'none' });
   });
+  it('v=2 (F6, truoc khi gan theo email) -> none', () => {
+    const raw = JSON.stringify({ ...draftOf(current), v: 2 });
+    expect(checkDraft(raw, current)).toEqual({ kind: 'none' });
+  });
   it('du an khac trung id (projectCreatedAt khac) -> foreign', () => {
     const raw = JSON.stringify(draftOf({ ...current, projectCreatedAt: '2020-01-01T00:00:00.000Z' }));
     expect(checkDraft(raw, current).kind).toBe('foreign');
@@ -268,6 +274,54 @@ describe('restoreDraft', () => {
     const restored = restoreDraft(base, draft);
     expect(restored.stageApplicable).toEqual(base.stageApplicable);
     for (const s of STAGE_ORDER) expect(restored.stageApplicable[s]).toBeDefined();
+  });
+
+  it('JSON bi chen truong tai chinh/ho so (revenueCumulative, projectName) -> giu nguyen gia tri base', () => {
+    const base = baseForm();
+    const tampered = {
+      ...base,
+      revenueCumulative: '999999',
+      projectName: 'TEN BI CHEN TU NHAP LAI',
+      pctPlan: '55',
+    } as unknown as FormState;
+    const draft: StoredDraft = {
+      v: DRAFT_VERSION,
+      savedAt: '2026-01-02T00:00:00.000Z',
+      stamp: { projectCreatedAt: '', projectUpdatedAt: '', factVersion: null, financialVersion: null },
+      form: tampered,
+    };
+    const restored = restoreDraft(base, draft);
+    expect(restored.revenueCumulative).toBe(base.revenueCumulative);
+    expect(restored.projectName).toBe(base.projectName);
+    expect(restored.pctPlan).toBe('55');
+  });
+});
+
+describe('toDraftForm', () => {
+  it('khong co key tai chinh hay ho so', () => {
+    const form = toDraftForm(baseForm());
+    expect(form).not.toHaveProperty('revenueCumulative');
+    expect(form).not.toHaveProperty('costActualCumulative');
+    expect(form).not.toHaveProperty('projectName');
+    expect(form).toHaveProperty('pctPlan');
+    expect(form).toHaveProperty('stagePct');
+  });
+});
+
+describe('draftFieldsEqual', () => {
+  it('giong nhau -> true', () => {
+    const base = baseForm();
+    expect(draftFieldsEqual(base, { ...base })).toBe(true);
+  });
+
+  it('khac field ho so (projectName) khong tinh -> van true', () => {
+    const base = baseForm();
+    expect(draftFieldsEqual(base, { ...base, projectName: 'TEN KHAC' })).toBe(true);
+  });
+
+  it('khac pctPlan -> false', () => {
+    const base = baseForm();
+    expect(draftFieldsEqual(base, { ...base, pctPlan: '77' })).toBe(false);
   });
 });
 
