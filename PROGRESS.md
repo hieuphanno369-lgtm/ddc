@@ -3,6 +3,16 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P3D-B - Chặn truy cập khi chưa đăng nhập, vá S-1 (Tài khoản B) - CHỐT + ĐÃ MERGE vào `main` (2026-09-26)
+Nhánh `feature/p3d-b-chan-truy-cap`; hồ sơ `.bangiao/archive/p3d-b-chan-truy-cap-2026-09-26/`. Sau merge P3C-B: 200 file / 2168 test; e2e 09 44/44.
+Coder (test đỏ trước) → tester XANH (19 ca độc lập + kiểm trình duyệt thật) → security ĐẠT (vá thêm L-1 trong phase) → reviewer CHỐT.
+- **S-1 đã đóng:** `middleware.ts` chặn khi không có phiên hợp lệ hoặc `token.invalid` (tài khoản bị khoá), mặc định role `viewer` khi token thiếu role (tránh vòng lặp login↔overview); `src/lib/require-user.ts` (helper `requireUser`) gọi ở layout `(app)` và cả 13 page, là lệnh await đầu tiên, chặn cả kẽ hở Next.js App Router render layout/page song song (redirect ở layout không chặn được page stream dữ liệu).
+- L-1 (security, đã vá trong phase): matcher middleware bỏ qua path có dấu chấm (`/vi/projects/1.0`), `projects/[id]/page.tsx` giờ chỉ nhận id số nguyên dương viết chuẩn (`^[1-9]\d*$`), sai thì `notFound()`.
+- Test tĩnh chặn page `(app)` mới quên gọi `requireUser` + route API mới chưa khai cách chặn; e2e không cookie quét 13 page × vi/en × RSC, cộng 2 ca thử vượt qua header `x-middleware-subrequest` (kiểu CVE-2025-29927).
+- Rà route API + server action: không phát hiện lỗ hổng S-1 ở tầng API (mọi route đã tự chặn từ trước).
+- Không đổi hành vi người đã đăng nhập (bảng `DENIED`, `homeForRole` giữ nguyên).
+- Để sau: L-2 (payload RSC kèm cả từ điển i18n), L-3 (rate-limit `/api/health` né được qua `X-Forwarded-For`), ghi nợ cho P5 (A). 2 điểm yếu phần ảnh (`/api/photos` xem chéo dự án, `deletePhotoAction` dò mã ảnh), A gỡ toàn bộ code ảnh ở P3E.
+
 ### ✅ P3C-B - Chart T1/T2/T4/T5 (Tài khoản B) - CHỐT + ĐÃ MERGE vào `main` (2026-09-26)
 Nhánh `feature/p3c-b-chart`; hồ sơ `.bangiao/archive/p3c-b-chart-2026-09-26/`. Sau merge P3A: 193 file / 2075 test; e2e 21/21.
 Tester XANH → security ĐẠT (S-2 thẻ Top gửi thừa trường: đã sửa) → reviewer CẦN SỬA (gạch dài trên Gantt) → sửa → CHỐT. Không migration.
