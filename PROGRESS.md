@@ -3,6 +3,14 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ e2e cho A trên DB tạm (Tài khoản A) - CHỐT + ĐÃ MERGE vào `main` (2026-09-27)
+Nhánh `feature/e2e-a-db-tam`; hồ sơ `.bangiao/archive/e2e-a-db-tam-2026-09-27/`. 210 file / 2407 test; e2e 74/74 trên cổng 3010 + DB tạm `ddc_control_tower_e2e_a`.
+Chủ dự án cho A chạy e2e trên DB tạm (DB thật `ddc_control_tower` tuyệt đối không bị e2e/seed chạm). Security ĐẠT (sửa 1 trung + 3 thấp) → reviewer CHỐT.
+- A chạy `npm run test:e2e:a` (`scripts/e2e-a.ts`): dựng URL DB tạm từ `.env`, kiểm guard, từ chối khi cổng 3010 bận, `migrate deploy` (cả `DIRECT_URL`), gọi playwright không qua shell. Cổng riêng 3010 không trùng cổng dev của ai.
+- `e2e/helpers/env.ts`: cặp `ddc_control_tower_e2e_a` + 3010, cờ `reuseServer` theo cặp (A false, B/C giữ true), `mergeE2eEnv`/`loadE2eEnv` dùng chung (chỉ `E2E_DATABASE_URL`/`E2E_NEXTAUTH_URL` ở shell được đè `.env`, vẫn qua guard). `DIRECT_URL` trỏ DB e2e ở seed và webServer.
+- A lỡ chạy `npm run test:e2e` thường vẫn bị chặn, thông báo hướng dùng `test:e2e:a`. B/C không đổi cách chạy.
+- Để sau: đóng hẳn N-P7-1 (e2e hỏi server "đang nối DB nào" trước khi chạy; hoặc `dev` có `-p` cố định từng bên); không chạy `npm run dev` của A cùng lúc với e2e (chung `.next`); chạy `test:e2e:a` từ worktree B/C sẽ đẩy migration nhánh đó lên DB tạm của A.
+
 ### ✅ P3C-A - Form đều ô, kế hoạch thiết bị theo đợt, kế hoạch nhân lực theo tháng + Bước 11 chart trang Chi tiết (Tài khoản A) - CHỐT + ĐÃ MERGE vào `main` (2026-09-27)
 Nhánh `feature/p3c-a-form-ke-hoach`; hồ sơ `.bangiao/archive/p3c-a-form-ke-hoach-2026-09-27/`. 210 file / 2397 test; có migration `20260926100000_p3c_a_plan_tables` (bên khác chạy `npx prisma migrate deploy`).
 Task 0-10: coder → tester XANH (vá BUG-01 `.inline` trùng utility Tailwind → `.inline-row`) → security ĐẠT → reviewer CAN SUA → sửa → CHỐT. Bước 11: coder → tester ĐỎ (chữ đè) → sửa → reviewer CAN SUA (CS-1) → sửa → tester độc lập XANH → reviewer CHỐT; security ĐẠT.
