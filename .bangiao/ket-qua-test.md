@@ -1,259 +1,158 @@
-KET QUA TEST: XANH
+KET QUA TEST: DO
 
-# Kiem thu doc lap P3C-A (Tester) - 2026-09-26
+# Kiem doc lap Buoc 11 (gan chart T4/T5 vao trang Chi tiet) - P3C-A
 
-Nhanh `feature/p3c-a-form-ke-hoach`, DB `ddc_control_tower` (localhost:5433), dev server cong 3000.
 Skill da dung: `test-driven-development`, `verification-before-completion`.
+Nhanh: `feature/p3c-a-form-ke-hoach`, commit dang kiem: `954d31a`, `2c6598d`, `c2e21a7`, `fa4e226`.
 
-## 1. Loi tim thay khi kiem trinh duyet that (BAT BUOC, lam KHONG dat mot yeu cau T3)
+## 1. Ket luan ngan gon
 
-### BUG-01: O "Gia tri nguyen te" (select tien te + o so) KHONG cung 1 dong - vi pham hop dong T3
+DO vi tim thay **2 bug that** (khong phai loi moi truong, da tai hien bang test tu dong +
+anh chup man hinh that): nhan chu bi de len nhau trong 2 chart moi cua Buoc 11.
+Ngoai 2 bug nay, toan bo hanh vi con lai (truy van, quyen doc, trang thai rong, cuon ngang,
+i18n vi/en, khong loi console moi) deu dung nhu ke hoach.
 
-**Muc do:** Trung binh (loi hien thi/UX ro rang, khong mat du lieu, khong loi bao mat). Vi pham
-truc tiep yeu cau da chot trong `D:\_project\DDC_dieu-phoi\hop-dong-du-lieu-P3C.md` (T3: `"Giá trị
-nguyên tệ" gộp select tiền tệ + ô số trên 1 dòng`) va `ke-hoach.md` Task 1 (`nguyên tệ: select + ô
-số cùng dòng`).
+Da viet 4 file test doc lap (`*.qa.test.ts`, khong sua code san pham):
+- `src/server/equipment-plan-gantt-queries.qa.test.ts` (6 test, xanh)
+- `src/server/manpower-queries.qa.test.ts` (6 test, xanh)
+- `src/components/project/EquipmentPlanGantt.qa.test.ts` (4 test, **1 do**)
+- `src/components/project/ManpowerMonthChart.qa.test.ts` (5 test, **1 do**)
 
-**Noi bi loi:**
-- `D:\_project\DDC_Control_Tower\app\globals.css:390` dinh nghia `.inline{display:flex;align-items:center;gap:9px}`
-  (class cua app dung lam khung select+input o `ProjectForm.tsx:505-517`, `data-field="contractValueOriginal"`).
-- Tailwind CSS cung sinh mot utility class TRUNG TEN: `.inline{display:inline}` (vi trong code co
-  chuoi literal `className="inline"` nen Tailwind JIT quet thay va tu sinh utility co san cua no).
-  Trong bundle CSS bien dich cuoi cung (`layout.css`), rule `.inline{display:inline}` cua Tailwind
-  nam SAU rule `.inline{display:flex}` cua app (da xac nhan bang cach doc `document.styleSheets`
-  that trong trinh duyet, cung specificity `0,1,0`, luat sau THANG). Ket qua: phan tu `.inline` bi
-  Tailwind ep ve `display:inline` (roi bi "blockify" thanh `display:block` vi no la con cua `.field`
-  - mot flex container `display:flex;flex-direction:column`), nen KHONG con la flex row nua. Cac quy
-  tac flex danh cho no (`app/globals.css:396-397`: `.feven>.field>.inline>select.inp{flex:0 0 88px}`,
-  `...>input.inp{flex:1 1 auto}`) tro thanh vo hieu vi cha khong con la flex container.
-- Hau qua: `<select>` (chon VND/USD...) va `<input>` (o so) khong con nam cung hang; `<input>` bi
-  day xuong MOT DONG RIENG ben duoi select (chenh dung 38px = 1 hang), de bi de/chong len khu vuc
-  ben duoi khi input duoc hien thi (vd khi doi tien te sang USD, o so duoc bat active va hien ro).
-
-**Cach tai hien (da lam that tren trinh duyet that, Playwright MCP, dev server that cong 3000):**
-1. Dang nhap `admin@daidung.com.vn` / `Admin@123`.
-2. Mo `http://localhost:3000/vi/ho-so-du-an?mode=new` (hoac `?project=1`), 1440px hoac 390px deu
-   tai hien - khong phu thuoc kich thuoc man hinh (goc la xung dot ten class CSS, khong phai do
-   thieu khong gian).
-3. Doi "Gia tri nguyen te" tu VND sang USD (o so tro nen active/hien ro).
-4. Do bang `getBoundingClientRect()`: `select.top` va `input.top` lech dung 38px (khong `<= 2px`
-   nhu yeu cau "cung dong"). Anh chup: `.bangiao/anh-test/BUG-t3-nguyen-te-fullpage-USD-1440.png`
-   va `...-390.png` (thay ro o input rieng 1 dong duoi o select "USD").
-5. Kiem chung goc: `getComputedStyle(el).display` cua `.inline` = `"block"` (ky vong `"flex"`);
-   doc `document.styleSheets` thay 2 rule `.inline` trung ten, rule cua Tailwind
-   (`display:inline`) dung SAU rule cua app (`display:flex`) trong cung 1 file `layout.css` nen
-   thang cascade.
-
-**De xuat huong sua (KHONG tu sua, de danh cho debugger):** doi ten class rieng cua app tu
-`.inline` sang mot ten khong trung utility co san cua Tailwind (vd `.rowline`, `.fx-inline`) o ca
-`app/globals.css` va moi cho dung trong `.tsx` (it nhat `ProjectForm.tsx` dong 507; ren toan repo
-truoc khi doi vi co the co cho khac dung `className="inline"` voi ky vong flex).
-
-**Anh bang chung:** `.bangiao/anh-test/BUG-t3-nguyen-te-2-dong-1440.png` (crop),
-`BUG-t3-nguyen-te-2-dong-USD-1440.png`, `BUG-t3-nguyen-te-fullpage-USD-1440.png` (toan trang, 1440px,
-thay ro o input rieng dong duoi select USD), `BUG-t3-nguyen-te-fullpage-USD-390.png` (390px).
-
-**Tai sao coder + tester truoc (P3A) khong bat duoc:** test tu dong (`ProjectForm.test.ts`) chi
-kiem markup chua dung the (`data-field="contractValueOriginal"` co `<div class="inline"><select`
-va `<input`), KHONG do vi tri thuc te tren man hinh; kiem trinh duyet cua coder (theo `thay-doi.md`)
-dung script Playwright tam thoi + xem anh chup toan trang - o input khi tien te la VND bi `disabled`
-nen gan nhu vo hinh tren nen toi, chi hien ro khi doi sang ngoai te (USD...), luc do moi thay o rieng
-dong.
-
-## 2. Cac hang muc DA KIEM VA DAT (bang chung that, khong doan)
-
-### 2.1 Cong kiem tu dong
-- `npx tsc --noEmit`: **sach** (chay lai lan cuoi sau khi them 4 file test QA).
-- `npm test`: **186 file / 2151 test xanh** (moc coder ban giao 182 file/2065 test + 4 file QA moi
-  cua Tester = 86 test moi, khong test nao rot).
-- `npm run check:read`: **OK toan bo** (18 ham doc doi chieu prisma vs mock, du an 1 va 17).
-- `npx prisma migrate status`: **up to date**.
-
-### 2.2 Test QA moi (doc lap voi test cua coder, dang `*.qa.test.ts`)
-- `src/lib/equipment-plan.p3c-a.qa.test.ts` (25 test): `findOverloads`/`validateEquipmentPlan` -
-  duong thuan, dot cham dung ngay dau/cuoi cua dot khac (chong 1 ngay), dot 1 ngay (`from===to`) tu
-  no da vuot, nhieu khoang vuot ROI RIENG khong lien tuc, 3 dot chong 1 phan (`used:5`), equipmentId
-  trung/la, `to < from`, ngay khong hop le, 301 dot -> `tooManySegments`, so nhom vuot
-  `EQUIP_GROUP_MAX`, `toEquipmentGroupDrafts`/`normalizeEquipmentGroups`/`equipGroupsAuditText`
-  (dung mau chuoi + cat 2000 ky tu), va 1 truong hop PHAI THAT BAI bat buoc (totalQty am).
-- `src/lib/manpower-plan.p3c-a.qa.test.ts` (38 test): `splitTotal` lam tron + ca cuoi nhan phan du +
-  tong luon = total (50 bo ngau nhien seed co dinh), `recomputeMonth` giu o sua tay khi doi
-  Tong/ty le, `below_manual`/`all_manual`, `resetMonthToRatio`, `isRatioSumValid` dung/sai bien
-  +-0.001, `defaultShiftRatios`/`resolveShiftRatios`, `validateManpowerPlan` (shifts/range/sum,
-  yearMonth, duplicate, cells, tooManyMonths, thang toan 0 hop le), audit text dung mau, va 1
-  truong hop PHAI THAT BAI bat buoc (planned NaN).
-- `src/server/actions-p3c-a-quyen.qa.test.ts` (12 test): quyen ghi ca 2 action
-  (`saveEquipmentPlansAction`, `saveManpowerPlanAction`) - admin ok moi du an; data-entry (pm@) la
-  PIC du an 1 thi ok, du an 16 (KHONG duoc gan) thi Forbidden; viewer (ke ca duoc gan Backup de doc
-  du an 1) thi Forbidden; bod Forbidden; chua dang nhap Forbidden; payload sai kieu (totalQty/planned
-  am) bi zod chan truoc khi cham repo (`Invalid input`).
-- `src/server/repo/form-p3c-a-doc-ghi.qa.test.ts` (11 test): dung kieu + thu tu 4 ham doc hop dong
-  (`readEquipmentPlanSegments` sort equipmentId+from; `readEquipmentQuotas` sort equipmentId;
-  `readManpowerPlanMonths` sort yearMonth+sortOrder ca; `readShiftRatios` mac dinh khi du an rong);
-  `replaceManpowerPlan` CHI ghi audit cho thang co doi (gui lai y het -> 0 audit moi; doi 1/7 thang
-  -> dung 1 dong audit, 6 thang con lai KHONG doi); doi ty le rieng (audit rieng, khong dung thang
-  nao); du an chua co dong ty le luu dung mac dinh -> KHONG ghi audit ty le; `replaceEquipmentPlans`
-  1 dong audit "replace" chua "tong", luu mang rong xoa sach dung du an do.
-
-### 2.3 Migration + rollback (Task 2) - kiem doc lap THAT tren DB that, AN TOAN (tu huy transaction)
-- Da doc `prisma/migrations/20260926100000_p3c_a_plan_tables/migration.sql` va
-  `prisma/rollback/20260926100000_p3c_a_plan_tables.down.sql`: dung nhu dac ta trong `ke-hoach.md`
-  Task 2 (GREATEST(COUNT(DISTINCT unitNo),1) cho du lieu cu; CHECK constraint; FK Cascade/Restrict
-  dung bang).
-- Da CHAY THAT toan bo noi dung rollback SQL (bao gom DROP TABLE, tach dot qty=n thanh n dong, DROP
-  COLUMN qty, ALTER unitNo NOT NULL) trong 1 Prisma `$transaction` roi CHU DONG throw de Prisma tu
-  ROLLBACK - khong commit gi vao DB that. Ket qua kiem TRONG transaction (truoc khi rollback):
-  - Dong scratch tu chen (`equipmentId=4`, `unitNo=NULL`, `qty=3`) -> tach dung 3 dong `unitNo` 1,2,3.
-  - Dong that co san du an 1 `equipmentId=1` (qty goc 1,3,2 tren 3 dot) -> tach dung 6 dong
-    `unitNo` = [1,1,1,2,2,3] (dot qty=1 khong tach them; dot qty=3 tach 3; dot qty=2 tach 2).
-  - 3 bang moi (`project_equipment_quota`, `project_manpower_plan_month`, `project_shift_ratio`)
-    bi xoa dung; cot `qty` bi xoa, `unitNo` tro lai `NOT NULL`.
-  - SAU KHI throw: da hau kiem DB that - dong scratch = 0, 3 bang moi con du 3, cot `qty` con 1 ->
-    XAC NHAN DB that KHONG bi anh huong gi.
-- Doi chieu du lieu that hien tai qua `mcp__postgres` (read-only): `project_equipment_quota` du an 1
-  = `{1:3, 2:2, 3:4}`, `project_equipment_plan` du an 1 = 7 dong `unitNo NULL` dung seed;
-  `project_manpower_plan_month` 7 thang dung [450,700,800,900,800,650,400]; `project_shift_ratio` =
-  `morning 0.6, evening 0.4`; `dim_shift` = `morning`(sortOrder1)/`evening`(sortOrder2), ca deu
-  `isActive`. Khop hoan toan hop dong P3C va bang seed trong `ke-hoach.md` Task 5.
-
-### 2.4 Kiem trinh duyet that (Playwright MCP, dev server that cong 3000, DB `ddc_control_tower`)
-
-**T3 - form Tao/Sua (`/vi/ho-so-du-an?mode=new`), 1440px va 390px:**
-- Dau `?` cung dong nhan (`labelHeight` = 18px deu nhau, khong bi day xuong dong rieng) - DAT.
-- 5 khoi `.f4.feven` deu co cac o cung `top`/`height=38` trong tung hang (do bang
-  `getBoundingClientRect()` tung o) - DAT.
-- Go ma `M-1` o che do Tao -> o Ma CT to do (`class="inp bad"`) + dong loi dung
-  `projectForm.err.code_reserved` - DAT.
-- **O "Gia tri nguyen te" (select + input) KHONG cung dong - xem BUG-01 o tren.**
-
-**T4 - KH thiet bi theo dot (`/vi/nhap-lieu?project=1&step=resources`), 1440px:**
-- Hien dung 3 loai thiet bi seed (Cau banh xich tong 3/3 dot, Cau banh lop tong 2/2 dot, Xe nang
-  nguoi tong 4/2 dot), dung so lieu nhu seed - DAT.
-- Sua 1 o SL dung de tao chong ngay vuot Tong SL (Xe nang nguoi: dot 2 tu 1 -> 2, lam doan
-  15/09-30/09 dung 5 > tong 4) -> hien dung dong loi
-  `"Xe nâng người: từ 15/09/2026 đến 30/09/2026 dùng 5, vượt Tổng SL 4"` + CA 2 o SL dung lien quan
-  deu to do (`class="inp bad"`) + bam "Luu ke hoach thiet bi" KHONG luu (da doi chieu DB that: du
-  lieu du an 1 khong doi) - DAT dung nhu hop dong (transaction, khong mat du lieu cu khi validate
-  that bai).
-
-**T5 - KH nhan luc thang (cung trang), 1440px:**
-- Bang 7 thang dung so seed (450..400), ty le 60/40 - DAT.
-- Sua tay 1 o ca (thang 09/2026, ca sang 540->600) -> o do co `data-manual="1"`, vien
-  `var(--accent)` (xanh), o Tong tu dong cong lai dung (960) - DAT.
-- Doi Tong (900->1000) -> o da sua tay GIU nguyen (600), o con lai tu tinh lai (400=1000-600) - DAT
-  dung K8.
-- Doi Tong xuong duoi tong o sua tay (500 < 600) -> hien dung loi
-  `"Tổng nhỏ hơn tổng các ô đã sửa tay (600)"`, nut "Luu ke hoach nhan luc" bi VO HIEU HOA
-  (`disabled`) - DAT.
-- Bam "Tinh lai theo ty le" -> het co sua tay, chia lai theo 60/40 - DAT.
-- Da THU LUU THAT 1 lan (hop le, 600/400 thang 09) qua UI de xac nhan hanh vi dau-cuoi that: bam
-  "Luu ke hoach nhan luc" -> hien "Da luu 1 thang thay doi"; doi chieu DB that dung 600/400
-  `isManual:false` - DAT. **Da chay lai `npx prisma db seed` + `npm run check:read` (OK toan bo)
-  ngay sau do de dua DB ve dung seed goc** (da doi chieu lai: thang 09/2026 = 540/360 nhu seed).
-
-### 2.5 Cac muc khac
-- Quyen ghi: xem 2.2 (test tu dong) + da xac nhan cung logic o `src/server/action-guards.ts`
-  (`requireWriteProject` -> `canWriteProject`: chi admin hoac data-entry duoc gan PIC/Backup).
-- E2E Playwright cua repo (`e2e/04-data-entry.spec.ts`, `05-import.spec.ts`): **BO QUA** - dung
-  ly do coder da ghi trong `thay-doi.md` (`e2e/global-setup.ts` chan cung DB B/cong 3001, sua file
-  do ngoai pham vi P3C-A). Da thay the bang kiem tay qua Playwright MCP tren dev server that cong
-  3000/DB `ddc_control_tower` (muc 2.4 o tren) nen coi la du bang chung cho T4/T5.
-- Migration data cu (chuyen tu du lieu P3A) khong the tao lai tren DB that (du lieu cu da bi ghi de
-  boi seed moi tu Task 5 cua chinh phase nay) - da kiem bang doc code SQL (khop dac ta) thay vi chay
-  lai; phan tach dot qua rollback (rui ro cao hon, hay xay ra loi so hoc/thu tu) DA duoc kiem THAT
-  nhu muc 2.3.
-
-## 3. Ket luan
-
-Con **1 loi that (BUG-01)** lam KHONG dat mot yeu cau hien thi da chot trong hop dong P3C (T3:
-"nguyen te select + o so cung dong"). Cac hang muc con lai (T4, T5, 4 ham doc, quyen ghi, migration/
-rollback, cong kiem tu dong) deu DAT voi bang chung that. De nghi Reviewer/debugger xu ly BUG-01
-(doi ten class `.inline` cua app sang ten khac khong trung Tailwind utility) roi kiem lai truoc khi
-CHOT phase.
-
-Khong tu sua code san pham. Dung lai tai day theo dung quy trinh.
-
-## Vong 2 (Tester, kiem lai sau Debugger vong 1) - 2026-09-26
-
-Nhanh `feature/p3c-a-form-ke-hoach`, commit dang kiem `66c8983` (fix BUG-01: doi `.inline`
-sang `.inline-row` o `app/globals.css`, `ProjectForm.tsx`, `DataEntryForm.tsx`,
-`EquipmentPlanEditor.tsx`). Skill da dung: `test-driven-development`, `verification-before-completion`.
-Dev server that cong 3000, DB `ddc_control_tower`, dang nhap that `admin@daidung.com.vn`/`Admin@123`,
-kiem trinh duyet bang Playwright MCP (co san lan nay).
-
-### 1. BUG-01 - xac nhan DA DONG tren trinh duyet that
-
-O "Gia tri nguyen te" (`data-field="contractValueOriginal"` o `/vi/ho-so-du-an?mode=new`),
-do bang `getBoundingClientRect()`:
-
-- **1440px, tien te VND (mac dinh, o so `disabled`):** `wrap.display = "flex"`, `select.top = 548`,
-  `input.top = 548` -> lech **0px**.
-- **1440px, doi tien te sang USD (o so active):** `select.top = 548`, `input.top = 548`,
-  `input.height = 38` -> lech **0px**. Anh: `.bangiao/anh-test/tester-v2-bug01-usd-1440.png`.
-- **390px, doi tien te sang USD:** `select.top = 1118`, `input.top = 1118` -> lech **0px**.
-  Anh: `.bangiao/anh-test/tester-v2-bug01-usd-390.png`.
-- Ca tao moi (`?mode=new`) va kiem lai o cung file `ProjectForm.tsx` dung chung cho ca che do sua
-  (cung component, cung markup) - khong can lap lai rieng `?project=1`.
-
-**Ket luan: BUG-01 DA DONG**, dung nhu Debugger bao cao.
-
-### 2. Khong vo cho khac dung class cu `.inline` -> `.inline-row` (khat khe pixel, 1440px + 390px)
-
-Do `getComputedStyle(...).display` va `getBoundingClientRect()` cho tat ca phan tu `.inline-row`
-tren 3 trang, ca 2 kich thuoc man hinh:
-
-| Noi | 1440px | 390px |
-|---|---|---|
-| `ProjectForm.tsx` - khung "Gia tri nguyen te" | `display:flex`, top select=input=548, lech 0px | top=1118, lech 0px |
-| `ProjectForm.tsx` - Switch "Da bi phat" | `display:flex`, top switch/text = 1984/1986 (lech 2px, do can giua doc trong hang cao hon element - khong phai loi BUG-01) | top = 1984/1986 tuong tu |
-| `ProjectForm.tsx` - dong dem "* Bat buoc · N/19 truong da dien" o thanh sticky duoi | `display:flex`, height 18, 1 dong | tuong tu |
-| `DataEntryForm.tsx` - `<label>` checkbox "Ap dung" tung giai doan (`/vi/nhap-lieu?project=1`, buoc Tien do) | 7/7 nhan deu `display:flex`, checkbox va o % cung hang (lech 1-2px do can giua, khong tach dong) | 7/7 nhan tuong tu, lech 1-2px |
-| `EquipmentPlanEditor.tsx` - hang chon thiet bi trong nhom (`/vi/nhap-lieu?project=1&step=resources`) | 3/3 nhom `display:flex`, height 84 (co `flexWrap:'wrap'` theo dung code, khong bi sap sang dong don) | 3/3 nhom tuong tu, `display:flex` |
-
-Anh: `.bangiao/anh-test/tester-v2-equip-390.png` (EquipmentPlanEditor 390px),
-`.bangiao/anh-test/tester-v2-projectform-fullpage-1440.png` (toan trang ProjectForm 1440px, xem bang
-mat thuong: hang "Gia tri nguyen te" va hang "Da bi phat hop dong?" deu 1 dong).
-
-Khong con cho nao trong `src/`/`app/` dung `className="inline"` tran (da grep xac nhan, xem muc 4).
-
-Khong phat sinh loi console moi (`browser_console_messages` level error: 0 loi).
-
-### 3. Cong kiem tu dong (chay lai toan bo, lan nay)
+## 2. Cong kiem
 
 - `npx tsc --noEmit`: **sach**.
-- `npm test`: **186 file / 2153 test xanh** (moc Debugger 186/2151 + 2 test guard moi cua Tester,
-  khong test nao rot).
-- `npm run check:read`: **OK toan bo** (18 ham doc, du an 1 va 17).
-- `npx prisma migrate status`: **up to date**.
-- Khong luu du lieu qua UI lan nay (chi doi tien te de do vi tri, khong bam Luu) nen KHONG can chay
-  lai `npx prisma db seed`.
+- `npm test`: **210 file / 2389 test** (truoc khi Tester them: 206 file / 2368 test).
+  **2 test rot** (ca 2 la test "phai that bai" viet co chu dich de chung minh 2 bug o muc 3,
+  khong phai flaky/loi moi truong). 208 file / 2387 test con lai xanh.
+- `npm run check:read`: chay tren DB tam `ddc_control_tower_qa_a` (tao bang psql, migrate
+  deploy 9 migration + `npx tsx prisma/seed.ts`) -> **OK toan bo**. Da `DROP DATABASE ...
+  WITH (FORCE)` sau khi xong, khong dung DB `ddc_control_tower` that.
+- Khong sua bat ky file san pham nao (chi tao 4 file `*.qa.test.ts` moi + anh trong
+  `.bangiao/anh-test/`).
 
-### 4. Test moi them - chan tai phat BUG-01 (TDD, da xac nhan RED truoc khi GREEN)
+## 3. Bug tim thay (muc do: Trung binh - loi hien thi, khong mat du lieu, khong loi bao mat)
 
-Them 2 test vao `src/ui/legacy-style-guard.test.ts` (file guard co san tu truoc, dung de canh style
-cu toan `.tsx` trong `src/` + `app/`):
+### BUG-A: `EquipmentPlanGantt.tsx` - header cot "SL nay/tong" de len nhan tick truc dau tien
 
-1. `BANNED chan className="inline" tran (P3C-A BUG-01), khong chan inline-row/inline-flex`: kiem
-   rule regex moi (`/className=(["'])inline\1/`) khop `className="inline"`/`className='inline'`
-   nhung KHONG khop `inline-row`/`inline-flex`/`inline-block`.
-2. `khong con file nao trong src/ va app/ dung className="inline" tran`: quet toan bo `FILES`
-   (danh sach `.tsx` co san trong file guard) bang chinh regex tren.
+- **File:** `src/components/project/EquipmentPlanGantt.tsx` dong 54-56 (header `colQty`, x =
+  `NAME_W + QTY_W/2` = 228) va dong 62-64 (nhan tick truc, tick dau tien luon co x = `ML` =
+  `NAME_W + QTY_W` = 266, vi `xOf(axis.from, dom, ML, IW)` voi `axis.from` chinh la ngay bat
+  dau truc -> luon tra ve dung `ML`). Ca 2 `<text>` cung ve tai y = `MT - 18` = 22.
+- **Vi sao luon xay ra:** `buildGanttAxis` (`src/lib/equipment-gantt-v2.ts` dong 36-60) luon
+  dat `axis.from` = tick dau tien (ca che do tuan lan thang), nen khoang cach tam 2 chu **luon
+  dung 38px** (266-228), bat ke du lieu du an nao - khong phai truong hop hiem, xay ra voi
+  MOI Gantt co truc thang (va ca truc tuan, vi cung logic).
+- **Tai hien that (Playwright MCP, dev server that cong 3000, DB tam
+  `ddc_control_tower_qa_a` seed chuan, dang nhap that):** `/vi/projects/1`, 1440px, card
+  `#eq-gantt`. Anh: `.bangiao/anh-test/p3c-a-b11-eqgantt-1440.png` (dong dau bang, chu
+  "SL nay/tổ07.2026" bi de nhau, doc khong ro). Cung tai hien o 390px:
+  `.bangiao/anh-test/p3c-a-b11-eqgantt-390.png`.
+- **Test tu dong (RED, khong sua):**
+  `src/components/project/EquipmentPlanGantt.qa.test.ts` mo ta "BUG tim thay (PHAI THAT BAI)":
+  do toa do x that tu markup SVG (khong doan bang mat), khang dinh khoang cach tam 2 chu phai
+  >= 60px (nua do rong uoc luong 2 chuoi) - code hien tai chi co 38px nen test **THAT BAI**:
+  `expected 38 to be greater than or equal to 60`.
+- **Goi y huong sua (khong tu sua):** doi x cua header `colQty` ve giua vung NAME_W..ML (thay
+  vi giua vung QTY_W rieng), hoac chi hien header cot khi khong co tick nao trong vung do,
+  hoac day tick dau tien vao trong 1 chut (vd bat dau ve tick tu `X(tk.date) + offset` khi
+  `i === 0`).
 
-**Da lam dung TDD (RED truoc khi GREEN, khong doan):**
-- Viet test 1 TRUOC khi them rule vao mang `BANNED` -> chay `npx vitest run src/ui/legacy-style-guard.test.ts`
-  -> **THAT BAI dung ly do mong doi**: `chua co rule chan class "inline" tran trong BANNED: expected undefined to be truthy`
-  (88 test khac van xanh, dung 1 test moi do rot).
-- Them rule vao `BANNED` -> chay lai -> **89/89 test xanh**.
-- Day chinh la "1 truong hop phai that bai" theo yeu cau (nhom 3): rule regex duoc chung minh la
-  BAT DUOC dung mau loi BUG-01 truoc khi duoc chap nhan xanh, khong phai chi doan.
+### BUG-B: `ManpowerMonthChart.tsx` - nhan duong "TT TB/ngay" de len nhan cot ca khi 2 gia tri gan nhau
 
-File test duy nhat bi sua: `src/ui/legacy-style-guard.test.ts` (them 2 `it`, them 1 phan tu vao
-mang `BANNED` co san trong chinh file test - khong dung code san pham).
+- **File:** `src/components/project/ManpowerMonthChart.tsx` dong 108-112 (nhan gia tri tren
+  cot, ve tai `y = barY - 4`) va dong 151-157 (nhan diem TT TB/ngay, ve tai `y = p.y + 16`,
+  cung thang do Y voi cot). Khi gia tri TT gan bang gia tri 1 cot (cung thang), khoang cach
+  giua 2 nhan chi con vai px.
+- **Tai hien that voi so lieu SEED THAT cua du an 1** (thang 09/2026: KH Ca sang 540, KH Ca
+  toi 360, TT TB/ngay 453): anh `.bangiao/anh-test/p3c-a-b11-resshift-1440.png` - chu
+  "453" (mau xanh la) va "360" (mau xam, nhan cot Ca toi) de chong len nhau thanh
+  "45360" khong doc duoc so nao.
+- **Test tu dong (RED, khong sua):**
+  `src/components/project/ManpowerMonthChart.qa.test.ts` dung dung 3 so 540/360/453 (sao chep
+  tu seed that), do toa do y that cua 2 the `<text>`, khang dinh khoang cach doc >= 14px (~1
+  dong chu) - code hien tai chi cach **0.46px** (gan nhu chong khit) nen test **THAT BAI**:
+  `expected 0.46000000000000796 to be greater than or equal to 14`.
+- **Goi y huong sua (khong tu sua):** khi `|actualAvg - plannedTotal_cua_ca_gan_nhat| ` nho,
+  day 1 trong 2 nhan sang ben (dich ngang) hoac danh 1 offset lon hon cho nhan diem TT khi no
+  nam trong vung +-14px quanh dinh 1 cot bat ky trong cung thang.
 
-### 5. Ket luan vong 2
+## 4. Kiem trinh duyet that (Playwright MCP) - tung muc
 
-BUG-01 **DA DONG**, khong phat sinh regression o cac cho dung chung class `.inline-row` (Switch
-"Da bi phat", dong dem thanh duoi, DataEntryForm, EquipmentPlanEditor), o ca 1440px va 390px. Cong
-kiem tu dong xanh toan bo, khong tut so test. Da them test chan tai phat, xac nhan RED-GREEN that
-(khong chi doan). **Du dieu kien de Reviewer CHOT phase.**
+Moi truong: DB tam `ddc_control_tower_qa_a` (tao bang psql, migrate deploy + `npx tsx
+prisma/seed.ts`), dev server that `npm run dev -- -p 3000`, dang nhap that
+`admin@daidung.com.vn` / `Admin@123` (va `viewer@daidung.com.vn` / `Viewer@12345` cho muc
+quyen xem). Da kiem `devicePixelRatio` truoc: MCP dang zoom **90%** (`devicePixelRatio:
+0.8999...`) - da dat lai viewport `1296x810` (=1440x900 CSS thuc, xac nhan bang
+`window.innerWidth === 1440`) va `351x760` (=390x844 CSS thuc, xac nhan `innerWidth === 390`)
+truoc khi do dac/chup anh, dung nhu luu y trong yeu cau.
 
+| Muc | Ket qua | Bang chung |
+|---|---|---|
+| `/vi/projects/1` 1440px: truc thang MM.YYYY, marker "Hom nay", cot SL nay/tong, tooltip | **Dat** (tru BUG-A o header/tick) | `p3c-a-b11-eqgantt-1440.png`, `p3c-a-b11-full-1440.png` |
+| `/vi/projects/1` 1440px: chart thang cot theo ca + duong tong KH + duong net dut TT, truc 2 tang | **Dat** (tru BUG-B o nhan TT) | `p3c-a-b11-resshift-1440.png` |
+| `/vi/projects/1` 390px: Gantt + chart cuon ngang trong khung, trang khong tran ngang | **Dat** - do bang `getBoundingClientRect`/`scrollWidth`: `document.documentElement.scrollWidth` (379) <= `innerWidth` (390) -> KHONG cuon ngang trang; `div` boc SVG Gantt co `scrollWidth` 720 > `clientWidth` 306 -> CO cuon ngang NOI BO khung (dung thiet ke) | `p3c-a-b11-eqgantt-390.png`, `p3c-a-b11-resshift-390.png` |
+| `/en/projects/1`: tieu de dich dung, khong con chuoi key i18n cu, co SVG | **Dat** - `eqTitle: "Equipment usage schedule"`, `resTitle: "Monthly manpower plan · by shift"`, `hasOldKeyLeftover: false` (kiem `equipmentGantt.`/`manpowerCharts.shift` khong con trong `body.innerText`) | do qua `browser_evaluate`, khong chup anh rieng (khong co gi khac vi so voi vi ngoai dich) |
+| `/vi/projects/17`: 2 trang thai rong dung cho, dung chu | **Dat** - "Chua co ke hoach nhan luc theo thang", "Chua co ke hoach thiet bi cho du an nay", khong co the `<svg>` nao trong 2 card | `p3c-a-b11-p17-empty-1440.png` |
+| Tai khoan viewer xem duoc trang, khong loi | **Dat** - dang nhap `viewer@daidung.com.vn`, vao `/vi/projects/1` binh thuong, ca 2 card co SVG, khong redirect, khong loi | kiem qua `browser_evaluate` (`eqExists/resExists/eqHasSvg/resHasSvg` deu true) |
+| Console khong co loi moi | **Dat** - 3 warning console deu la warning san co tu truoc (`recharts` `defaultProps` deprecated, tu `WeeklyManpowerStackChart`/`SCurve`/`SpiCpiLine` - KHONG lien quan `EquipmentPlanGantt`/`ManpowerMonthChart`, 2 component nay tu ve SVG khong dung `recharts`) | log console giu trong phien lam viec |
+
+### Luu y quan trong ve cong cu do pixel trong phien nay
+
+Trong luc do, phat hien **Playwright MCP trong moi truong nay chup anh element/viewport SAI
+VI TRI mot cach he thong** sau khi trang da cuon xa (vd `page.locator('#eq-gantt').screenshot()`
+hoac `page.screenshot({clip})` sau khi `scrollIntoView`): toa do do bang
+`getBoundingClientRect()` (va ca cay accessibility - da doi chieu 2 nguon deu khop nhau, deu
+dang tin cay) khong khop voi vi tri thuc su duoc chup - anh tra ve luon la 1 vung khac cua
+trang (lech ~400-530px, khong on dinh 1 gia tri co dinh). Day la **loi cong cu, khong phai loi
+san pham**: da xac nhan bang `page.screenshot({fullPage:true})` KHONG bi loi nay (chup dung),
+nen giai phap ap dung la: chup toan trang bang `fullPage:true` ngay sau khi `scrollY` con la 0
+(vua nap trang, chua cuon gi), roi cat anh bang Python Pillow (`PIL.Image.crop`) theo toa do
+tuyet doi lay tu `getBoundingClientRect()` luc `scrollY === 0` (luc nay toa do viewport = toa
+do tuyet doi trong anh). Cach nay cho ket qua dung 100% (da doi chieu bang mat voi anh full
+page). Tat ca anh trong bao cao nay deu qua quy trinh nay, dam bao dang tin cay. Ghi lai de
+lan sau (Bien) khong mat thoi gian dieu tra lai.
+
+## 5. E2E - khong nghi guard, thay bang gi
+
+Theo dung yeu cau: **KHONG nghi guard `isExpectedDbUrl`/`E2E_TARGETS` trong
+`e2e/helpers/env.ts`** (chi cho DB+cong cua B 3001 va C 3003), KHONG chay e2e tren worktree
+cua B/C. Thay the bang kiem tay tung buoc tuong duong `e2e/03-project-detail.spec.ts` qua
+Playwright MCP tren cong 3000 / DB tam `ddc_control_tower_qa_a` cua A:
+
+- Dang nhap that (`admin@daidung.com.vn`/`Admin@123`), vao `/vi/projects/1`: xac nhan
+  `#res-shift` va `#eq-gantt` co mat, co the `<svg class="chart">` (tuong duong dong spec kiem
+  `#res-shift svg.chart` count > 0).
+- Vao `/vi/projects/17`: xac nhan hien dung 2 chuoi trang thai rong (tuong duong nhanh
+  `manpowerMonthChart.noData` / `equipmentPlanGantt.noPlan` cua spec).
+- Kiem key i18n cu khong con trong DOM (tuong duong doi
+  `vi('equipmentGantt.noPlan')` -> `vi('equipmentPlanGantt.noPlan')` trong spec).
+
+## 6. Hoi quy nhanh commit `a524407` (o ca dang go do thi tra ca dong ve luc focus)
+
+- Kiem qua unit test co san `src/components/form/manpowerPlanState.test.ts` (khong doi, van
+  xanh trong lan chay `npm test` toan bo o muc 2).
+- **Khong kiem duoc bang tay tren trinh duyet** (o `/vi/nhap-lieu`): sau khi doi tu tai khoan
+  viewer ve lai admin de kiem hoi quy nay, phien dang nhap NextAuth trong Playwright MCP bi
+  ket (form dang nhap khong nhan gia tri nhap moi qua `fill`/`type` binh thuong dan toi
+  `Dang nhap` khong chuyen trang, kha nang do cache credential cua trinh duyet MCP + CSRF
+  token; da thu clear cookie, nhap lai nhieu lan van khong vao duoc). Day la gioi han moi
+  truong cua phien nay, khong phai loi san pham (da xac nhan gian tiep: unit test
+  `manpowerPlanState.test.ts` van xanh, va cong viec doi tuong nay da duoc coder kiem tay that
+  qua Playwright rieng trong `thay-doi.md` cua vong sua truoc voi anh chung minh). **De nghi**:
+  neu can chac chan hon, mo lai phien trinh duyet moi (khong tai su dung session cu) roi dang
+  nhap admin ngay tu dau, vao `/vi/nhap-lieu` -> buoc "Nhan luc & Thiet bi" -> xoa o ca bang
+  Backspace -> kiem tra ca dong tra ve dung so cu.
+
+## 7. Pham vi da doc, chua sua
+
+Da doc `.bangiao/thay-doi.md` (muc "Buoc 11") va `.bangiao/archive/p3c-b-chart-2026-09-26/ke-hoach.md`
+(muc "Buoc 11" 11.1-11.6 va "Truong hop bien bat buoc"). Khong dung file san pham nao (chi
+doc). Khong sua `D:\_project\DDC_dieu-phoi\`.
+
+## 8. Ket luan cho Reviewer
+
+Dung dai o day. Theo dung quy trinh: tim ra 2 bug that (BUG-A, BUG-B), da co test tu dong RED
+chung minh + anh chup that, KHONG tu sua code san pham. De nghi coder vao lai xu ly 2 bug nay
+(hoac Reviewer quyet dinh muc do uu tien - ca 2 deu la loi hien thi/UI, khong anh huong du
+lieu hay bao mat) roi cho Tester chay lai 2 file `EquipmentPlanGantt.qa.test.ts` va
+`ManpowerMonthChart.qa.test.ts` de xac nhan xanh.
