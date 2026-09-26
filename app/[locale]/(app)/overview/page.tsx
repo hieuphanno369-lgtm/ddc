@@ -19,7 +19,7 @@ import {
   SCurveCard,
   SpiCpiCard,
   StatusDonutCard,
-  WatchlistCard,
+  TopPriorityCard,
 } from '@/components/dashboard/OverviewWidgets';
 
 function p(searchParams: Record<string, string | string[] | undefined>, key: string): string {
@@ -125,7 +125,7 @@ export default async function OverviewPage({
       )}
 
       <Suspense fallback={<CardSkeleton h={300} />}>
-        <WatchlistCard month={month} filters={filters} canViewFinance={canViewFinance} />
+        <TopPriorityCard month={month} filters={filters} canViewFinance={canViewFinance} />
       </Suspense>
 
       <Suspense fallback={<CardSkeleton h={300} />}>

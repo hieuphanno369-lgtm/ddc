@@ -76,6 +76,7 @@ async function main() {
       await readRepoPrisma.readEquipmentUsageDays(id, from, to),
       await mock.readEquipmentUsageDays(id, from, to),
     );
+    check(`readManpowerActualByMonth(${id})`, await readRepoPrisma.readManpowerActualByMonth(id), await mock.readManpowerActualByMonth(id));
   }
 
   // Buoc 5: T1-code (a) - readFactSnapshots/readFinancialSnapshots/readVolumeSnapshots/readMonthlyEvm.

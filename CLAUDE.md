@@ -17,7 +17,12 @@ Mỗi thư mục là một git worktree với nhánh riêng. **Không bao giờ 
 - `lo-trinh.md` — lộ trình các phase + trạng thái từng task (nguồn sự thật về "làm gì, ai làm").
 - `phien-A.md`, `phien-B.md` — trạng thái sống của từng tài khoản. **Chỉ ghi file của mình**, chỉ đọc file bên kia.
 
-**Đầu mỗi phiên (kể cả khi gõ "tiếp tục")**: đọc `phien-A.md`, `phien-B.md`, `lo-trinh.md` trước khi làm gì.
+**Đầu mỗi phiên (kể cả khi gõ "tiếp tục")**: dùng phần tóm tắt do hook SessionStart đưa vào (các mục chính của `phien-A.md`, `phien-B.md` và bảng trạng thái của `lo-trinh.md`).
+Không đọc lại toàn bộ các file đó, cũng không đọc `PROGRESS.md`, chỉ để "nắm tình hình" (tốn rất nhiều token mỗi phiên).
+Chỉ mở file đầy đủ khi cần chi tiết: trước khi sửa file nóng, khi bắt đầu/kết thúc phase, khi merge, hoặc khi tóm tắt không đủ.
+Nếu hook không chạy (không thấy tóm tắt), đọc `phien-<mình>.md` và mục "Đang giữ" của file phiên bên kia.
+
+Giữ file phiên ngắn: mỗi ý chính là một dòng `- **Tiêu đề:** ...` ở đầu file (hook chỉ lấy các dòng này), chi tiết dài để ở file lệnh/hồ sơ riêng.
 
 **Sau MỖI commit**: cập nhật `phien-<mình>.md` — phase/task đang làm, nhánh, commit cuối, bước kế tiếp,
 file nóng đang giữ, giờ cập nhật. Đây là checkpoint chính: desktop không chạy statusline nên không có

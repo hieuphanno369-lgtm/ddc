@@ -16,6 +16,8 @@ export interface VolumeSnapshot { projectId: number; factoryId: number; yearMont
 export interface MonthlyEvmRow { yearMonth: string; pv: number; ev: number; ac: number; spiAvg: number | null; cpiAvg: number | null }
 // --- Bước 6 (T1) ---
 export interface AuditLogPageResult { items: AuditLogEntry[]; total: number; page: number; totalPages: number; pageSize: number }
+/** Thực tế nhân lực theo tháng, cộng mọi nhà thầu + mọi ca. days = số NGÀY KHÁC NHAU có dòng trong tháng. */
+export interface ManpowerActualMonthRow { yearMonth: string; actualSum: number; days: number }
 
 export interface ReadRepo {
   readShifts(): Promise<Shift[]>;                                                   // mọi ca, sortOrder tăng
@@ -33,4 +35,6 @@ export interface ReadRepo {
   readLastAuditAt(): Promise<string | null>;                                 // ISO; bảng rỗng → null
   readActivitySince(since: Date): Promise<ActivityLogEntry[]>;               // createdAt >= since, mới nhất trước
   readAuditLogPage(opts: { since: Date | null; page: number; pageSize: number }): Promise<AuditLogPageResult>;
+  // Bước 6 (P3C-B T5)
+  readManpowerActualByMonth(projectId: number): Promise<ManpowerActualMonthRow[]>; // sort yearMonth; không có dòng -> []
 }

@@ -8,15 +8,17 @@ import {
   loadSpiCpiTrend,
   loadStatusBreakdown,
   loadTonnageByGroup,
+  loadTopPriority,
   loadWatchlist,
 } from '@/server/cache';
 import type { DashboardFilters, GroupBy } from '@/server/queries';
 import { getOverdueScorecard, type Scorecard } from '@/server/overdue-scorecard';
 import { formatTyd } from '@/lib/format';
 import { THRESHOLDS } from '@/lib/thresholds';
+import { toTopPriorityItem } from '@/lib/top-priority';
 import { maskGroupRows, maskProjectSummaries, safeListSort, type ListSort } from '@/lib/finance-gate';
 import { KpiCard } from './KpiCard';
-import { Watchlist } from './Watchlist';
+import { TopPriorityList } from './TopPriorityList';
 import { ProjectTable } from './ProjectTable';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Rise } from '@/components/ui/Rise';
@@ -157,7 +159,7 @@ export async function SCurveCard({ filters }: { filters: DashboardFilters }) {
   );
 }
 
-export async function WatchlistCard({
+export async function TopPriorityCard({
   month,
   filters,
   canViewFinance,
@@ -166,8 +168,8 @@ export async function WatchlistCard({
   filters: DashboardFilters;
   canViewFinance: boolean;
 }) {
-  const items = await loadWatchlist(month, filters);
-  return <Watchlist items={maskProjectSummaries(items, canViewFinance)} />;
+  const items = await loadTopPriority(month, filters);
+  return <TopPriorityList items={maskProjectSummaries(items, canViewFinance).map(toTopPriorityItem)} />;
 }
 
 export async function ProjectListCard({

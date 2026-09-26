@@ -1,8 +1,8 @@
 import type { RepoData } from '@/data/seed/history';
 import { bucketOf } from '@/lib/daily-series';
 import type {
-  AuditLogPageResult, DateRange, EquipmentUsageDay, FactSnapshot, FinancialSnapshot, MonthlyEvmRow, ReadRepo,
-  ShiftMonthRow, VolumeSnapshot, WeekContractorRow,
+  AuditLogPageResult, DateRange, EquipmentUsageDay, FactSnapshot, FinancialSnapshot, ManpowerActualMonthRow,
+  MonthlyEvmRow, ReadRepo, ShiftMonthRow, VolumeSnapshot, WeekContractorRow,
 } from './read-types';
 import type { FactProgressMonthly } from './types';
 
@@ -172,6 +172,21 @@ export function createReadMock(getData: () => RepoData): ReadRepo {
       const page = Math.min(Math.max(1, opts.page), totalPages);
       const start = (page - 1) * opts.pageSize;
       return { items: sorted.slice(start, start + opts.pageSize), total, page, totalPages, pageSize: opts.pageSize };
+    },
+
+    async readManpowerActualByMonth(projectId: number): Promise<ManpowerActualMonthRow[]> {
+      const map = new Map<string, { actualSum: number; days: Set<string> }>();
+      for (const r of getData().dailyManpowerShifts) {
+        if (r.projectId !== projectId) continue;
+        const yearMonth = r.workDate.slice(0, 7);
+        const cur = map.get(yearMonth) ?? { actualSum: 0, days: new Set<string>() };
+        cur.actualSum += r.actualHeadcount;
+        cur.days.add(r.workDate);
+        map.set(yearMonth, cur);
+      }
+      return [...map.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([yearMonth, v]) => ({ yearMonth, actualSum: v.actualSum, days: v.days.size }));
     },
   };
 }
