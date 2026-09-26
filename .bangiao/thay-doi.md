@@ -219,3 +219,39 @@ Khong phat hien xung dot ten class TAT CA con lai ngoai `.inline` (da sua) va ru
 - `npm run check:read`: OK toan bo (18 ham doc, du an 1 va 17).
 - `npx prisma migrate status`: khong doi (lan sua nay khong dung migration).
 - Khong luu du lieu qua UI trong lan sua nay nen KHONG can chay lai `npx prisma db seed`.
+
+## Vong sua 1 sau reviewer (CAN SUA 1 + L-1) - 2026-09-26
+
+### CAN SUA 1: o ca KH nhan luc khong xoa trang duoc
+
+- Tai hien do truoc khi sua: 4 test moi trong `manpowerPlanState.test.ts` do (`cellInputs` chua ton tai, `setCell('')` bi nuot).
+- Sua: `PlanRowState` them `cellInputs: string[]` (chuoi nhap tung o ca, nhu `totalInput`/`pctInputs`).
+  - `setCell` luon ghi chuoi vao `cellInputs`; hop le moi doi `cells` (+ `isManual`), rong/khong hop le chi doi nhap.
+  - `revertCell` (moi): roi o thi tra chuoi ve so dang luu.
+  - `isCellInputValid` (moi): chuoi khop so dang luu; sai thi o to do va `toPlanInput` tra null (nut Luu tat).
+  - `initPlanState`, `setTotal`, `setPct`, `resetRow`, `addMonth` dong bo `cellInputs` theo `cells` moi.
+  - `ManpowerPlanEditor.tsx`: o ca dung `value={r.cellInputs[ci]}`, `onBlur` goi `revertCell`, class `bad` khi nhap sai.
+- Test doi co chu dich: ca cu "setCell gia tri am hoac le -> state khong doi" doi thanh "cells khong doi, chi doi nhap, khong cho luu" (hanh vi moi theo yeu cau reviewer).
+- Kiem trinh duyet that (Playwright, go phim that tung ky tu, 1440px): xoa "270" bang Backspace -> o rong, vien do, Luu tat; go "600" -> 600, tong 780 (truoc sua ra 5600); xoa trang roi Tab -> tra ve 600; Luu -> DB `planned=600, isManual=true`, audit `morning:270,evening:180 -> morning:600(m),evening:180`.
+
+### L-1: zod duyet toi 30.000 dot truoc khi chan tong
+
+- Tai hien do: test schema 100 loai x 300 dot rac tra 90.001 issue (duyet het tung dot, ~3,4s) moi bao "Qua nhieu dot".
+- Sua (`validation.ts`): `groups` = `z.unknown().refine(countRawSegments <= EQUIP_PLAN_MAX_ROWS, { abort: true }).pipe(equipmentPlanGroupsSchema)`; dem tren du lieu tho truoc khi parse sau, bo `refine` tong cu o cuoi. Khong doi luat nghiep vu (van 300 dot/du an, 100 loai).
+- Test moi (`actions-equipment-plan.test.ts`): 2 loai x 200 dot -> `Invalid input`, `replaceEquipmentPlans` khong bi goi; 100 x 300 dot rac -> dung 1 issue; dung 300 dot chia 2 loai van qua.
+
+### Sua them (muc "De sau" cua reviewer, cung file, nho)
+
+- 2 nut "Tinh lai theo ty le" / "Xoa thang" dinh sat nhau (khoang cach 0px, thay tren anh 1440) -> boc flex `gap: 8`.
+- `pctSum` lam tron 1 so le (tranh `100.00000000000001%`).
+- O tong % dung nham `className="inp bad"` cho `<td>` -> doi sang chu mau danger.
+- O Tong thang lech tong cac ca (vd sau `setPct`, hoac dang xoa trang) nay to do (truoc chi tat nut Luu ma khong bao).
+
+### Cong kiem
+
+- `npx tsc --noEmit`: sach.
+- `npm test`: 186 file / 2159 test xanh (truoc 2153, them 6).
+- `npm run check:read`: tren DB A bao LECH vi DB `ddc_control_tower` da bi C xoa du lieu nghiep vu (7.2, 0 du an), khong lien quan thay doi; chay tren DB tam `ddc_control_tower_qa_a` (migrate deploy + seed) -> OK toan bo; DB tam da xoa.
+- Luu y moi truong: migration Prisma doc `DIRECT_URL`, khong phai `DATABASE_URL`; tro DB khac phai dat ca hai.
+- Anh: `.bangiao/anh-test/p3c-a-vong-sua-*.png` (o rong 1440, go 600 1440, ty le + tong sai 1440, 390 giua bang va cuoi trang).
+- Khong ghi du lieu thu vao DB A (chu du an tu nhap lai).

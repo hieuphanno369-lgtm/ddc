@@ -17,6 +17,7 @@ vi.mock('@/lib/session', () => ({ getCurrentUser: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/session';
 import { saveEquipmentPlansAction } from '@/server/actions-entry';
+import { saveEquipmentPlansSchema } from '@/server/validation';
 
 const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.com.vn', role: 'admin', canViewFinance: true };
 const PM: CurrentUser = { name: 'PM', email: 'pm@daidung.com.vn', role: 'data-entry', canViewFinance: true };
@@ -123,5 +124,45 @@ describe('saveEquipmentPlansAction - luat + hanh vi', () => {
     expect(await repo.readEquipmentQuotas(1)).toEqual([]);
     expect(await repo.readEquipmentPlanSegments(1)).toEqual([]);
     expect(await repo.readEquipmentPlanSegments(2)).toEqual(otherBefore);
+  });
+});
+
+describe('saveEquipmentPlansAction - L-1 chan tong so dot truoc khi parse sau', () => {
+  beforeEach(() => login(ADMIN));
+
+  const SEG = { from: '2026-09-01', to: '2026-09-02', qty: 1 };
+  const many = (n: number) => Array.from({ length: n }, () => SEG);
+
+  it('2 loai x 200 dot (tong 400 > 300) -> Invalid input, repo khong bi goi', async () => {
+    const spy = vi.spyOn(repo, 'replaceEquipmentPlans');
+    const res = await saveEquipmentPlansAction(1, [
+      GROUP({ equipmentId: 4, segments: many(200) }),
+      GROUP({ equipmentId: 5, segments: many(200) }),
+    ]);
+    expect(res).toEqual({ ok: false, error: 'Invalid input' });
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('schema dung ngay o buoc dem: 100 loai x 300 dot rac -> dung 1 loi, khong duyet tung dot', () => {
+    const junk = Array.from({ length: 300 }, () => ({ from: 'x', to: 'y', qty: -1 }));
+    const groups = Array.from({ length: 100 }, (_, i) => ({ equipmentId: i + 1, totalQty: 1, segments: junk }));
+    const r = saveEquipmentPlansSchema.safeParse({ projectId: 1, groups });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error.issues).toHaveLength(1);
+      expect(r.error.issues[0].message).toBe('Qua nhieu dot');
+    }
+  });
+
+  it('dung 300 dot chia 2 loai -> van qua zod (khong chan nham)', () => {
+    const r = saveEquipmentPlansSchema.safeParse({
+      projectId: 1,
+      groups: [
+        { equipmentId: 4, totalQty: 5, segments: many(150) },
+        { equipmentId: 5, totalQty: 5, segments: many(150) },
+      ],
+    });
+    expect(r.success).toBe(true);
   });
 });

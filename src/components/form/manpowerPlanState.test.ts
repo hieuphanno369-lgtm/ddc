@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addMonth, initPlanState, parsePcts, removeMonth, resetRow, setCell, setPct, setTotal, toPlanInput,
+  addMonth, initPlanState, parsePcts, removeMonth, resetRow, revertCell, setCell, setPct, setTotal, toPlanInput,
 } from './manpowerPlanState';
 import type { ManpowerPlanMonthRow, Shift, ShiftRatio } from '@/server/repo/types';
 
@@ -59,13 +59,55 @@ describe('setTotal / setCell', () => {
     expect(toPlanInput(s)).toBeNull();
   });
 
-  it('setCell gia tri am hoac le -> state khong doi', () => {
+  it('setCell gia tri am hoac le -> cells khong doi, chi doi nhap, khong cho luu', () => {
     let s = initPlanState(SHIFTS, seedMonths(), RATIOS);
-    const before = s;
+    const before = s.rows[0].cells;
     s = setCell(s, 0, 0, '-1');
-    expect(s).toEqual(before);
+    expect(s.rows[0].cells).toEqual(before);
+    expect(s.rows[0].cellInputs[0]).toBe('-1');
+    expect(toPlanInput(s)).toBeNull();
     s = setCell(s, 0, 0, '1.5');
-    expect(s).toEqual(before);
+    expect(s.rows[0].cells).toEqual(before);
+    expect(toPlanInput(s)).toBeNull();
+  });
+
+  it('L-1 reviewer: xoa trang o ca roi go lai 600 -> duoc 600 (khong thanh 5600)', () => {
+    let s = initPlanState(SHIFTS, seedMonths(), RATIOS);
+    // Xoa dan "270" -> "27" -> "2" -> ""
+    s = setCell(s, 0, 0, '27');
+    s = setCell(s, 0, 0, '2');
+    s = setCell(s, 0, 0, '');
+    expect(s.rows[0].cellInputs[0]).toBe('');
+    expect(toPlanInput(s)).toBeNull();
+    // Go tiep "6" -> "60" -> "600"
+    s = setCell(s, 0, 0, '6');
+    s = setCell(s, 0, 0, '60');
+    s = setCell(s, 0, 0, '600');
+    expect(s.rows[0].cellInputs[0]).toBe('600');
+    expect(s.rows[0].cells[0]).toEqual({ planned: 600, isManual: true });
+    expect(s.rows[0].totalInput).toBe('780');
+    expect(toPlanInput(s)).not.toBeNull();
+  });
+
+  it('revertCell: roi o dang rong -> tra ve so dang luu, cho luu lai', () => {
+    let s = initPlanState(SHIFTS, seedMonths(), RATIOS);
+    s = setCell(s, 0, 0, '');
+    s = revertCell(s, 0, 0);
+    expect(s.rows[0].cellInputs[0]).toBe('270');
+    expect(toPlanInput(s)).not.toBeNull();
+  });
+
+  it('setTotal / setPct / resetRow dong bo nhap o ca theo so moi', () => {
+    let s = initPlanState(SHIFTS, seedMonths(), RATIOS);
+    s = setTotal(s, 0, '1000');
+    expect(s.rows[0].cellInputs).toEqual(['600', '400']);
+    s = setCell(s, 1, 0, '');
+    s = setPct(s, 0, '70');
+    s = setPct(s, 1, '30');
+    expect(s.rows[1].cellInputs).toEqual(s.rows[1].cells.map((c) => String(c.planned)));
+    s = setCell(s, 0, 0, '300');
+    s = resetRow(s, 0);
+    expect(s.rows[0].cellInputs).toEqual(s.rows[0].cells.map((c) => String(c.planned)));
   });
 });
 

@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { addMonths, type IsoDate } from '@/lib/clock';
 import type { ManpowerPlanMonthRow, Shift, ShiftRatio } from '@/server/repo/types';
 import {
-  addMonth, initPlanState, parsePcts, removeMonth, resetRow, setCell, setPct, setTotal, toPlanInput,
+  addMonth, initPlanState, isCellInputValid, parsePcts, removeMonth, resetRow, revertCell, setCell, setPct, setTotal, toPlanInput,
 } from './manpowerPlanState';
 import { saveManpowerPlanAction } from '@/server/actions-entry';
 
@@ -33,7 +33,7 @@ export function ManpowerPlanEditor(p: {
   const [msg, setMsg] = useState<{ tone: 'ok' | 'bad'; text: string } | null>(null);
 
   const pcts = parsePcts(state.pctInputs);
-  const pctSum = state.pctInputs.reduce((sum, v) => sum + (Number(v.trim()) || 0), 0);
+  const pctSum = Math.round(state.pctInputs.reduce((sum, v) => sum + (Number(v.trim()) || 0), 0) * 10) / 10;
   const input = toPlanInput(state);
 
   function onAddMonth() {
@@ -106,7 +106,7 @@ export function ManpowerPlanEditor(p: {
                   />
                 </td>
               ))}
-              <td className={pcts == null ? 'inp bad' : ''}>{pctSum}%</td>
+              <td style={pcts == null ? { color: 'var(--danger)', fontWeight: 650 } : undefined}>{pctSum}%</td>
               <td />
             </tr>
             {pcts == null && (
@@ -119,6 +119,7 @@ export function ManpowerPlanEditor(p: {
               const allManual = r.cells.every((c) => c.isManual);
               const manualSum = r.cells.filter((c) => c.isManual).reduce((s, c) => s + c.planned, 0);
               const hasManual = r.cells.some((c) => c.isManual);
+              const totalOk = r.totalInput.trim() === String(r.cells.reduce((s, c) => s + c.planned, 0));
               return (
                 <tr key={r.yearMonth}>
                   <td>{`${r.yearMonth.slice(5, 7)}/${r.yearMonth.slice(0, 4)}`}</td>
@@ -126,9 +127,10 @@ export function ManpowerPlanEditor(p: {
                     <td key={ci}>
                       <input
                         type="number" min={0}
-                        value={String(c.planned)}
+                        value={r.cellInputs[ci]}
                         onChange={(e) => setState(setCell(state, ri, ci, e.target.value))}
-                        className="inp"
+                        onBlur={() => setState((s) => revertCell(s, ri, ci))}
+                        className={`inp${isCellInputValid(r, ci) ? '' : ' bad'}`}
                         data-manual={c.isManual ? '1' : undefined}
                         title={c.isManual ? t('manpowerPlan.manualHint') : undefined}
                         style={c.isManual ? { borderColor: 'var(--accent)', fontWeight: 650, width: 88 } : { width: 88 }}
@@ -150,15 +152,17 @@ export function ManpowerPlanEditor(p: {
                           rows: s.rows.map((row, i) => (i === ri ? { ...row, totalInput: String(row.cells.reduce((sum, c) => sum + c.planned, 0)), error: null } : row)),
                         }));
                       }}
-                      className={`inp${r.error ? ' bad' : ''}`}
+                      className={`inp${r.error || !totalOk ? ' bad' : ''}`}
                       style={{ width: 88 }}
                     />
                     {r.error === 'below_manual' && <p className="hintline" style={{ color: 'var(--danger)' }}>{t('manpowerPlan.err.belowManual', { manual: manualSum })}</p>}
                     {r.error === 'all_manual' && <p className="hintline" style={{ color: 'var(--danger)' }}>{t('manpowerPlan.err.allManual')}</p>}
                   </td>
                   <td>
-                    {hasManual && <button type="button" className="btn ghost" onClick={() => setState(resetRow(state, ri))}>{t('manpowerPlan.recalc')}</button>}
-                    <button type="button" className="btn ghost" onClick={() => setState(removeMonth(state, ri))}>{t('manpowerPlan.removeMonth')}</button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {hasManual && <button type="button" className="btn ghost" onClick={() => setState(resetRow(state, ri))}>{t('manpowerPlan.recalc')}</button>}
+                      <button type="button" className="btn ghost" onClick={() => setState(removeMonth(state, ri))}>{t('manpowerPlan.removeMonth')}</button>
+                    </div>
                   </td>
                 </tr>
               );

@@ -5,11 +5,16 @@ import {
 import type { ManpowerPlanInput, ManpowerPlanMonthRow, Shift, ShiftRatio } from '@/server/repo/types';
 
 export type RowError = 'below_manual' | 'all_manual' | null;
-export interface PlanRowState { yearMonth: string; cells: PlanCell[]; totalInput: string; error: RowError } // cells cùng thứ tự shifts
+/** cells cùng thứ tự shifts; cellInputs = chuỗi đang gõ của từng ô ca (nháp, cho phép rỗng khi đang xoá). */
+export interface PlanRowState { yearMonth: string; cells: PlanCell[]; cellInputs: string[]; totalInput: string; error: RowError }
 export interface PlanState { shiftCodes: string[]; pctInputs: string[]; rows: PlanRowState[] }
 
 function isPlainInt(s: string): boolean {
   return /^\d+$/.test(s.trim());
+}
+
+function inputsOf(cells: PlanCell[]): string[] {
+  return cells.map((c) => String(c.planned));
 }
 
 export function initPlanState(shifts: Shift[], months: ManpowerPlanMonthRow[], ratios: ShiftRatio[]): PlanState {
@@ -31,7 +36,7 @@ export function initPlanState(shifts: Shift[], months: ManpowerPlanMonthRow[], r
       const r = byCode.get(code);
       return r ? { planned: r.planned, isManual: r.isManual } : { planned: 0, isManual: false };
     });
-    return { yearMonth, cells, totalInput: String(monthTotal(cells)), error: null };
+    return { yearMonth, cells, cellInputs: inputsOf(cells), totalInput: String(monthTotal(cells)), error: null };
   });
 
   return { shiftCodes, pctInputs, rows };
@@ -64,24 +69,41 @@ export function setTotal(s: PlanState, row: number, input: string): PlanState {
     if (pcts == null) return { ...r, totalInput: input };
     const result = recomputeMonth(Number(trimmed), r.cells, pcts);
     if (!result.ok) return { ...r, totalInput: input, error: result.reason };
-    return { yearMonth: r.yearMonth, cells: result.cells, totalInput: input, error: null };
+    return { yearMonth: r.yearMonth, cells: result.cells, cellInputs: inputsOf(result.cells), totalInput: input, error: null };
   });
   return { ...s, rows };
 }
 
-/** Gõ ô ca: nguyên 0..MANPOWER_PLAN_MAX_CELL → planned mới, isManual = true, totalInput = String(Σ),
- *  error = null; không hợp lệ → trả s nguyên vẹn. */
+/** Gõ ô ca: luôn ghi chuỗi vào cellInputs (nháp). Nguyên 0..MANPOWER_PLAN_MAX_CELL → planned mới,
+ *  isManual = true, totalInput = String(Σ), error = null; rỗng/không hợp lệ → cells giữ nguyên,
+ *  toPlanInput trả null tới khi ô hợp lệ lại hoặc revertCell. */
 export function setCell(s: PlanState, row: number, shift: number, input: string): PlanState {
   const trimmed = input.trim();
-  if (!isPlainInt(trimmed)) return s;
-  const n = Number(trimmed);
-  if (n > MANPOWER_PLAN_MAX_CELL) return s;
+  const valid = isPlainInt(trimmed) && Number(trimmed) <= MANPOWER_PLAN_MAX_CELL;
   const rows = s.rows.map((r, i) => {
     if (i !== row) return r;
+    const cellInputs = r.cellInputs.map((v, k) => (k === shift ? input : v));
+    if (!valid) return { ...r, cellInputs };
+    const n = Number(trimmed);
     const cells = r.cells.map((c, k) => (k === shift ? { planned: n, isManual: true } : c));
-    return { yearMonth: r.yearMonth, cells, totalInput: String(monthTotal(cells)), error: null };
+    return { yearMonth: r.yearMonth, cells, cellInputs, totalInput: String(monthTotal(cells)), error: null };
   });
   return { ...s, rows };
+}
+
+/** Rời ô ca: trả chuỗi nháp về số đang lưu của ô (bỏ phần gõ dở không hợp lệ). */
+export function revertCell(s: PlanState, row: number, shift: number): PlanState {
+  const rows = s.rows.map((r, i) => {
+    if (i !== row) return r;
+    return { ...r, cellInputs: r.cellInputs.map((v, k) => (k === shift ? String(r.cells[k].planned) : v)) };
+  });
+  return { ...s, rows };
+}
+
+/** Chuỗi nháp của ô ca có khớp số đang lưu không (sai → tô đỏ, chặn Lưu). */
+export function isCellInputValid(r: PlanRowState, shift: number): boolean {
+  const trimmed = r.cellInputs[shift].trim();
+  return isPlainInt(trimmed) && Number(trimmed) === r.cells[shift].planned;
 }
 
 /** Gõ %: cập nhật pctInputs; parsePcts ok → mọi dòng recomputeMonth(Σ hiện tại, cells, pcts) (tổng tháng giữ nguyên). */
@@ -93,7 +115,7 @@ export function setPct(s: PlanState, shift: number, input: string): PlanState {
     const total = monthTotal(r.cells);
     const result = recomputeMonth(total, r.cells, pcts);
     if (!result.ok) return { ...r, error: result.reason };
-    return { yearMonth: r.yearMonth, cells: result.cells, totalInput: r.totalInput, error: null };
+    return { yearMonth: r.yearMonth, cells: result.cells, cellInputs: inputsOf(result.cells), totalInput: r.totalInput, error: null };
   });
   return { ...s, pctInputs, rows };
 }
@@ -108,7 +130,7 @@ export function resetRow(s: PlanState, row: number): PlanState {
     const trimmed = r.totalInput.trim();
     const total = isPlainInt(trimmed) ? Number(trimmed) : monthTotal(r.cells);
     const cells = resetMonthToRatio(total, pcts);
-    return { yearMonth: r.yearMonth, cells, totalInput: String(total), error: null };
+    return { yearMonth: r.yearMonth, cells, cellInputs: inputsOf(cells), totalInput: String(total), error: null };
   });
   return { ...s, rows };
 }
@@ -119,7 +141,7 @@ export function addMonth(s: PlanState, yearMonth: string): PlanState | 'duplicat
   if (s.rows.some((r) => r.yearMonth === yearMonth)) return 'duplicate';
   if (s.rows.length >= MANPOWER_PLAN_MAX_MONTHS) return 'too_many';
   const cells: PlanCell[] = s.shiftCodes.map(() => ({ planned: 0, isManual: false }));
-  const rows = [...s.rows, { yearMonth, cells, totalInput: '0', error: null }].sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
+  const rows = [...s.rows, { yearMonth, cells, cellInputs: inputsOf(cells), totalInput: '0', error: null }].sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
   return { ...s, rows };
 }
 
@@ -127,7 +149,7 @@ export function removeMonth(s: PlanState, row: number): PlanState {
   return { ...s, rows: s.rows.filter((_, i) => i !== row) };
 }
 
-/** null khi còn lỗi (dòng có error, totalInput khác Σ, parsePcts null). */
+/** null khi còn lỗi (dòng có error, totalInput khác Σ, ô ca đang gõ dở/không hợp lệ, parsePcts null). */
 export function toPlanInput(s: PlanState): ManpowerPlanInput | null {
   const pcts = parsePcts(s.pctInputs);
   if (pcts == null) return null;
@@ -135,6 +157,7 @@ export function toPlanInput(s: PlanState): ManpowerPlanInput | null {
     if (r.error) return null;
     const trimmed = r.totalInput.trim();
     if (!isPlainInt(trimmed) || Number(trimmed) !== monthTotal(r.cells)) return null;
+    if (r.cells.some((_, k) => !isCellInputValid(r, k))) return null;
   }
   return {
     ratios: s.shiftCodes.map((code, i) => ({ shiftCode: code, pct: pcts[i] })),

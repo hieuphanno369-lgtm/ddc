@@ -364,21 +364,37 @@ export const closeAlertSchema = z.object({
   note: z.string().trim().max(1000),
 });
 
+/** Đếm nhanh tổng số đợt trên dữ liệu thô, chạy TRƯỚC khi zod duyệt từng đợt (L-1: tránh duyệt tới
+ *  EQUIP_GROUP_MAX × EQUIP_PLAN_MAX_ROWS đợt rồi mới chặn tổng). */
+function countRawSegments(groups: unknown): number {
+  if (!Array.isArray(groups)) return 0;
+  let n = 0;
+  for (const g of groups) {
+    const segs = (g as { segments?: unknown } | null)?.segments;
+    if (Array.isArray(segs)) n += segs.length;
+  }
+  return n;
+}
+
+const equipmentPlanGroupsSchema = z
+  .array(
+    z.object({
+      equipmentId: z.number().int().positive(),
+      totalQty: z.number().int().min(1).max(EQUIP_QTY_MAX),
+      segments: z
+        .array(z.object({ from: isoDate, to: isoDate, qty: z.number().int().min(1).max(EQUIP_QTY_MAX) }))
+        .max(EQUIP_PLAN_MAX_ROWS),
+    }),
+  )
+  .max(EQUIP_GROUP_MAX);
+
 /** P3C-A (T4): kế hoạch dùng thiết bị theo đợt (Tổng SL + các đợt) - nguồn Gantt thiết bị. */
 export const saveEquipmentPlansSchema = z.object({
   projectId: z.number().int().positive(),
   groups: z
-    .array(
-      z.object({
-        equipmentId: z.number().int().positive(),
-        totalQty: z.number().int().min(1).max(EQUIP_QTY_MAX),
-        segments: z
-          .array(z.object({ from: isoDate, to: isoDate, qty: z.number().int().min(1).max(EQUIP_QTY_MAX) }))
-          .max(EQUIP_PLAN_MAX_ROWS),
-      }),
-    )
-    .max(EQUIP_GROUP_MAX)
-    .refine((groups) => groups.reduce((s, g) => s + g.segments.length, 0) <= EQUIP_PLAN_MAX_ROWS, 'Qua nhieu dot'),
+    .unknown()
+    .refine((groups) => countRawSegments(groups) <= EQUIP_PLAN_MAX_ROWS, { message: 'Qua nhieu dot', abort: true })
+    .pipe(equipmentPlanGroupsSchema),
 });
 
 /** P3C-A (T5): kế hoạch nhân lực theo tháng × ca + tỷ lệ chia ca. */
