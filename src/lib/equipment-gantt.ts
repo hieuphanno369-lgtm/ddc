@@ -43,8 +43,9 @@ export function assignUsage(plans: ProjectEquipmentPlan[], usage: EquipmentUsage
     const planByUnit = new Map<number, ProjectEquipmentPlan>();
     for (const p of candidates) {
       if (p.plannedStart > u.workDate || u.workDate > p.plannedFinish) continue;
-      const cur = planByUnit.get(p.unitNo);
-      if (!cur || p.id < cur.id) planByUnit.set(p.unitNo, p);
+      const unit = p.unitNo ?? 0;
+      const cur = planByUnit.get(unit);
+      if (!cur || p.id < cur.id) planByUnit.set(unit, p);
     }
     const units = [...planByUnit.keys()].sort((a, b) => a - b);
     const k = Math.min(u.qtyActual, units.length);
@@ -73,7 +74,7 @@ export function buildGantt(input: GanttInput): GanttModel | null {
   const unitsByEquipment = new Map<number, Set<number>>();
   for (const p of plans) {
     const set = unitsByEquipment.get(p.equipmentId) ?? new Set<number>();
-    set.add(p.unitNo);
+    set.add(p.unitNo ?? 0);
     unitsByEquipment.set(p.equipmentId, set);
   }
 
@@ -81,13 +82,15 @@ export function buildGantt(input: GanttInput): GanttModel | null {
 
   const rowByKey = new Map<string, GanttRow>();
   for (const p of plans) {
-    const key = `${p.equipmentId}-${p.unitNo}`;
+    // P3C-A (K9): unitNo null = dot khong danh so (nhap theo SL) - quy dinh key '0', nhan = ten thiet bi.
+    const unit = p.unitNo ?? 0;
+    const key = `${p.equipmentId}-${unit}`;
     let row = rowByKey.get(key);
     if (!row) {
       const chiecCount = unitsByEquipment.get(p.equipmentId)?.size ?? 1;
       const name = equipmentNameById.get(p.equipmentId) ?? `#${p.equipmentId}`;
-      const label = chiecCount > 1 || p.unitNo !== 1 ? `${name} No.${p.unitNo}` : name;
-      row = { key, equipmentId: p.equipmentId, unitNo: p.unitNo, label, bars: [] };
+      const label = unit === 0 ? name : (chiecCount > 1 || unit !== 1 ? `${name} No.${unit}` : name);
+      row = { key, equipmentId: p.equipmentId, unitNo: unit, label, bars: [] };
       rowByKey.set(key, row);
     }
     const idx = p.workItemId != null ? workItemIndexById.get(p.workItemId) : undefined;

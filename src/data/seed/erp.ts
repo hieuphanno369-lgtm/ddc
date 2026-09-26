@@ -103,12 +103,12 @@ export const ERP_DETAIL_PROJECT_ID = 1;
 
 /** Kế hoạch dùng thiết bị cho Gantt T14 - dự án ERP_DETAIL_PROJECT_ID, 6 dòng (M8 đã chốt). */
 export const equipmentPlanSeed: ProjectEquipmentPlan[] = [
-  { id: 1, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 1, unitNo: 1, workItemId: 1, plannedStart: '2026-08-03', plannedFinish: '2026-08-30', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
-  { id: 2, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 1, unitNo: 1, workItemId: 4, plannedStart: '2026-08-31', plannedFinish: '2026-10-11', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
-  { id: 3, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 1, unitNo: 2, workItemId: 2, plannedStart: '2026-08-10', plannedFinish: '2026-09-27', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
-  { id: 4, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 1, unitNo: 3, workItemId: 3, plannedStart: '2026-09-07', plannedFinish: '2026-10-18', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
-  { id: 5, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 2, unitNo: 1, workItemId: 5, plannedStart: '2026-08-17', plannedFinish: '2026-09-20', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
-  { id: 6, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 2, unitNo: 2, workItemId: 6, plannedStart: '2026-09-14', plannedFinish: '2026-10-25', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { id: 1, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 1, unitNo: 1, qty: 1, workItemId: 1, plannedStart: '2026-08-03', plannedFinish: '2026-08-30', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { id: 2, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 1, unitNo: 1, qty: 1, workItemId: 4, plannedStart: '2026-08-31', plannedFinish: '2026-10-11', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { id: 3, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 1, unitNo: 2, qty: 1, workItemId: 2, plannedStart: '2026-08-10', plannedFinish: '2026-09-27', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { id: 4, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 1, unitNo: 3, qty: 1, workItemId: 3, plannedStart: '2026-09-07', plannedFinish: '2026-10-18', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { id: 5, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 2, unitNo: 1, qty: 1, workItemId: 5, plannedStart: '2026-08-17', plannedFinish: '2026-09-20', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { id: 6, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 2, unitNo: 2, qty: 1, workItemId: 6, plannedStart: '2026-09-14', plannedFinish: '2026-10-25', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
 ];
 
 export { DEFAULT_STAGE_WEIGHTS, STAGE_ORDER };

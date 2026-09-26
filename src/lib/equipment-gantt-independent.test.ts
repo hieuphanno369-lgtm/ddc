@@ -12,7 +12,7 @@ import { assignUsage, buildGantt } from './equipment-gantt';
 
 function plan(overrides: Partial<ProjectEquipmentPlan>): ProjectEquipmentPlan {
   return {
-    id: 1, projectId: 1, equipmentId: 1, unitNo: 1, workItemId: 1,
+    id: 1, projectId: 1, equipmentId: 1, unitNo: 1, qty: 1, workItemId: 1,
     plannedStart: '2026-09-01', plannedFinish: '2026-09-10',
     note: '', updatedAt: '2026-09-01T00:00:00Z', updatedBy: 'system',
     ...overrides,

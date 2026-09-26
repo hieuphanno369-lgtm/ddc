@@ -26,7 +26,7 @@ describe('getEquipmentGantt', () => {
   it('ngay dung truoc plan dau van tinh vao unplannedUsage, truc from/to khong doi', async () => {
     const plans = [
       {
-        id: 1, projectId: 1, equipmentId: 1, unitNo: 1, workItemId: null,
+        id: 1, projectId: 1, equipmentId: 1, unitNo: 1, qty: 1, workItemId: null,
         plannedStart: '2026-01-10', plannedFinish: '2026-01-20',
         note: '', updatedAt: '2026-01-01', updatedBy: 'test',
       },

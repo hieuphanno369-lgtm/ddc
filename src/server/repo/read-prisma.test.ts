@@ -80,7 +80,7 @@ describe('read-prisma', () => {
   it('readEquipmentPlans goi findMany dung orderBy, map Date -> YYYY-MM-DD', async () => {
     planFindMany.mockResolvedValueOnce([
       {
-        id: 1, projectId: 1, equipmentId: 1, unitNo: 1, workItemId: null,
+        id: 1, projectId: 1, equipmentId: 1, unitNo: 1, qty: 3, workItemId: null,
         plannedStart: new Date('2026-08-03T00:00:00Z'), plannedFinish: new Date('2026-08-30T00:00:00Z'),
         note: '', updatedAt: new Date('2026-09-02T00:00:00Z'), updatedBy: 'system',
       },
@@ -94,6 +94,7 @@ describe('read-prisma', () => {
     expect(rows[0].plannedStart).toBe('2026-08-03');
     expect(rows[0].plannedFinish).toBe('2026-08-30');
     expect(rows[0].updatedAt).toBe('2026-09-02T00:00:00.000Z');
+    expect(rows[0].qty).toBe(3);
   });
 
   it('readEquipmentUsageDays goi $queryRaw 1 lan voi projectId, from, to trong values', async () => {

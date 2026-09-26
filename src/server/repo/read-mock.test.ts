@@ -40,10 +40,23 @@ describe('read-mock', () => {
   it('readEquipmentPlans(1) dai 6, sort dung', async () => {
     const rows = await mock.readEquipmentPlans(1);
     expect(rows).toHaveLength(6);
+    const nullLast = (a: number | null, b: number | null) => (a === b ? 0 : a == null ? 1 : b == null ? -1 : a - b);
     const sorted = [...rows].sort((a, b) =>
-      a.equipmentId - b.equipmentId || a.unitNo - b.unitNo
+      a.equipmentId - b.equipmentId || nullLast(a.unitNo, b.unitNo)
       || a.plannedStart.localeCompare(b.plannedStart) || a.id - b.id);
     expect(rows).toEqual(sorted);
+  });
+
+  it('readEquipmentPlans: dot unitNo null (P3C-A) nam sau dong unitNo 1 cung thiet bi', async () => {
+    data.equipmentPlans.push({
+      id: 999, projectId: 1, equipmentId: 1, unitNo: null, qty: 5, workItemId: null,
+      plannedStart: '2026-11-01', plannedFinish: '2026-11-30', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system',
+    });
+    const rows = await mock.readEquipmentPlans(1);
+    const eq1 = rows.filter((r) => r.equipmentId === 1);
+    expect(eq1[eq1.length - 1].unitNo).toBeNull();
+    expect(eq1.some((r) => r.unitNo === 1)).toBe(true);
+    data.equipmentPlans = data.equipmentPlans.filter((r) => r.id !== 999);
   });
 
   it('readEquipmentUsageDays: khong co dong qtyActual = 0', async () => {

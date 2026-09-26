@@ -306,20 +306,56 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
   },
   project_equipment_plan: {
     kind: 'support',
-    desc: 'Kế hoạch dùng từng chiếc thiết bị cho Gantt (T14). 1 dòng = 1 thanh Gantt; "1 chiếc" xác'
-      + ' định bằng cặp (equipmentId, unitNo). Ngày thực tế có dùng lấy từ fact_daily_equipment_usage,'
-      + ' KHÔNG lưu ở bảng này.',
+    desc: 'Kế hoạch dùng thiết bị theo đợt: 1 dòng = 1 đợt, qty = SL dùng trong đợt. Dòng cũ P3A'
+      + ' theo từng chiếc có unitNo, qty = 1. Ngày thực tế lấy từ fact_daily_equipment_usage.',
     fields: {
       id: 'khoá chính',
       projectId: 'FK tới dim_project.id',
       equipmentId: 'FK tới dim_equipment.id - nhóm thiết bị',
-      unitNo: 'số thứ tự chiếc trong nhóm (No.1, No.2…)',
+      unitNo: 'số thứ tự chiếc (dòng cũ P3A); null = đợt nhập theo SL',
+      qty: 'SL thiết bị dùng trong đợt (>= 1)',
       workItemId: 'FK tới project_work_item.id - hạng mục thiết bị phục vụ (null = chưa gán)',
       plannedStart: 'ngày bắt đầu kế hoạch dùng',
       plannedFinish: 'ngày kết thúc kế hoạch dùng',
       note: 'ghi chú',
       updatedAt: 'thời điểm sửa gần nhất',
       updatedBy: 'người sửa gần nhất',
+    },
+  },
+
+  project_equipment_quota: {
+    kind: 'support',
+    desc: 'Tổng SL mỗi loại thiết bị của dự án - các đợt chồng ngày không được vượt số này.',
+    fields: {
+      projectId: 'khoá ghép - FK tới dim_project.id',
+      equipmentId: 'khoá ghép - FK tới dim_equipment.id',
+      totalQty: 'tổng số lượng thiết bị của loại này (>= 1)',
+      updatedAt: 'thời điểm sửa gần nhất',
+      updatedBy: 'người sửa gần nhất',
+    },
+  },
+
+  project_manpower_plan_month: {
+    kind: 'support',
+    desc: 'Kế hoạch nhân lực theo tháng × ca. Tổng tháng = cộng các ca, không lưu riêng.',
+    fields: {
+      projectId: 'FK tới dim_project.id',
+      yearMonth: "khoá ghép - 'YYYY-MM'",
+      shiftCode: 'khoá ghép - FK tới dim_shift.code',
+      planned: 'số người kế hoạch của ca trong tháng (>= 0)',
+      isManual: 'true = ô sửa tay, không bị tính lại khi đổi tổng/tỷ lệ',
+      updatedAt: 'thời điểm sửa gần nhất',
+      updatedBy: 'người sửa gần nhất',
+    },
+  },
+
+  project_shift_ratio: {
+    kind: 'support',
+    desc: 'Tỷ lệ chia ca của dự án. Không có dòng = mặc định ca 1 = 0.6, ca 2 = 0.4.',
+    fields: {
+      projectId: 'FK tới dim_project.id',
+      shiftCode: 'FK tới dim_shift.code',
+      pct: 'tỷ lệ 0..1, tổng các ca = 1',
     },
   },
 
@@ -572,6 +608,7 @@ export const ERD_LAYOUT: Record<string, ErdLayoutPos> = {
   project_photos: { col: 1, row: 4 },
   sap_queue: { col: 1, row: 5 },
   alert_log: { col: 1, row: 6 },
+  project_shift_ratio: { col: 1, row: 7 },
   // Cột 2
   dim_project: { col: 2, row: 0 },
   project_key_milestone: { col: 2, row: 1 },
@@ -579,6 +616,8 @@ export const ERD_LAYOUT: Record<string, ErdLayoutPos> = {
   project_work_item: { col: 2, row: 3 },
   project_contractor: { col: 2, row: 4 },
   project_equipment_plan: { col: 2, row: 5 },
+  project_equipment_quota: { col: 2, row: 6 },
+  project_manpower_plan_month: { col: 2, row: 7 },
   // Cột 3
   fact_progress_monthly: { col: 3, row: 0 },
   fact_financial: { col: 3, row: 1 },

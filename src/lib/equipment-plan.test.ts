@@ -14,7 +14,7 @@ function row(over: Partial<EquipmentPlanInput> = {}): EquipmentPlanInput {
 describe('toEquipmentPlanDraft / normalizeEquipmentPlans', () => {
   it('roundtrip: draft -> input giu nguyen gia tri', () => {
     const plan: ProjectEquipmentPlan = {
-      id: 1, projectId: 1, equipmentId: 2, unitNo: 3, workItemId: 10,
+      id: 1, projectId: 1, equipmentId: 2, unitNo: 3, qty: 1, workItemId: 10,
       plannedStart: '2026-09-01', plannedFinish: '2026-09-10', note: 'ghi chu', updatedAt: '', updatedBy: '',
     };
     const draft = toEquipmentPlanDraft(plan);

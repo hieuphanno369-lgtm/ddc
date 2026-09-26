@@ -284,7 +284,8 @@ export const formPrismaRepo = {
     await prisma.$transaction(async (tx) => {
       const before = await tx.projectEquipmentPlan.findMany({ where: { projectId } });
       const beforeText = equipPlanAuditText(before.map((p) => ({
-        equipmentId: p.equipmentId, unitNo: p.unitNo, workItemId: p.workItemId,
+        // P3C-A: unitNo co the null (dot nhap theo SL) - EquipmentPlanInput (form P3A) doi unitNo la so.
+        equipmentId: p.equipmentId, unitNo: p.unitNo ?? 0, workItemId: p.workItemId,
         plannedStart: day(p.plannedStart)!, plannedFinish: day(p.plannedFinish)!, note: p.note,
       })));
       const afterText = equipPlanAuditText(rows);

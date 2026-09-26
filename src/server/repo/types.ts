@@ -315,7 +315,8 @@ export interface ProjectEquipmentPlan {
   id: number;
   projectId: number;
   equipmentId: number;
-  unitNo: number;
+  unitNo: number | null; // P3A: số chiếc; P3C-A: null với đợt nhập theo SL
+  qty: number;           // SL dùng trong đợt (>= 1), dòng cũ = 1
   workItemId: number | null;
   plannedStart: string; // 'YYYY-MM-DD'
   plannedFinish: string; // 'YYYY-MM-DD'
@@ -324,7 +325,8 @@ export interface ProjectEquipmentPlan {
   updatedBy: string;
 }
 
-/** P3A (Task 12): 1 dòng kế hoạch gửi lên khi lưu - không có id/projectId/updatedAt/updatedBy. */
+/** P3A (Task 12): 1 dòng kế hoạch gửi lên khi lưu - không có id/projectId/updatedAt/updatedBy.
+ *  P3C-A: giữ tạm cho form cũ, xoá ở commit Task 6 + 7. */
 export interface EquipmentPlanInput {
   equipmentId: number;
   unitNo: number;
@@ -333,6 +335,32 @@ export interface EquipmentPlanInput {
   plannedFinish: string; // 'YYYY-MM-DD'
   note: string;
 }
+
+/** Dòng DB project_equipment_quota. */
+export interface ProjectEquipmentQuota { projectId: number; equipmentId: number; totalQty: number; updatedAt: string; updatedBy: string }
+/** Dòng DB project_manpower_plan_month. */
+export interface ProjectManpowerPlanMonth { projectId: number; yearMonth: string; shiftCode: string; planned: number; isManual: boolean; updatedAt: string; updatedBy: string }
+/** Dòng DB project_shift_ratio. */
+export interface ProjectShiftRatio { projectId: number; shiftCode: string; pct: number }
+
+// ---- Hợp đồng dữ liệu P3C (A cung cấp, B chỉ import) - chép nguyên văn hop-dong-du-lieu-P3C.md ----
+export interface EquipmentPlanSegment {
+  id: number; equipmentId: number; equipmentName: string; // tên từ dim_equipment
+  from: string; to: string;   // 'YYYY-MM-DD'
+  qty: number;                // SL dùng trong đợt
+}
+export interface EquipmentQuota { equipmentId: number; equipmentName: string; totalQty: number }
+export interface ManpowerPlanMonthRow { yearMonth: string; shiftCode: string; planned: number; isManual: boolean }
+export interface ShiftRatio { shiftCode: string; pct: number }
+
+/** P3C-A (T4): 1 đợt gửi lên khi lưu. */
+export interface EquipmentSegmentInput { from: string; to: string; qty: number }
+/** P3C-A (T4): 1 loại thiết bị gửi lên khi lưu - lưu = thay toàn bộ quota + đợt của dự án. */
+export interface EquipmentPlanGroupInput { equipmentId: number; totalQty: number; segments: EquipmentSegmentInput[] }
+/** P3C-A (T5): 1 ô ca của 1 tháng gửi lên khi lưu. */
+export interface ManpowerPlanCellInput { shiftCode: string; planned: number; isManual: boolean }
+export interface ManpowerPlanMonthInput { yearMonth: string; cells: ManpowerPlanCellInput[] }
+export interface ManpowerPlanInput { ratios: ShiftRatio[]; months: ManpowerPlanMonthInput[] }
 
 /** Kết quả lưu 1 tháng: đã có dòng isLatest ('updated'), chưa có dòng nào ('created'), hoặc dự án không tồn tại ('not_found'). */
 export type SaveFactResult = 'created' | 'updated' | 'not_found';

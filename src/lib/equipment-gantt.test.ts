@@ -9,7 +9,7 @@ const SEED_WORK_ITEMS = workItemNames.map((name, i) => ({ id: i + 1, name, sortO
 
 function plan(overrides: Partial<ProjectEquipmentPlan>): ProjectEquipmentPlan {
   return {
-    id: 1, projectId: 1, equipmentId: 1, unitNo: 1, workItemId: 1,
+    id: 1, projectId: 1, equipmentId: 1, unitNo: 1, qty: 1, workItemId: 1,
     plannedStart: '2026-09-01', plannedFinish: '2026-09-10',
     note: '', updatedAt: '2026-09-01T00:00:00Z', updatedBy: 'system',
     ...overrides,
@@ -125,5 +125,13 @@ describe('buildGantt', () => {
   const GANTT_INPUT_FIXTURE: GanttInput = { plans: equipmentPlanSeed, usage: [], equipments, workItems: SEED_WORK_ITEMS, noWorkItemName: NO_WORK_ITEM };
   it('input co du field theo GanttInput (khong loi type)', () => {
     expect(buildGantt(GANTT_INPUT_FIXTURE)).not.toBeNull();
+  });
+
+  it('P3C-A (K9): unitNo null (dot nhap theo SL) -> 1 hang key "<eq>-0", nhan = ten thiet bi', () => {
+    const plans = [plan({ id: 1, equipmentId: 1, unitNo: null, qty: 3 })];
+    const model = buildGantt({ plans, usage: [], equipments, workItems: SEED_WORK_ITEMS, noWorkItemName: NO_WORK_ITEM })!;
+    expect(model.rows).toHaveLength(1);
+    expect(model.rows[0].key).toBe('1-0');
+    expect(model.rows[0].label).toBe('Cẩu bánh xích');
   });
 });

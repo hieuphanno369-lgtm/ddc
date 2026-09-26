@@ -16,7 +16,7 @@ import { EquipmentPlanEditor } from './EquipmentPlanEditor';
 const EQUIPMENTS: Equipment[] = [{ id: 1, name: 'Cẩu bánh xích', unit: 'cái', isActive: true }];
 const WORK_ITEMS: ProjectWorkItem[] = [{ id: 1, projectId: 1, name: 'Hệ cột chính', sortOrder: 1 }];
 const PLAN: ProjectEquipmentPlan = {
-  id: 1, projectId: 1, equipmentId: 1, unitNo: 1, workItemId: 1,
+  id: 1, projectId: 1, equipmentId: 1, unitNo: 1, qty: 1, workItemId: 1,
   plannedStart: '2026-09-01', plannedFinish: '2026-09-10', note: '', updatedAt: '', updatedBy: '',
 };
 

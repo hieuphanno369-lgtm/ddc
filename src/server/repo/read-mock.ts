@@ -6,6 +6,9 @@ import type {
 } from './read-types';
 import type { FactProgressMonthly } from './types';
 
+/** P3C-A: unitNo null (đợt nhập theo SL) xếp cuối - khớp PostgreSQL ASC NULLS LAST. */
+const nullLastNum = (a: number | null, b: number | null) => (a === b ? 0 : a == null ? 1 : b == null ? -1 : a - b);
+
 const pickFactSnapshot = (f: FactProgressMonthly): FactSnapshot => ({
   projectId: f.projectId, yearMonth: f.yearMonth, pctActual: f.pctActual, bac: f.bac,
   pv: f.pv, ev: f.ev, ac: f.ac, spi: f.spi, cpi: f.cpi, bottleneckStage: f.bottleneckStage,
@@ -63,7 +66,7 @@ export function createReadMock(getData: () => RepoData): ReadRepo {
         .map((p) => ({ ...p }))
         .sort((a, b) =>
           a.equipmentId - b.equipmentId
-          || a.unitNo - b.unitNo
+          || nullLastNum(a.unitNo, b.unitNo)
           || a.plannedStart.localeCompare(b.plannedStart)
           || a.id - b.id);
     },

@@ -21,7 +21,7 @@ export type EquipPlanErrors = Record<number, EquipPlanField[]>;
 export function toEquipmentPlanDraft(p: ProjectEquipmentPlan): EquipmentPlanDraft {
   return {
     equipmentId: String(p.equipmentId),
-    unitNo: String(p.unitNo),
+    unitNo: String(p.unitNo ?? ''),
     workItemId: p.workItemId != null ? String(p.workItemId) : '',
     plannedStart: p.plannedStart,
     plannedFinish: p.plannedFinish,

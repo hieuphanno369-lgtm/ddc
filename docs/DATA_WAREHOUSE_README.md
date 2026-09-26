@@ -47,10 +47,16 @@ erDiagram
     dim_equipment ||--o{ project_equipment_plan : "equipmentId"
     dim_project ||--o{ project_equipment_plan : "projectId"
     project_work_item |o--o{ project_equipment_plan : "workItemId"
+    dim_equipment ||--o{ project_equipment_quota : "equipmentId"
+    dim_project ||--o{ project_equipment_quota : "projectId"
     dim_project ||--o{ project_history : "projectId"
     dim_project ||--o{ project_key_milestone : "projectId"
+    dim_project ||--o{ project_manpower_plan_month : "projectId"
+    dim_shift ||--o{ project_manpower_plan_month : "shiftCode"
     dim_project ||--o{ project_photos : "projectId"
     dim_project ||--o{ project_sap_codes : "projectId"
+    dim_project ||--o{ project_shift_ratio : "projectId"
+    dim_shift ||--o{ project_shift_ratio : "shiftCode"
     dim_project ||--o{ project_stage_weight : "projectId"
     dim_stage ||--o{ project_stage_weight : "stageCode"
     dim_project ||--o{ project_work_item : "projectId"
@@ -352,10 +358,18 @@ erDiagram
       Int projectId FK
       Int equipmentId FK
       Int unitNo
+      Int qty
       Int workItemId FK
       Date plannedStart
       Date plannedFinish
       String note
+      DateTime updatedAt
+      String updatedBy
+    }
+    project_equipment_quota {
+      Int projectId PK,FK
+      Int equipmentId PK,FK
+      Int totalQty
       DateTime updatedAt
       String updatedBy
     }
@@ -375,6 +389,15 @@ erDiagram
       DateTime plannedDate
       DateTime actualDate
     }
+    project_manpower_plan_month {
+      Int projectId PK,FK
+      String yearMonth PK
+      String shiftCode PK,FK
+      Int planned
+      Boolean isManual
+      DateTime updatedAt
+      String updatedBy
+    }
     project_photos {
       Int id PK
       Int projectId FK
@@ -392,6 +415,11 @@ erDiagram
       DateTime linkedAt
       String linkedBy
       String note
+    }
+    project_shift_ratio {
+      Int projectId PK,FK
+      String shiftCode PK,FK
+      Float pct
     }
     project_stage_weight {
       Int projectId PK,FK

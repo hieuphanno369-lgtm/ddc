@@ -25,7 +25,7 @@ describe('EquipmentGantt', () => {
 
   it('unplannedUsage > 0 -> hien dong hintline', () => {
     const model = buildGantt({
-      plans: [{ id: 1, projectId: 1, equipmentId: 1, unitNo: 1, workItemId: 1, plannedStart: '2026-09-01', plannedFinish: '2026-09-10', note: '', updatedAt: '2026-09-01T00:00:00Z', updatedBy: 'system' }],
+      plans: [{ id: 1, projectId: 1, equipmentId: 1, unitNo: 1, qty: 1, workItemId: 1, plannedStart: '2026-09-01', plannedFinish: '2026-09-10', note: '', updatedAt: '2026-09-01T00:00:00Z', updatedBy: 'system' }],
       usage: [{ equipmentId: 1, workDate: '2026-09-15', qtyActual: 2 }],
       equipments, workItems: SEED_WORK_ITEMS, noWorkItemName: 'Chưa gán',
     })!;

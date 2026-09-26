@@ -57,6 +57,7 @@ export const readRepoPrisma = {
       projectId: r.projectId,
       equipmentId: r.equipmentId,
       unitNo: r.unitNo,
+      qty: r.qty,
       workItemId: r.workItemId,
       plannedStart: day(r.plannedStart)!,
       plannedFinish: day(r.plannedFinish)!,

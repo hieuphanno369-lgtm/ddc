@@ -187,6 +187,9 @@ model Project {
   dailyManpower   FactDailyManpower[]
   dailyEquipment  FactDailyEquipmentUsage[]
   equipmentPlans  ProjectEquipmentPlan[]
+  equipmentQuotas    ProjectEquipmentQuota[]
+  manpowerPlanMonths ProjectManpowerPlanMonth[]
+  shiftRatios        ProjectShiftRatio[]
 
   @@index([teamKdId])
   @@index([marketCode])
@@ -615,6 +618,7 @@ model Equipment {
 
   usages FactDailyEquipmentUsage[]
   plans  ProjectEquipmentPlan[]
+  quotas ProjectEquipmentQuota[]
 
   @@map("dim_equipment")
 }
@@ -653,6 +657,8 @@ model Shift {
   isActive  Boolean @default(true)
 
   manpower FactDailyManpower[]
+  manpowerPlans ProjectManpowerPlanMonth[]
+  shiftRatios   ProjectShiftRatio[]
 
   @@map("dim_shift")
 }
@@ -671,12 +677,13 @@ model CalendarDate {
   @@map("dim_date")
 }
 
-/** Kế hoạch dùng từng chiếc thiết bị cho Gantt T14. 1 dòng = 1 thanh. Ngày thực tế lấy từ fact_daily_equipment_usage. */
+/** Kế hoạch dùng thiết bị theo đợt (P3C-A): 1 dòng = 1 đợt, qty = SL dùng. Dòng cũ P3A theo từng chiếc có unitNo, qty = 1. */
 model ProjectEquipmentPlan {
   id            Int      @id @default(autoincrement())
   projectId     Int
   equipmentId   Int
-  unitNo        Int
+  unitNo        Int?     // P3A: số chiếc; P3C-A: null với đợt nhập theo SL
+  qty           Int      @default(1) // SL dùng trong đợt (>= 1)
   workItemId    Int?
   plannedStart  DateTime @db.Date
   plannedFinish DateTime @db.Date
@@ -691,6 +698,51 @@ model ProjectEquipmentPlan {
   @@index([projectId, equipmentId, unitNo])
   @@index([projectId, plannedStart])
   @@map("project_equipment_plan")
+}
+
+/** Tổng SL mỗi loại thiết bị của dự án (P3C-A, T4). */
+model ProjectEquipmentQuota {
+  projectId   Int
+  equipmentId Int
+  totalQty    Int
+  updatedAt   DateTime @default(now()) @updatedAt
+  updatedBy   String   @default("system")
+
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Restrict)
+
+  @@id([projectId, equipmentId])
+  @@map("project_equipment_quota")
+}
+
+/** KH nhân lực theo tháng × ca (P3C-A, T5). Tổng tháng = cộng các ca, KHÔNG lưu riêng. */
+model ProjectManpowerPlanMonth {
+  projectId Int
+  yearMonth String
+  shiftCode String
+  planned   Int
+  isManual  Boolean  @default(false)
+  updatedAt DateTime @default(now()) @updatedAt
+  updatedBy String   @default("system")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  shift   Shift   @relation(fields: [shiftCode], references: [code], onDelete: Restrict)
+
+  @@id([projectId, yearMonth, shiftCode])
+  @@map("project_manpower_plan_month")
+}
+
+/** Tỷ lệ chia ca theo dự án (P3C-A, T5). Không có dòng = mặc định DEFAULT_SHIFT_RATIO. */
+model ProjectShiftRatio {
+  projectId Int
+  shiftCode String
+  pct       Float
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  shift   Shift   @relation(fields: [shiftCode], references: [code], onDelete: Restrict)
+
+  @@id([projectId, shiftCode])
+  @@map("project_shift_ratio")
 }
 
 /**
