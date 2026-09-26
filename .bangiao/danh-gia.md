@@ -38,3 +38,28 @@ PHAN QUYET: CHOT
 - L-3: xoá ngầm tháng là chủ đích kế hoạch; khi có nghiệp vụ tắt ca thì quyết giữ hay xoá dòng của ca đã tắt.
 - Các mục "Để sau" khác của vòng 1 còn nguyên (xem `danh-gia-vong1.md`), trừ `pctSum`, class ô tổng %, ô Tổng không tô đỏ đã làm.
 - ĐÃ SỬA (chủ dự án yêu cầu, sau vòng 2): xoá dần một ô rồi rời ô khi ô đang trống/sai thì trả CẢ dòng về trạng thái lúc bấm vào ô (số, cờ sửa tay, Tổng), không giữ số trung gian. `revertCell(s,row,shift,before)` + `focusRow` ở Editor; 2 test mới; kiểm trình duyệt: xoá "270" rồi Tab → 270, không sửa tay, Tổng 450; gõ 300 rồi Tab → giữ 300.
+
+---
+
+# Buoc 11 - reviewer vong 1: CAN SUA (diff `3181315..HEAD`, 2026-09-26)
+
+> Reviewer (vai chi doc) tra bao cao; dieu phoi vien chep tom tat. Task 0-10 van CHOT (o tren).
+
+- Cong kiem: `tsc` sach; `npm test` 210 file / 2393 xanh; file cam khong bi dung; `check:read`/e2e khong chay duoc tren A.
+- 11.2 den 11.6: dat (11.6 dat o muc unit, e2e chua ai chay duoc). `a524407` dung yeu cau. Bien T4/T5 co test.
+- Vong sua `a1fbaa6`: logic nhan TT, o cot theo ten ca, style inline svg, `HEAD_Y`/`MIN_SVG_W` dung muc tieu.
+
+## CAN SUA
+
+- CS-1: tick dau neo trai de nhan tick 2 voi ke hoach 12 thang / truc tuan (loi moi do vong sua gay ra); tick dau lech khoi vach luoi.
+  -> DA SUA `7a9ff2a`: moi tick `textAnchor=middle`, `QTY_W` 140; test QA moi cap tick lien ke >= 4px voi 12 thang, 24 thang, tuan 92 ngay (do truoc, xanh sau); giu test header vi/en >= 6px.
+
+## De sau (reviewer) va xu ly
+
+- Nhan TT fallback mac dinh +16 -> DA SUA: chon vi tri phat it nhat.
+- Du an 1 ca: nhan cot trung nhan Tong KH -> DA SUA: 1 ca bo so tren cot (test do truoc/xanh sau).
+- `readManpowerByShiftMonth`/`ShiftMonthRow` code chet -> DA XOA (read-types/prisma/mock, check-read-parity, test).
+- Comment cu nhac `readEquipmentPlans` -> DA SUA.
+- THAP-1 bao mat: de task `server-only` chung.
+- `ManpowerPlanEditor` onFocus/onBlur chua co test component: them vao e2e khi co DB B/C.
+- e2e `03-project-detail` + `check:read` can chay tren B/C truoc khi merge `main`.
