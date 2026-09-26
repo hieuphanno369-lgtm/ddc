@@ -11,7 +11,9 @@ import { join } from 'node:path';
  * dung nhu ke hoach mo ta o Buoc 1: "neu FAIL nghia la A doi ten/kieu truong khac hop dong").
  */
 const ROOT = process.cwd();
-const read = (p: string) => readFileSync(join(ROOT, p), 'utf-8');
+// Chuan hoa CRLF -> LF: checkout Windows luu file voi \r\n nen chuoi .replace() ben duoi
+// (viet bang \n) khong khop, lam test "PHAI THAT BAI" khong that su thay doi noi dung.
+const read = (p: string) => readFileSync(join(ROOT, p), 'utf-8').replace(/\r\n/g, '\n');
 const p3c = read('src/lib/p3c-contract.ts');
 
 const NAMES = ['EquipmentPlanSegment', 'EquipmentQuota', 'ManpowerPlanMonthRow', 'ShiftRatio'];
