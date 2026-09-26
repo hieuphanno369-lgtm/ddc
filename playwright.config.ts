@@ -29,10 +29,11 @@ export default defineConfig({
   webServer: {
     command: `npx next dev -p ${target.port}`,
     url: `${target.baseURL}/vi/login`,
-    // A (3000) khong bam server co san: server dev thuong cua A tro DB that (N-P7-1). Cong ban -> Playwright bao loi.
+    // A (cong rieng 3010) khong bam server co san (N-P7-1): cong ban -> Playwright bao loi, khong chay spec.
     reuseExistingServer: target.reuseServer,
     timeout: 180_000,
-    env: { NEXTAUTH_URL: target.baseURL, DATABASE_URL: target.databaseUrl },
+    // DIRECT_URL cung tro DB e2e: .env cua moi ben tro DB that, lenh Prisma nao doc directUrl cung khong cham duoc DB that.
+    env: { NEXTAUTH_URL: target.baseURL, DATABASE_URL: target.databaseUrl, DIRECT_URL: target.databaseUrl },
   },
   projects: [
     { name: 'setup', testMatch: /auth\.setup\.ts/ },

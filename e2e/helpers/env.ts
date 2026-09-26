@@ -30,16 +30,22 @@ export function need(key: string): string {
 
 /** DB tạm riêng cho e2e của A (chủ dự án chốt 2026-09-27). Seed xoá/nạp lại mỗi lần chạy, không phải DB thật. */
 export const E2E_A_DB_NAME = 'ddc_control_tower_e2e_a';
+/**
+ * Cổng e2e riêng của A: không trùng cổng dev của ai (A 3000, B 3001, xem 3002, C 3003). Nhờ vậy (1) không có khe
+ * để server dev thường của A (DB thật) chiếm cổng giữa lúc Playwright kiểm và lúc Next e2e bind, (2) e2e của A
+ * không giữ 3000, nên `npm run dev` của A không bị đẩy sang 3001 rồi bị e2e của B bám nhầm (bảo mật TR-1, T-2).
+ */
+export const E2E_A_PORT = '3010';
 
 /**
  * Cặp DB + cổng dev đã đăng ký cho e2e. KHÔNG BAO GIỜ thêm 'ddc_control_tower' (DB của A, dữ liệu thật).
  * `reuseServer`: có được bám vào server đang chạy sẵn ở cổng đó không. A = false vì server dev thường
- * của A ở 3000 trỏ DB thật; bám vào đó thì spec ghi dữ liệu thử vào DB thật (N-P7-1).
+ * của A trỏ DB thật; bám nhầm server đó thì spec ghi dữ liệu thử vào DB thật (N-P7-1).
  */
 export const E2E_TARGETS: ReadonlyArray<{ dbName: string; port: string; reuseServer: boolean }> = [
   { dbName: 'ddc_control_tower_b', port: '3001', reuseServer: true },
   { dbName: 'ddc_control_tower_c', port: '3003', reuseServer: true },
-  { dbName: E2E_A_DB_NAME, port: '3000', reuseServer: false },
+  { dbName: E2E_A_DB_NAME, port: E2E_A_PORT, reuseServer: false },
 ];
 
 /**

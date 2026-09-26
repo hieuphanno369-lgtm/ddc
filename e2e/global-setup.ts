@@ -15,7 +15,8 @@ export default async function globalSetup(): Promise<void> {
     throw new Error('Thieu NOTIFY_SECRET_KEY trong .env - can de luu kenh thong bao trong test 07-admin.spec.ts.');
   }
 
-  execSync('npx prisma db seed', { stdio: 'inherit', env: { ...process.env, DATABASE_URL: databaseUrl } });
+  // DIRECT_URL cung tro DB e2e (bao mat T-1): neu sau nay doi sang lenh doc directUrl (migrate reset, db push) van khong cham DB that.
+  execSync('npx prisma db seed', { stdio: 'inherit', env: { ...process.env, DATABASE_URL: databaseUrl, DIRECT_URL: databaseUrl } });
 
   const prisma = new PrismaClient({ datasourceUrl: databaseUrl });
   try {
