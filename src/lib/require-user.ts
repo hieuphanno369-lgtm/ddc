@@ -3,13 +3,13 @@ import { getCurrentUser, homeForRole, type CurrentUser } from '@/lib/session';
 import type { Role } from '@/server/repo/types';
 
 /**
- * P3D-B (S-1): chot chan dang nhap o tang page, khong pho mac middleware/layout.
- * Layout va page render song song nen redirect o layout KHONG chan duoc page stream du lieu;
- * moi page (app) phai goi ham nay la lenh await dau tien (sau getLocale neu can),
- * truoc moi lenh doc du lieu va truoc khi tra JSX co Suspense.
- * - Chua dang nhap (hoac phien bi vo hieu) -> /{locale}/login.
- * - Co `roles` ma vai khong nam trong do -> trang chu theo vai (homeForRole).
- * Khong goi trong try/catch: redirect() nem NEXT_REDIRECT.
+ * P3D-B (S-1): chốt chặn đăng nhập ở tầng page, không phó mặc middleware/layout.
+ * Layout và page render song song nên redirect ở layout KHÔNG chặn được page stream dữ liệu;
+ * mọi page (app) phải gọi hàm này là lệnh await đầu tiên (sau getLocale nếu cần),
+ * trước mọi lệnh đọc dữ liệu và trước khi trả JSX có Suspense.
+ * - Chưa đăng nhập (hoặc phiên bị vô hiệu) -> /{locale}/login.
+ * - Có `roles` mà vai không nằm trong đó -> trang chủ theo vai (homeForRole).
+ * Không gọi trong try/catch: redirect() ném NEXT_REDIRECT.
  */
 export async function requireUser(locale: string, roles?: readonly Role[]): Promise<CurrentUser> {
   const user = await getCurrentUser();

@@ -69,6 +69,21 @@ test.describe('09 - chan truy cap khi chua dang nhap (S-1)', () => {
     await ctx.close();
   });
 
+  // Lop 2 (page tu goi requireUser): gia lap vuot middleware kieu CVE-2025-29927. Du middleware co
+  // bi bo qua hay khong, than phan hoi van khong duoc chua du lieu du an.
+  for (const p of ['/vi/overview', '/vi/projects/1']) {
+    test(`${p} [x-middleware-subrequest] -> khong lo du lieu`, async () => {
+      const res = await api.get(p, {
+        maxRedirects: 0,
+        headers: { RSC: '1', 'x-middleware-subrequest': 'middleware:middleware:middleware:middleware:middleware' },
+      });
+      const body = await res.text();
+      expect(body).not.toContain('projectName');
+      expect(body).not.toContain('masterCode');
+      expect([200, ...REDIRECT_CODES]).toContain(res.status());
+    });
+  }
+
   test('trang login van mo duoc khi chua dang nhap (200)', async () => {
     const res = await api.get('/vi/login', { maxRedirects: 0 });
     expect(res.status()).toBe(200);
