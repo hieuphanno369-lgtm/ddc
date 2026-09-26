@@ -3,6 +3,17 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P7-C1 - Task bổ sung đợt 2: tên app, bỏ nút xoá dữ liệu, Tổng quan, tên dự án trên sidebar (Tài khoản C) - CHỐT + ĐÃ MERGE vào `main` (2026-09-26)
+Nhánh `feature/p7-c-task-bo-sung`; hồ sơ `.bangiao/archive/p7-c1-2026-09-26/`. 203 file / 2213 test; e2e 74/74 trên cổng 3003 + DB `ddc_control_tower_c`.
+Coder → tester XANH → security ĐẠT → reviewer CHỐT (vòng 2) cho C-0 + 7.1 + 7.3 + 7.6; 7.7-7.10 làm sau khi CHỐT (e2e riêng, chưa qua reviewer, chủ dự án đồng ý merge luôn).
+- C-0: e2e chạy được cho C (guard cặp DB/cổng trong `e2e/helpers/env.ts`, chặn key schema lặp và fragment trong `DATABASE_URL`).
+- 7.1: xoá hẳn nút + action reset dữ liệu. 7.2: đã xoá dữ liệu DB của A (backup `D:\_project\DDC_dieu-phoiackup-db\`).
+- 7.3: tên app "BÁO CÁO QUẢN TRỊ" / "Danh Mục Dự Án" (EN dịch tương ứng), chữ sidebar 12px. 7.6: chữ Timeline.
+- 7.7: bỏ khối "Dự án cần lưu ý" dưới thanh lọc (đảo quyết định T2 ngày 2026-09-25). 7.8: thẻ tô nổi là "Đang triển khai".
+- 7.9: số tổng dự án giữa biểu đồ tròn, biểu đồ tròn đứng trước "Lượng & Trị theo Team KD".
+- 7.10: trang Chi tiết đẩy tên dự án (đậm) + mã dự án (mờ) lên sidebar qua context (`src/components/layout/SidebarBrand.tsx`), có hiệu ứng, tắt khi giảm chuyển động.
+- Sổ nợ N-P7-1..6 (xem `danh-gia.md` trong archive): reuseExistingServer không kiểm DB, fontSize inline ở AppShell, e2e 02 chập chờn nghi cache, guard chưa gắn tên worktree, `isExpectedDbUrl` chưa kiểm protocol, dọn JSDoc env.ts.
+
 ### ✅ P3D-B - Chặn truy cập khi chưa đăng nhập, vá S-1 (Tài khoản B) - CHỐT + ĐÃ MERGE vào `main` (2026-09-26)
 Nhánh `feature/p3d-b-chan-truy-cap`; hồ sơ `.bangiao/archive/p3d-b-chan-truy-cap-2026-09-26/`. Sau merge P3C-B: 200 file / 2168 test; e2e 09 44/44.
 Coder (test đỏ trước) → tester XANH (19 ca độc lập + kiểm trình duyệt thật) → security ĐẠT (vá thêm L-1 trong phase) → reviewer CHỐT.
