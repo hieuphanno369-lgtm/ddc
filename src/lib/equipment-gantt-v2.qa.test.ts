@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { addDaysIso } from '@/lib/clock';
 import { equipmentColor } from '@/lib/tracking';
 import { assignLanes, buildGanttAxis, buildPlanGantt, WEEK_MODE_MAX_DAYS } from './equipment-gantt-v2';
-import type { EquipmentPlanSegment, EquipmentQuota } from '@/lib/p3c-contract';
+import type { EquipmentPlanSegment, EquipmentQuota } from '@/server/repo/types';
 
 /**
  * QA doc lap cho equipment-gantt-v2.ts (T4). Du lieu/moc thoi gian khac voi test cua coder

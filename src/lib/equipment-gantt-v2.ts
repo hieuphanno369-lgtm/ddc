@@ -2,7 +2,7 @@ import { addDaysIso, addMonths, daysBetween } from '@/lib/clock';
 import { bucketOf } from '@/lib/daily-series';
 import { formatDayMonth } from '@/lib/format';
 import { equipmentColor } from '@/lib/tracking';
-import type { EquipmentPlanSegment, EquipmentQuota } from '@/lib/p3c-contract';
+import type { EquipmentPlanSegment, EquipmentQuota } from '@/server/repo/types';
 
 /**
  * T4 - Gantt thiết bị theo đợt (hợp đồng P3C): 1 hàng = 1 loại thiết bị, mỗi hàng có nhiều đợt sử

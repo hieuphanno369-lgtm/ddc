@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { assignLanes, buildGanttAxis, buildPlanGantt, formatDayMonthDot } from './equipment-gantt-v2';
-import type { EquipmentPlanSegment, EquipmentQuota } from '@/lib/p3c-contract';
+import type { EquipmentPlanSegment, EquipmentQuota } from '@/server/repo/types';
 import { equipmentColor } from '@/lib/tracking';
 
 function seg(over: Partial<EquipmentPlanSegment>): EquipmentPlanSegment {

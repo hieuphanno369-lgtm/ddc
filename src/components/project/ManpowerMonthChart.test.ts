@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { buildManpowerMonthModel } from '@/lib/manpower-month-chart';
-import type { ManpowerPlanMonthRow, ShiftRatio } from '@/lib/p3c-contract';
+import type { ManpowerPlanMonthRow, ShiftRatio } from '@/server/repo/types';
 import type { ShiftInfo } from '@/lib/manpower-charts';
 import type { ManpowerActualMonthRow } from '@/server/repo/read-types';
 

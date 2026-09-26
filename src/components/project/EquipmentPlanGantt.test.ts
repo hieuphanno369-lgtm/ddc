@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { buildPlanGantt } from '@/lib/equipment-gantt-v2';
-import type { EquipmentPlanSegment, EquipmentQuota } from '@/lib/p3c-contract';
+import type { EquipmentPlanSegment, EquipmentQuota } from '@/server/repo/types';
 
 (globalThis as unknown as { React: typeof React }).React = React;
 
