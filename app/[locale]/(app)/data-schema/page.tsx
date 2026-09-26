@@ -1,7 +1,6 @@
-import { redirect } from 'next/navigation';
 import { Prisma } from '@prisma/client';
 import { getLocale } from 'next-intl/server';
-import { getCurrentUser, homeForRole } from '@/lib/session';
+import { requireUser } from '@/lib/require-user';
 import { IMPORT_MAPPING } from '@/lib/data-schema';
 import { buildSchemaMeta, type DatamodelLike } from '@/lib/schema-meta/build';
 import { ERD_LAYOUT, LOGICAL_JOINS, TABLE_DOCS, type TableKind } from '@/lib/schema-meta/docs';
@@ -26,10 +25,8 @@ const HEADER_FILL: Record<TableKind, string> = {
 
 export default async function DataSchemaPage() {
   // RBAC server-side: trang hệ thống chỉ dành cho admin (không phó mặc middleware).
-  const user = await getCurrentUser();
   const locale = await getLocale();
-  if (!user) redirect(`/${locale}/login`);
-  if (user.role !== 'admin') redirect(`/${locale}${homeForRole(user.role)}`);
+  await requireUser(locale, ['admin']);
 
   const meta = buildSchemaMeta(Prisma.dmmf.datamodel as unknown as DatamodelLike);
   const kinds = Object.fromEntries(Object.entries(TABLE_DOCS).map(([k, v]) => [k, v.kind])) as Record<string, TableKind>;

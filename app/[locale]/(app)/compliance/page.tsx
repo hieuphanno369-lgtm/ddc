@@ -1,6 +1,5 @@
-import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
-import { getCurrentUser, homeForRole } from '@/lib/session';
+import { requireUser } from '@/lib/require-user';
 import { repo } from '@/server/repo';
 import { currentMonth } from '@/lib/clock';
 import { deriveStatus } from '@/lib/evm';
@@ -12,10 +11,8 @@ import { StatusBadge } from '@/components/ui/Badges';
 
 export default async function CompliancePage() {
   // RBAC server-side: trang vận hành dành cho admin + bod (không phó mặc middleware).
-  const user = await getCurrentUser();
   const locale = await getLocale();
-  if (!user) redirect(`/${locale}/login`);
-  if (!['admin', 'bod'].includes(user.role)) redirect(`/${locale}${homeForRole(user.role)}`);
+  await requireUser(locale, ['admin', 'bod']);
   const t = await getTranslations();
 
   const projects = await repo.listProjects();

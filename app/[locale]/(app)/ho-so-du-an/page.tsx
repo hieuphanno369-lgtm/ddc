@@ -1,8 +1,8 @@
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { repo } from '@/server/repo';
 import { todayIso } from '@/lib/clock';
-import { getCurrentUser, homeForRole } from '@/lib/session';
+import { requireUser } from '@/lib/require-user';
 import { ProjectForm } from '@/components/form/ProjectForm';
 import { ProjectAuditCard } from '@/components/project/ProjectAuditCard';
 
@@ -11,10 +11,8 @@ export default async function HoSoDuAnPage({
 }: {
   searchParams: Record<string, string | string[] | undefined>;
 }) {
-  const user = await getCurrentUser();
   const locale = await getLocale();
-  if (!user) redirect(`/${locale}/login`);
-  if (user.role !== 'admin' && user.role !== 'data-entry') redirect(`/${locale}${homeForRole(user.role)}`);
+  const user = await requireUser(locale, ['admin', 'data-entry']);
   const t = await getTranslations();
 
   // RBAC: data-entry chỉ thấy dự án mình được gán (PIC/Backup); admin thấy hết.

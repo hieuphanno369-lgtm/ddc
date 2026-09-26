@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { NextIntlClientProvider } from 'next-intl';
-import { getMessages } from 'next-intl/server';
+import { getMessages, getTranslations } from 'next-intl/server';
 import { Inter } from 'next/font/google';
 import { routing } from '@/i18n/routing';
 import '../tokens.css';
@@ -9,10 +9,13 @@ import '../globals.css';
 
 const inter = Inter({ subsets: ['latin', 'vietnamese'], variable: '--font-inter', display: 'swap' });
 
-export const metadata: Metadata = {
-  title: 'DDC Control Tower',
-  icons: { icon: '/favicon.svg' },
-};
+export async function generateMetadata({ params: { locale } }: { params: { locale: string } }): Promise<Metadata> {
+  const t = await getTranslations({ locale });
+  return {
+    title: `${t('app.headerTitle')} - ${t('app.name')}`,
+    icons: { icon: '/favicon.svg' },
+  };
+}
 
 export default async function LocaleLayout({
   children,

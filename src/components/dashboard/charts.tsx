@@ -46,12 +46,25 @@ export const TOOLTIP_STYLE = {
 export function StatusDonut({
   data,
   onSelect,
+  center,
 }: {
   data: { status: string; value: number; label: string; color: string }[];
   onSelect?: (status: string) => void;
+  /** 7.9: so + nhan dat giua vong tron (lop phu khong chan click vao lat banh). */
+  center?: { value: string; label: string };
 }) {
   const c = useChartTokens();
   return (
+    <div className="relative">
+    {center && (
+      <div
+        data-testid="donut-total"
+        className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center"
+      >
+        <b className="text-title2 font-bold leading-none text-label">{center.value}</b>
+        <span className="mt-1 max-w-[96px] text-caption2 leading-tight text-label3">{center.label}</span>
+      </div>
+    )}
     <ResponsiveContainer width="100%" height={220}>
       <PieChart>
         <Pie
@@ -71,6 +84,7 @@ export function StatusDonut({
         <Tooltip {...TOOLTIP_STYLE} />
       </PieChart>
     </ResponsiveContainer>
+    </div>
   );
 }
 

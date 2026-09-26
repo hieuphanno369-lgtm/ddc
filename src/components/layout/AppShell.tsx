@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
+import { SidebarBrandProvider, useSidebarBrand } from './SidebarBrand';
 import type { CurrentUser } from '@/lib/session';
 import type { Role } from '@/server/repo/types';
 import { computeSearchNavParams } from '@/lib/search-box-nav';
@@ -64,6 +65,31 @@ const ROLE_LABEL: Record<Role, string> = {
   viewer: 'role.viewer',
 };
 
+/**
+ * Khoi ten app tren sidebar. Trang Chi tiet du an (7.10): dong dam = ten du an, dong mo = ma du an;
+ * key theo ma de doi du an thi phan tu mount lai -> hieu ung chay lai (globals.css .nm.is-project).
+ */
+function BrandText() {
+  const t = useTranslations();
+  const project = useSidebarBrand();
+  if (project) {
+    return (
+      <div key={project.code} className="nm is-project">
+        <b title={project.name}>{project.name}</b>
+        <span>{project.code}</span>
+      </div>
+    );
+  }
+  return (
+    <div className="nm">
+      {/* P7-C1 (5.4, fallback): "MANAGEMENT REPORTS" (en) xuong 2 dong o co chu goc (13px) -
+          giam xuong var(--t-caption1) (12px), ap cho CA 2 locale de nhat quan. */}
+      <b style={{ fontSize: 'var(--t-caption1)' }}>{t('app.headerTitle')}</b>
+      <span>{t('app.name')}</span>
+    </div>
+  );
+}
+
 export function AppShell({ user, children }: { user: CurrentUser; children: React.ReactNode }) {
   const t = useTranslations();
   const pathname = usePathname();
@@ -96,6 +122,7 @@ export function AppShell({ user, children }: { user: CurrentUser; children: Reac
   }
 
   return (
+    <SidebarBrandProvider>
     <div className="app">
       <TopProgressBar />
       <SyncProgressBar />
@@ -105,10 +132,7 @@ export function AppShell({ user, children }: { user: CurrentUser; children: Reac
           <div className="appicon is-brand overflow-hidden">
             <Image src="/logo.png" alt="DDC" width={38} height={38} className="h-full w-full object-cover" />
           </div>
-          <div className="nm">
-            <b>{t('app.headerTitle')}</b>
-            <span>{t('app.name')}</span>
-          </div>
+          <BrandText />
         </div>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
@@ -163,6 +187,7 @@ export function AppShell({ user, children }: { user: CurrentUser; children: Reac
         <main className="page">{children}</main>
       </div>
     </div>
+    </SidebarBrandProvider>
   );
 }
 

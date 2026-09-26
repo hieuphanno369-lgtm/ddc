@@ -1,7 +1,7 @@
 {
   "app": {
-    "name": "DDC Control Tower",
-    "headerTitle": "Performance Hub",
+    "name": "Project Portfolio",
+    "headerTitle": "MANAGEMENT REPORTS",
     "subtitle": "Steel Structure Project Portfolio Management",
     "builtBy": "Built by Buffalo Tech"
   },
@@ -198,7 +198,7 @@
       "running": "in progress",
       "notStarted": "Not started",
       "startDelay": "Start delay",
-      "gap": "Plan - actual gap",
+      "gap": "Plan vs Actual variance",
       "days": "{n} days"
     },
     "cd": {
@@ -426,8 +426,6 @@
     "capacity": "Capacity (ton/year)",
     "rate": "Rate to VND",
     "picName": "PIC",
-    "resetData": "Reset all data",
-    "resetConfirm": "Delete all projects + data (keep reference tables)? Cannot be undone.",
     "userRoles": "User permissions",
     "email": "Email",
     "role": "Role",
@@ -1186,5 +1184,32 @@
       "forbidden": "You do not have permission to edit this project.",
       "generic": "Save failed: {msg}"
     }
+  },
+  "topPriority": {
+    "title": "Key priority projects",
+    "subtitle": "Priority P0 · in progress · behind schedule first",
+    "empty": "No P0 project in progress",
+    "behind": "Behind schedule",
+    "onTrack": "On track"
+  },
+  "equipmentPlanGantt": {
+    "title": "Equipment usage schedule",
+    "help": "Each row is one equipment type; each bar is one planned usage period with its quantity. \"Qty now/total\": planned quantity in use today / total quantity of that type. Small line under the name: first - last day of the whole usage.",
+    "colEquipment": "EQUIPMENT",
+    "colQty": "Qty now/total",
+    "qty": "Qty: {n}",
+    "today": "Today {date}",
+    "tipRange": "Plan",
+    "tipQty": "Quantity",
+    "tipDays": "Days",
+    "noPlan": "No equipment plan for this project"
+  },
+  "manpowerMonthChart": {
+    "title": "Monthly manpower plan · by shift",
+    "help": "Bars = planned headcount per shift in the month. Solid line = monthly plan total. Dashed line = actual average per day with data in the month (all contractors, all shifts).",
+    "planTotal": "Monthly plan total",
+    "actualAvg": "Actual avg/day",
+    "actualDays": "Days with data",
+    "noData": "No monthly manpower plan yet"
   }
 }

@@ -65,6 +65,13 @@ describe('read-prisma', () => {
     expect(sql.values).toContain(9);
   });
 
+  it('readManpowerActualByMonth goi $queryRaw 1 lan voi projectId trong values', async () => {
+    await readRepoPrisma.readManpowerActualByMonth(11);
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    const sql = queryRaw.mock.calls[0][0] as Prisma.Sql;
+    expect(sql.values).toContain(11);
+  });
+
   it('readManpowerRange nhan [{from:null,to:null}] -> null', async () => {
     queryRaw.mockResolvedValueOnce([{ from: null, to: null }]);
     const r = await readRepoPrisma.readManpowerRange(1);

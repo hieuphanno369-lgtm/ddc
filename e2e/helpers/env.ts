@@ -28,17 +28,86 @@ export function need(key: string): string {
   return value;
 }
 
+/** Cặp DB + cổng dev đã đăng ký cho e2e. KHÔNG BAO GIỜ thêm 'ddc_control_tower' (DB của A, dữ liệu thật). */
+export const E2E_TARGETS: ReadonlyArray<{ dbName: string; port: string }> = [
+  { dbName: 'ddc_control_tower_b', port: '3001' },
+  { dbName: 'ddc_control_tower_c', port: '3003' },
+];
+
+/** NEXTAUTH_URL phải đúng dạng http://localhost:<cổng> (pathname '/', không query/hash/user). Sai -> null. */
+export function parseE2eBaseUrl(nextAuthUrl: string): { baseURL: string; port: string } | null {
+  let u: URL;
+  try {
+    u = new URL(nextAuthUrl);
+  } catch {
+    return null;
+  }
+  if (
+    u.protocol !== 'http:' ||
+    u.hostname !== 'localhost' ||
+    u.port === '' ||
+    u.pathname !== '/' ||
+    u.search !== '' ||
+    u.hash !== '' ||
+    u.username !== '' ||
+    u.password !== ''
+  ) {
+    return null;
+  }
+  return { baseURL: `http://localhost:${u.port}`, port: u.port };
+}
+
 /**
- * L-5 (danh-gia-bao-mat.md): DATABASE_URL phải trỏ ĐÚNG host/port/tên DB của worktree B
- * (localhost:5433/ddc_control_tower_b) - không dùng `includes('/ddc_control_tower_b')` vì khớp
- * nhầm cả `ddc_control_tower_b2` (hoặc bất kỳ tên nào chứa chuỗi con này) và không kiểm host/port.
+ * L-5 (danh-gia-bao-mat.md): DATABASE_URL phải khớp CHÍNH XÁC host/port/tên DB của cặp đã đăng ký
+ * có cổng trùng tham số `port` - không dùng `includes('/ddc_control_tower_b')` vì khớp nhầm cả
+ * `ddc_control_tower_b2` (hoặc bất kỳ tên nào chứa chuỗi con này) và không kiểm host/port.
+ *
+ * L-1 (danh-gia.md muc CAN SUA #1): query string chỉ được chứa đúng key `schema` với giá trị
+ * `public` (hoặc không có query nào). Trước đây hàm bỏ qua toàn bộ query string, nên
+ * `?host=<máy khác>` lọt qua guard trong khi tầng kết nối của Prisma ưu tiên `host` trong query
+ * hơn host trong URL - guard tưởng là `localhost` nhưng kết nối thực lại đi nơi khác.
+ *
+ * Vòng 2 (ket-qua-test.md muc "Vong 2"): bản vá L-1 dùng `.every((k) => k === 'schema')` +
+ * `.get('schema')` chỉ kiểm TÊN key, không đếm SỐ LẦN key `schema` xuất hiện - `.get()` luôn đọc
+ * giá trị ĐẦU TIÊN nên `?schema=public&schema=evil` vẫn qua được guard trong khi giá trị `evil`
+ * vẫn nằm nguyên trong chuỗi kết nối thật truyền cho Prisma/pg (lặp lại đúng mô hình lỗi của L-1
+ * gốc: bộ đọc dùng để kiểm khác bộ đọc dùng để kết nối). Hàm cũng thiếu kiểm `u.hash` dù
+ * `parseE2eBaseUrl` trong cùng file đã chặn hash cho `NEXTAUTH_URL` - sửa lại: đếm tổng số cặp
+ * query (`entries()`), chỉ chấp nhận 0 cặp hoặc đúng 1 cặp `['schema','public']`, và luôn chặn
+ * `u.hash !== ''`.
  */
-export function isExpectedDbUrl(dbUrl: string): boolean {
+export function isExpectedDbUrl(dbUrl: string, port: string): boolean {
   let u: URL;
   try {
     u = new URL(dbUrl);
   } catch {
     return false;
   }
-  return u.hostname === 'localhost' && u.port === '5433' && u.pathname === '/ddc_control_tower_b';
+  if (u.hostname !== 'localhost' || u.port !== '5433') return false;
+  if (u.hash !== '') return false;
+  const entries = [...u.searchParams.entries()];
+  if (entries.length > 1) return false;
+  if (entries.length === 1 && (entries[0][0] !== 'schema' || entries[0][1] !== 'public')) return false;
+  return E2E_TARGETS.some((t) => t.port === port && u.pathname === '/' + t.dbName);
+}
+
+/** Gộp 2 hàm trên. Hợp lệ -> trả target; sai -> throw Error (thông điệp KHÔNG chứa DATABASE_URL). */
+export function resolveE2eTarget(env: Record<string, string | undefined>): {
+  baseURL: string;
+  port: string;
+  databaseUrl: string;
+} {
+  const nextAuthUrl = env.NEXTAUTH_URL ?? '';
+  const databaseUrl = env.DATABASE_URL ?? '';
+  const parsed = parseE2eBaseUrl(nextAuthUrl);
+  if (!parsed) {
+    throw new Error('NEXTAUTH_URL phai co dang http://localhost:<cong> (vd http://localhost:3003) - sua .env');
+  }
+  if (!isExpectedDbUrl(databaseUrl, parsed.port)) {
+    const pairs = E2E_TARGETS.map((t) => `${t.dbName} + ${t.port}`).join(', ');
+    throw new Error(
+      `DATABASE_URL + NEXTAUTH_URL khong khop cap da dang ky (${pairs}) - dung chay e2e (co the dinh DB cua A). Kiem tra .env.`,
+    );
+  }
+  return { baseURL: parsed.baseURL, port: parsed.port, databaseUrl };
 }

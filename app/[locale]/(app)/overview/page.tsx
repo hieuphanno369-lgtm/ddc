@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { getLocale, getTranslations } from 'next-intl/server';
-import { getCurrentUser } from '@/lib/session';
+import { requireUser } from '@/lib/require-user';
 import { repo } from '@/server/repo';
 import { formatDateTime } from '@/lib/format';
 import { type DashboardFilters, type GroupBy } from '@/server/queries';
@@ -10,7 +10,6 @@ import { safeListSort } from '@/lib/finance-gate';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { FilterBar } from '@/components/dashboard/FilterBar';
 import {
-  AlertBanner,
   BacklogOverdueCard,
   CapacityCard,
   GroupBarCard,
@@ -19,7 +18,7 @@ import {
   SCurveCard,
   SpiCpiCard,
   StatusDonutCard,
-  WatchlistCard,
+  TopPriorityCard,
 } from '@/components/dashboard/OverviewWidgets';
 
 function p(searchParams: Record<string, string | string[] | undefined>, key: string): string {
@@ -42,9 +41,9 @@ export default async function OverviewPage({
 }: {
   searchParams: Record<string, string | string[] | undefined>;
 }) {
-  const user = await getCurrentUser();
-  const t = await getTranslations();
   const locale = await getLocale();
+  const user = await requireUser(locale, ['admin', 'bod', 'viewer']);
+  const t = await getTranslations();
   const lastUpdate = await repo.readLastAuditAt();
   const dims = await repo.getDims();
 
@@ -66,7 +65,6 @@ export default async function OverviewPage({
     groupKey: p(searchParams, 'groupKey') || undefined,
   };
 
-  const isAdmin = user?.role === 'admin';
   const canViewFinance = user?.canViewFinance ?? false;
   const search = p(searchParams, 'search');
   const rawSort = (p(searchParams, 'sort') as 'priority' | 'name' | 'value' | 'spi' | 'pctActual') || 'priority';
@@ -83,12 +81,6 @@ export default async function OverviewPage({
         <FilterBar teams={dims.teams} customers={dims.customers} months={historyMonths()} currentMonth={currentMonth()} />
       </Suspense>
 
-      {isAdmin && (
-        <Suspense fallback={null}>
-          <AlertBanner month={month} filters={filters} />
-        </Suspense>
-      )}
-
       <div className="sect"><b>{t('overview.title')}</b><i /></div>
 
       <Suspense fallback={<KpiSkeleton />}>
@@ -96,11 +88,11 @@ export default async function OverviewPage({
       </Suspense>
 
       <div className="g2">
-        <Suspense fallback={<CardSkeleton h={260} />}>
-          <GroupBarCard month={month} groupBy={groupBy} filters={filters} canViewFinance={canViewFinance} />
-        </Suspense>
         <Suspense fallback={<CardSkeleton h={220} />}>
           <StatusDonutCard month={month} filters={filters} />
+        </Suspense>
+        <Suspense fallback={<CardSkeleton h={260} />}>
+          <GroupBarCard month={month} groupBy={groupBy} filters={filters} canViewFinance={canViewFinance} />
         </Suspense>
       </div>
 
@@ -125,7 +117,7 @@ export default async function OverviewPage({
       )}
 
       <Suspense fallback={<CardSkeleton h={300} />}>
-        <WatchlistCard month={month} filters={filters} canViewFinance={canViewFinance} />
+        <TopPriorityCard month={month} filters={filters} canViewFinance={canViewFinance} />
       </Suspense>
 
       <Suspense fallback={<CardSkeleton h={300} />}>

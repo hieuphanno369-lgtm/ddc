@@ -1,5 +1,4 @@
-import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/lib/session';
+import { requireUser } from '@/lib/require-user';
 import { currentMonth } from '@/lib/clock';
 import { missingRateCurrencies } from '@/lib/fx';
 import { repo } from '@/server/repo';
@@ -15,8 +14,7 @@ export default async function AppLayout({
   children: React.ReactNode;
   params: { locale: string };
 }) {
-  const user = await getCurrentUser();
-  if (!user) redirect(`/${locale}/login`);
+  const user = await requireUser(locale);
 
   void runDueJobs('lazy'); // K4: chay job "luoi" khi co nguoi mo app - KHONG await.
 

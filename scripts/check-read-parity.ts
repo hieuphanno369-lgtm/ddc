@@ -85,6 +85,7 @@ async function main() {
     check(`readEquipmentQuotas(${id})`, await formPrismaRepo.readEquipmentQuotas(id), await formMock.readEquipmentQuotas(id));
     check(`readManpowerPlanMonths(${id})`, await formPrismaRepo.readManpowerPlanMonths(id), await formMock.readManpowerPlanMonths(id));
     check(`readShiftRatios(${id})`, await formPrismaRepo.readShiftRatios(id), await formMock.readShiftRatios(id));
+    check(`readManpowerActualByMonth(${id})`, await readRepoPrisma.readManpowerActualByMonth(id), await mock.readManpowerActualByMonth(id));
   }
 
   // Buoc 5: T1-code (a) - readFactSnapshots/readFinancialSnapshots/readVolumeSnapshots/readMonthlyEvm.

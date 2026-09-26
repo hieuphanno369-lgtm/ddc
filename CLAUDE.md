@@ -3,24 +3,33 @@
 Chủ dự án làm việc bằng **tiếng Việt**, tự quyết nghiệp vụ, điều phối qua dây chuyền subagent `ddc-tower:*`
 (planner → coder → tester → security-reviewer → reviewer). Không tự quyết thay chủ dự án các câu hỏi nghiệp vụ.
 
-## 1. Hai tài khoản chạy song song — xác định mình là ai
+## 1. Ba tài khoản chạy song song - xác định mình là ai
 
 | Thư mục đang mở | Mình là | Cổng dev | Database |
 |---|---|---|---|
-| `D:\_project\DDC_Control_Tower` | **Tài khoản A** (Claude desktop) | 3000 (`launch.json`: `ddc-control-tower`) | `ddc_control_tower` |
-| `D:\_project\DDC_Control_Tower-B` | **Tài khoản B** (Claude Code VS Code) | 3001 (`launch.json`: `ddc-control-tower-B`) | `ddc_control_tower_b` |
+| `D:\_project\DDC_Control_Tower` | **Tài khoản A** (CLI, `.claude-A`) | 3000 (`launch.json`: `ddc-control-tower`) | `ddc_control_tower` |
+| `D:\_project\DDC_Control_Tower-B` | **Tài khoản B** (Claude Code VS Code / CLI, `~/.claude`) | 3001 (`launch.json`: `ddc-control-tower-B`) | `ddc_control_tower_b` |
+| `D:\_project\DDC_Control_Tower-C` | **Tài khoản C** (CLI, `.claude-C`, thêm 2026-09-26) | 3003 (`launch.json`: `ddc-control-tower-C`) | `ddc_control_tower_c` |
 
-Mỗi thư mục là một git worktree với nhánh riêng. **Không bao giờ sửa file trong thư mục của bên kia.**
+Cổng 3002 dành cho worktree `D:\_project\DDC_Control_Tower-xem` (chỉ để xem `main`, không ai làm việc trong đó).
+Mỗi thư mục là một git worktree với nhánh riêng. **Không bao giờ sửa file trong thư mục của bên khác.**
+"Bên kia" trong file này nghĩa là **cả 2 tài khoản còn lại**.
 
 ## 2. Thư mục điều phối chung: `D:\_project\DDC_dieu-phoi\`
 
 - `lo-trinh.md` — lộ trình các phase + trạng thái từng task (nguồn sự thật về "làm gì, ai làm").
-- `phien-A.md`, `phien-B.md` — trạng thái sống của từng tài khoản. **Chỉ ghi file của mình**, chỉ đọc file bên kia.
+- `phien-A.md`, `phien-B.md`, `phien-C.md` - trạng thái sống của từng tài khoản. **Chỉ ghi file của mình**, chỉ đọc file của 2 bên kia.
+- `lenh-cho-<X>-*.md` - hàng đợi việc chủ dự án giao cho từng tài khoản.
 
-**Đầu mỗi phiên (kể cả khi gõ "tiếp tục")**: đọc `phien-A.md`, `phien-B.md`, `lo-trinh.md` trước khi làm gì.
+**Đầu mỗi phiên (kể cả khi gõ "tiếp tục")**: dùng phần tóm tắt do hook SessionStart đưa vào (các mục chính của `phien-A.md`, `phien-B.md`, `phien-C.md` và bảng trạng thái của `lo-trinh.md`).
+Không đọc lại toàn bộ các file đó, cũng không đọc `PROGRESS.md`, chỉ để "nắm tình hình" (tốn rất nhiều token mỗi phiên).
+Chỉ mở file đầy đủ khi cần chi tiết: trước khi sửa file nóng, khi bắt đầu/kết thúc phase, khi merge, hoặc khi tóm tắt không đủ.
+Nếu hook không chạy (không thấy tóm tắt), đọc `phien-<mình>.md` và mục "Đang giữ" của cả 2 file phiên bên kia.
 
-**Sau MỖI commit**: cập nhật `phien-<mình>.md` — phase/task đang làm, nhánh, commit cuối, bước kế tiếp,
-file nóng đang giữ, giờ cập nhật. Đây là checkpoint chính: desktop không chạy statusline nên không có
+Giữ file phiên ngắn: mỗi ý chính là một dòng `- **Tiêu đề:** ...` ở đầu file (hook chỉ lấy các dòng này), chi tiết dài để ở file lệnh/hồ sơ riêng.
+
+**Sau MỖI commit**: cập nhật `phien-<mình>.md` - phase/task đang làm, nhánh, commit cuối, bước kế tiếp,
+file nóng đang giữ, giờ cập nhật. Đây là checkpoint chính: phiên nào không chạy statusline thì không có
 cảnh báo usage 90%, hết limit bất ngờ thì chỉ còn lại những gì đã commit + ghi vào file phiên.
 
 ## 3. File nóng — phải "giữ" trước khi sửa
@@ -28,7 +37,8 @@ cảnh báo usage 90%, hết limit bất ngờ thì chỉ còn lại những gì
 `prisma/schema.prisma` + `prisma/migrations/`, `app/globals.css`, `src/i18n/messages/vi.json`, `en.json`,
 `src/server/actions.ts`, `src/server/repo/prisma-repo.ts`, `src/server/queries.ts`, `src/server/project-queries.ts`.
 
-- Trước khi sửa: đọc file phiên bên kia — nếu bên kia đang giữ file đó thì KHÔNG sửa, ghi chú lại và làm việc khác.
+- Trước khi sửa: đọc cả 2 file phiên bên kia - nếu một bên đang giữ file đó thì KHÔNG sửa, ghi chú lại và làm việc khác.
+- Mỗi file nóng chỉ 1 bên giữ tại một thời điểm; ai ghi "Đang giữ" trước thì được trước.
 - Ghi file vào mục "Đang giữ" trong file phiên của mình; bỏ ra khi đã commit xong phần sửa.
 - **Migration Prisma: chỉ bên đang giữ `schema.prisma` được tạo.** Chạy `prisma migrate deploy` trên DB của mình.
 - Key i18n mới đặt trong nhóm (object) riêng của tính năng, không chèn giữa các key có sẵn.
@@ -43,14 +53,15 @@ cảnh báo usage 90%, hết limit bất ngờ thì chỉ còn lại những gì
 ## 5. Merge
 
 - Xong 1 phase (reviewer CHỐT + chủ dự án đồng ý) → merge vào `main`, push chỉ khi chủ dự án bảo.
-- Bên còn lại: trước khi bắt đầu task mới, `git merge main` vào nhánh mình và chạy `npx prisma migrate deploy`
+- Mỗi lúc chỉ 1 bên merge vào `main` (ghi `ĐANG MERGE main` vào file phiên, xem `quy-trinh.md` mục 2).
+- Các bên còn lại: trước khi bắt đầu task mới, `git merge main` vào nhánh mình và chạy `npx prisma migrate deploy`
   (nếu có migration mới) + `npm test`.
-- Không `git push --force`, không xoá nhánh của bên kia.
+- Không `git push --force`, không xoá nhánh của bên khác.
 
 ## 6. Khi hết limit / chuyển giao
 
 - Hết limit: không cần làm gì thêm nếu đã tuân mục 2. Khi limit reset, mở lại đúng thư mục, gõ "tiếp tục".
-- Bên kia rảnh muốn làm hộ: ghi `CHUYỂN GIAO: A→B lúc <giờ>` vào file phiên của bên bị hết limit **và** của mình,
+- Một bên rảnh muốn làm hộ: ghi `CHUYỂN GIAO: A→C lúc <giờ>` (đổi chữ cho đúng) vào file phiên của bên bị hết limit **và** của mình,
   rồi mới mở thư mục đó. Chỉ 1 phiên hoạt động trong 1 thư mục tại một thời điểm.
 
 ## 7. Kỹ thuật

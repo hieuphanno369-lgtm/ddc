@@ -583,34 +583,6 @@ const coreRepo = {
     return facts.length > 0 && facts.every((f) => f.snapshotLockedAt != null);
   },
 
-  /** Reset go-live: xóa hết data nghiệp vụ, giữ dim tables. */
-  resetAllData() {
-    const d = getData();
-    d.projects = [];
-    d.facts = [];
-    d.valueChain = [];
-    d.financial = [];
-    d.volumes = [];
-    d.alerts = [];
-    d.aliases = [];
-    d.sapCodes = [];
-    d.photos = [];
-    d.assignments = [];
-    d.sapQueue = [];
-    d.auditLog = [];
-    d.projectHistory = [];
-    d.stageWeights = [];
-    d.workItems = [];
-    d.workItemFacts = [];
-    d.stageMilestones = [];
-    d.keyMilestones = [];
-    d.projectContractors = [];
-    d.dailyManpowerShifts = [];
-    d.dailyEquipment = [];
-    d.equipmentPlans = [];
-    // giữ nguyên: stages, contractors, equipments - là dim, không phải data nghiệp vụ.
-  },
-
   // ---- Mutations (mock: mutate in-memory) ----
   saveMonthlyFact(
     projectId: number,

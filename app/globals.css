@@ -55,6 +55,15 @@
   .brand .nm{min-width:0}
   .brand .nm b{display:block;font-size:var(--t-footnote);font-weight:650;line-height:1.25;letter-spacing:var(--tr-body)}
   .brand .nm span{display:block;font-size:var(--t-caption2);color:var(--label3);font-weight:500}
+  /* 7.10: trang Chi tiet - ten du an (dam) + ma du an (mo). Truot vao + nen nhan sang roi mo dan
+     de nguoi dung thay doi du an; key theo ma nen doi du an thi chay lai. */
+  .brand .nm.is-project{flex:1}
+  .brand .nm.is-project b{font-size:var(--t-caption1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    margin:0 -4px;padding:1px 4px;border-radius:5px;
+    animation:brandIn .45s cubic-bezier(.2,.8,.2,1) both,brandGlow 2s ease-out .15s both}
+  .brand .nm.is-project span{font-variant-numeric:tabular-nums;animation:brandIn .45s cubic-bezier(.2,.8,.2,1) .08s both}
+  @keyframes brandIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+  @keyframes brandGlow{0%,30%{background:var(--accent-tint);color:var(--accent)}100%{background:transparent;color:var(--label)}}
   .sgrp{font-size:var(--t-caption2);font-weight:700;letter-spacing:.06em;text-transform:uppercase;
     color:var(--label3);padding:14px 10px 6px}
   .nav{display:flex;align-items:center;gap:11px;padding:8px 10px;border-radius:var(--r-sm);
@@ -620,5 +629,6 @@
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+  .brand .nm.is-project b, .brand .nm.is-project span { animation: none !important; }
 }
 

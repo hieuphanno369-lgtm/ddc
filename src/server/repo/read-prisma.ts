@@ -1,8 +1,8 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/server/db';
 import type {
-  AuditLogPageResult, DateRange, EquipmentUsageDay, FactSnapshot, FinancialSnapshot, MonthlyEvmRow, ReadRepo,
-  ShiftMonthRow, VolumeSnapshot, WeekContractorRow,
+  AuditLogPageResult, DateRange, EquipmentUsageDay, FactSnapshot, FinancialSnapshot, ManpowerActualMonthRow,
+  MonthlyEvmRow, ReadRepo, ShiftMonthRow, VolumeSnapshot, WeekContractorRow,
 } from './read-types';
 
 /**
@@ -180,5 +180,14 @@ export const readRepoPrisma = {
       totalPages,
       pageSize: opts.pageSize,
     };
+  },
+
+  async readManpowerActualByMonth(projectId: number): Promise<ManpowerActualMonthRow[]> {
+    return prisma.$queryRaw<ManpowerActualMonthRow[]>(Prisma.sql`
+      SELECT to_char(m."workDate",'YYYY-MM') AS "yearMonth", SUM(m."actualHeadcount")::int AS "actualSum",
+             COUNT(DISTINCT m."workDate")::int AS days
+      FROM "fact_daily_manpower" m WHERE m."projectId" = ${projectId}
+      GROUP BY 1 ORDER BY 1
+    `);
   },
 } satisfies ReadRepo;

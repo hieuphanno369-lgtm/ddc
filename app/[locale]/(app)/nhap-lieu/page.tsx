@@ -1,10 +1,9 @@
-import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { repo } from '@/server/repo';
 import { currentMonth, historyMonths, isValidIsoDate, todayIso } from '@/lib/clock';
 import { dailyDateWindow, isInWindow } from '@/lib/daily-entry';
-import { getCurrentUser, homeForRole } from '@/lib/session';
+import { requireUser } from '@/lib/require-user';
 import { DataEntryForm, type DataEntryStep } from '@/components/form/DataEntryForm';
 import { ResourceEntryPanel } from '@/components/form/ResourceEntryPanel';
 import { EquipmentPlanEditor } from '@/components/form/EquipmentPlanEditor';
@@ -19,10 +18,8 @@ export default async function NhapLieuPage({
 }) {
   // F2a (danh-gia.md, vong sua 1): trang tu kiem quyen server-side, khong pho mac middleware
   // (CVE-2025-29927 co the bi bypass qua header x-middleware-subrequest).
-  const user = await getCurrentUser();
   const locale = await getLocale();
-  if (!user) redirect(`/${locale}/login`);
-  if (user.role !== 'admin' && user.role !== 'data-entry') redirect(`/${locale}${homeForRole(user.role)}`);
+  const user = await requireUser(locale, ['admin', 'data-entry']);
   const t = await getTranslations();
 
   // RBAC: data-entry chỉ thấy dự án mình là PIC (project_assignments). Admin thấy hết.

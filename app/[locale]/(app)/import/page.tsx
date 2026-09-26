@@ -1,8 +1,12 @@
+import { getLocale } from 'next-intl/server';
+import { requireUser } from '@/lib/require-user';
 import { repo } from '@/server/repo';
 import { currentMonth, historyMonths } from '@/lib/clock';
 import { ImportPanel } from '@/components/form/ImportPanel';
 
 export default async function ImportPage() {
+  const locale = await getLocale();
+  await requireUser(locale, ['admin', 'data-entry']);
   const projects = (await repo.listProjects()).map((p) => ({ id: p.id, name: p.projectName, code: p.currentAliasCode }));
   const queue = await repo.getSapQueue();
 

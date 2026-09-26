@@ -1,6 +1,5 @@
-import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
-import { getCurrentUser, homeForRole } from '@/lib/session';
+import { requireUser } from '@/lib/require-user';
 import { repo } from '@/server/repo';
 import { AlertList } from '@/components/alerts/AlertList';
 import { maskAlertMessage } from '@/lib/finance-gate';
@@ -9,10 +8,8 @@ import { Card } from '@/components/ui/Card';
 
 export default async function AlertsPage() {
   // RBAC server-side: trang vận hành dành cho admin + bod (không phó mặc middleware).
-  const user = await getCurrentUser();
   const locale = await getLocale();
-  if (!user) redirect(`/${locale}/login`);
-  if (!['admin', 'bod'].includes(user.role)) redirect(`/${locale}${homeForRole(user.role)}`);
+  const user = await requireUser(locale, ['admin', 'bod']);
   const t = await getTranslations();
 
   const projects = await repo.listProjects();

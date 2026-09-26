@@ -76,6 +76,21 @@ describe('read-mock', () => {
     expect(await mock.readManpowerRange(17)).toBeNull();
     expect(await mock.readEquipmentPlans(17)).toEqual([]);
     expect(await mock.readEquipmentUsageDays(17, '2020-01-01', '2035-12-31')).toEqual([]);
+    expect(await mock.readManpowerActualByMonth(17)).toEqual([]);
+  });
+
+  it('readManpowerActualByMonth: tong actualSum khop seed, days = so workDate khac nhau moi thang, sort tang', async () => {
+    const rows = await mock.readManpowerActualByMonth(1);
+    const seedRows = data.dailyManpowerShifts.filter((r) => r.projectId === 1);
+    const totalActual = rows.reduce((s, r) => s + r.actualSum, 0);
+    const seedActual = seedRows.reduce((s, r) => s + r.actualHeadcount, 0);
+    expect(totalActual).toBe(seedActual);
+    for (const r of rows) {
+      const daysInMonth = new Set(seedRows.filter((s) => s.workDate.slice(0, 7) === r.yearMonth).map((s) => s.workDate));
+      expect(r.days).toBe(daysInMonth.size);
+    }
+    const sorted = [...rows].sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
+    expect(rows).toEqual(sorted);
   });
 
   it('readShifts: sap xep theo sortOrder tang', async () => {

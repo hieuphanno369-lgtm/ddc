@@ -1,7 +1,6 @@
-import { redirect } from 'next/navigation';
 import { Prisma } from '@prisma/client';
 import { getLocale } from 'next-intl/server';
-import { getCurrentUser, homeForRole } from '@/lib/session';
+import { requireUser } from '@/lib/require-user';
 import { DATA_DICTIONARY } from '@/lib/data-dictionary';
 import { buildSchemaMeta, type DatamodelLike } from '@/lib/schema-meta/build';
 import { LOGICAL_JOINS, TABLE_DOCS, type TableKind } from '@/lib/schema-meta/docs';
@@ -14,10 +13,8 @@ const KIND_LABEL: Record<TableKind, string> = {
 
 export default async function DataDictionaryPage() {
   // RBAC server-side: trang hệ thống chỉ dành cho admin (không phó mặc middleware).
-  const user = await getCurrentUser();
   const locale = await getLocale();
-  if (!user) redirect(`/${locale}/login`);
-  if (user.role !== 'admin') redirect(`/${locale}${homeForRole(user.role)}`);
+  await requireUser(locale, ['admin']);
   const isVi = locale === 'vi';
 
   const meta = buildSchemaMeta(Prisma.dmmf.datamodel as unknown as DatamodelLike);

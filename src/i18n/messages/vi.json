@@ -1,7 +1,7 @@
 {
   "app": {
-    "name": "DDC Control Tower",
-    "headerTitle": "Performance Hub",
+    "name": "Danh Mục Dự Án",
+    "headerTitle": "BÁO CÁO QUẢN TRỊ",
     "subtitle": "Quản trị danh mục dự án kết cấu thép",
     "builtBy": "Built by Buffalo Tech"
   },
@@ -198,7 +198,7 @@
       "running": "đang chạy",
       "notStarted": "Chưa khởi công",
       "startDelay": "Trễ khởi công",
-      "gap": "Khoảng cách KH - TT",
+      "gap": "Chênh lệch KH vs TT",
       "days": "{n} ngày"
     },
     "cd": {
@@ -426,8 +426,6 @@
     "capacity": "Công suất (tấn/năm)",
     "rate": "Tỷ giá VNĐ",
     "picName": "PIC",
-    "resetData": "Xóa toàn bộ dữ liệu",
-    "resetConfirm": "Xóa hết dự án + số liệu (giữ danh mục nền)? Không thể hoàn tác.",
     "userRoles": "Phân quyền người dùng",
     "email": "Email",
     "role": "Vai trò",
@@ -1186,5 +1184,32 @@
       "forbidden": "Bạn không có quyền sửa dự án này.",
       "generic": "Lưu thất bại: {msg}"
     }
+  },
+  "topPriority": {
+    "title": "Top dự án trọng điểm",
+    "subtitle": "Priority P0 · đang triển khai · dự án trễ xếp trước",
+    "empty": "Không có dự án P0 đang triển khai",
+    "behind": "Trễ tiến độ",
+    "onTrack": "Đúng tiến độ"
+  },
+  "equipmentPlanGantt": {
+    "title": "Lịch sử dụng thiết bị",
+    "help": "Mỗi hàng là 1 loại thiết bị, mỗi thanh là 1 đợt sử dụng theo kế hoạch kèm số lượng dùng trong đợt. Cột \"SL nay/tổng\": số lượng theo kế hoạch đang dùng hôm nay / tổng số lượng của loại thiết bị. Dòng nhỏ dưới tên: ngày bắt đầu - kết thúc toàn quá trình sử dụng.",
+    "colEquipment": "THIẾT BỊ",
+    "colQty": "SL nay/tổng",
+    "qty": "SL: {n}",
+    "today": "Hôm nay {date}",
+    "tipRange": "Kế hoạch",
+    "tipQty": "Số lượng",
+    "tipDays": "Số ngày",
+    "noPlan": "Chưa có kế hoạch thiết bị cho dự án này"
+  },
+  "manpowerMonthChart": {
+    "title": "Kế hoạch nhân lực theo tháng · theo ca",
+    "help": "Cột = nhân lực kế hoạch từng ca trong tháng. Đường liền = tổng kế hoạch tháng. Đường nét đứt = thực tế trung bình mỗi ngày có nhập liệu trong tháng (cộng mọi nhà thầu, mọi ca).",
+    "planTotal": "Tổng KH tháng",
+    "actualAvg": "TT TB/ngày",
+    "actualDays": "Số ngày có số liệu",
+    "noData": "Chưa có kế hoạch nhân lực theo tháng"
   }
 }

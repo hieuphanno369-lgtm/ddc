@@ -1176,18 +1176,6 @@ const coreRepo = {
     const stillUsesTeam = await prisma.project.findFirst({ where: { teamKdId: proj.teamKdId } });
     if (!stillUsesTeam) await prisma.teamKd.deleteMany({ where: { id: proj.teamKdId } });
   },
-
-  async resetAllData() {
-    // cascade dọn hết bảng con (fact_*, value_chain_progress, project_stage_weight, project_work_item…).
-    // KHÔNG xoá stage/contractor/equipment/customer/teamKd/factory/currency - đó là dimension.
-    // sap_queue.projectId là ON DELETE SET NULL (không phải Cascade) nên không tự dọn theo -
-    // phải xoá tay, khớp hành vi mock-repo.resetAllData (đang gán d.sapQueue = []).
-    await prisma.$transaction([
-      prisma.project.deleteMany(),
-      prisma.auditLog.deleteMany(),
-      prisma.sapQueue.deleteMany(),
-    ]);
-  },
 };
 
 export const repo = { ...coreRepo, ...entryPrismaRepo, ...formPrismaRepo };

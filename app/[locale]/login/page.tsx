@@ -19,7 +19,7 @@ export default async function LoginPage({ params: { locale } }: { params: { loca
           <div className="appicon is-brand overflow-hidden" style={{ width: 56, height: 56, flex: '0 0 56px' }}>
             <Image src="/logo.png" alt="DDC" width={56} height={56} className="h-full w-full object-cover" />
           </div>
-          <h1>DDC Control Tower</h1>
+          <h1>{t('app.headerTitle')}</h1>
           <p>{t('app.subtitle')}</p>
         </div>
         <LoginForm googleEnabled={googleEnabled} />

@@ -1,11 +1,12 @@
 import { notFound } from 'next/navigation';
+import { SidebarProjectBrand } from '@/components/layout/SidebarBrand';
 import dynamic from 'next/dynamic';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { repo } from '@/server/repo';
 import { getProjectSummary } from '@/server/queries';
 import { currentMonth, isValidYearMonth, todayIso } from '@/lib/clock';
-import { getCurrentUser } from '@/lib/session';
+import { requireUser } from '@/lib/require-user';
 import { requireProjectRead } from '@/server/authz';
 import { stageKey } from '@/lib/labels';
 import type { FactFinancial, StageCode } from '@/server/repo/types';
@@ -68,14 +69,17 @@ export default async function ProjectDetailPage({
   params: { id: string; locale: string };
   searchParams: Record<string, string | string[] | undefined>;
 }) {
-  const id = Number(params.id);
   // month rác (vd ?month=abc) từng lọt qua thẳng vào endOfMonth() và ném RangeError (500) -
   // validate đúng format 'YYYY-MM' trước khi dùng, sai thì rơi về tháng hiện tại.
   const month = typeof searchParams.month === 'string' && isValidYearMonth(searchParams.month) ? searchParams.month : currentMonth();
-  const t = await getTranslations();
   const locale = await getLocale();
-  const user = await getCurrentUser();
-  const canViewFinance = user?.canViewFinance ?? false;
+  const user = await requireUser(locale);
+  // L-1 (security P3D-B): matcher middleware bỏ qua đường dẫn có dấu chấm ('/vi/projects/1.0'),
+  // mà Number() lại nhận '1.0', '1e0', '0x1' -> chỉ nhận số nguyên dương viết chuẩn.
+  if (!/^[1-9]\d*$/.test(params.id)) notFound();
+  const id = Number(params.id);
+  const t = await getTranslations();
+  const canViewFinance = user.canViewFinance ?? false;
   // B-4 (danh-gia.md, vòng 2 - BOLA/IDOR): data-entry/viewer chỉ được xem dự án mình có trong
   // project_assignments; admin/bod xem mọi dự án. Check TRƯỚC khi đọc project để không lộ qua
   // timing/behavior khác nhau giữa "không có quyền" và "chưa load xong".
@@ -155,6 +159,7 @@ export default async function ProjectDetailPage({
 
   return (
     <>
+      <SidebarProjectBrand name={project.projectName} code={project.currentAliasCode} />
       {/* Breadcrumb + switcher */}
       <div className="flex flex-wrap items-center justify-between gap-2 text-footnote text-label2">
         <div className="flex items-center gap-1">

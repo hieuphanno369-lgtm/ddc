@@ -3,6 +3,37 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P7-C1 - Task bổ sung đợt 2: tên app, bỏ nút xoá dữ liệu, Tổng quan, tên dự án trên sidebar (Tài khoản C) - CHỐT + ĐÃ MERGE vào `main` (2026-09-26)
+Nhánh `feature/p7-c-task-bo-sung`; hồ sơ `.bangiao/archive/p7-c1-2026-09-26/`. 203 file / 2213 test; e2e 74/74 trên cổng 3003 + DB `ddc_control_tower_c`.
+Coder → tester XANH → security ĐẠT → reviewer CHỐT (vòng 2) cho C-0 + 7.1 + 7.3 + 7.6; 7.7-7.10 làm sau khi CHỐT (e2e riêng, chưa qua reviewer, chủ dự án đồng ý merge luôn).
+- C-0: e2e chạy được cho C (guard cặp DB/cổng trong `e2e/helpers/env.ts`, chặn key schema lặp và fragment trong `DATABASE_URL`).
+- 7.1: xoá hẳn nút + action reset dữ liệu. 7.2: đã xoá dữ liệu DB của A (backup `D:\_project\DDC_dieu-phoi\backup-db\`).
+- 7.3: tên app "BÁO CÁO QUẢN TRỊ" / "Danh Mục Dự Án" (EN dịch tương ứng), chữ sidebar 12px. 7.6: chữ Timeline.
+- 7.7: bỏ khối "Dự án cần lưu ý" dưới thanh lọc (đảo quyết định T2 ngày 2026-09-25). 7.8: thẻ tô nổi là "Đang triển khai".
+- 7.9: số tổng dự án giữa biểu đồ tròn, biểu đồ tròn đứng trước "Lượng & Trị theo Team KD".
+- 7.10: trang Chi tiết đẩy tên dự án (đậm) + mã dự án (mờ) lên sidebar qua context (`src/components/layout/SidebarBrand.tsx`), có hiệu ứng, tắt khi giảm chuyển động.
+- Sổ nợ N-P7-1..6 (xem `danh-gia.md` trong archive): reuseExistingServer không kiểm DB, fontSize inline ở AppShell, e2e 02 chập chờn nghi cache, guard chưa gắn tên worktree, `isExpectedDbUrl` chưa kiểm protocol, dọn JSDoc env.ts.
+
+### ✅ P3D-B - Chặn truy cập khi chưa đăng nhập, vá S-1 (Tài khoản B) - CHỐT + ĐÃ MERGE vào `main` (2026-09-26)
+Nhánh `feature/p3d-b-chan-truy-cap`; hồ sơ `.bangiao/archive/p3d-b-chan-truy-cap-2026-09-26/`. Sau merge P3C-B: 200 file / 2168 test; e2e 09 44/44.
+Coder (test đỏ trước) → tester XANH (19 ca độc lập + kiểm trình duyệt thật) → security ĐẠT (vá thêm L-1 trong phase) → reviewer CHỐT.
+- **S-1 đã đóng:** `middleware.ts` chặn khi không có phiên hợp lệ hoặc `token.invalid` (tài khoản bị khoá), mặc định role `viewer` khi token thiếu role (tránh vòng lặp login↔overview); `src/lib/require-user.ts` (helper `requireUser`) gọi ở layout `(app)` và cả 13 page, là lệnh await đầu tiên, chặn cả kẽ hở Next.js App Router render layout/page song song (redirect ở layout không chặn được page stream dữ liệu).
+- L-1 (security, đã vá trong phase): matcher middleware bỏ qua path có dấu chấm (`/vi/projects/1.0`), `projects/[id]/page.tsx` giờ chỉ nhận id số nguyên dương viết chuẩn (`^[1-9]\d*$`), sai thì `notFound()`.
+- Test tĩnh chặn page `(app)` mới quên gọi `requireUser` + route API mới chưa khai cách chặn; e2e không cookie quét 13 page × vi/en × RSC, cộng 2 ca thử vượt qua header `x-middleware-subrequest` (kiểu CVE-2025-29927).
+- Rà route API + server action: không phát hiện lỗ hổng S-1 ở tầng API (mọi route đã tự chặn từ trước).
+- Không đổi hành vi người đã đăng nhập (bảng `DENIED`, `homeForRole` giữ nguyên).
+- Để sau: L-2 (payload RSC kèm cả từ điển i18n), L-3 (rate-limit `/api/health` né được qua `X-Forwarded-For`), ghi nợ cho P5 (A). 2 điểm yếu phần ảnh (`/api/photos` xem chéo dự án, `deletePhotoAction` dò mã ảnh), A gỡ toàn bộ code ảnh ở P3E.
+
+### ✅ P3C-B - Chart T1/T2/T4/T5 (Tài khoản B) - CHỐT + ĐÃ MERGE vào `main` (2026-09-26)
+Nhánh `feature/p3c-b-chart`; hồ sơ `.bangiao/archive/p3c-b-chart-2026-09-26/`. Sau merge P3A: 193 file / 2075 test; e2e 21/21.
+Tester XANH → security ĐẠT (S-2 thẻ Top gửi thừa trường: đã sửa) → reviewer CẦN SỬA (gạch dài trên Gantt) → sửa → CHỐT. Không migration.
+- T1: nhãn số trên chart nhân lực tuần, tooltip "Tổng TT" dùng trung bình thật.
+- T2: thẻ "Top dự án trọng điểm" (P0 đang triển khai, trễ xếp trước) thay "Dự án cần lưu ý" trên Tổng quan; che tiền N-3 rồi chỉ gửi 6 trường xuống client.
+- T4/T5: component `EquipmentPlanGantt` (Gantt thiết bị theo đợt) + `ManpowerMonthChart` (KH nhân lực tháng theo ca) + hàm đọc `readManpowerActualByMonth`; kiểu tạm `src/lib/p3c-contract.ts`.
+- **Bước 11 chuyển sang A** (chủ dự án chốt 2026-09-26): gắn T4/T5 vào trang Chi tiết + xoá `p3c-contract.ts` + xoá chart cũ, làm trong P3C-A.
+- **Phát hiện chặn deploy (có sẵn từ trước):** người chưa đăng nhập đọc được dữ liệu dự án qua `/vi/overview`, `/vi/projects/...` (middleware cho qua khi không có token). Vá ở phase P3D-B (B) ngay sau.
+- Để sau: chuỗi i18n cũ còn gạch dài (làm ở P4); chú thích `queries.ts` còn tên `WatchlistCard`; nhãn T1 sát nhau khi KH gần bằng TT.
+
 ### ✅ P3A — Form Tạo/Sửa dự án (Tài khoản A) — CHỐT + ĐÃ MERGE vào `main` (2026-09-26)
 Nhánh `feature/p3a-form-tao-sua`; hồ sơ `.bangiao/archive/p3a-form-tao-sua-2026-09-26/`. Sau merge P3B: 177 file · 1958 test.
 Reviewer vòng 1 CẦN SỬA 7 mục → vòng sửa 1 → security CẦN SỬA F-1/N-1 → vá → ĐẠT → reviewer vòng 2 CHỐT.
