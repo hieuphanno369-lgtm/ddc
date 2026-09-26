@@ -89,9 +89,9 @@ describe('EquipmentPlanGantt - 390px cuon ngang', () => {
   const model = buildPlanGantt(segments, [], '2026-09-05')!;
   const out = render(model);
 
-  it('markup chua overflow-x:auto va min-width:720px', () => {
+  it('markup chua overflow-x:auto va min-width:1000px (chu 1:1 o man hep)', () => {
     expect(out).toContain('overflow-x:auto');
-    expect(out).toContain('min-width:720px');
+    expect(out).toContain('min-width:1000px');
   });
 
   it('khong chua tip/legend/unplanned cua Gantt cu', () => {

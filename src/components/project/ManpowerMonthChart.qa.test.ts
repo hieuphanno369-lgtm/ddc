@@ -58,7 +58,7 @@ describe('ManpowerMonthChart - duong chay thuan loi', () => {
   });
 });
 
-describe('ManpowerMonthChart - BUG tim thay (PHAI THAT BAI): nhan diem TT TB/ngay de len nhan cot ca khi 2 gia tri gan nhau', () => {
+describe('ManpowerMonthChart - BUG-B (da sua): nhan diem TT TB/ngay khong de len nhan cot ca khi 2 gia tri gan nhau', () => {
   // Tai hien dung so lieu that tu du an 1 (seed), thang 09/2026: KH Ca sang 540, Ca toi 360,
   // TT TB/ngay 453 (actualSum 4530 / 10 ngay). Anh chup thuc te:
   // .bangiao/anh-test/p3c-a-b11-resshift-1440.png (thang 09/2026, chu "45360" bi de nhau).
@@ -74,7 +74,7 @@ describe('ManpowerMonthChart - BUG tim thay (PHAI THAT BAI): nhan diem TT TB/nga
     expect(model.months[0].actualAvg).toBe(453);
   });
 
-  it('khoang cach doc giua nhan "453" (diem TT) va nhan "360" (cot Ca toi) phai >= 14px de khong de nhau - CODE HIEN TAI CHI CACH VAI PX', () => {
+  it('khoang cach doc giua nhan "453" (diem TT) va nhan "360" (cot Ca toi) phai >= 14px de khong de nhau (truoc sua chi cach 0.46px)', () => {
     const yActual = textY(out, '453');
     const yBar = textY(out, '360');
     const gap = Math.abs(yActual - yBar);
@@ -115,5 +115,37 @@ describe('ManpowerMonthChart - truong hop bien: thang thieu giua dai -> duong TT
     const out = render(model);
     const dashedPolylines = [...out.matchAll(/<polyline[^>]*stroke-dasharray/g)];
     expect(dashedPolylines).toHaveLength(2);
+  });
+});
+
+describe('ManpowerMonthChart - nhan ten ca o truc duoi khong dinh nhau', () => {
+  it('2 ca "Ca sáng"/"Ca tối": khoang cach tam 2 nhan >= do rong nhan dai nhat + 4px', () => {
+    const plan: ManpowerPlanMonthRow[] = [
+      { yearMonth: '2026-09', shiftCode: 'morning', planned: 540, isManual: false },
+      { yearMonth: '2026-09', shiftCode: 'evening', planned: 360, isManual: false },
+    ];
+    const model = buildManpowerMonthModel({ plan, ratios: RATIOS, shifts: SHIFTS, actual: [] })!;
+    const out = render(model);
+    const xOf = (name: string) => Number(out.match(new RegExp(`<text x="([\\d.]+)"[^>]*>${name}<`))![1]);
+    const gap = xOf('Ca tối') - xOf('Ca sáng');
+    expect(gap).toBeGreaterThanOrEqual('Ca sáng'.length * 10 * 0.58 + 4);
+  });
+});
+
+describe('ManpowerMonthChart - svg giu kich thuoc pixel that o man hep', () => {
+  it('svg.chart co style width/height inline bang thuoc tinh (de CSS chung width:100%, khong viewBox)', () => {
+    const plan: ManpowerPlanMonthRow[] = [
+      { yearMonth: '2026-06', shiftCode: 'morning', planned: 270, isManual: false },
+      { yearMonth: '2026-07', shiftCode: 'morning', planned: 420, isManual: false },
+    ];
+    const model = buildManpowerMonthModel({ plan, ratios: RATIOS, shifts: SHIFTS, actual: [] })!;
+    const out = render(model);
+    const m = out.match(/<svg class="chart" width="(\d+(?:\.\d+)?)" height="(\d+(?:\.\d+)?)" style="([^"]*)"/);
+    expect(m).not.toBeNull();
+    const [, w, h, style] = m!;
+    expect(out).not.toMatch(/<svg class="chart"[^>]*viewBox/);
+    expect(style).toContain(`width:${w}px`);
+    expect(style).toContain(`height:${h}px`);
+    expect(style).toContain('max-width:none');
   });
 });

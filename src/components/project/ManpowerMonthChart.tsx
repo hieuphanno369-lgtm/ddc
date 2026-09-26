@@ -11,6 +11,22 @@ const ML = 44, MR = 16, MT = 26, PLOT_H = 220, AXIS_H = 40, BAR_W = 26, BAR_GAP 
 const SHIFT_COLORS = ['var(--s-plan)', 'var(--s-cost)', 'var(--s-third-lt)', 'var(--s-neutral)'];
 
 interface LinePoint { x: number; y: number; v: number }
+interface Box { x0: number; x1: number; y0: number; y1: number }
+
+// Ước lượng khung chữ SVG (chữ số/Latin ~0.58 em) để tránh nhãn đè nhau.
+const CHAR_EM = 0.58;
+const SHIFT_LABEL_FS = 10, SLOT_MAX = 72;
+function textBox(cx: number, baseline: number, text: string, fontSize: number, padX = 1): Box {
+  const half = (text.length * fontSize * CHAR_EM) / 2 + padX;
+  return { x0: cx - half, x1: cx + half, y0: baseline - fontSize * 0.8, y1: baseline + 2 };
+}
+function overlaps(a: Box, b: Box): boolean {
+  return a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+}
+// Nhãn điểm TT: thử dưới điểm, trên điểm, rồi xa hơn; lấy vị trí đầu tiên không đè cột, nhãn cột, nhãn Tổng KH.
+// Nhãn số khác nhận lề ngang rộng (LABEL_GAP) để 2 số không nằm sát nhau cùng hàng (đọc thành 1 số).
+const LABEL_GAP = 6;
+const ACTUAL_LABEL_OFFSETS = [16, -8, 28, -20];
 
 /** Cắt mảng điểm-hoặc-null thành các đoạn liên tục (null = tháng thiếu -> đường đứt). */
 function splitSegments(points: (LinePoint | null)[]): LinePoint[][] {
@@ -55,7 +71,13 @@ export function ManpowerMonthChart({ model }: { model: ManpowerMonthModel }) {
   }, []);
 
   const { shifts, months, maxY } = model;
-  const groupW = shifts.length * BAR_W + Math.max(0, shifts.length - 1) * BAR_GAP;
+  // Mỗi cột ca chiếm 1 ô đủ rộng cho tên ca ở trục dưới (tên dài quá SLOT_MAX thì cắt, có tooltip).
+  const longestName = Math.max(0, ...shifts.map((s) => s.name.length));
+  const slot = Math.min(SLOT_MAX, Math.max(BAR_W + BAR_GAP, Math.ceil(longestName * SHIFT_LABEL_FS * CHAR_EM) + 8));
+  const maxNameChars = Math.floor((slot - 8) / (SHIFT_LABEL_FS * CHAR_EM));
+  const shortName = (n: string) => (n.length > maxNameChars ? `${n.slice(0, Math.max(1, maxNameChars - 1))}…` : n);
+  const groupW = shifts.length * slot - (slot - BAR_W);
+  const barXOf = (cx: number, j: number) => cx - groupW / 2 + j * slot;
   const monthW = Math.max(MIN_MONTH_W, groupW + 24, (containerWidth - ML - MR) / Math.max(1, months.length));
   const W = ML + months.length * monthW + MR;
   const H = MT + PLOT_H + AXIS_H;
@@ -68,7 +90,28 @@ export function ManpowerMonthChart({ model }: { model: ManpowerMonthModel }) {
   const planSegments = splitSegments(planPoints);
   const actualSegments = splitSegments(actualPoints);
   const planPointsFlat = planPoints.filter((p): p is LinePoint => p != null);
-  const actualPointsFlat = actualPoints.filter((p): p is LinePoint => p != null);
+
+  const actualLabelY = new Map<number, number>();
+  months.forEach((m, i) => {
+    const p = actualPoints[i];
+    if (!p) return;
+    const cx = cxOf(i);
+    const taken: Box[] = [];
+    shifts.forEach((sh, j) => {
+      const v = m.planned[sh.code] ?? 0;
+      const bx = barXOf(cx, j);
+      taken.push({ x0: bx, x1: bx + BAR_W, y0: y(v), y1: MT + PLOT_H });
+      if (v > 0) taken.push(textBox(bx + BAR_W / 2, y(v) - 4, String(v), 10, LABEL_GAP));
+    });
+    const pp = planPoints[i];
+    if (pp) taken.push(textBox(pp.x, pp.y - 8, String(pp.v), 10.5, LABEL_GAP), { x0: pp.x - 4, x1: pp.x + 4, y0: pp.y - 4, y1: pp.y + 4 });
+    const label = String(p.v);
+    const fits = (dy: number) => {
+      const b = textBox(p.x, p.y + dy, label, 10.5);
+      return b.y0 >= MT - 14 && b.y1 <= MT + PLOT_H && !taken.some((tb) => overlaps(b, tb));
+    };
+    actualLabelY.set(i, p.y + (ACTUAL_LABEL_OFFSETS.find(fits) ?? ACTUAL_LABEL_OFFSETS[0]));
+  });
 
   return (
     <div>
@@ -83,7 +126,9 @@ export function ManpowerMonthChart({ model }: { model: ManpowerMonthModel }) {
         ]}
       />
       <div ref={containerRef} style={{ overflowX: 'auto' }}>
-        <svg className="chart" width={W} height={H} role="img" aria-label={t('manpowerMonthChart.title')}>
+        {/* Kích thước pixel thật (không viewBox): style inline đè `svg.chart { width: 100%; height: auto }` chung,
+            nếu không màn hẹp sẽ ép svg nhỏ lại, nội dung tràn ra ngoài khung và khung không cuộn ngang được. */}
+        <svg className="chart" width={W} height={H} style={{ width: W, height: H, maxWidth: 'none' }} role="img" aria-label={t('manpowerMonthChart.title')}>
           {gridLevels.map((lv) => (
             <g key={lv}>
               <line x1={ML} x2={W - MR} y1={y(lv)} y2={y(lv)} style={{ stroke: 'var(--grid)' }} />
@@ -99,7 +144,7 @@ export function ManpowerMonthChart({ model }: { model: ManpowerMonthModel }) {
               <g key={m.yearMonth}>
                 {shifts.map((s, j) => {
                   const v = m.planned[s.code] ?? 0;
-                  const barX = cx - groupW / 2 + j * (BAR_W + BAR_GAP);
+                  const barX = barXOf(cx, j);
                   const barY = y(v);
                   const barH = MT + PLOT_H - barY;
                   return (
@@ -148,10 +193,10 @@ export function ManpowerMonthChart({ model }: { model: ManpowerMonthModel }) {
               style={{ stroke: 'var(--s-third)' }}
             />
           ))}
-          {actualPointsFlat.map((p) => (
+          {actualPoints.map((p, i) => p && (
             <g key={`act-pt-${p.x}`}>
               <circle cx={p.x} cy={p.y} r={3.5} style={{ fill: 'var(--s-third)' }} />
-              <text x={p.x} y={p.y + 16} textAnchor="middle" fontSize={10.5} fontWeight={700} style={{ fill: 'var(--s-third)' }}>
+              <text x={p.x} y={actualLabelY.get(i) ?? p.y + 16} textAnchor="middle" fontSize={10.5} fontWeight={700} style={{ fill: 'var(--s-third)' }}>
                 {p.v}
               </text>
             </g>
@@ -165,10 +210,12 @@ export function ManpowerMonthChart({ model }: { model: ManpowerMonthModel }) {
                   <line x1={cx - monthW / 2} x2={cx - monthW / 2} y1={MT + PLOT_H} y2={MT + PLOT_H + AXIS_H} style={{ stroke: 'var(--grid)' }} />
                 )}
                 {shifts.map((s, j) => {
-                  const barX = cx - groupW / 2 + j * (BAR_W + BAR_GAP) + BAR_W / 2;
+                  const barX = barXOf(cx, j) + BAR_W / 2;
+                  const label = shortName(s.name);
                   return (
-                    <text key={s.code} x={barX} y={MT + PLOT_H + 14} textAnchor="middle" fontSize={10} style={{ fill: 'var(--label2)' }}>
-                      {s.name}
+                    <text key={s.code} x={barX} y={MT + PLOT_H + 14} textAnchor="middle" fontSize={SHIFT_LABEL_FS} style={{ fill: 'var(--label2)' }}>
+                      {label}
+                      {label !== s.name && <title>{s.name}</title>}
                     </text>
                   );
                 })}
