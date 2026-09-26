@@ -15,6 +15,7 @@ import type { DashboardFilters, GroupBy } from '@/server/queries';
 import { getOverdueScorecard, type Scorecard } from '@/server/overdue-scorecard';
 import { formatTyd } from '@/lib/format';
 import { THRESHOLDS } from '@/lib/thresholds';
+import { toTopPriorityItem } from '@/lib/top-priority';
 import { maskGroupRows, maskProjectSummaries, safeListSort, type ListSort } from '@/lib/finance-gate';
 import { KpiCard } from './KpiCard';
 import { TopPriorityList } from './TopPriorityList';
@@ -168,7 +169,7 @@ export async function TopPriorityCard({
   canViewFinance: boolean;
 }) {
   const items = await loadTopPriority(month, filters);
-  return <TopPriorityList items={maskProjectSummaries(items, canViewFinance)} />;
+  return <TopPriorityList items={maskProjectSummaries(items, canViewFinance).map(toTopPriorityItem)} />;
 }
 
 export async function ProjectListCard({

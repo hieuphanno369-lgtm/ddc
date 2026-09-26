@@ -122,10 +122,9 @@ describe('N-3 Tổng quan - GroupBarCard/ProjectListCard/TopPriorityCard che tie
 
     const topEl = await TopPriorityCard({ month: '2026-09', filters: FILTERS as never, canViewFinance: false });
     renderToStaticMarkup(topEl as React.ReactElement);
-    const tItems = topPriorityProps[0].items as Array<{ contractValue: unknown; eac: unknown; vac: unknown }>;
-    expect(tItems[0].contractValue).toBeNull();
-    expect(tItems[0].eac).toBeNull();
-    expect(tItems[0].vac).toBeNull();
+    const tItems = topPriorityProps[0].items as Array<Record<string, unknown>>;
+    // S-2: chi truyen 6 truong can hien thi xuong client, khong co truong tien.
+    expect(Object.keys(tItems[0]).sort()).toEqual(['id', 'onTrack', 'pctActual', 'pctPlan', 'projectName', 'status']);
     expect(JSON.stringify(topPriorityProps[0])).not.toMatch(/"contractValue":\d/);
     expect(loadTopPriority).toHaveBeenCalledWith('2026-09', FILTERS);
   });
@@ -156,7 +155,8 @@ describe('N-3 Tổng quan - GroupBarCard/ProjectListCard/TopPriorityCard che tie
     topPriorityProps.length = 0;
     const topEl = await TopPriorityCard({ month: '2026-09', filters: FILTERS as never, canViewFinance: true });
     renderToStaticMarkup(topEl as React.ReactElement);
-    const tItems = topPriorityProps[0].items as Array<{ contractValue: unknown }>;
-    expect(tItems[0].contractValue).toBe(123.4);
+    const tItems = topPriorityProps[0].items as Array<Record<string, unknown>>;
+    expect(Object.keys(tItems[0]).sort()).toEqual(['id', 'onTrack', 'pctActual', 'pctPlan', 'projectName', 'status']);
+    expect(tItems[0].pctActual).toBe(48);
   });
 });

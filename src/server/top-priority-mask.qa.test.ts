@@ -73,14 +73,13 @@ import { TopPriorityCard } from '@/components/dashboard/OverviewWidgets';
 const FILTERS = { status: 'all', teamKdId: 'all', customerId: 'all', priority: 'all', market: 'all', projectType: 'all' } as const;
 
 describe('TopPriorityCard + maskProjectSummaries - QA doc lap N-3 Buoc 10', () => {
-  it('duong chay thuan loi: admin (canViewFinance=true) giu nguyen ca 3 truong tien, ke ca vac am', async () => {
+  it('S-2: admin (canViewFinance=true) cung chi nhan 6 truong can hien thi, khong co truong tien', async () => {
     topPriorityProps.length = 0;
     const el = await TopPriorityCard({ month: '2026-09', filters: FILTERS as never, canViewFinance: true });
     renderToStaticMarkup(el as React.ReactElement);
-    const items = topPriorityProps[0].items as Array<{ contractValue: unknown; eac: unknown; vac: unknown }>;
-    expect(items[0].contractValue).toBe(999.9);
-    expect(items[0].eac).toBe(1200.5);
-    expect(items[0].vac).toBe(-55.5);
+    const items = topPriorityProps[0].items as Array<Record<string, unknown>>;
+    expect(Object.keys(items[0]).sort()).toEqual(['id', 'onTrack', 'pctActual', 'pctPlan', 'projectName', 'status']);
+    expect(JSON.stringify(topPriorityProps[0])).not.toMatch(/999\.9|1200\.5|-55\.5/);
   });
 
   it('bien: goi dung loadTopPriority voi thang + filters truyen vao', async () => {
@@ -94,10 +93,10 @@ describe('TopPriorityCard + maskProjectSummaries - QA doc lap N-3 Buoc 10', () =
     topPriorityProps.length = 0;
     const el = await TopPriorityCard({ month: '2026-09', filters: FILTERS as never, canViewFinance: false });
     renderToStaticMarkup(el as React.ReactElement);
-    const items = topPriorityProps[0].items as Array<{ contractValue: unknown; eac: unknown; vac: unknown }>;
-    expect(items[0].contractValue).toBeNull();
-    expect(items[0].eac).toBeNull();
-    expect(items[0].vac).toBeNull();
+    const items = topPriorityProps[0].items as Array<Record<string, unknown>>;
+    expect(items[0]).not.toHaveProperty('contractValue');
+    expect(items[0]).not.toHaveProperty('eac');
+    expect(items[0]).not.toHaveProperty('vac');
     // Ro ri gian tiep qua JSON serialize cung phai bi chan.
     expect(JSON.stringify(topPriorityProps[0])).not.toMatch(/999\.9|1200\.5|-55\.5/);
   });

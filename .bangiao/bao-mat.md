@@ -30,6 +30,8 @@ Security-reviewer kiểm tĩnh và đọc payload thật trên dev server cổng
 
 - `TopPriorityList` chỉ dùng id, projectName, status, onTrack, pctActual, pctPlan nhưng nhận cả `SafeProjectSummary` (customerName, teamName, tonnage, spi, cpi... vẫn nằm trong payload). Không lộ tiền.
 - Cách vá: `TopPriorityCard` map sang kiểu hẹp trước khi truyền.
+- **ĐÃ SỬA** (chủ dự án chốt sửa trong P3C-B): `toTopPriorityItem` + kiểu `TopPriorityItem` ở `src/lib/top-priority.ts`; `TopPriorityCard` che tiền rồi cắt còn 6 trường. Payload RSC thật (admin) của thẻ chỉ còn id, projectName, status, onTrack, pctActual, pctPlan. Test cập nhật: `overview-finance-gate.test.ts`, `top-priority-mask.qa.test.ts`.
+- **S-1:** chủ dự án chốt B vá ngay ở phase riêng P3D-B, merge ngay sau P3C-B.
 
 ### S-3 (THÔNG TIN, cho A ở Bước 11)
 

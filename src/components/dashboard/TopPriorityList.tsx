@@ -4,15 +4,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { formatPct } from '@/lib/format';
-import { isBehindSchedule } from '@/lib/top-priority';
+import { isBehindSchedule, type TopPriorityItem } from '@/lib/top-priority';
 import { maxHeightForRows, WATCHLIST_VISIBLE_ROWS } from '@/lib/visible-rows';
-import type { SafeProjectSummary } from '@/lib/finance-gate';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { IconChevronRight } from '@/components/icons';
 
 /** Thẻ "Top dự án trọng điểm" (T2): P0 đang triển khai, trễ xếp trước. Không hiện số tiền. */
-export function TopPriorityList({ items }: { items: SafeProjectSummary[] }) {
+export function TopPriorityList({ items }: { items: TopPriorityItem[] }) {
   const t = useTranslations();
   const locale = useLocale();
   const listRef = useRef<HTMLDivElement>(null);
