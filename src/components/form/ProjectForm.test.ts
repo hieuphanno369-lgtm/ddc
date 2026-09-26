@@ -61,7 +61,7 @@ describe('ProjectForm - T3 markup deu o', () => {
     const m = out.match(/data-field="contractValueOriginal"[\s\S]*?<\/div>\s*<\/div>/);
     expect(m).not.toBeNull();
     const block = m![0];
-    expect(block).toContain('<div class="inline"><select');
+    expect(block).toContain('<div class="inline-row"><select');
     expect(block).toContain('<input');
   });
 });

@@ -141,3 +141,81 @@
 
 Buoc 11 (gan chart cua B vao trang Chi tiet): **CHO**, chua lam trong lan nay - dieu kien mo: B da
 merge P3C-B vao `main`, P3C-A da CHOT, A khong dang nang Next (xem `.bangiao/ke-hoach.md`).
+
+## Debugger vong 1 - BUG-01
+
+### Root cause (da xac nhan THAT tren trinh duyet that, khong doan)
+
+`app/globals.css` dinh nghia class rieng cua app `.inline{display:flex;align-items:center;gap:9px}`
+dung lam khung select+input cung dong (vd o "Gia tri nguyen te" o `ProjectForm.tsx`). Vi trong code
+co dung chuoi lieu `className="inline"`, Tailwind JIT quet thay va TU SINH THEM utility co san cua no
+trung ten `.inline{display:inline}`. Ca 2 rule cung specificity (`0,1,0`) nam trong CUNG 1 file bundle
+`layout.css`; rule cua Tailwind duoc ghi SAU rule cua app nen THANG cascade (CSS: cung specificity thi
+rule khai bao sau thang). Ket qua phan tu `.inline` bi ep ve `display:inline` roi bi trinh duyet
+"blockify" thanh `display:block` (vi no la con truc tiep cua `.field`, mot flex-column container) -
+khong con la flex-row nua, nen `<select>` va `<input>` ben trong khong cung dong: `<input>` roi
+xuong 1 dong rieng ben duoi `<select>` (lech dung 38px = 1 hang).
+
+**Da tai hien That truoc khi sua** (Playwright qua `node_modules/playwright-core` co san trong repo,
+dang nhap that `admin@daidung.com.vn`/`Admin@123`, dev server that cong 3000, DB `ddc_control_tower`,
+KHONG qua UI luu du lieu):
+- Doc `document.styleSheets` cua trang that: xac nhan dung 2 rule `.inline` trong `layout.css`, rule
+  `display:flex` cua app o INDEX 232, rule `display:inline` cua Tailwind o INDEX 389 (sau) - dung nhu
+  gia thuyet cua Tester.
+- Do `getBoundingClientRect()` truoc khi sua (doi tien te sang USD o `/vi/ho-so-du-an?mode=new`):
+  `select.top` va `input.top` lech dung **38px** ca o 1440px lan 390px (`getComputedStyle(wrap).display`
+  = `"block"`, ky vong `"flex"`) - khop 100% bang chung Tester da ghi trong `ket-qua-test.md`.
+
+### Cach sua (toi thieu, dung cho)
+
+Doi ten class rieng cua app tu `.inline` sang **`.inline-row`** (khong trung bat ky pattern utility
+nao cua Tailwind - `inline-flex`/`inline-block`/`inline-grid`/`inline-table` deu co hau to rieng,
+`inline-row` khong phai hau to Tailwind sinh ra) o ca dinh nghia trong `app/globals.css` (4 dong: rule
+chinh + 3 rule con `.feven>.field>.inline>...`) va tat ca noi dung trong `.tsx` (rename dong bo,
+khong doi hanh vi):
+- `app/globals.css` (dong ~390-397).
+- `src/components/form/ProjectForm.tsx` (3 cho: khung "Gia tri nguyen te" dong 507, khung Switch
+  "penalized" dong 577, dong dem "Bat buoc/N truong da dien" o thanh sticky dong 656).
+- `src/components/form/DataEntryForm.tsx` (1 cho: `<label>` checkbox "Ap dung" giai doan, dong 383).
+- `src/components/form/EquipmentPlanEditor.tsx` (1 cho: hang chon thiet bi trong nhom, dong 137).
+- `src/components/form/ProjectForm.test.ts` (cap nhat chuoi ky vong `<div class="inline-row">`).
+
+Da grep toan `src/` + `app/` xac nhan day la TOAN BO 5 cho dung `className="inline"` chinh xac (khong
+con cho nao dua vao `.inline` cu sau khi sua).
+
+### Ra soat class app khac co the trung utility Tailwind (chi ghi nhan, khong sua vi khong cung goc/
+khong co xung dot that)
+
+Da liet ke moi class don dinh nghia trong `globals.css` trung ten voi cac utility Tailwind pho bien
+(hidden/flex/grid/block/relative/absolute/sticky/scroll/gap/fill/transform...). Ket qua:
+- `.relative` (dong 395, trong selector `.feven>.field>.relative>.inp`): **khong phai class rieng cua
+  app** - khong co dinh nghia `.relative{...}` doc lap nao trong `globals.css`; day la Tailwind utility
+  `position:relative` dung DUNG y (Combobox, SettingsMenu, ProjectSwitcher, PasswordInput dung lam
+  positioning context cho dropdown/icon) - khong xung dot.
+- `.scroll{overflow-x:auto}` (dong 298) va `.fill` (`.stage .fill`, dong con dung standalone o
+  DataEntryForm/`[id]/page.tsx`): Tailwind KHONG co utility bare `scroll` hay bare `fill` (Tailwind chi
+  sinh `scroll-auto`/`scroll-smooth`/`scroll-p-*`... va `fill-none`/`fill-current`/`fill-{color}`, deu
+  co hau to bat buoc) - khong co utility trung ten de xung dot.
+- `.gap` chi xuat hien trong selector ghep `.kpi .sb.gap` (khong phai class don dung rieng); Tailwind
+  cung khong sinh utility bare `gap` (luon can hau to `gap-N`) - khong xung dot.
+- `.sticky` chi xuat hien trong selector ghep `.tbl.sticky` (khong co `className="sticky"` dung rieng
+  o dau trong `src/`/`app/`) - Tailwind CO utility bare `.sticky{position:sticky}` nhung vi app khong
+  dung `.sticky` mot minh nen khong co phan tu nao bi anh huong; **ghi nhan de y**: neu sau nay co code
+  dung `className="sticky"` doc lap, se gap dung mau loi giong BUG-01 (Tailwind sinh utility trung ten,
+  co the thang cascade tuy thu tu bundle) - nen dat ten khac (vd `.sticky-head`) neu can dung.
+
+Khong phat hien xung dot ten class TAT CA con lai ngoai `.inline` (da sua) va rui ro tiem an `.sticky`
+(da ghi nhan, chua co xung dot that nen khong sua).
+
+### Kiem chung sau sua
+
+- Playwright that (script tam, cung `playwright-core`, dev server that cong 3000, khong luu du lieu
+  qua UI): sau sua, `getComputedStyle(wrap).display` = `"flex"`, `select.top` va `input.top` LECH
+  **0px** o ca 1440px va 390px (doi tien te sang USD). Anh chup:
+  `.bangiao/anh-test/debugger-v1-bug01-sau-1440-usd.png`, `...-390-usd.png`.
+- `npx tsc --noEmit`: sach.
+- `npm test`: **186 file / 2151 test xanh** (dung moc Tester ban giao, khong tut, khong tang - chi doi
+  ten class + cap nhat 1 chuoi ky vong trong test cu).
+- `npm run check:read`: OK toan bo (18 ham doc, du an 1 va 17).
+- `npx prisma migrate status`: khong doi (lan sua nay khong dung migration).
+- Khong luu du lieu qua UI trong lan sua nay nen KHONG can chay lai `npx prisma db seed`.

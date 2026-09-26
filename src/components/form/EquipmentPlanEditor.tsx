@@ -134,7 +134,7 @@ export function EquipmentPlanEditor(p: {
       <p className="hintline">{t('equipmentPlan.help')}</p>
       {groups.map((g, gi) => (
         <div key={gi} style={{ marginTop: 14 }}>
-          <div className="inline" style={{ flexWrap: 'wrap', gap: 9 }}>
+          <div className="inline-row" style={{ flexWrap: 'wrap', gap: 9 }}>
             <select
               value={g.equipmentId}
               onChange={(e) => updateGroup(gi, { equipmentId: e.target.value })}

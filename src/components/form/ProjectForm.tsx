@@ -504,7 +504,7 @@ export function ProjectForm(p: ProjectFormProps) {
               </div>
               <div className="field" data-field="contractValueOriginal">
                 <span className="lb">{t('projectForm.field.originalValue')}</span>
-                <div className="inline">
+                <div className="inline-row">
                   <select value={form.currencyCode} onChange={(e) => set('currencyCode', e.target.value)} className="inp">
                     {currencies.map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}
                   </select>
@@ -574,7 +574,7 @@ export function ProjectForm(p: ProjectFormProps) {
                 <input type="date" value={form.actualFinishDate} onChange={(e) => set('actualFinishDate', e.target.value)} className={inputCls('actualFinishDate')} />
               </div>
               <Field label={t('projectForm.field.penalized')}>
-                <div className="inline" style={{ height: 38 }}>
+                <div className="inline-row" style={{ height: 38 }}>
                   <Switch checked={form.penalized} onChange={(v) => set('penalized', v)} label={t('projectForm.field.penalized')} />
                   <span style={{ color: form.penalized ? 'var(--danger)' : 'var(--label2)' }}>
                     {form.penalized ? t('projectForm.field.penalizedOn') : t('projectForm.field.penalizedOff')}
@@ -653,7 +653,7 @@ export function ProjectForm(p: ProjectFormProps) {
           </button>
           <button type="button" className="btn ghost" onClick={saveDraftNow}>{t('projectForm.btn.draft')}</button>
           <button type="button" className="btn ghost" onClick={handleCancel}>{t('projectForm.btn.cancel')}</button>
-          <div className="inline" style={{ marginLeft: 'auto', fontSize: 'var(--t-caption1)', color: 'var(--label3)' }}>
+          <div className="inline-row" style={{ marginLeft: 'auto', fontSize: 'var(--t-caption1)', color: 'var(--label3)' }}>
             <span className="req">*</span> {t('projectForm.required')} · {t('projectForm.count', { n: filled, total })}
           </div>
         </div>

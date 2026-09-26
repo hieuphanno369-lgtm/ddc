@@ -387,14 +387,17 @@
   .f4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
   @media(max-width:1100px){.f4{grid-template-columns:repeat(2,1fr)}}
   @media(max-width:820px){.f2,.f4{grid-template-columns:1fr}}
-  .inline{display:flex;align-items:center;gap:9px}
+  /* Debugger vong 1 BUG-01: doi ten tu ".inline" sang ".inline-row" vi Tailwind JIT tu sinh
+     utility trung ten ".inline{display:inline}" (do co chuoi className="inline" trong code) va
+     nam SAU rule nay trong bundle bien dich nen thang cascade, pha vo layout hang ngang. */
+  .inline-row{display:flex;align-items:center;gap:9px}
   /* P3C-A T3: form ho so - nhan 1 dong co dinh (dau ? cung dong), o cung chieu cao,
      dong goi y/loi nam duoi o khong day o ben canh. */
   .feven{align-items:start}
   .feven>.field>.lb{min-height:18px}
-  .feven>.field>.inp,.feven>.field>.relative>.inp,.feven>.field>.inline>.inp,.feven>.field>.inline{height:38px}
-  .feven>.field>.inline>select.inp{flex:0 0 88px;width:88px}
-  .feven>.field>.inline>input.inp{flex:1 1 auto;min-width:0}
+  .feven>.field>.inp,.feven>.field>.relative>.inp,.feven>.field>.inline-row>.inp,.feven>.field>.inline-row{height:38px}
+  .feven>.field>.inline-row>select.inp{flex:0 0 88px;width:88px}
+  .feven>.field>.inline-row>input.inp{flex:1 1 auto;min-width:0}
   .tagbox{display:flex;flex-wrap:wrap;gap:6px;padding:8px 9px;border-radius:var(--r-sm);
     border:.5px solid var(--sep-2);background:var(--glass-3);min-height:38px;align-items:center}
   .tagbox .tg{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:7px;

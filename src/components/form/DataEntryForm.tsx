@@ -380,7 +380,7 @@ export function DataEntryForm({
                           onChange={(e) => set('stagePct', { ...form.stagePct, [s]: e.target.value })}
                           className={inputCls('stagePct.' + s)}
                         />
-                        <label className="inline" style={{ fontSize: 'var(--t-caption1)', color: 'var(--label2)' }}>
+                        <label className="inline-row" style={{ fontSize: 'var(--t-caption1)', color: 'var(--label2)' }}>
                           <input
                             type="checkbox"
                             checked={form.stageApplicable?.[s] ?? true}
