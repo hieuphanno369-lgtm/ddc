@@ -3,6 +3,17 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P3C-A - Form đều ô, kế hoạch thiết bị theo đợt, kế hoạch nhân lực theo tháng + Bước 11 chart trang Chi tiết (Tài khoản A) - CHỐT + ĐÃ MERGE vào `main` (2026-09-27)
+Nhánh `feature/p3c-a-form-ke-hoach`; hồ sơ `.bangiao/archive/p3c-a-form-ke-hoach-2026-09-27/`. 210 file / 2397 test; có migration `20260926100000_p3c_a_plan_tables` (bên khác chạy `npx prisma migrate deploy`).
+Task 0-10: coder → tester XANH (vá BUG-01 `.inline` trùng utility Tailwind → `.inline-row`) → security ĐẠT → reviewer CAN SUA → sửa → CHỐT. Bước 11: coder → tester ĐỎ (chữ đè) → sửa → reviewer CAN SUA (CS-1) → sửa → tester độc lập XANH → reviewer CHỐT; security ĐẠT.
+- T3: form Tạo/Sửa dự án đều ô (5 khối `f4 feven`, `?` trong nhãn, nguyên tệ cùng dòng).
+- T4: 3 bảng mới `project_equipment_quota` (Tổng SL) + `project_equipment_plan` theo đợt (`qty`, CHECK, chuyển dữ liệu cũ) + form `EquipmentPlanEditor` (kiểm vượt tổng theo ngày, thay toàn bộ trong 1 transaction, 1 dòng audit); zod đếm tổng đợt trước khi parse sâu (L-1).
+- T5: `project_shift_ratio` + `project_manpower_plan_month` + `ManpowerPlanEditor` (chia ca theo tỷ lệ, giữ ô sửa tay, chỉ ghi tháng đổi); ô ca có nháp riêng, rời ô khi gõ dở thì trả cả dòng về lúc bấm vào.
+- Bước 11 (chuyển từ B): trang Chi tiết `#eq-gantt` = `EquipmentPlanGantt`, `#res-shift` = `ManpowerMonthChart` (sau `requireProjectRead`); xoá chart cũ, `p3c-contract`, hàm đọc cũ (`readEquipmentPlans`, `readEquipmentUsageDays`, `readManpowerByShiftMonth`) và key i18n cũ `equipmentGantt.*`, `manpowerCharts.shift*`.
+- Sửa hiển thị 2 chart: nhãn không đè nhau (tick căn giữa, cột SL 140, nhãn TT tự chọn chỗ, ô cột theo tên ca, 1 ca bỏ số trùng); svg chart tháng giữ kích thước thật (CSS chung `svg.chart{width:100%}` từng làm tràn khung ở 390px); Gantt `min-width` 1000 để chữ 1:1.
+- Chưa chạy trên A (DB A đã bị xoá dữ liệu, guard e2e chỉ cho B/C): e2e `03-project-detail` + `check:read` → chủ dự án giao C chạy trên `main` sau merge (kèm ảnh Gantt 12 tháng, kiểm font).
+- Để sau: THẤP-1 query không tự kiểm quyền (task `server-only` chung); L-2 khoá lạc quan + rate limit action ghi; test component onFocus/onBlur ô ca (đưa vào e2e); nhãn cột và Tổng KH cùng giá trị đặt cạnh nhau khi 2 ca mà 1 ca bằng 0; `seed-perf.ts` và `.serena/memories/core.md` còn mã ca `afternoon`.
+
 ### ✅ P7-C1 - Task bổ sung đợt 2: tên app, bỏ nút xoá dữ liệu, Tổng quan, tên dự án trên sidebar (Tài khoản C) - CHỐT + ĐÃ MERGE vào `main` (2026-09-26)
 Nhánh `feature/p7-c-task-bo-sung`; hồ sơ `.bangiao/archive/p7-c1-2026-09-26/`. 203 file / 2213 test; e2e 74/74 trên cổng 3003 + DB `ddc_control_tower_c`.
 Coder → tester XANH → security ĐẠT → reviewer CHỐT (vòng 2) cho C-0 + 7.1 + 7.3 + 7.6; 7.7-7.10 làm sau khi CHỐT (e2e riêng, chưa qua reviewer, chủ dự án đồng ý merge luôn).
