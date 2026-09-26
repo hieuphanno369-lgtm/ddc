@@ -110,7 +110,7 @@ tạo file). `npx tsc --noEmit` sạch; `npm test` **195 file / 2105 test xanh**
 
 ## Bước 4 - Mọi page `(app)` + layout gọi `requireUser` trước khi đọc dữ liệu
 
-- Test tĩnh `src/server/app-pages-require-user.test.ts` (21 ca: quét layout + 13 page, đòi hỏi `requireUser`
+- Test tĩnh `src/server/app-pages-require-user.test.ts` (15 ca: quét layout + 13 page, đòi hỏi `requireUser`
   là lệnh await đầu tiên) và test thật `src/server/app-pages-auth-guard.test.ts` (10 ca: overview, projects,
   projects/[id], import - 4 page vốn KHÔNG tự kiểm gì): viết đỏ trước (21/21 đỏ vì `app-pages-require-user`
   chưa có `requireUser` trong bất kỳ file nào; toàn bộ `app-pages-auth-guard` đỏ vì 4 page đọc dữ liệu trước
@@ -176,4 +176,87 @@ Ngoại lệ mức thấp `deletePhotoAction` (dò mã ảnh trước khi kiểm
 
 ---
 
-(Còn lại: bảng "Sau khi sửa" đầy đủ theo Bước 6.3, kiểm tay trình duyệt, việc không làm - điền ở Bước 6.)
+## Bước 6 - Kiểm chứng cuối + hồ sơ
+
+### 6.1 Cổng chung cuối cùng
+
+- `npx tsc --noEmit`: **0 lỗi**.
+- `npm test`: **199 file / 2140 test xanh** (mốc Bước 1: 193/2075; tăng 6 file/65 test qua các Bước 2-5:
+  `middleware-auth` +23, `require-user` +7, `app-pages-require-user` +15, `app-pages-auth-guard` +10,
+  `api-routes-guard` +9, `health-route` +1 = đúng +65).
+
+### 6.2 `npx playwright test` toàn bộ
+
+**60/60 xanh** (21 spec cũ + 39 ca spec `09-chan-chua-dang-nhap.spec.ts`, 3 ca `[setup]` dùng chung 1 lần).
+Log đầy đủ đã lưu lại trong quá trình làm Bước 4 và chạy xác nhận lại lần cuối ở Bước 6 cho đồng bộ với
+commit cuối cùng.
+
+### 6.3 Curl kiểm chứng lại lệnh trong báo cáo S-1 (dev 3001, PowerShell)
+
+```
+curl.exe ... -H "RSC: 1" http://localhost:3001/vi/overview     -> 307, 9 byte, redirect_url=.../vi/login
+curl.exe ... -H "RSC: 1" http://localhost:3001/vi/projects/1   -> 307, 9 byte, redirect_url=.../vi/login
+curl.exe ... -H "RSC: 1" http://localhost:3001/vi/projects     -> 307, 9 byte, redirect_url=.../vi/login
+curl.exe -s -H "RSC: 1" http://localhost:3001/vi/overview | Select-String "projectName|masterCode"
+  -> (không in dòng nào)
+```
+
+Đúng như kỳ vọng kế hoạch. So với bảng "Trước khi sửa" (Bước 1.3): trước đây `RSC: 1` trả **200** và lộ
+`projectName`/`masterCode` thật trong body cho toàn bộ 18 đường dẫn; sau khi sửa, TOÀN BỘ 18 đường dẫn (cả
+kiểu thường lẫn RSC) đều trả **307** về đúng trang login (`/vi/login` hoặc `/en/login`) và **không còn lộ**
+`projectName`/`masterCode` trong body (đã chạy lại full bảng bằng `curl.exe`, kết quả đồng nhất "lo:khong"
+cho mọi dòng, khác hẳn "lo:CO" ở mọi dòng của bảng trước khi sửa).
+
+### 6.4 Kiểm tay trên trình duyệt
+
+Coder là agent, không có chuột/mắt người để "click tay" theo đúng nghĩa đen; đã thay bằng kịch bản Playwright
+chạy trên trình duyệt Chromium thật (không dùng storageState có sẵn, đăng nhập lại từ đầu mỗi bước), y hệt
+chuỗi thao tác kế hoạch yêu cầu - **4/4 bước xanh**:
+- Đăng nhập admin (thật, gõ email/mật khẩu) -> `/vi/overview` OK -> vào `/vi/projects/1` (status 200, không
+  có "Internal Server Error") -> vào `/vi/admin` (status 200, không lỗi) -> đăng xuất qua menu Cài đặt -> về
+  `/login`.
+- Mở lại `/vi/overview` khi đã đăng xuất -> bị đưa về `/vi/login` (đúng hành vi chặn).
+- Đăng nhập pm -> về `/vi/nhap-lieu` -> mở `/vi/overview` -> bị đưa về `/vi/nhap-lieu` (RBAC người đã đăng
+  nhập giữ nguyên, không đổi hành vi).
+
+Kịch bản này KHÔNG thuộc kế hoạch, chỉ dùng để tự kiểm tra, đã xoá ngay sau khi chạy xong, không commit.
+**Đề nghị Tester:** làm lại bằng tay trên trình duyệt thật (không phải qua Playwright) ít nhất 1 lần để chắc
+chắn UI hiển thị đúng, vì agent chỉ kiểm được hành vi điều hướng/status, không đánh giá được cảm quan giao diện.
+
+### 6.5 Danh sách file đã đổi (toàn phase)
+
+| File | Việc |
+|---|---|
+| `middleware.ts` | Thêm `PUBLIC_PATHS`/`isPublicPath`, chặn khi không có phiên hợp lệ hoặc `token.invalid`, mặc định role `viewer` khi token thiếu role |
+| `src/lib/require-user.ts` | MỚI: helper `requireUser(locale, roles?)` |
+| `app/[locale]/(app)/layout.tsx` | Đổi `getCurrentUser`+`redirect` thủ công -> `requireUser(locale)` |
+| `app/[locale]/(app)/overview/page.tsx` | Thêm `requireUser(locale, ['admin','bod','viewer'])` (trước đây không kiểm gì) |
+| `app/[locale]/(app)/projects/page.tsx` | Thêm `requireUser(params.locale)` trước `repo.listProjects()` |
+| `app/[locale]/(app)/projects/[id]/page.tsx` | `getCurrentUser` -> `requireUser(locale)`, đặt trước `getTranslations` |
+| `app/[locale]/(app)/import/page.tsx` | Thêm `requireUser(locale, ['admin','data-entry'])` (trước đây không kiểm gì) |
+| `app/[locale]/(app)/report,alerts,compliance,audit,admin,data-dictionary,data-schema,nhap-lieu,ho-so-du-an/page.tsx` | Gộp 2 dòng `getCurrentUser`+`if` cũ thành 1 dòng `requireUser(locale, roles)`, giữ nguyên kết quả redirect |
+| `e2e/09-chan-chua-dang-nhap.spec.ts` | MỚI: e2e tái hiện + khoá S-1 |
+| `src/server/middleware-auth.test.ts` | MỚI: 23 ca unit test middleware |
+| `src/lib/require-user.test.ts` | MỚI: 7 ca |
+| `src/server/app-pages-require-user.test.ts` | MỚI: test tĩnh quét layout + 13 page |
+| `src/server/app-pages-auth-guard.test.ts` | MỚI: test thật cho 4 page vốn không tự kiểm |
+| `src/server/api-routes-guard.test.ts` | MỚI: test tĩnh khoá route API |
+| `src/server/health-route.test.ts` | MỚI |
+| `src/lib/p3c-contract.qa.test.ts` | Vá lỗi CRLF/LF không liên quan phạm vi P3D-B (xem mục "Mốc đầu phase") |
+| `.bangiao/thay-doi.md` | Hồ sơ này |
+
+### 6.6 Việc KHÔNG làm (đúng ràng buộc kế hoạch)
+
+- CSP, rate limit (thuộc P5 của tài khoản A).
+- Nâng Next.js.
+- `callbackUrl` sau đăng nhập (Câu hỏi 1, chủ dự án chốt giữ nguyên).
+- Vá `app/api/photos/[...path]/route.ts` (xem chéo dự án) và `deletePhotoAction` (dò mã ảnh) - Câu hỏi 3,
+  chủ dự án chốt để A gỡ toàn bộ code ảnh ở P3E, không mở rộng P3D-B.
+- Không thêm key i18n mới.
+- Không sửa file nóng (`prisma/**`, `globals.css`, `vi.json`/`en.json`, `actions.ts`, `prisma-repo.ts`,
+  `queries.ts`, `project-queries.ts`) - không có nhu cầu sửa file nào trong nhóm này ở phase này.
+
+### Việc còn treo (để chủ dự án/A theo dõi tiếp, không thuộc phạm vi coder P3D-B)
+
+- G-1…G-20 (treo từ Redesign Apple Glass, không liên quan P3D-B).
+- Câu hỏi 3 (2 điểm yếu phần ảnh) - chờ P3E gỡ code ảnh.
