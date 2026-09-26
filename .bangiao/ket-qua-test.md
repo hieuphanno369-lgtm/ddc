@@ -1,4 +1,24 @@
-KET QUA TEST: DO
+KET QUA TEST: XANH
+
+> Dong dau cu cua Tester: `KET QUA TEST: DO`. Da doi thanh XANH sau vong sua ben duoi (commit `a1fbaa6`).
+> Vong sua va kiem lai do DIEU PHOI VIEN lam (khong phai Tester doc lap); reviewer can soi lai.
+
+## Vong sua sau Tester (dieu phoi vien, 2026-09-26)
+
+| Loi | Nguon | Sua | Kiem |
+|---|---|---|---|
+| BUG-A header "SL nay/tong" de tick dau | Tester | `EquipmentPlanGantt.tsx`: QTY_W 76 -> 96, tick dau neo trai (`textAnchor=start`, +4px) | test QA viet lai do theo MEP chu that (co tinh textAnchor), vi + en, >= 6px |
+| Nhan "Hom nay" de nhan thang (vd "10.2026") | Dieu phoi vien thay tren anh Tester | hang nhan dau bang ha tu `MT-18` xuong `HEAD_Y = MT-10`, duoi pill y 2..18 | test QA: dinh chu tick > 18 |
+| BUG-B nhan "TT TB/ngay" de nhan cot ("45360") | Tester | `ManpowerMonthChart.tsx`: chon vi tri nhan TT theo khung chu (thu +16, -8, +28, -20), tranh cot, nhan cot, nhan Tong KH; nhan so khac co le ngang 6px | test QA cu (>= 14px) xanh: 453 o y 138.3, 360 o y 162.8 |
+| Nhan ten ca truc duoi dinh nhau ("Ca sangCa toi") | Dieu phoi vien thay tren anh | moi cot ca 1 o rong theo ten ca dai nhat (toi da 72px, qua thi cat + `<title>`) | test QA moi: khoang cach tam >= do rong ten + 4px |
+| Man 390px: chart thang bi CSS chung `svg.chart{width:100%;height:auto}` ep con 306x116, khong viewBox nen noi dung tran ra ngoai khung, de len noi dung ben duoi, khung khong cuon | Dieu phoi vien do lai (Tester do nham `#res-shift svg` dau tien la icon HelpTip) | style inline `width/height = W/H`, `maxWidth: none` tren svg | test QA moi; trinh duyet 390: svg 753x286, khung cuon 753/306, nam gon trong card, trang khong tran (docW 379 <= 390) |
+| Man 390px: chu Gantt con ~7px (min-width 720 co viewBox 1000) | Dieu phoi vien | `MIN_SVG_W = W` (1000, ty le 1:1), cap nhat test `min-width:1000px` | trinh duyet 390: chu header cao 12px, khung cuon 1000/306 |
+
+- Cong kiem sau sua: `npx tsc --noEmit` sach; `npm test` 210 file / 2393 test xanh (ca 2 test "PHAI THAT BAI" cua Tester nay xanh).
+- Trinh duyet that (Playwright MCP, DB tam `ddc_control_tower_qa_a2`, cong 3005, da xoa DB): anh `.bangiao/anh-test/p3c-a-b11-sua-{eqgantt,resshift}-{1440,390}.png`.
+- Cach chup: cong cu chup cua MCP lech vi tri khi trang da cuon (Tester da ghi); anh tren chup bang cach tam ghim card `position:fixed` len goc tren (scrollY 0) roi chup vung do, nen nen card con thay trang phia sau (khong phai loi giao dien).
+- Luu y cho lan sau: khi do chart, chon `svg.chart`, khong chon `svg` dau tien (icon HelpTip cung la svg).
+
 
 # Kiem doc lap Buoc 11 (gan chart T4/T5 vao trang Chi tiet) - P3C-A
 
