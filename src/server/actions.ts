@@ -287,21 +287,6 @@ export async function saveKeyMilestonesAction(projectId: number, rows: KeyMilest
   return { ok: true };
 }
 
-/** Reset go-live (chỉ Admin) - xóa hết data nghiệp vụ. */
-export async function resetDataAction() {
-  const user = await requireRole(['admin']);
-  if (!user) return { ok: false, error: 'Forbidden' };
-  await repo.resetAllData();
-  revalidateTag(profileTag);
-  revalidateTag(trendTag);
-  for (const m of historyMonths()) {
-    revalidateTag(overviewTag(m));
-    revalidateTag(listTag(m));
-  }
-  await logActivity(user, 'reset_data', 'xóa toàn bộ dữ liệu');
-  return { ok: true };
-}
-
 /** Gán/chỉnh quyền 1 user (chỉ Admin). Finance suy từ role (viewer = không xem). */
 export async function setUserRoleAction(email: string, role: Role) {
   const user = await requireRole(['admin']);

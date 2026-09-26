@@ -34,7 +34,6 @@ vi.mock('@/server/audit-log-page', async () => {
     }),
   };
 });
-vi.mock('@/components/admin/ResetDataButton', () => ({ ResetDataButton: () => null }));
 vi.mock('@/components/admin/UserEditor', () => ({ UserEditor: () => null }));
 vi.mock('@/components/admin/ActivityViewer', () => ({ ActivityViewer: () => null }));
 vi.mock('@/components/admin/FieldEditor', () => ({ FieldEditor: () => null }));

@@ -426,8 +426,6 @@
     "capacity": "Capacity (ton/year)",
     "rate": "Rate to VND",
     "picName": "PIC",
-    "resetData": "Reset all data",
-    "resetConfirm": "Delete all projects + data (keep reference tables)? Cannot be undone.",
     "userRoles": "User permissions",
     "email": "Email",
     "role": "Role",

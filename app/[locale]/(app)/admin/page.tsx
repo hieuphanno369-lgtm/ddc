@@ -4,7 +4,6 @@ import { repo } from '@/server/repo';
 import { historyMonths } from '@/lib/clock';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { IconAlert, IconFactory, IconMoney, IconUser } from '@/components/icons';
-import { ResetDataButton } from '@/components/admin/ResetDataButton';
 import { UserEditor } from '@/components/admin/UserEditor';
 import { ActivityViewer } from '@/components/admin/ActivityViewer';
 import { FieldEditor } from '@/components/admin/FieldEditor';
@@ -34,10 +33,6 @@ export default async function AdminPage() {
 
   return (
     <>
-      <div className="flex justify-end">
-        <ResetDataButton />
-      </div>
-
       <Card className="overflow-visible">
         <CardHeader title={t('admin.userRoles')} />
         <CardBody>

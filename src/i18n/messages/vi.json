@@ -426,8 +426,6 @@
     "capacity": "Công suất (tấn/năm)",
     "rate": "Tỷ giá VNĐ",
     "picName": "PIC",
-    "resetData": "Xóa toàn bộ dữ liệu",
-    "resetConfirm": "Xóa hết dự án + số liệu (giữ danh mục nền)? Không thể hoàn tác.",
     "userRoles": "Phân quyền người dùng",
     "email": "Email",
     "role": "Vai trò",

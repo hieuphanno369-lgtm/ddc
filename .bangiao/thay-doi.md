@@ -30,4 +30,29 @@ kết quả: `6 failed | 13 passed (19)` - lỗi `TypeError: parseE2eBaseUrl is 
     Kết luận: đây là **test chập chờn (flaky) có sẵn**, nhiều khả năng do lần dev-server khởi động lạnh đầu tiên compile trang overview (nhiều chart RSC) trùng thời điểm dữ liệu vừa seed xong, không lặp lại ổn định. Nguyên nhân gốc nằm ở `src/server/queries.ts`/`src/server/cache.ts` (cache `unstable_cache`, TTL 1800s) hoặc chính `app/[locale]/(app)/overview/page.tsx` - **cả 3 đều NGOÀI phạm vi file được sửa ở Bước 1** (và `queries.ts` nằm trong danh sách file KHÔNG được sửa của cả kế hoạch này). Không sửa. Báo lại chủ dự án/tester để theo dõi thêm nếu tái diễn ở CI/máy khác.
   - Không dùng biến shell để thử "cố tình sai cặp" (theo kế hoạch, `.env` luôn thắng biến shell) - đã chứng minh đủ qua 19 case ở `env.test.ts` (gồm case DB A + mọi cổng → false, cặp lệch → false).
 
-**1.10 - Commit:** `feat(p7-c1): e2e chay theo cap DB + cong trong .env, chan DB cua A (C-0)`.
+**1.10 - Commit:** `feat(p7-c1): e2e chay theo cap DB + cong trong .env, chan DB cua A (C-0)` (`d732eb0`).
+
+## Bước 2 - 7.1: gỡ hẳn "xoá toàn bộ dữ liệu"
+
+**File đổi:**
+- Tạo `src/server/reset-data-removed.test.ts` (5 case, xem 2.1).
+- Xoá `src/components/admin/ResetDataButton.tsx`.
+- `app/[locale]/(app)/admin/page.tsx`: bỏ import `ResetDataButton` + khối `<div className="flex justify-end"><ResetDataButton /></div>`; fragment giờ bắt đầu thẳng bằng `<Card>` phân quyền người dùng.
+- `src/server/actions.ts`: xoá hàm `resetDataAction` + JSDoc của nó. Các import dùng chung (`revalidateTag`, `profileTag`, `trendTag`, `overviewTag`, `listTag`, `historyMonths`) vẫn còn dùng ở action khác nên giữ nguyên.
+- `src/server/repo/prisma-repo.ts`: xoá hàm `resetAllData` (kể cả comment bên trong), giữ dấu đóng object đúng cú pháp.
+- `src/server/repo/mock-repo.ts`: xoá JSDoc + hàm `resetAllData`. Hàm `reset()` (dùng cho test khác, dòng 103) không đụng.
+- `git mv src/server/repo/prisma-repo-reset.test.ts src/server/repo/prisma-repo-remove-project.test.ts`: xoá JSDoc đầu file + `describe('prisma-repo.resetAllData ...')`, xoá mock không còn dùng (`projectDeleteMany`, `auditLogDeleteMany`, khoá `project.deleteMany`, `auditLog`); giữ nguyên `describe('prisma-repo.removeProject - N-2 ...')`.
+- `src/server/admin-notify-page.test.ts`: xoá dòng `vi.mock('@/components/admin/ResetDataButton', ...)`.
+- `src/i18n/messages/vi.json`, `en.json`: xoá key `admin.resetData`, `admin.resetConfirm`. Giữ `activity.reset_data` (K7 - nhật ký cũ trong DB còn action này).
+
+**2.2 - Test đỏ trước khi sửa** (`npx vitest run src/server/reset-data-removed.test.ts`): `5 failed (5)` - còn `ResetDataButton.tsx`, `resetDataAction`/`resetAllData`, key `admin.resetData`/`admin.resetConfirm` (đúng kỳ vọng).
+
+**2.4 - Rà toàn repo** (grep `resetDataAction|resetAllData|ResetDataButton|admin\.resetData|resetConfirm`, bỏ qua `node_modules`, `.bangiao/archive`, `PROGRESS.md`): chỉ còn ở `src/server/reset-data-removed.test.ts` (test mới) và biến cục bộ `resetConfirm` trong `src/components/admin/UserEditor.tsx` (xác nhận mật khẩu, không liên quan - không sửa).
+
+**2.5 - Cổng kiểm:**
+- `npx vitest run src/server/reset-data-removed.test.ts` → `5 passed (5)`.
+- `npx tsc --noEmit` → sạch.
+- `npm test` → `201 passed (files) | 2182 passed (tests)`.
+
+**2.6 - Commit:** `feat(p7-c1): go han chuc nang xoa toan bo du lieu o trang quan tri (7.1)`.
+Sau commit: nhả khoá `src/server/actions.ts`, `src/server/repo/prisma-repo.ts` trong `phien-C.md` (đã xong, xem mục "Bước kế tiếp" bên dưới).
