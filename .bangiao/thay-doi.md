@@ -255,3 +255,147 @@ Khong phat hien xung dot ten class TAT CA con lai ngoai `.inline` (da sua) va ru
 - Luu y moi truong: migration Prisma doc `DIRECT_URL`, khong phai `DATABASE_URL`; tro DB khac phai dat ca hai.
 - Anh: `.bangiao/anh-test/p3c-a-vong-sua-*.png` (o rong 1440, go 600 1440, ty le + tong sai 1440, 390 giua bang va cuoi trang).
 - Khong ghi du lieu thu vao DB A (chu du an tu nhap lai).
+
+## Buoc 11 (gan chart T4/T5 vao trang Chi tiet)
+
+Chu du an chot 2026-09-26: A lam Buoc 11 ngay trong nhanh P3C-A (truoc khi merge main), thay vi
+cho ke hoach goc cua B ("TREO" cho toi khi A merge). Da doc `.bangiao/archive/p3c-b-chart-2026-09-26/ke-hoach.md`
+muc Buoc 11 (11.1-11.6) va lam theo dung do, tru cac diem chu du an chot khac ghi trong prompt.
+
+### Commit
+
+1. `954d31a` `feat(p3c-a): buoc 11.2 doi import p3c-contract sang @/server/repo/types, xoa file kieu tam`
+   - Doi import trong 8 file (`equipment-gantt-v2.ts`, `manpower-month-chart.ts`, va cac `.test.ts`/`.qa.test.ts`
+     tuong ung, cong `EquipmentPlanGantt.test.ts`, `ManpowerMonthChart.test.ts`) tu `@/lib/p3c-contract`
+     sang `@/server/repo/types` (`types.ts` da co san 4 kieu hop dong tu merge main truoc do).
+   - Xoa `src/lib/p3c-contract.ts`, `p3c-contract.test.ts`, `p3c-contract.qa.test.ts` (kieu tam khong
+     con y nghia; da chay `p3c-contract.test.ts` TRUOC khi xoa - 2 test xanh, xac nhan 4 kieu khop
+     `types.ts` - dung theo yeu cau khong tu sua hop dong neu do).
+2. `2c6598d` `feat(p3c-a): buoc 11.3-11.6 noi gantt theo dot + chart KH nhan luc thang vao trang chi tiet, xoa chart cu`
+   - Them (moi): `src/server/equipment-plan-gantt-queries.ts` + `.test.ts` - `getEquipmentPlanGantt(projectId, today)`,
+     KHONG tu kiem quyen (comment ro trong file), chi goi tu trang da `requireProjectRead`.
+   - Them vao `src/server/manpower-queries.ts`: `getManpowerMonthChartData(projectId, locale)` (+ test trong
+     `manpower-queries.test.ts`).
+   - `app/[locale]/(app)/projects/[id]/page.tsx`: card `#res-shift` doi sang `ManpowerMonthChart`
+     (`manpowerMonthChart.title/help/noData`), card `#eq-gantt` doi sang `EquipmentPlanGantt`
+     (`equipmentPlanGantt.title/help/noPlan`, bo `action` Legend cu). `requireProjectRead(user, id)`
+     (P3D-B) va regex `^[1-9]\d*$` cho `params.id` da co san TRUOC ca 2 lenh doc moi trong `Promise.all`
+     - khong sua gi them o phan kiem quyen, chi doi ten bien `shiftChart`->`monthChart`, `gantt`->`planGantt`
+     va doi ham goi. `today = todayIso()` doi len truoc `Promise.all` de dung chung cho `getEquipmentPlanGantt`
+     va timeline (truoc goi rieng 2 lan, gio 1 lan, cung 1 gia tri).
+   - Xoa (khong con ai dung sau khi bo card cu): `src/components/project/ShiftManpowerChart.tsx` + `.test.ts`,
+     `EquipmentGantt.tsx` + `.test.ts`, `src/lib/equipment-gantt.ts` + `equipment-gantt.test.ts` +
+     `equipment-gantt-independent.test.ts`, `src/server/equipment-gantt-queries.ts` + `.test.ts`.
+   - Xoa trong `manpower-queries.ts`: `getShiftChartData` + interface `ShiftChartData` (+ test tuong ung);
+     import `ShiftMonthRow` khong con dung cung bo.
+   - Xoa trong `src/lib/manpower-charts.ts`: `buildShiftBars`, `shiftChartMonths`, `shiftsForMonth`,
+     `ShiftBarDatum` (chi `ShiftManpowerChart.tsx` da xoa dung; da grep xac nhan khong con noi khac) +
+     test tuong ung trong `manpower-charts.test.ts`.
+   - Xoa `readEquipmentPlans` + `readEquipmentUsageDays` (cung `EquipmentUsageDay`) trong
+     `read-types.ts`/`read-prisma.ts`/`read-mock.ts` + test trong `read-prisma.test.ts`/`read-mock.test.ts`
+     + `scripts/check-read-parity.ts` (grep xac nhan khong con noi goi ngoai cac file nay sau khi xoa
+     `EquipmentGantt`/`equipment-gantt-queries.ts`).
+   - `scripts/perf/bench-data.ts`: doi `getShiftChartData` -> `getManpowerMonthChartData`,
+     `getEquipmentGantt(id, 'Chua gan hang muc')` -> `getEquipmentPlanGantt(id, todayIso())`.
+   - Sua `src/server/projects-detail-page-render.test.ts`: 2 mo ta "P2B Buoc 2"/"P2B Buoc 4" doi theo
+     key moi (`manpowerMonthChart.title`, `equipmentPlanGantt.title/noPlan`), them assertion
+     `not.toContain` key cu (`manpowerCharts.shiftTitle`, `equipmentGantt.legendUsed`).
+3. `c2e21a7` `feat(p3c-a): buoc 11 xoa key i18n cu equipmentGantt.* va manpowerCharts.shift*/month/noDataMonth/tipLine`
+   - Prompt chot: A dang giu `vi.json`/`en.json` trong buoc nay nen XOA luon key khong con cho dung
+     (khac ke hoach goc cua B la de nguyen + ghi no). Da grep `t('...')` dong, `messages.test.ts`, e2e
+     truoc khi xoa.
+   - Xoa het nhom `equipmentGantt` (title/help/noPlan/noWorkItem/legendUsed/tipWorkItem/tipPlan/
+     tipPlanDays/tipUsedDays/unplanned) - component da xoa, khong con cho dung.
+   - Trong `manpowerCharts` xoa `shiftTitle`, `shiftHelp` (chi `ShiftManpowerChart.tsx` da xoa dung) va
+     3 key mo cung nhom chi `ShiftManpowerChart.tsx` dung: `month`, `noDataMonth`, `tipLine` (khong nam
+     trong prefix `shift*` ma prompt neu, nhung grep xac nhan khong con cho dung sau khi xoa component -
+     xoa theo tinh than chung "khong con cho dung" cua yeu cau). Giu nguyen `weeklyTitle`, `weeklyHelp`,
+     `allMonths`, `plannedLine`, `weekOf`, `days`, `scrollHint`, `noData`, `total` (WeeklyManpowerStackChart
+     con dung).
+   - Sua `e2e/03-project-detail.spec.ts`: `vi('equipmentGantt.noPlan')` -> `vi('equipmentPlanGantt.noPlan')`;
+     them kiem sau doan `#res-shift` visible: `#res-shift svg.chart` count > 0 HOAC
+     `getByText(vi('manpowerMonthChart.noData'))` count > 0 (dung ca 2 nhanh du lieu/rong).
+
+### File cam khong dung toi (dung theo yeu cau)
+
+Khong sua `prisma/schema.prisma`, `prisma/migrations/`, `src/server/repo/types.ts` (chi doc), `app/globals.css`,
+`PROGRESS.md`, `.serena/`, `CHANGELOG.md`.
+
+### Test bi xoa + ly do
+
+- `p3c-contract.test.ts`, `p3c-contract.qa.test.ts` (2+4=6 test): kiem tra hop dong tam thoi, het
+  y nghia khi `types.ts` da co san 4 kieu that va file tam da xoa.
+- `ShiftManpowerChart.test.ts` (1 test), `EquipmentGantt.test.ts` (1 test): component bi xoa.
+- `equipment-gantt.test.ts`, `equipment-gantt-independent.test.ts`, `equipment-gantt-queries.test.ts`:
+  logic Gantt "tung chiec" cu (`buildGantt`/`GanttModel`) da thay bang `equipment-gantt-v2.ts`/
+  `buildPlanGantt` (Gantt theo dot, Buoc 4-5 cua P3C-B).
+- Trong `manpower-charts.test.ts`: 8 test cua `shiftChartMonths`/`shiftsForMonth`/`buildShiftBars`
+  (ham da xoa cung file nguon).
+- Trong `read-prisma.test.ts`/`read-mock.test.ts`: cac test rieng cho `readEquipmentPlans`/
+  `readEquipmentUsageDays` (ham da xoa).
+- Test moi them bu lai: `equipment-plan-gantt-queries.test.ts` (2 test), `getManpowerMonthChartData`
+  trong `manpower-queries.test.ts` (2 test).
+- Tong: 206 file / 2368 test xanh (truoc Buoc 11: 212 file / 2414 test) - giam 6 file / 46 test, dung
+  nhu du kien (xoa nhieu hon them vi thay 1 he thong Gantt/chart cu bang he thong moi da co san tu
+  P3C-B, khong phai bo tinh nang).
+
+### Ket qua cong kiem
+
+- `npx tsc --noEmit`: sach (chay lai nhieu lan trong qua trinh, lan cuoi sau khi xoa key i18n cung sach).
+- `npm test`: **206 file / 2368 test xanh** (chay lai lan cuoi sau tat ca thay doi, bao gom sau `npm run build`).
+- `npm run check:read`: tao DB tam `ddc_control_tower_qa_a` bang psql (KHONG dung DB A that -
+  `ddc_control_tower` van nguyen, `.env` khong doi), `npx prisma migrate deploy` (9 migration, co ca
+  `20260926100000_p3c_a_plan_tables`) + `npx tsx prisma/seed.ts` tren DB tam -> `check:read` **OK toan bo**
+  (9 ham cu + 4 ham hop dong P3C + `readManpowerActualByMonth`, du an 1 va 17). Da `DROP DATABASE ...
+  WITH (FORCE)` DB tam sau khi xong.
+- `npm run build` (voi `NEXT_FONT_GOOGLE_MOCKED_RESPONSES` tro
+  `D:\_project\DDC_dieu-phoi\tools\font-mock.js`): **thanh cong**, `/[locale]/projects/[id]` bien dich
+  15.7 kB / 253 kB First Load JS.
+
+### E2E - KHONG chay duoc tren may nay, ly do
+
+- `e2e/global-setup.ts` -> `e2e/helpers/env.ts` (`isExpectedDbUrl`/`E2E_TARGETS`, them o P7-C1) chi cho
+  DB + cong da dang ky: `ddc_control_tower_b` (3001) hoac `ddc_control_tower_c` (3003). A chay o cong
+  3000 voi DB `ddc_control_tower` (that) hoac DB tam ngoai danh sach - guard se nem loi ngay tu
+  `globalSetup`, dung nhu thiet ke bao ve (chan seed nham len DB that/khac tai khoan). Theo yeu cau
+  KHONG duoc noi guard nay.
+- Da lam thay: doc HTML server-render qua `curl` (dang nhap that qua `/api/auth/callback/credentials`,
+  cookie NextAuth that) tren DB tam `ddc_control_tower_qa_a`, cong 3000:
+  - `/vi/projects/1`: co `id="res-shift"`/`id="eq-gantt"`, tieu de dich dung "Ke hoach nhan luc theo
+    thang · theo ca" va "Lich su dung thiet bi", subtitle Gantt "06/07/2026 - 29/11/2026" (khop
+    `equipmentPlanSeed` cua A: min `2026-07-06`, max `2026-11-29`); khong con chuoi `equipmentGantt.`/
+    `manpowerCharts.shift` nao trong HTML.
+  - `/vi/projects/17`: hien dung 2 trang thai rong "Chua co ke hoach nhan luc theo thang" va "Chua co
+    ke hoach thiet bi cho du an nay".
+  - Day chi xac nhan phan server-render (2 chart la `dynamic(..., { ssr: false })` nen SVG that chi
+    ve o client sau hydrate) va cau truc/i18n dung, KHONG thay the duoc kiem pixel-perfect that.
+- **Chua kiem duoc bang trinh duyet that** (Playwright MCP hay bat ky cong cu trinh duyet nao) o
+  1440px/390px cho: truc thang cua Gantt, marker "Hom nay", cot SL nay/tong; chart thang cot + 2
+  duong + truc 2 tang; cuon ngang 390px, chu co de nhau khong, du an 17 hien trang thai rong dung
+  vi tri. **Ly do: phien lam viec nay khong co cong cu trinh duyet (khong thay Playwright MCP/browser
+  tool nao trong danh sach cong cu duoc cap)** - khac voi gia dinh trong prompt la co san. Khong co
+  anh trong `.bangiao/anh-test/p3c-a-b11-*.png`.
+- **De nghi Tester**: chay `npm run test:e2e -- e2e/03-project-detail.spec.ts` tren cong/DB da dang
+  ky (B hoac C) hoac mo trinh duyet that o `/vi/projects/1` (1440px va 390px) + `/vi/projects/17`
+  de kiem pixel truoc khi CHOT.
+
+### Rui ro / cho Tester + security-reviewer soi ky
+
+- `getEquipmentPlanGantt`/`getManpowerMonthChartData` KHONG tu kiem quyen (dung comment ro trong file,
+  giong `getShiftChartData`/`getWeeklyChartData` cu) - dua vao `requireProjectRead(user, id)` da goi
+  TRUOC ca 2 lenh nay trong `Promise.all` cua trang. Soi ky: co duong nao khac goi 2 ham nay ma bo qua
+  `requireProjectRead` khong (hien tai chi trang Chi tiet va `bench-data.ts` - script perf noi bo,
+  khong qua HTTP).
+- Xoa key i18n `manpowerCharts.month/noDataMonth/tipLine` la quyet dinh tu suy luan "khong con cho
+  dung" (grep xac nhan), khong nam trong danh sach prefix `shift*` ma prompt neu ro - neu Tester/chu
+  du an muon giu lai (vd de dung lai sau) thi bao, hoan tac de dang (chi 3 dong moi file).
+- 390px + nhieu thang cho `ManpowerMonthChart` (component cua B, khong sua trong buoc nay) chua duoc
+  kiem tren du an that co nhieu hon 7 thang KH - chi kiem qua test co san.
+- `EquipmentPlanGantt`/`ManpowerMonthChart` la component B viet o P3C-B, buoc nay chi noi day (query +
+  trang) - khong sua logic ben trong 2 component, neu co loi hien thi thi soi ca file component
+  (`src/components/project/EquipmentPlanGantt.tsx`, `ManpowerMonthChart.tsx`) chu khong chi trang.
+
+### No de sau
+
+- Kiem pixel-perfect trinh duyet that (xem muc E2E o tren) - chua lam duoc, can Tester lam bu.
+- Nhan T1 co the de nhau khi KH ~ TT (da ghi tu vong truoc, chua sua - ngoai pham vi Buoc 11).
