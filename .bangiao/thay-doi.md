@@ -145,5 +145,35 @@ Lần chạy `npx playwright test` đầu tiên sau Bước 4 báo đỏ 2 ca ho
 
 ---
 
-(Các mục còn lại - bảng "Sau khi sửa" đầy đủ theo Bước 6.3, rà API/server action, kiểm tay trình duyệt, việc
-không làm - sẽ điền tiếp trong các bước kế, xem lịch sử commit `test(p3d-b)/fix(p3d-b)`.)
+## Bước 5 - Rà route API + server action, khoá bằng test
+
+Bảng rà (planner đã đọc từng file, không phát hiện lỗ hổng S-1 ở tầng API - middleware không chạy cho
+`/api/*` nhưng mọi route đã tự chặn từ trước):
+
+| Route | Cách chặn | Test khoá |
+|---|---|---|
+| `app/api/auth/[...nextauth]/route.ts` | next-auth, public theo thiết kế | không cần |
+| `app/api/health/route.ts` | không kiểm phiên, chỉ trả `{status, time}` | `health-route.test.ts` (mới) |
+| `app/api/cron/[job]/route.ts` | `CRON_SECRET` + `timingSafeEqual`, 503 khi thiếu secret | `cron-route.test.ts` (có sẵn) |
+| `app/api/export/route.ts` | `getCurrentUser` -> 401, role admin/bod | `export-route.test.ts` (có sẵn) |
+| `app/api/report/export/route.ts` | `getCurrentUser` -> 403, role admin/bod | `report-export-route.test.ts` (có sẵn) |
+| `app/api/photo-upload/route.ts` | same-origin + `getCurrentUser` -> 401 | `photo-upload-route.test.ts` (có sẵn) |
+| `app/api/photos/[...path]/route.ts` | `getCurrentUser` -> 401 | `photo-route.test.ts` (có sẵn); điểm yếu khác loại (xem Câu hỏi 3 kế hoạch): KHÔNG vá trong P3D-B |
+| `app/api/templates/daily-resources/route.ts` | `canWriteProject` -> 403 | `daily-template-route.test.ts` (có sẵn) |
+
+Server action (`'use server'`, `src/server/actions*.ts`): mọi hàm export gọi `getCurrentUser`/`requireRole`/
+`requireProject` hoặc `requireRoleUser`/`requireWriteProject` (`action-guards.ts`), trả `Forbidden` khi không
+có user. KHÔNG sửa server action trong phase này (`actions.ts` không bị đụng, đúng ràng buộc file nóng).
+Ngoại lệ mức thấp `deletePhotoAction` (dò mã ảnh trước khi kiểm phiên): ghi nhận theo Câu hỏi 3, vá ở phase sau.
+
+- Tạo `src/server/api-routes-guard.test.ts` (9 ca: quét toàn bộ `app/api/**/route.ts`, đối chiếu sổ đăng ký
+  `GUARDS`) và `src/server/health-route.test.ts` (1 ca). Cả hai **XANH NGAY** (đúng kỳ vọng kế hoạch - không
+  có lỗ hổng API cần vá, chỉ khoá hồi quy).
+- Kiểm chứng test tĩnh có tác dụng thật: tạm đổi `'export/route.ts'` từ `'session'` sang `'health'` trong
+  `GUARDS` -> chạy đỏ đúng như dự đoán (`expect(src).not.toMatch(/@\/server\//)` fail vì route export có
+  import `@/server/repo`); hoàn tác lại, chạy xanh lại 9/9.
+- `npx tsc --noEmit` sạch. `npm test`: **199 file / 2140 test xanh**.
+
+---
+
+(Còn lại: bảng "Sau khi sửa" đầy đủ theo Bước 6.3, kiểm tay trình duyệt, việc không làm - điền ở Bước 6.)
