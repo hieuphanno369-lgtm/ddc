@@ -28,13 +28,14 @@ describe('% tổng thể = tổng CÓ TRỌNG SỐ', () => {
     expect(calcChainPctActual(STAGE_ORDER.map((s) => stage(s, 1)))).toBeCloseTo(1, 10);
   });
 
-  it('trọng số mặc định 5/10/10/40/5/27/3 được áp đúng, KHÔNG phải trung bình cộng', () => {
+  it('trọng số mặc định 5/10/10/40/5/25/3 (P7-C2, chain 7 mã - thiếu settlement 2) áp đúng, KHÔNG phải trung bình cộng', () => {
     const stages = [
       stage('design', 1), stage('shop', 0.8), stage('procurement', 0.6),
       stage('fabrication', 0), stage('transport', 0), stage('erection', 0), stage('handover', 0),
     ];
-    // (5×1 + 10×0.8 + 10×0.6) / 100 = 0.19
-    expect(calcChainPctActual(stages)).toBeCloseTo(0.19, 10);
+    // (5×1 + 10×0.8 + 10×0.6) / (5+10+10+40+5+25+3) = 19 / 98 - mẫu số KHÔNG có settlement (2)
+    // vì chain chỉ gửi 7 mã (settlement không nằm trong `stages`, effectiveWeight của nó không được cộng).
+    expect(calcChainPctActual(stages)).toBeCloseTo(19 / 98, 10);
     // Trung bình cộng cũ ≈ 0.342 - phải KHÁC, đây là chỗ chứng minh test có giá trị
     expect(calcChainPctActual(stages)).not.toBeCloseTo((1 + 0.8 + 0.6) / 7, 3);
   });
@@ -90,7 +91,7 @@ describe('validateStageWeights', () => {
   it('bỏ 1 giai đoạn VÀ dồn trọng số sang giai đoạn khác → hợp lệ', () => {
     const good = DEFAULT_STAGE_WEIGHTS.map((x) => {
       if (x.stageCode === 'transport') return { ...x, applicable: false };
-      if (x.stageCode === 'erection') return w('erection', 32); // 27 + 5
+      if (x.stageCode === 'erection') return w('erection', 30); // 25 + 5 (P7-C2: bo mac dinh moi)
       return x;
     });
     expect(validateStageWeights(good).ok).toBe(true);

@@ -176,9 +176,10 @@ describe('saveStageWeightsAction', () => {
     expect(repo.getStageWeights(1).find((w) => w.stageCode === 'fabrication')?.weightPct).toBe(41);
   });
 
-  it("P7-C2 (K8): 7 dong (DEFAULT_STAGE_WEIGHTS, thieu settlement) -> 'stages_changed'", async () => {
+  it("P7-C2 (K8): 7 dong (thieu settlement) -> 'stages_changed'", async () => {
     login(ADMIN);
-    expect(await saveStageWeightsAction(1, DEFAULT_STAGE_WEIGHTS)).toEqual({ ok: false, error: 'stages_changed' });
+    const rows7 = DEFAULT_STAGE_WEIGHTS.filter((r) => r.stageCode !== 'settlement');
+    expect(await saveStageWeightsAction(1, rows7)).toEqual({ ok: false, error: 'stages_changed' });
   });
 
   it('P7-C2: 8 dong LEGACY -> ok; them Thanh quyet toan 2 bot Lap dung 2 -> ok', async () => {

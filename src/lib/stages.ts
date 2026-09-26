@@ -47,15 +47,17 @@ export interface StageWeight {
   applicable: boolean;
 }
 
-/** Trọng số mặc định đã duyệt. Dùng khi dự án chưa có dòng nào trong project_stage_weight. */
+/** Trọng số mặc định đã duyệt (P7-C2, Q2a): Lắp dựng 25 + Thanh quyết toán 2 (lấy 2 từ Lắp dựng so
+ * với bộ cũ 27/0). Dùng khi dự án chưa có dòng nào trong project_stage_weight. */
 export const DEFAULT_STAGE_WEIGHTS: StageWeight[] = [
   { stageCode: 'design', weightPct: 5, applicable: true },
   { stageCode: 'shop', weightPct: 10, applicable: true },
   { stageCode: 'procurement', weightPct: 10, applicable: true },
   { stageCode: 'fabrication', weightPct: 40, applicable: true },
   { stageCode: 'transport', weightPct: 5, applicable: true },
-  { stageCode: 'erection', weightPct: 27, applicable: true },
+  { stageCode: 'erection', weightPct: 25, applicable: true },
   { stageCode: 'handover', weightPct: 3, applicable: true },
+  { stageCode: 'settlement', weightPct: 2, applicable: true },
 ];
 
 /** Bộ trọng số "dự án cũ": 7 số cũ + Thanh quyết toán 0% áp dụng (khớp migration p7_c2).

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import type {
   Contractor, Currency, Customer, ExchangeRate, Factory, Project, ProjectKeyMilestone, ProjectSapCode,
-  ProjectStageWeight, ProjectType, StageWeightInput, TeamKd,
+  ProjectStageWeight, ProjectType, Stage, StageCode, StageWeightInput, TeamKd,
 } from '@/server/repo/types';
 import type { AssignableUser, ProjectFormState } from '@/lib/project-form';
 import {
@@ -15,7 +15,7 @@ import {
 import { isValidProjectCode } from '@/lib/project-code';
 import { marketKey, typeKey } from '@/lib/labels';
 import { fmtNum, formatDateTime, formatTon, toTitleCase } from '@/lib/format';
-import { STAGE_ORDER, DEFAULT_STAGE_WEIGHTS, validateStageWeights } from '@/lib/stages';
+import { DEFAULT_STAGE_WEIGHTS, activeStages, fillWeightsForStages, stageOrder, validateStageWeights } from '@/lib/stages';
 import { presetWeightsFor } from '@/lib/stage-weight-presets';
 import {
   normalizeKeyMilestones, toKeyMilestoneDraft, validateKeyMilestones, type KeyMilestoneDraft, type KeyMsErrors,
@@ -56,13 +56,13 @@ export interface ProjectFormProps {
   allContractors: Contractor[];
   ownerEmail: string;
   today: IsoDate;
+  /** P7-C2: giai đoạn chuỗi giá trị đọc từ dim_stage (repo.getStages(), gồm cả ngừng dùng). */
+  stages: Stage[];
 }
 
-function weightsFromProps(rows: ProjectStageWeight[]): StageWeightInput[] {
-  return STAGE_ORDER.map((code) => {
-    const row = rows.find((r) => r.stageCode === code);
-    return row ? { stageCode: row.stageCode, weightPct: row.weightPct, applicable: row.applicable } : { stageCode: code, weightPct: 0, applicable: false };
-  });
+/** K9: thiếu dòng cho 1 giai đoạn đang dùng -> 0%, áp dụng (khớp quy ước chung `fillWeightsForStages`). */
+function weightsFromProps(rows: ProjectStageWeight[], order: readonly StageCode[]): StageWeightInput[] {
+  return fillWeightsForStages(rows, order);
 }
 
 function Field({ label, hint, alignRight, children }: { label: string; hint?: string; required?: boolean; alignRight?: boolean; children: React.ReactNode }) {
@@ -77,15 +77,18 @@ function Field({ label, hint, alignRight, children }: { label: string; hint?: st
 export function ProjectForm(p: ProjectFormProps) {
   const {
     mode, project, projects, customers, teams, currencies, factories, exchangeRates, sapCodes, stageWeights,
-    keyMilestones, members, assignableUsers, contractorMembers, allContractors, ownerEmail, today,
+    keyMilestones, members, assignableUsers, contractorMembers, allContractors, ownerEmail, today, stages,
   } = p;
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
 
+  const order = useMemo(() => stageOrder(stages), [stages]);
   const base = useMemo(() => (project ? projectFormFromProject(project) : emptyProjectForm()), [project]);
   const [form, setForm] = useState<ProjectFormState>(base);
-  const [weights, setWeights] = useState<StageWeightInput[]>(() => (project ? weightsFromProps(stageWeights) : [...DEFAULT_STAGE_WEIGHTS]));
+  const [weights, setWeights] = useState<StageWeightInput[]>(
+    () => (project ? weightsFromProps(stageWeights, order) : fillWeightsForStages(DEFAULT_STAGE_WEIGHTS, order)),
+  );
   const [weightsDirty, setWeightsDirty] = useState(false);
   const [msRows, setMsRows] = useState<KeyMilestoneDraft[]>(() => keyMilestones.map(toKeyMilestoneDraft));
   const [msDirty, setMsDirty] = useState(false);
@@ -112,7 +115,7 @@ export function ProjectForm(p: ProjectFormProps) {
   function setProjectType(value: string) {
     set('projectType', value);
     if (mode === 'new' && !weightsDirty) {
-      setWeights(presetWeightsFor(value as ProjectType | ''));
+      setWeights(presetWeightsFor(value as ProjectType | '', order));
     }
   }
 
@@ -206,7 +209,7 @@ export function ProjectForm(p: ProjectFormProps) {
   function handleCancel() {
     if (dirty && !window.confirm(t('projectForm.confirmDiscard'))) return;
     setForm(base);
-    setWeights(project ? weightsFromProps(stageWeights) : [...DEFAULT_STAGE_WEIGHTS]);
+    setWeights(project ? weightsFromProps(stageWeights, order) : fillWeightsForStages(DEFAULT_STAGE_WEIGHTS, order));
     setWeightsDirty(false);
     setMsRows(keyMilestones.map(toKeyMilestoneDraft));
     setMsDirty(false);
@@ -372,8 +375,8 @@ export function ProjectForm(p: ProjectFormProps) {
               className="btn"
               onClick={() => {
                 setForm(restoreProjectDraft(base, pendingDraft.draft));
-                if (pendingDraft.draft.stageWeights.length === 7) {
-                  setWeights(pendingDraft.draft.stageWeights);
+                if (pendingDraft.draft.stageWeights.length > 0) {
+                  setWeights(fillWeightsForStages(pendingDraft.draft.stageWeights, order));
                   setWeightsDirty(true);
                 }
                 if (pendingDraft.draft.keyMilestones.length > 0) {
@@ -623,7 +626,8 @@ export function ProjectForm(p: ProjectFormProps) {
             <StageWeightEditor
               value={weights}
               onChange={(rows) => { setWeights(rows); setWeightsDirty(true); setMsg(null); }}
-              onApplyPreset={() => { setWeights(presetWeightsFor(form.projectType as ProjectType | '')); setWeightsDirty(true); }}
+              onApplyPreset={() => { setWeights(presetWeightsFor(form.projectType as ProjectType | '', order)); setWeightsDirty(true); }}
+              stages={activeStages(stages)}
             />
           </div>
 

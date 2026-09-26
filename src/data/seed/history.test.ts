@@ -80,8 +80,9 @@ describe('Seed ERP v2', () => {
     expect(data.valueChain.some((v) => v.stageCode === 'settlement')).toBe(false);
   });
 
-  it('trọng số đúng bộ đã duyệt 5/10/10/40/5/27/3 (KHÁC bộ cũ 6/12/10/34/5/28/5)', () => {
-    expect(DEFAULT_STAGE_WEIGHTS.map((w) => w.weightPct)).toEqual([5, 10, 10, 40, 5, 27, 3]);
+  it('trọng số mặc định P7-C2 dung bo da duyet 5/10/10/40/5/25/3/2 (them Thanh quyet toan)', () => {
+    expect(DEFAULT_STAGE_WEIGHTS.map((w) => w.weightPct)).toEqual([5, 10, 10, 40, 5, 25, 3, 2]);
+    expect(validateStageWeights(DEFAULT_STAGE_WEIGHTS).ok).toBe(true);
   });
 
   it('6 nhà thầu, tổng nhân lực ngày cuối KH 520 / TT 486', () => {

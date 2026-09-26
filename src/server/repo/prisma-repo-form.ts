@@ -1,6 +1,6 @@
 import { prisma } from '@/server/db';
 import { Prisma, type PrismaClient } from '@prisma/client';
-import { DEFAULT_STAGE_WEIGHTS, STAGE_ORDER } from '@/lib/stages';
+import { DEFAULT_STAGE_WEIGHTS } from '@/lib/stages';
 import { planAliasChange } from '@/lib/project-code';
 import { equipGroupsAuditText } from '@/lib/equipment-plan';
 import { manpowerMonthAuditText, ratioAuditText, resolveShiftRatios } from '@/lib/manpower-plan';
@@ -65,15 +65,10 @@ export async function isProjectCodeTakenWith(client: Tx, code: string, exceptPro
   return !!aliasMatch;
 }
 
-/** Chuỗi mô tả trọng số cho audit_log: "design:5,shop:10(x),…" - (x) = không áp dụng. */
+/** Chuỗi mô tả trọng số cho audit_log: "design:5,shop:10(x),…" - (x) = không áp dụng.
+ * P7-C2: duyệt theo THỨ TỰ NHẬN VÀO (danh sách giai đoạn giờ động, không còn STAGE_ORDER cứng). */
 function stageWeightAuditText(rows: { stageCode: string; weightPct: number; applicable: boolean }[]): string {
-  return STAGE_ORDER.map((code) => {
-    const r = rows.find((x) => x.stageCode === code);
-    if (!r) return null;
-    return r.applicable ? `${code}:${r.weightPct}` : `${code}:${r.weightPct}(x)`;
-  })
-    .filter((x): x is string => x !== null)
-    .join(',');
+  return rows.map((r) => (r.applicable ? `${r.stageCode}:${r.weightPct}` : `${r.stageCode}:${r.weightPct}(x)`)).join(',');
 }
 
 /**

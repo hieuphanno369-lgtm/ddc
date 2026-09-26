@@ -1,20 +1,21 @@
 'use client';
 
 import { useLocale, useTranslations } from 'next-intl';
-import { STAGE_ORDER, validateStageWeights } from '@/lib/stages';
-import { stageKey } from '@/lib/labels';
+import { stageName, validateStageWeights } from '@/lib/stages';
 import { Switch } from '@/components/ui/Switch';
-import type { StageWeightInput } from '@/server/repo/types';
+import type { Stage, StageWeightInput } from '@/server/repo/types';
 
-/** Task 7 (P3A, G-6): bảng trọng số 7 giai đoạn - Chi tiết dự án dùng làm bảng "Chuỗi giá trị". */
+/** Task 7 (P3A, G-6) / P7-C2: bảng trọng số các giai đoạn - Chi tiết dự án dùng làm bảng "Chuỗi giá trị". */
 export function StageWeightEditor(p: {
   value: StageWeightInput[];
   onChange: (rows: StageWeightInput[]) => void;
   onApplyPreset?: () => void;
+  /** Giai đoạn đang dùng, đã xếp theo thứ tự chuỗi (repo.getStages() lọc + sắp qua activeStages). */
+  stages: Stage[];
 }) {
   const t = useTranslations();
   const locale = useLocale();
-  const { value, onChange, onApplyPreset } = p;
+  const { value, onChange, onApplyPreset, stages } = p;
   const check = validateStageWeights(value);
   const fmt1 = (n: number) => new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(n);
 
@@ -36,14 +37,15 @@ export function StageWeightEditor(p: {
             </tr>
           </thead>
           <tbody>
-            {STAGE_ORDER.map((code, i) => {
+            {stages.map((stage, i) => {
+              const code = stage.code;
               const row = value.find((r) => r.stageCode === code);
               const weightPct = row?.weightPct ?? 0;
               const applicable = row?.applicable ?? false;
               return (
                 <tr key={code} style={applicable ? undefined : { opacity: 0.45 }}>
                   <td>{i + 1}</td>
-                  <td>{t(stageKey[code])}</td>
+                  <td>{stageName(stage, locale)}</td>
                   <td>
                     <input
                       type="number"
