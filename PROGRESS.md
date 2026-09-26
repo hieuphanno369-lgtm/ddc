@@ -3,6 +3,16 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P3C-B - Chart T1/T2/T4/T5 (Tài khoản B) - CHỐT + ĐÃ MERGE vào `main` (2026-09-26)
+Nhánh `feature/p3c-b-chart`; hồ sơ `.bangiao/archive/p3c-b-chart-2026-09-26/`. Sau merge P3A: 193 file / 2075 test; e2e 21/21.
+Tester XANH → security ĐẠT (S-2 thẻ Top gửi thừa trường: đã sửa) → reviewer CẦN SỬA (gạch dài trên Gantt) → sửa → CHỐT. Không migration.
+- T1: nhãn số trên chart nhân lực tuần, tooltip "Tổng TT" dùng trung bình thật.
+- T2: thẻ "Top dự án trọng điểm" (P0 đang triển khai, trễ xếp trước) thay "Dự án cần lưu ý" trên Tổng quan; che tiền N-3 rồi chỉ gửi 6 trường xuống client.
+- T4/T5: component `EquipmentPlanGantt` (Gantt thiết bị theo đợt) + `ManpowerMonthChart` (KH nhân lực tháng theo ca) + hàm đọc `readManpowerActualByMonth`; kiểu tạm `src/lib/p3c-contract.ts`.
+- **Bước 11 chuyển sang A** (chủ dự án chốt 2026-09-26): gắn T4/T5 vào trang Chi tiết + xoá `p3c-contract.ts` + xoá chart cũ, làm trong P3C-A.
+- **Phát hiện chặn deploy (có sẵn từ trước):** người chưa đăng nhập đọc được dữ liệu dự án qua `/vi/overview`, `/vi/projects/...` (middleware cho qua khi không có token). Vá ở phase P3D-B (B) ngay sau.
+- Để sau: chuỗi i18n cũ còn gạch dài (làm ở P4); chú thích `queries.ts` còn tên `WatchlistCard`; nhãn T1 sát nhau khi KH gần bằng TT.
+
 ### ✅ P3A — Form Tạo/Sửa dự án (Tài khoản A) — CHỐT + ĐÃ MERGE vào `main` (2026-09-26)
 Nhánh `feature/p3a-form-tao-sua`; hồ sơ `.bangiao/archive/p3a-form-tao-sua-2026-09-26/`. Sau merge P3B: 177 file · 1958 test.
 Reviewer vòng 1 CẦN SỬA 7 mục → vòng sửa 1 → security CẦN SỬA F-1/N-1 → vá → ĐẠT → reviewer vòng 2 CHỐT.

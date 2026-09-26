@@ -23,6 +23,9 @@ Invariants:
 - At most 1 PIC per project (partial unique index `project_assignments_one_pic_key`). Map Prisma P2002 via `isP2002On(e, targets)` (`prisma-repo-form.ts`), never blanket-catch P2002.
 - Data-entry ALWAYS has finance visibility (T-1, permanent decision QĐ-10); `canViewFinance` per user applies to BOD/viewer.
 - Finance visibility is fail-closed (`canViewFinance ?? false`); pages must self-check role, not rely on middleware alone.
+- Auth gap (found in P3C-B, 2026-09-26, fix = phase P3D-B): `middleware.ts` lets requests WITHOUT a token through, and `redirect()` in `app/[locale]/(app)/layout.tsx` does NOT stop the page from streaming Suspense data (layout and page render in parallel). Every `(app)` page must check the session itself before rendering data; verify P3D-B's helper is used on new pages.
+- Pass client components only the fields they render (mask money with `maskProjectSummaries` first, then narrow, e.g. `toTopPriorityItem` in `src/lib/top-priority.ts`); RSC props are visible in the payload.
+- `src/lib/p3c-contract.ts` = temporary copies of 4 P3C data-contract types used by `EquipmentPlanGantt`/`ManpowerMonthChart`; account A deletes it when wiring those charts into the project detail page (P3C-A, ex Step 11 of P3C-B).
 - 4 roles: Admin, BOD, Data-entry, Viewer. Auth = next-auth v4 credentials + Google OAuth stub (no CLIENT_ID set, not live).
 
 More: `mem:tech_stack` (deps/versions/DB), `mem:conventions` (workflow + code conventions, `.bangiao/` pipeline artifacts), `mem:suggested_commands` (Windows-specific commands), `mem:task_completion` (done-criteria for a coding task).
