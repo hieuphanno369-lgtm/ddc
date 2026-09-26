@@ -85,3 +85,29 @@ Kiểm DB thật qua `mcp__postgres` (chỉ đọc) trên `ddc_control_tower`.
 Không có lỗ hổng Cao hoặc Trung.
 Phân quyền, IDOR, validate, transaction và audit của 2 action mới đều đạt.
 Các mục Thấp đưa vào nợ kỹ thuật, không chặn CHỐT.
+
+---
+
+# Buoc 11 (diff `3181315..HEAD`) - DANH GIA BAO MAT: DAT
+
+> Security-reviewer (vai chi doc) tra bao cao ngay 2026-09-26; dieu phoi vien chep vao day.
+> Ket luan chung cua file: Task 0-10 DAT (o tren) va Buoc 11 DAT (muc nay).
+
+- Kiem soat truy cap: DAT. `page.tsx:76` `requireUser`, `:79` kiem `params.id` `/^[1-9]\d*$/`, `:86` `requireProjectRead` truoc `repo.getProject` va truoc `Promise.all` chua `getManpowerMonthChartData` / `getEquipmentPlanGantt`.
+  `requireProjectRead` chi cho admin/bod qua thang, vai khac phai co trong `project_assignments`, khong thi 404.
+  2 query moi chi duoc goi tu `page.tsx` va `scripts/perf/bench-data.ts` (CLI); moi ham repo ben duoi loc theo `projectId`.
+- Ro ri du lieu: DAT. `PlanGanttModel`, `ManpowerMonthModel` khong co truong tai chinh; model moi gon hon (khong con gui danh sach nha thau, `note`, `updatedBy`).
+- XSS/tiem: DAT. Ten thiet bi/ca/`<title>` la text child JSX; khong co `dangerouslySetInnerHTML`; khong co SQL ghep chuoi moi.
+- Xoa ham doc cu: DAT. Khong con tham chieu, `check-read-parity.ts` va `bench-data.ts` da cap nhat, `tsc` xanh.
+- Cau hinh: DAT. Khong doi `next.config`, `middleware.ts`, `.env`, `package*.json`, `prisma/`, `app/api`, `actions.ts`.
+
+## Phat hien
+
+- THAP-1: query moi khong tu kiem quyen, chi dua vao comment (`equipment-plan-gantt-queries.ts:8`, `getManpowerMonthChartData`).
+  Hien khong khai thac duoc; rui ro khi sau nay co route/action goi thang (BOLA/IDOR). Co san tu truoc, giong query cu.
+  De xuat: `import 'server-only'` cho `src/server/*-queries.ts`, hoac ham nhan `user` va tu goi `requireProjectRead`.
+- THONG TIN-1: `src/server` chua dung goi `server-only`; nen lam trong task ha tang chung.
+- THONG TIN-2: commit `a524407` chi o client, khong doi payload hay server.
+- THONG TIN-3: `scripts/perf/bench-data.ts` chay Prisma khong qua auth, dung thiet ke cho script chay tay.
+
+Khong chan merge.
