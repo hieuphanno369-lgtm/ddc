@@ -8,6 +8,7 @@ import { getCurrentUser, homeForRole } from '@/lib/session';
 import { DataEntryForm, type DataEntryStep } from '@/components/form/DataEntryForm';
 import { ResourceEntryPanel } from '@/components/form/ResourceEntryPanel';
 import { EquipmentPlanEditor } from '@/components/form/EquipmentPlanEditor';
+import { ManpowerPlanEditor } from '@/components/form/ManpowerPlanEditor';
 
 const STEPS: DataEntryStep[] = ['progress', 'finance', 'profile', 'extras', 'resources'];
 
@@ -74,6 +75,11 @@ export default async function NhapLieuPage({
     ? await Promise.all([repo.readEquipmentQuotas(project.id), repo.readEquipmentPlanSegments(project.id)])
     : [[], []];
 
+  // P3C-A (T5): kế hoạch nhân lực theo tháng × ca + tỷ lệ chia ca.
+  const [manpowerMonths, shiftRatios] = project
+    ? await Promise.all([repo.readManpowerPlanMonths(project.id), repo.readShiftRatios(project.id)])
+    : [[], []];
+
   // T8 (Task 6, P2A): sản lượng tháng của khu vực sản xuất chính của dự án.
   const volumeTonnage =
     project && project.factoryId != null
@@ -134,6 +140,7 @@ export default async function NhapLieuPage({
                   equipment={dailyEquipment}
                 />
                 <EquipmentPlanEditor projectId={project.id} quotas={equipmentQuotas} segments={equipmentSegments} equipments={equipments} />
+                <ManpowerPlanEditor projectId={project.id} shifts={shifts} months={manpowerMonths} ratios={shiftRatios} today={today} />
               </>
             }
           />

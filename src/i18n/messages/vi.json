@@ -1160,5 +1160,31 @@
       "rate_limited": "Gửi thử quá nhiều — chờ 1 phút.",
       "generic": "Lỗi: {msg}"
     }
+  },
+  "manpowerPlan": {
+    "title": "Kế hoạch nhân lực theo tháng",
+    "help": "Nhập Tổng tháng để tự chia các ca theo tỷ lệ. Sửa tay 1 ô ca thì ô đó được giữ nguyên khi đổi Tổng hoặc tỷ lệ.",
+    "colMonth": "Tháng",
+    "colTotal": "Tổng",
+    "ratioRow": "Tỷ lệ %",
+    "manualHint": "Ô đã sửa tay, không tự tính lại",
+    "legend": "Ô viền xanh = đã sửa tay",
+    "recalc": "Tính lại theo tỷ lệ",
+    "removeMonth": "Xoá tháng",
+    "addMonth": "+ Thêm tháng",
+    "save": "Lưu kế hoạch nhân lực",
+    "saved": "Đã lưu {n} tháng thay đổi",
+    "noChange": "Không có thay đổi",
+    "noShift": "Chưa có ca làm việc đang dùng",
+    "err": {
+      "ratioSum": "Tổng tỷ lệ các ca phải bằng 100%",
+      "belowManual": "Tổng nhỏ hơn tổng các ô đã sửa tay ({manual})",
+      "allManual": "Mọi ca đều đã sửa tay, bấm \"Tính lại theo tỷ lệ\" để nhập Tổng",
+      "duplicate": "Tháng này đã có trong bảng",
+      "tooMany": "Tối đa 60 tháng",
+      "invalid": "Kế hoạch chưa hợp lệ, kiểm tra lại tỷ lệ và các ô",
+      "forbidden": "Bạn không có quyền sửa dự án này.",
+      "generic": "Lưu thất bại: {msg}"
+    }
   }
 }

@@ -1160,5 +1160,31 @@
       "rate_limited": "Too many tests — wait a minute.",
       "generic": "Error: {msg}"
     }
+  },
+  "manpowerPlan": {
+    "title": "Monthly manpower plan",
+    "help": "Enter the monthly total to split it across shifts by ratio. A shift cell edited by hand is kept when the total or ratio changes.",
+    "colMonth": "Month",
+    "colTotal": "Total",
+    "ratioRow": "Ratio %",
+    "manualHint": "Edited by hand, not recalculated",
+    "legend": "Blue-bordered cell = edited by hand",
+    "recalc": "Recalculate by ratio",
+    "removeMonth": "Remove month",
+    "addMonth": "+ Add month",
+    "save": "Save manpower plan",
+    "saved": "Saved {n} changed months",
+    "noChange": "No changes",
+    "noShift": "No active shifts",
+    "err": {
+      "ratioSum": "Shift ratios must add up to 100%",
+      "belowManual": "Total is less than the hand-edited cells ({manual})",
+      "allManual": "All shifts are hand-edited, press \"Recalculate by ratio\" to enter a total",
+      "duplicate": "This month is already in the table",
+      "tooMany": "Up to 60 months",
+      "invalid": "The plan is invalid, check the ratios and cells",
+      "forbidden": "You do not have permission to edit this project.",
+      "generic": "Save failed: {msg}"
+    }
   }
 }

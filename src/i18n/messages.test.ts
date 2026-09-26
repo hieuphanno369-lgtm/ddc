@@ -62,6 +62,7 @@ const CHANGED_SOURCES: Record<string, string> = {
   'trang /ho-so-du-an': 'app/[locale]/(app)/ho-so-du-an/page.tsx',
   'FieldEditor': 'src/components/admin/FieldEditor.tsx',
   'EquipmentPlanEditor': 'src/components/form/EquipmentPlanEditor.tsx',
+  'ManpowerPlanEditor': 'src/components/form/ManpowerPlanEditor.tsx',
 };
 
 describe('i18n: vi/en phủ key như nhau', () => {
