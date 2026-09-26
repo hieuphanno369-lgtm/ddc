@@ -94,5 +94,32 @@ Sau commit: nhả khoá `src/server/actions.ts`, `src/server/repo/prisma-repo.ts
 
 **4.3 - Cổng kiểm:** `npx tsc --noEmit` → sạch; `npm test` → `202 passed (files) | 2190 passed (tests)`.
 
-**4.4 - Commit:** `feat(p7-c1): doi nhan timeline thanh Chenh lech KH vs TT (7.6)`.
+**4.4 - Commit:** `feat(p7-c1): doi nhan timeline thanh Chenh lech KH vs TT (7.6)` (`44fb2f2`).
 Sau commit: nhả khoá `vi.json`, `en.json` trong `phien-C.md`.
+
+## Bước 5 - e2e giao diện tên app + chạy trọn bộ e2e trên 3003 / DB `_c`
+
+**File đổi:**
+- `e2e/helpers/i18n.ts`: tách phần tra key thành hàm nội bộ `lookup(messages, key, vars)`, nạp thêm `en.json`, export thêm `en()` (chữ ký/hành vi như `vi()`).
+- Tạo `e2e/10-ten-app.spec.ts`: 4 nhóm test (sidebar desktop, sidebar thu gọn, drawer mobile, trang đăng nhập) x 2 locale = 11 case, kiểm text đúng key, không tràn/xuống dòng, không đè logo, tiêu đề tab đúng theo locale, có chụp ảnh `test-results/p7-*.png`.
+- `src/components/layout/AppShell.tsx` dòng 109 (**nhánh fallback 5.4, có dùng**): `<b>{t('app.headerTitle')}</b>` → `<b style={{ fontSize: 'var(--t-caption1)' }}>{t('app.headerTitle')}</b>` (13px → 12px, áp cho CẢ 2 locale).
+
+**5.3 - Chạy spec mới lần 1 (trước fallback):** `npx playwright test e2e/10-ten-app.spec.ts` → `9 passed | 2 failed`.
+Cả 2 test đỏ đều là bản EN ("Sidebar desktop" và "Drawer mobile"): dòng đậm `<b>` ở cỡ chữ gốc (`--t-footnote`, 13px) khiến "MANAGEMENT REPORTS" xuống 2 dòng (đo được `height: 32.5px`, ngưỡng cho phép `< 24.375px` = 1.5 x line-height). Bản VI ("BÁO CÁO QUẢN TRỊ") không tràn ở cỡ gốc.
+→ Áp dụng đúng nhánh fallback 5.4 (không đụng `app/globals.css`): giảm cỡ chữ dòng đậm sidebar về `var(--t-caption1)` (12px), áp cho CẢ 2 locale để nhất quán VI/EN.
+
+**Chạy lại sau fallback:** `npx playwright test e2e/10-ten-app.spec.ts` → `11 passed (11)`, không còn đỏ.
+
+**Soát ảnh (Read từng file `test-results/p7-*.png`):**
+- `p7-sidebar-vi-desktop.png`, `p7-sidebar-en-desktop.png`: cả 2 locale đúng 1 dòng, chữ không tràn/không đè logo, khoảng cách dòng đậm/dòng mờ đều, thẳng hàng với các mục nav bên dưới.
+- `p7-sidebar-vi-collapsed.png`, `p7-sidebar-en-collapsed.png`: thu gọn chỉ còn logo, giống hệt nhau ở cả 2 locale (đúng kỳ vọng - không phụ thuộc chữ).
+- `p7-sidebar-vi-mobile.png`, `p7-sidebar-en-mobile.png`: drawer mở đúng, chữ 1 dòng, không tràn.
+- `p7-login-vi.png`, `p7-login-en.png`: h1 "BÁO CÁO QUẢN TRỊ" / "MANAGEMENT REPORTS" hiện đúng 1 dòng ở cỡ chữ gốc của trang đăng nhập (không cần fallback ở đây, khung card đủ rộng).
+- `p7-admin-top-vi.png` (chụp thủ công qua dev server tạm trên 3003, đã tắt ngay sau khi xong): đầu trang `/vi/admin` không còn khoảng trống thừa phía trên thẻ "Phân quyền người dùng" sau khi bỏ khối nút reset (7.1) - card đầu tiên nằm sát topbar, khớp bố cục các trang khác.
+
+**5.5 - Kết quả e2e trọn bộ (Bước 5):** `npx playwright test` (cổng 3003, DB `ddc_control_tower_c`, globalSetup seed lại 17 dự án) → **70 passed, 0 failed**, ~1.6 phút.
+So với kết quả nền Bước 1 (61 passed/1 failed, `02-overview.spec.ts` đỏ chập chờn): lần này `02-overview.spec.ts` cũng xanh (đã xác nhận trước đó ở Bước 1 là flaky, chạy lẻ cũng xanh) - toàn bộ 70 test (62 cũ + 8 mới của `10-ten-app.spec.ts` chia theo 4 nhóm) đều xanh, không có test đỏ nào ở Bước 5.
+
+**5.6 - Cổng kiểm cuối:** `npx tsc --noEmit` → sạch; `npm test` → `202 passed (files) | 2190 passed (tests)`.
+
+**5.7 - Commit:** `test(p7-c1): e2e ten app o sidebar/login/tab vi+en, ket qua e2e tron bo tren 3003` (kèm `AppShell.tsx` do dùng fallback).

@@ -106,7 +106,9 @@ export function AppShell({ user, children }: { user: CurrentUser; children: Reac
             <Image src="/logo.png" alt="DDC" width={38} height={38} className="h-full w-full object-cover" />
           </div>
           <div className="nm">
-            <b>{t('app.headerTitle')}</b>
+            {/* P7-C1 (5.4, fallback): "MANAGEMENT REPORTS" (en) xuong 2 dong o co chu goc (13px) -
+                giam xuong var(--t-caption1) (12px), ap cho CA 2 locale de nhat quan. */}
+            <b style={{ fontSize: 'var(--t-caption1)' }}>{t('app.headerTitle')}</b>
             <span>{t('app.name')}</span>
           </div>
         </div>
