@@ -28,17 +28,68 @@ export function need(key: string): string {
   return value;
 }
 
+/** Cặp DB + cổng dev đã đăng ký cho e2e. KHÔNG BAO GIỜ thêm 'ddc_control_tower' (DB của A, dữ liệu thật). */
+export const E2E_TARGETS: ReadonlyArray<{ dbName: string; port: string }> = [
+  { dbName: 'ddc_control_tower_b', port: '3001' },
+  { dbName: 'ddc_control_tower_c', port: '3003' },
+];
+
+/** NEXTAUTH_URL phải đúng dạng http://localhost:<cổng> (pathname '/', không query/hash/user). Sai -> null. */
+export function parseE2eBaseUrl(nextAuthUrl: string): { baseURL: string; port: string } | null {
+  let u: URL;
+  try {
+    u = new URL(nextAuthUrl);
+  } catch {
+    return null;
+  }
+  if (
+    u.protocol !== 'http:' ||
+    u.hostname !== 'localhost' ||
+    u.port === '' ||
+    u.pathname !== '/' ||
+    u.search !== '' ||
+    u.hash !== '' ||
+    u.username !== '' ||
+    u.password !== ''
+  ) {
+    return null;
+  }
+  return { baseURL: `http://localhost:${u.port}`, port: u.port };
+}
+
 /**
- * L-5 (danh-gia-bao-mat.md): DATABASE_URL phải trỏ ĐÚNG host/port/tên DB của worktree B
- * (localhost:5433/ddc_control_tower_b) - không dùng `includes('/ddc_control_tower_b')` vì khớp
- * nhầm cả `ddc_control_tower_b2` (hoặc bất kỳ tên nào chứa chuỗi con này) và không kiểm host/port.
+ * L-5 (danh-gia-bao-mat.md): DATABASE_URL phải khớp CHÍNH XÁC host/port/tên DB của cặp đã đăng ký
+ * có cổng trùng tham số `port` - không dùng `includes('/ddc_control_tower_b')` vì khớp nhầm cả
+ * `ddc_control_tower_b2` (hoặc bất kỳ tên nào chứa chuỗi con này) và không kiểm host/port.
  */
-export function isExpectedDbUrl(dbUrl: string): boolean {
+export function isExpectedDbUrl(dbUrl: string, port: string): boolean {
   let u: URL;
   try {
     u = new URL(dbUrl);
   } catch {
     return false;
   }
-  return u.hostname === 'localhost' && u.port === '5433' && u.pathname === '/ddc_control_tower_b';
+  if (u.hostname !== 'localhost' || u.port !== '5433') return false;
+  return E2E_TARGETS.some((t) => t.port === port && u.pathname === '/' + t.dbName);
+}
+
+/** Gộp 2 hàm trên. Hợp lệ -> trả target; sai -> throw Error (thông điệp KHÔNG chứa DATABASE_URL). */
+export function resolveE2eTarget(env: Record<string, string | undefined>): {
+  baseURL: string;
+  port: string;
+  databaseUrl: string;
+} {
+  const nextAuthUrl = env.NEXTAUTH_URL ?? '';
+  const databaseUrl = env.DATABASE_URL ?? '';
+  const parsed = parseE2eBaseUrl(nextAuthUrl);
+  if (!parsed) {
+    throw new Error('NEXTAUTH_URL phai co dang http://localhost:<cong> (vd http://localhost:3003) - sua .env');
+  }
+  if (!isExpectedDbUrl(databaseUrl, parsed.port)) {
+    const pairs = E2E_TARGETS.map((t) => `${t.dbName} + ${t.port}`).join(', ');
+    throw new Error(
+      `DATABASE_URL + NEXTAUTH_URL khong khop cap da dang ky (${pairs}) - dung chay e2e (co the dinh DB cua A). Kiem tra .env.`,
+    );
+  }
+  return { baseURL: parsed.baseURL, port: parsed.port, databaseUrl };
 }
