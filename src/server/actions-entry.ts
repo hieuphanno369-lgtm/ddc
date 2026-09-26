@@ -10,8 +10,8 @@ import {
 import { readDailyWorkbook } from './daily-import';
 import { requireWriteProject } from './action-guards';
 import { repo } from './repo';
-import type { EquipmentPlanInput, Role } from './repo/types';
-import { validateEquipmentPlans, type EquipPlanErrors } from '@/lib/equipment-plan';
+import type { EquipmentPlanGroupInput, Role } from './repo/types';
+import { validateEquipmentPlan, type EquipPlanCheck } from '@/lib/equipment-plan';
 import {
   commitDailyImportSchema, createContractorSchema, dailyImportFileSchema, projectContractorSchema,
   saveDailyResourcesSchema, saveEquipmentPlansSchema,
@@ -251,36 +251,35 @@ export async function commitDailyImportAction(
 }
 
 /**
- * Task 12 (P3A, T14): thay TOÀN BỘ kế hoạch sử dụng thiết bị của 1 dự án - nguồn Gantt thiết bị.
+ * P3C-A (T4): thay TOÀN BỘ kế hoạch dùng thiết bị (Tổng SL + các đợt) của 1 dự án - nguồn Gantt thiết bị.
  * Không kiểm khoá tháng (kế hoạch không theo tháng), không chạy alert engine.
  */
 export async function saveEquipmentPlansAction(
   projectId: number,
-  rows: EquipmentPlanInput[],
+  groups: EquipmentPlanGroupInput[],
 ): Promise<
-  | { ok: true; count: number }
-  | { ok: false; error: 'Forbidden' | 'Not found' | 'Invalid input' | 'invalid_rows'; errors?: EquipPlanErrors; overlaps?: [number, number][] }
+  | { ok: true; groups: number; segments: number }
+  | { ok: false; error: 'Forbidden' | 'Not found' | 'Invalid input' | 'invalid_plan'; check?: EquipPlanCheck }
 > {
   const user = await requireWriteProject(projectId);
   if (!user) return { ok: false, error: 'Forbidden' };
-  const parsed = saveEquipmentPlansSchema.safeParse({ projectId, rows });
+  const parsed = saveEquipmentPlansSchema.safeParse({ projectId, groups });
   if (!parsed.success) return { ok: false, error: 'Invalid input' };
   const project = await repo.getProject(projectId);
   if (!project) return { ok: false, error: 'Not found' };
 
-  const [equipments, existingPlans, workItems] = await Promise.all([
+  const [equipments, existingQuotas] = await Promise.all([
     repo.getEquipments(),
-    repo.readEquipmentPlans(projectId),
-    repo.getWorkItems(projectId),
+    repo.readEquipmentQuotas(projectId),
   ]);
-  // Vẫn cho lưu lại dòng cũ của thiết bị đã ngừng dùng (không có trong getEquipments() nữa).
-  const equipmentIds = new Set([...equipments.map((e) => e.id), ...existingPlans.map((p) => p.equipmentId)]);
-  const workItemIds = new Set(workItems.map((w) => w.id));
+  // Vẫn cho lưu lại loại thiết bị đã ngừng dùng (không có trong getEquipments() nữa nhưng còn quota cũ).
+  const equipmentIds = new Set([...equipments.map((e) => e.id), ...existingQuotas.map((q) => q.equipmentId)]);
 
-  const check = validateEquipmentPlans(parsed.data.rows, { equipmentIds, workItemIds });
-  if (!check.ok) return { ok: false, error: 'invalid_rows', errors: check.errors, overlaps: check.overlaps };
+  const check = validateEquipmentPlan(parsed.data.groups, { equipmentIds });
+  if (!check.ok) return { ok: false, error: 'invalid_plan', check };
 
-  await repo.replaceEquipmentPlans(projectId, parsed.data.rows, user.email);
-  await logActivity(user, 'save_equipment_plans', `project ${projectId} · ${parsed.data.rows.length}`);
-  return { ok: true, count: parsed.data.rows.length };
+  await repo.replaceEquipmentPlans(projectId, parsed.data.groups, user.email);
+  const segments = parsed.data.groups.reduce((s, g) => s + g.segments.length, 0);
+  await logActivity(user, 'save_equipment_plans', `project ${projectId} · ${parsed.data.groups.length} loai · ${segments} dot`);
+  return { ok: true, groups: parsed.data.groups.length, segments };
 }

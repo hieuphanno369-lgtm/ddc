@@ -325,17 +325,6 @@ export interface ProjectEquipmentPlan {
   updatedBy: string;
 }
 
-/** P3A (Task 12): 1 dòng kế hoạch gửi lên khi lưu - không có id/projectId/updatedAt/updatedBy.
- *  P3C-A: giữ tạm cho form cũ, xoá ở commit Task 6 + 7. */
-export interface EquipmentPlanInput {
-  equipmentId: number;
-  unitNo: number;
-  workItemId: number | null;
-  plannedStart: string; // 'YYYY-MM-DD'
-  plannedFinish: string; // 'YYYY-MM-DD'
-  note: string;
-}
-
 /** Dòng DB project_equipment_quota. */
 export interface ProjectEquipmentQuota { projectId: number; equipmentId: number; totalQty: number; updatedAt: string; updatedBy: string }
 /** Dòng DB project_manpower_plan_month. */

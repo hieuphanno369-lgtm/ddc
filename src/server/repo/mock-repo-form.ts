@@ -1,11 +1,11 @@
 import type { RepoData } from '@/data/seed/history';
 import { DEFAULT_STAGE_WEIGHTS, STAGE_ORDER } from '@/lib/stages';
 import { planAliasChange } from '@/lib/project-code';
-import { equipPlanAuditText } from '@/lib/equipment-plan';
+import { equipGroupsAuditText } from '@/lib/equipment-plan';
 import { resolveShiftRatios } from '@/lib/manpower-plan';
 import { audit, type EntryMockDeps } from './mock-repo-entry';
 import type {
-  AuditLogEntry, EquipmentPlanInput, EquipmentPlanSegment, EquipmentQuota, ManpowerPlanMonthRow, ProjectMember,
+  AuditLogEntry, EquipmentPlanGroupInput, EquipmentPlanSegment, EquipmentQuota, ManpowerPlanMonthRow, ProjectMember,
   ShiftRatio, StageWeightInput,
 } from './types';
 
@@ -191,18 +191,33 @@ export function makeFormMockRepo({ getData, persist }: EntryMockDeps) {
         .slice(0, limit);
     },
 
-    /** Task 12 (P3A, T14): thay TOÀN BỘ kế hoạch thiết bị của 1 dự án - nguồn Gantt thiết bị. */
-    replaceEquipmentPlans(projectId: number, rows: EquipmentPlanInput[], by: string): void {
+    /** P3C-A (T4): thay TOÀN BỘ quota + đợt thiết bị của dự án; 1 dòng audit. */
+    replaceEquipmentPlans(projectId: number, groups: EquipmentPlanGroupInput[], by: string): void {
       const d = getData();
-      // P3C-A: unitNo co the null (dot nhap theo SL) - EquipmentPlanInput (form P3A) van doi unitNo la so.
-      const before = d.equipmentPlans.filter((p) => p.projectId === projectId).map((p) => ({ ...p, unitNo: p.unitNo ?? 0 }));
-      const beforeText = equipPlanAuditText(before);
-      const afterText = equipPlanAuditText(rows);
+      const beforeQuotas = d.equipmentQuotas.filter((q) => q.projectId === projectId);
+      const beforePlans = d.equipmentPlans.filter((p) => p.projectId === projectId);
+      const beforeGroups: EquipmentPlanGroupInput[] = beforeQuotas.map((q) => ({
+        equipmentId: q.equipmentId,
+        totalQty: q.totalQty,
+        segments: beforePlans
+          .filter((p) => p.equipmentId === q.equipmentId)
+          .map((p) => ({ from: p.plannedStart, to: p.plannedFinish, qty: p.qty }))
+          .sort((a, b) => a.from.localeCompare(b.from)),
+      }));
+      const beforeText = equipGroupsAuditText(beforeGroups);
+      const afterText = equipGroupsAuditText(groups);
+
       const now = new Date().toISOString();
       let nextId = d.equipmentPlans.reduce((m, p) => Math.max(m, p.id), 0) + 1;
+      d.equipmentQuotas = d.equipmentQuotas
+        .filter((q) => q.projectId !== projectId)
+        .concat(groups.map((g) => ({ projectId, equipmentId: g.equipmentId, totalQty: g.totalQty, updatedAt: now, updatedBy: by })));
       d.equipmentPlans = d.equipmentPlans
         .filter((p) => p.projectId !== projectId)
-        .concat(rows.map((r) => ({ id: nextId++, projectId, ...r, qty: 1, updatedAt: now, updatedBy: by })));
+        .concat(groups.flatMap((g) => g.segments.map((s) => ({
+          id: nextId++, projectId, equipmentId: g.equipmentId, unitNo: null, qty: s.qty, workItemId: null,
+          plannedStart: s.from, plannedFinish: s.to, note: '', updatedAt: now, updatedBy: by,
+        }))));
       audit(d, 'project_equipment_plan', String(projectId), 'replace', beforeText, afterText, by);
       persist();
     },

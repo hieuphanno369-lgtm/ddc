@@ -9,7 +9,7 @@ import { currentMonth } from '@/lib/clock';
 import { IMPORT_MAX_BYTES } from '@/lib/import-limits';
 import { PROJECT_NAME_MAX } from '@/lib/project-form';
 import { isValidProjectCode, PROJECT_CODE_MAX } from '@/lib/project-code';
-import { EQUIP_NOTE_MAX, EQUIP_PLAN_MAX_ROWS, EQUIP_UNIT_MAX } from '@/lib/equipment-plan';
+import { EQUIP_GROUP_MAX, EQUIP_PLAN_MAX_ROWS, EQUIP_QTY_MAX } from '@/lib/equipment-plan';
 
 /**
  * Zod schema validate input mọi server action (spec §7.5 - không tin client).
@@ -363,19 +363,19 @@ export const closeAlertSchema = z.object({
   note: z.string().trim().max(1000),
 });
 
-/** P3A (Task 12): kế hoạch sử dụng thiết bị theo từng chiếc - nguồn Gantt thiết bị (T14). */
+/** P3C-A (T4): kế hoạch dùng thiết bị theo đợt (Tổng SL + các đợt) - nguồn Gantt thiết bị. */
 export const saveEquipmentPlansSchema = z.object({
   projectId: z.number().int().positive(),
-  rows: z
+  groups: z
     .array(
       z.object({
         equipmentId: z.number().int().positive(),
-        unitNo: z.number().int().min(1).max(EQUIP_UNIT_MAX),
-        workItemId: z.number().int().positive().nullable(),
-        plannedStart: isoDate,
-        plannedFinish: isoDate,
-        note: z.string().trim().max(EQUIP_NOTE_MAX),
+        totalQty: z.number().int().min(1).max(EQUIP_QTY_MAX),
+        segments: z
+          .array(z.object({ from: isoDate, to: isoDate, qty: z.number().int().min(1).max(EQUIP_QTY_MAX) }))
+          .max(EQUIP_PLAN_MAX_ROWS),
       }),
     )
-    .max(EQUIP_PLAN_MAX_ROWS),
+    .max(EQUIP_GROUP_MAX)
+    .refine((groups) => groups.reduce((s, g) => s + g.segments.length, 0) <= EQUIP_PLAN_MAX_ROWS, 'Qua nhieu dot'),
 });

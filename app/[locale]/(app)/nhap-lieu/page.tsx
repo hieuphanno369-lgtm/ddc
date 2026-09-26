@@ -69,9 +69,10 @@ export default async function NhapLieuPage({
   const dailyEquipment = project ? await repo.getDailyEquipment(project.id, date, date) : [];
   const monthLocked = await repo.isMonthLocked(date.slice(0, 7));
 
-  // Task 12 (P3A, T14): kế hoạch sử dụng thiết bị - nguồn Gantt thiết bị ở Chi tiết dự án.
-  const equipmentPlans = project ? await repo.readEquipmentPlans(project.id) : [];
-  const workItems = project ? await repo.getWorkItems(project.id) : [];
+  // P3C-A (T4): kế hoạch dùng thiết bị theo đợt (Tổng SL + các đợt) - nguồn Gantt thiết bị ở Chi tiết dự án.
+  const [equipmentQuotas, equipmentSegments] = project
+    ? await Promise.all([repo.readEquipmentQuotas(project.id), repo.readEquipmentPlanSegments(project.id)])
+    : [[], []];
 
   // T8 (Task 6, P2A): sản lượng tháng của khu vực sản xuất chính của dự án.
   const volumeTonnage =
@@ -132,7 +133,7 @@ export default async function NhapLieuPage({
                   manpower={manpower}
                   equipment={dailyEquipment}
                 />
-                <EquipmentPlanEditor projectId={project.id} plans={equipmentPlans} equipments={equipments} workItems={workItems} />
+                <EquipmentPlanEditor projectId={project.id} quotas={equipmentQuotas} segments={equipmentSegments} equipments={equipments} />
               </>
             }
           />

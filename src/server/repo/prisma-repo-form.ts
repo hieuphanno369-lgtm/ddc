@@ -2,12 +2,12 @@ import { prisma } from '@/server/db';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { DEFAULT_STAGE_WEIGHTS, STAGE_ORDER } from '@/lib/stages';
 import { planAliasChange } from '@/lib/project-code';
-import { equipPlanAuditText } from '@/lib/equipment-plan';
+import { equipGroupsAuditText } from '@/lib/equipment-plan';
 import { resolveShiftRatios } from '@/lib/manpower-plan';
 import type { IsoDate } from '@/lib/clock';
 import { audit } from './prisma-repo-entry';
 import type {
-  AuditLogEntry, EquipmentPlanInput, EquipmentPlanSegment, EquipmentQuota, ManpowerPlanMonthRow, ProjectAlias,
+  AuditLogEntry, EquipmentPlanGroupInput, EquipmentPlanSegment, EquipmentQuota, ManpowerPlanMonthRow, ProjectAlias,
   ProjectMember, Role, ShiftRatio, StageWeightInput,
 } from './types';
 
@@ -283,23 +283,38 @@ export const formPrismaRepo = {
     }));
   },
 
-  /** Task 12 (P3A, T14): thay TOÀN BỘ kế hoạch thiết bị của 1 dự án - nguồn Gantt thiết bị. */
-  async replaceEquipmentPlans(projectId: number, rows: EquipmentPlanInput[], by: string): Promise<void> {
+  /** P3C-A (T4): thay TOÀN BỘ quota + đợt thiết bị của dự án trong 1 transaction; 1 dòng audit. */
+  async replaceEquipmentPlans(projectId: number, groups: EquipmentPlanGroupInput[], by: string): Promise<void> {
     await prisma.$transaction(async (tx) => {
-      const before = await tx.projectEquipmentPlan.findMany({ where: { projectId } });
-      const beforeText = equipPlanAuditText(before.map((p) => ({
-        // P3C-A: unitNo co the null (dot nhap theo SL) - EquipmentPlanInput (form P3A) doi unitNo la so.
-        equipmentId: p.equipmentId, unitNo: p.unitNo ?? 0, workItemId: p.workItemId,
-        plannedStart: day(p.plannedStart)!, plannedFinish: day(p.plannedFinish)!, note: p.note,
-      })));
-      const afterText = equipPlanAuditText(rows);
+      const [beforeQuotas, beforePlans] = await Promise.all([
+        tx.projectEquipmentQuota.findMany({ where: { projectId } }),
+        tx.projectEquipmentPlan.findMany({ where: { projectId } }),
+      ]);
+      const beforeGroups: EquipmentPlanGroupInput[] = beforeQuotas.map((q) => ({
+        equipmentId: q.equipmentId,
+        totalQty: q.totalQty,
+        segments: beforePlans
+          .filter((p) => p.equipmentId === q.equipmentId)
+          .map((p) => ({ from: day(p.plannedStart)!, to: day(p.plannedFinish)!, qty: p.qty }))
+          .sort((a, b) => a.from.localeCompare(b.from)),
+      }));
+      const beforeText = equipGroupsAuditText(beforeGroups);
+      const afterText = equipGroupsAuditText(groups);
+
       await tx.projectEquipmentPlan.deleteMany({ where: { projectId } });
-      if (rows.length) {
+      await tx.projectEquipmentQuota.deleteMany({ where: { projectId } });
+
+      if (groups.length) {
+        await tx.projectEquipmentQuota.createMany({
+          data: groups.map((g) => ({ projectId, equipmentId: g.equipmentId, totalQty: g.totalQty, updatedBy: by })),
+        });
+      }
+      const allSegments = groups.flatMap((g) => g.segments.map((s) => ({ equipmentId: g.equipmentId, ...s })));
+      if (allSegments.length) {
         await tx.projectEquipmentPlan.createMany({
-          data: rows.map((r) => ({
-            projectId, equipmentId: r.equipmentId, unitNo: r.unitNo, workItemId: r.workItemId,
-            plannedStart: dayStart(r.plannedStart), plannedFinish: dayStart(r.plannedFinish),
-            note: r.note, updatedBy: by,
+          data: allSegments.map((s) => ({
+            projectId, equipmentId: s.equipmentId, unitNo: null, qty: s.qty, workItemId: null,
+            plannedStart: dayStart(s.from), plannedFinish: dayStart(s.to), note: '', updatedBy: by,
           })),
         });
       }

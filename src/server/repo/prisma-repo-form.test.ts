@@ -8,7 +8,9 @@ const {
   projectEquipmentPlanDeleteMany, projectEquipmentPlanCreateMany, projectAssignmentFindUnique,
   projectAssignmentFindFirst, projectAssignmentUpdate, projectAssignmentCreate, projectAssignmentDelete,
   auditCreate, executeRaw, transactionMock,
-  projectEquipmentQuotaFindMany, projectManpowerPlanMonthFindMany, projectShiftRatioFindMany, shiftFindMany,
+  projectEquipmentQuotaFindMany, projectEquipmentQuotaDeleteMany, projectEquipmentQuotaCreateMany,
+  projectManpowerPlanMonthFindMany, projectManpowerPlanMonthDeleteMany, projectManpowerPlanMonthCreateMany,
+  projectShiftRatioFindMany, projectShiftRatioDeleteMany, projectShiftRatioCreateMany, shiftFindMany,
 } = vi.hoisted(() => {
   const projectFindUnique = vi.fn(async () => ({
     id: 7, currentAliasCode: 'OLD-CODE', createdAt: new Date('2026-01-01T00:00:00Z'),
@@ -34,8 +36,14 @@ const {
   const auditCreate = vi.fn(async () => ({}));
   const executeRaw = vi.fn(async () => 1);
   const projectEquipmentQuotaFindMany = vi.fn(async () => [] as unknown[]);
+  const projectEquipmentQuotaDeleteMany = vi.fn(async () => ({ count: 0 }));
+  const projectEquipmentQuotaCreateMany = vi.fn(async () => ({ count: 0 }));
   const projectManpowerPlanMonthFindMany = vi.fn(async () => [] as unknown[]);
+  const projectManpowerPlanMonthDeleteMany = vi.fn(async () => ({ count: 0 }));
+  const projectManpowerPlanMonthCreateMany = vi.fn(async () => ({ count: 0 }));
   const projectShiftRatioFindMany = vi.fn(async () => [] as unknown[]);
+  const projectShiftRatioDeleteMany = vi.fn(async () => ({ count: 0 }));
+  const projectShiftRatioCreateMany = vi.fn(async () => ({ count: 0 }));
   const shiftFindMany = vi.fn(async () => [] as unknown[]);
   const client = {
     project: { findUnique: projectFindUnique, findFirst: projectFindFirst, update: projectUpdate },
@@ -43,9 +51,9 @@ const {
     projectHistory: { create: projectHistoryCreate },
     projectStageWeight: { findMany: projectStageWeightFindMany, deleteMany: projectStageWeightDeleteMany, createMany: projectStageWeightCreateMany },
     projectEquipmentPlan: { findMany: projectEquipmentPlanFindMany, deleteMany: projectEquipmentPlanDeleteMany, createMany: projectEquipmentPlanCreateMany },
-    projectEquipmentQuota: { findMany: projectEquipmentQuotaFindMany },
-    projectManpowerPlanMonth: { findMany: projectManpowerPlanMonthFindMany },
-    projectShiftRatio: { findMany: projectShiftRatioFindMany },
+    projectEquipmentQuota: { findMany: projectEquipmentQuotaFindMany, deleteMany: projectEquipmentQuotaDeleteMany, createMany: projectEquipmentQuotaCreateMany },
+    projectManpowerPlanMonth: { findMany: projectManpowerPlanMonthFindMany, deleteMany: projectManpowerPlanMonthDeleteMany, createMany: projectManpowerPlanMonthCreateMany },
+    projectShiftRatio: { findMany: projectShiftRatioFindMany, deleteMany: projectShiftRatioDeleteMany, createMany: projectShiftRatioCreateMany },
     shift: { findMany: shiftFindMany },
     projectAssignment: {
       findUnique: projectAssignmentFindUnique, findFirst: projectAssignmentFindFirst,
@@ -62,7 +70,9 @@ const {
     projectEquipmentPlanDeleteMany, projectEquipmentPlanCreateMany, projectAssignmentFindUnique,
     projectAssignmentFindFirst, projectAssignmentUpdate, projectAssignmentCreate, projectAssignmentDelete,
     auditCreate, executeRaw, transactionMock,
-    projectEquipmentQuotaFindMany, projectManpowerPlanMonthFindMany, projectShiftRatioFindMany, shiftFindMany,
+    projectEquipmentQuotaFindMany, projectEquipmentQuotaDeleteMany, projectEquipmentQuotaCreateMany,
+    projectManpowerPlanMonthFindMany, projectManpowerPlanMonthDeleteMany, projectManpowerPlanMonthCreateMany,
+    projectShiftRatioFindMany, projectShiftRatioDeleteMany, projectShiftRatioCreateMany, shiftFindMany,
   };
 });
 
@@ -73,9 +83,9 @@ vi.mock('@/server/db', () => ({
     projectHistory: { create: projectHistoryCreate },
     projectStageWeight: { findMany: projectStageWeightFindMany, deleteMany: projectStageWeightDeleteMany, createMany: projectStageWeightCreateMany },
     projectEquipmentPlan: { findMany: projectEquipmentPlanFindMany, deleteMany: projectEquipmentPlanDeleteMany, createMany: projectEquipmentPlanCreateMany },
-    projectEquipmentQuota: { findMany: projectEquipmentQuotaFindMany },
-    projectManpowerPlanMonth: { findMany: projectManpowerPlanMonthFindMany },
-    projectShiftRatio: { findMany: projectShiftRatioFindMany },
+    projectEquipmentQuota: { findMany: projectEquipmentQuotaFindMany, deleteMany: projectEquipmentQuotaDeleteMany, createMany: projectEquipmentQuotaCreateMany },
+    projectManpowerPlanMonth: { findMany: projectManpowerPlanMonthFindMany, deleteMany: projectManpowerPlanMonthDeleteMany, createMany: projectManpowerPlanMonthCreateMany },
+    projectShiftRatio: { findMany: projectShiftRatioFindMany, deleteMany: projectShiftRatioDeleteMany, createMany: projectShiftRatioCreateMany },
     shift: { findMany: shiftFindMany },
     projectAssignment: {
       findUnique: projectAssignmentFindUnique, findFirst: projectAssignmentFindFirst,
@@ -115,10 +125,16 @@ beforeEach(() => {
   executeRaw.mockClear();
   projectEquipmentQuotaFindMany.mockClear();
   projectEquipmentQuotaFindMany.mockResolvedValue([]);
+  projectEquipmentQuotaDeleteMany.mockClear();
+  projectEquipmentQuotaCreateMany.mockClear();
   projectManpowerPlanMonthFindMany.mockClear();
   projectManpowerPlanMonthFindMany.mockResolvedValue([]);
+  projectManpowerPlanMonthDeleteMany.mockClear();
+  projectManpowerPlanMonthCreateMany.mockClear();
   projectShiftRatioFindMany.mockClear();
   projectShiftRatioFindMany.mockResolvedValue([]);
+  projectShiftRatioDeleteMany.mockClear();
+  projectShiftRatioCreateMany.mockClear();
   shiftFindMany.mockClear();
   shiftFindMany.mockResolvedValue([]);
 });
@@ -181,14 +197,19 @@ describe('prisma-repo.replaceStageWeights', () => {
   });
 });
 
-describe('prisma-repo.replaceEquipmentPlans', () => {
-  it('chay trong $transaction, xoa roi tao lai, ghi audit', async () => {
+describe('prisma-repo.replaceEquipmentPlans (P3C-A)', () => {
+  it('chay trong $transaction, xoa roi tao lai ca 2 bang, tao quota + dot voi unitNo null, ghi audit', async () => {
     await repo.replaceEquipmentPlans(7, [
-      { equipmentId: 1, unitNo: 1, workItemId: null, plannedStart: '2026-09-01', plannedFinish: '2026-09-10', note: '' },
+      { equipmentId: 1, totalQty: 5, segments: [{ from: '2026-09-01', to: '2026-09-10', qty: 2 }] },
     ], 'admin@x');
     expect(transactionMock).toHaveBeenCalledTimes(1);
     expect(projectEquipmentPlanDeleteMany).toHaveBeenCalledWith({ where: { projectId: 7 } });
-    expect(projectEquipmentPlanCreateMany).toHaveBeenCalled();
+    expect(projectEquipmentQuotaFindMany).toHaveBeenCalledWith({ where: { projectId: 7 } });
+    expect(projectEquipmentPlanCreateMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({
+        projectId: 7, equipmentId: 1, unitNo: null, qty: 2, workItemId: null, note: '', updatedBy: 'admin@x',
+      })],
+    });
     expect(auditCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({ tableName: 'project_equipment_plan', recordId: '7', field: 'replace', changedBy: 'admin@x' }),
     });
