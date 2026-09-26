@@ -1,4 +1,7 @@
-import type { Contractor, Equipment, ProjectEquipmentPlan, Shift, Stage } from '@/server/repo/types';
+import type {
+  Contractor, Equipment, ProjectEquipmentPlan, ProjectEquipmentQuota, ProjectManpowerPlanMonth, ProjectShiftRatio,
+  Shift, Stage,
+} from '@/server/repo/types';
 import { DEFAULT_STAGE_WEIGHTS, STAGE_CALC_MODE, STAGE_ORDER } from '@/lib/stages';
 
 /** 7 giai đoạn thành dimension thật. Tên song ngữ khớp i18n key stage.* trong src/lib/labels.ts. */
@@ -101,14 +104,56 @@ export const DAY_FACTORS = [0.86, 0.88, 0.91, 0.93, 0.96, 0.98, 1];
 /** Dự án nhận trọn bộ dữ liệu ERP chi tiết: id = 1 (SVĐ PVF) - đã chốt (Q9). */
 export const ERP_DETAIL_PROJECT_ID = 1;
 
-/** Kế hoạch dùng thiết bị cho Gantt T14 - dự án ERP_DETAIL_PROJECT_ID, 6 dòng (M8 đã chốt). */
-export const equipmentPlanSeed: ProjectEquipmentPlan[] = [
+/** P3A cu (6 dong, theo tung chiec) - chi cho test Gantt cu, xoa o Buoc 11. */
+export const legacyEquipmentPlanFixture: ProjectEquipmentPlan[] = [
   { id: 1, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 1, unitNo: 1, qty: 1, workItemId: 1, plannedStart: '2026-08-03', plannedFinish: '2026-08-30', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
   { id: 2, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 1, unitNo: 1, qty: 1, workItemId: 4, plannedStart: '2026-08-31', plannedFinish: '2026-10-11', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
   { id: 3, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 1, unitNo: 2, qty: 1, workItemId: 2, plannedStart: '2026-08-10', plannedFinish: '2026-09-27', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
   { id: 4, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 1, unitNo: 3, qty: 1, workItemId: 3, plannedStart: '2026-09-07', plannedFinish: '2026-10-18', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
   { id: 5, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 2, unitNo: 1, qty: 1, workItemId: 5, plannedStart: '2026-08-17', plannedFinish: '2026-09-20', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
   { id: 6, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 2, unitNo: 2, qty: 1, workItemId: 6, plannedStart: '2026-09-14', plannedFinish: '2026-10-25', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+];
+
+/** P3C-A (T4): kế hoạch dùng thiết bị theo đợt - dự án ERP_DETAIL_PROJECT_ID, 7 đợt (unitNo null = nhập theo SL). */
+export const equipmentPlanSeed: ProjectEquipmentPlan[] = [
+  { id: 1, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 1, unitNo: null, qty: 1, workItemId: null, plannedStart: '2026-07-06', plannedFinish: '2026-08-30', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { id: 2, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 1, unitNo: null, qty: 3, workItemId: null, plannedStart: '2026-08-31', plannedFinish: '2026-10-25', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { id: 3, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 1, unitNo: null, qty: 2, workItemId: null, plannedStart: '2026-10-26', plannedFinish: '2026-11-29', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { id: 4, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 2, unitNo: null, qty: 2, workItemId: null, plannedStart: '2026-08-17', plannedFinish: '2026-09-20', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { id: 5, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 2, unitNo: null, qty: 1, workItemId: null, plannedStart: '2026-09-21', plannedFinish: '2026-10-25', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { id: 6, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 3, unitNo: null, qty: 3, workItemId: null, plannedStart: '2026-09-01', plannedFinish: '2026-09-30', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { id: 7, projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 3, unitNo: null, qty: 1, workItemId: null, plannedStart: '2026-09-15', plannedFinish: '2026-10-31', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+];
+
+/** P3C-A (T4): tổng SL mỗi loại thiết bị của dự án ERP_DETAIL_PROJECT_ID (đợt 6 + 7 chồng 09-15..09-30 = 4, vừa đủ). */
+export const equipmentQuotaSeed: ProjectEquipmentQuota[] = [
+  { projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 1, totalQty: 3, updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 2, totalQty: 2, updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { projectId: ERP_DETAIL_PROJECT_ID, equipmentId: 3, totalQty: 4, updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+];
+
+/** P3C-A (T5): kế hoạch nhân lực theo tháng x ca - dự án ERP_DETAIL_PROJECT_ID, 7 tháng, ty le 60/40. */
+export const manpowerPlanSeed: ProjectManpowerPlanMonth[] = [
+  { projectId: ERP_DETAIL_PROJECT_ID, yearMonth: '2026-06', shiftCode: 'morning', planned: 270, isManual: false, updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { projectId: ERP_DETAIL_PROJECT_ID, yearMonth: '2026-06', shiftCode: 'evening', planned: 180, isManual: false, updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { projectId: ERP_DETAIL_PROJECT_ID, yearMonth: '2026-07', shiftCode: 'morning', planned: 420, isManual: false, updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { projectId: ERP_DETAIL_PROJECT_ID, yearMonth: '2026-07', shiftCode: 'evening', planned: 280, isManual: false, updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { projectId: ERP_DETAIL_PROJECT_ID, yearMonth: '2026-08', shiftCode: 'morning', planned: 480, isManual: false, updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { projectId: ERP_DETAIL_PROJECT_ID, yearMonth: '2026-08', shiftCode: 'evening', planned: 320, isManual: false, updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { projectId: ERP_DETAIL_PROJECT_ID, yearMonth: '2026-09', shiftCode: 'morning', planned: 540, isManual: false, updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { projectId: ERP_DETAIL_PROJECT_ID, yearMonth: '2026-09', shiftCode: 'evening', planned: 360, isManual: false, updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { projectId: ERP_DETAIL_PROJECT_ID, yearMonth: '2026-10', shiftCode: 'morning', planned: 480, isManual: false, updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { projectId: ERP_DETAIL_PROJECT_ID, yearMonth: '2026-10', shiftCode: 'evening', planned: 320, isManual: false, updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { projectId: ERP_DETAIL_PROJECT_ID, yearMonth: '2026-11', shiftCode: 'morning', planned: 390, isManual: false, updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { projectId: ERP_DETAIL_PROJECT_ID, yearMonth: '2026-11', shiftCode: 'evening', planned: 260, isManual: false, updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { projectId: ERP_DETAIL_PROJECT_ID, yearMonth: '2026-12', shiftCode: 'morning', planned: 240, isManual: false, updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+  { projectId: ERP_DETAIL_PROJECT_ID, yearMonth: '2026-12', shiftCode: 'evening', planned: 160, isManual: false, updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system' },
+];
+
+/** P3C-A (T5): tỷ lệ chia ca của dự án ERP_DETAIL_PROJECT_ID (60/40, trùng mặc định DEFAULT_SHIFT_RATIO). */
+export const shiftRatioSeed: ProjectShiftRatio[] = [
+  { projectId: ERP_DETAIL_PROJECT_ID, shiftCode: 'morning', pct: 0.6 },
+  { projectId: ERP_DETAIL_PROJECT_ID, shiftCode: 'evening', pct: 0.4 },
 ];
 
 export { DEFAULT_STAGE_WEIGHTS, STAGE_ORDER };

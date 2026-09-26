@@ -11,11 +11,11 @@ import { getEquipmentGantt } from './equipment-gantt-queries';
 const NO_WORK_ITEM = 'Chưa gán';
 
 describe('getEquipmentGantt', () => {
-  it('du an 1 -> 5 hang (thiet bi 1 No.1..3, thiet bi 2 No.1..2)', async () => {
+  it('du an 1 -> 3 hang (P3C-A: dot khong danh so, unitNo null -> K9 gop 1 hang/thiet bi)', async () => {
     const model = await getEquipmentGantt(1, NO_WORK_ITEM);
     expect(model).not.toBeNull();
-    expect(model!.rows).toHaveLength(5);
-    expect(model!.rows.map((r) => r.key).sort()).toEqual(['1-1', '1-2', '1-3', '2-1', '2-2']);
+    expect(model!.rows).toHaveLength(3);
+    expect(model!.rows.map((r) => r.key).sort()).toEqual(['1-0', '2-0', '3-0']);
   });
 
   it('du an 17 (khong co ke hoach thiet bi) -> null', async () => {

@@ -8,6 +8,8 @@ import { currentMonth, historyMonths } from '@/lib/clock';
 import { prisma } from '@/server/db';
 import { createReadMock } from '@/server/repo/read-mock';
 import { readRepoPrisma } from '@/server/repo/read-prisma';
+import { formPrismaRepo } from '@/server/repo/prisma-repo-form';
+import { makeFormMockRepo } from '@/server/repo/mock-repo-form';
 
 /**
  * Chuan hoa timestamp ISO day du (mock giu nguyen chuoi seed '...T00:00:00Z', Postgres tra ve
@@ -58,6 +60,8 @@ function check(label: string, a: unknown, b: unknown) {
 
 async function main() {
   const mock = createReadMock(() => buildRepoData());
+  const seedData = buildRepoData();
+  const formMock = makeFormMockRepo({ getData: () => seedData, persist: () => {} });
 
   check('readShifts', await readRepoPrisma.readShifts(), await mock.readShifts());
 
@@ -76,6 +80,11 @@ async function main() {
       await readRepoPrisma.readEquipmentUsageDays(id, from, to),
       await mock.readEquipmentUsageDays(id, from, to),
     );
+    // P3C-A: 4 ham doc hop dong P3C.
+    check(`readEquipmentPlanSegments(${id})`, await formPrismaRepo.readEquipmentPlanSegments(id), await formMock.readEquipmentPlanSegments(id));
+    check(`readEquipmentQuotas(${id})`, await formPrismaRepo.readEquipmentQuotas(id), await formMock.readEquipmentQuotas(id));
+    check(`readManpowerPlanMonths(${id})`, await formPrismaRepo.readManpowerPlanMonths(id), await formMock.readManpowerPlanMonths(id));
+    check(`readShiftRatios(${id})`, await formPrismaRepo.readShiftRatios(id), await formMock.readShiftRatios(id));
   }
 
   // Buoc 5: T1-code (a) - readFactSnapshots/readFinancialSnapshots/readVolumeSnapshots/readMonthlyEvm.

@@ -146,6 +146,19 @@ async function main() {
     })),
   });
 
+  await prisma.projectEquipmentQuota.deleteMany();
+  await prisma.projectEquipmentQuota.createMany({
+    data: data.equipmentQuotas.map((q) => ({ ...q, updatedAt: new Date(q.updatedAt) })),
+  });
+
+  await prisma.projectManpowerPlanMonth.deleteMany();
+  await prisma.projectManpowerPlanMonth.createMany({
+    data: data.manpowerPlanMonths.map((m) => ({ ...m, updatedAt: new Date(m.updatedAt) })),
+  });
+
+  await prisma.projectShiftRatio.deleteMany();
+  await prisma.projectShiftRatio.createMany({ data: data.shiftRatios });
+
   // ---- Logs / phụ ----
   await prisma.alertLog.deleteMany();
   await prisma.alertLog.createMany({

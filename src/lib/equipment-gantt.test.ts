@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { equipmentPlanSeed, equipments, workItemNames } from '@/data/seed/erp';
+import { legacyEquipmentPlanFixture, equipments, workItemNames } from '@/data/seed/erp';
 import type { EquipmentUsageDay } from '@/server/repo/read-types';
 import type { ProjectEquipmentPlan } from '@/server/repo/types';
 import { assignUsage, buildGantt, type GanttInput } from './equipment-gantt';
@@ -56,7 +56,7 @@ describe('buildGantt', () => {
   });
 
   it('seed du an 1: 5 hang, 1 chiec 2 thanh lien nhau (equipmentId 1 unitNo 1)', () => {
-    const model = buildGantt({ plans: equipmentPlanSeed, usage: [], equipments, workItems: SEED_WORK_ITEMS, noWorkItemName: NO_WORK_ITEM })!;
+    const model = buildGantt({ plans: legacyEquipmentPlanFixture, usage: [], equipments, workItems: SEED_WORK_ITEMS, noWorkItemName: NO_WORK_ITEM })!;
     expect(model).not.toBeNull();
     expect(model.rows).toHaveLength(5);
     const row = model.rows.find((r) => r.key === '1-1')!;
@@ -98,7 +98,7 @@ describe('buildGantt', () => {
   });
 
   it('ngay ra dung Thu 2 (from) / Chu nhat (to)', () => {
-    const model = buildGantt({ plans: equipmentPlanSeed, usage: [], equipments, workItems: SEED_WORK_ITEMS, noWorkItemName: NO_WORK_ITEM })!;
+    const model = buildGantt({ plans: legacyEquipmentPlanFixture, usage: [], equipments, workItems: SEED_WORK_ITEMS, noWorkItemName: NO_WORK_ITEM })!;
     expect(new Date(`${model.from}T00:00:00Z`).getUTCDay()).toBe(1);
     expect(new Date(`${model.to}T00:00:00Z`).getUTCDay()).toBe(0);
     expect(model.planFrom).toBe('2026-08-03');
@@ -122,7 +122,7 @@ describe('buildGantt', () => {
     expect(model.legend.map((l) => l.key)).toEqual(['1', '4']);
   });
 
-  const GANTT_INPUT_FIXTURE: GanttInput = { plans: equipmentPlanSeed, usage: [], equipments, workItems: SEED_WORK_ITEMS, noWorkItemName: NO_WORK_ITEM };
+  const GANTT_INPUT_FIXTURE: GanttInput = { plans: legacyEquipmentPlanFixture, usage: [], equipments, workItems: SEED_WORK_ITEMS, noWorkItemName: NO_WORK_ITEM };
   it('input co du field theo GanttInput (khong loi type)', () => {
     expect(buildGantt(GANTT_INPUT_FIXTURE)).not.toBeNull();
   });

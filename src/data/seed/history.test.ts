@@ -4,6 +4,7 @@ import { seedProjects } from './projects';
 import { DEFAULT_STAGE_WEIGHTS, validateStageWeights } from '@/lib/stages';
 import { ERP_DETAIL_PROJECT_ID } from './erp';
 import { sumManpowerShifts } from '@/lib/shifts';
+import { findOverloads } from '@/lib/equipment-plan';
 
 describe('Seed dữ liệu', () => {
   const data = buildRepoData();
@@ -146,19 +147,64 @@ describe('Seed ERP v2', () => {
     }
   });
 
-  it('ke hoach thiet bi Gantt: 6 dong, plannedFinish >= plannedStart, unitNo >= 1, workItemId ton tai o du an 1', () => {
-    expect(data.equipmentPlans).toHaveLength(6);
-    const workItemIds = new Set(
-      data.workItems.filter((w) => w.projectId === ERP_DETAIL_PROJECT_ID).map((w) => w.id),
-    );
+  it('P3C-A: ke hoach thiet bi theo dot - 7 dong, qty >= 1, unitNo null (nhap theo SL)', () => {
+    expect(data.equipmentPlans).toHaveLength(7);
     for (const p of data.equipmentPlans) {
       expect(p.plannedFinish >= p.plannedStart).toBe(true);
-      expect(p.unitNo).toBeGreaterThanOrEqual(1);
-      if (p.workItemId != null) expect(workItemIds.has(p.workItemId)).toBe(true);
+      expect(p.qty).toBeGreaterThanOrEqual(1);
+      expect(p.unitNo).toBeNull();
     }
-    const unitNosOfEquipment1 = new Set(
-      data.equipmentPlans.filter((p) => p.equipmentId === 1).map((p) => p.unitNo),
-    );
-    expect([...unitNosOfEquipment1].sort()).toEqual([1, 2, 3]);
+  });
+
+  it('P3C-A: moi loai thiet bi >= 2 dot voi >= 2 gia tri qty khac nhau', () => {
+    const byEquipment = new Map<number, number[]>();
+    for (const p of data.equipmentPlans) {
+      const list = byEquipment.get(p.equipmentId) ?? [];
+      list.push(p.qty);
+      byEquipment.set(p.equipmentId, list);
+    }
+    for (const [, qtys] of byEquipment) {
+      expect(qtys.length).toBeGreaterThanOrEqual(2);
+      expect(new Set(qtys).size).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it('P3C-A: co 1 thiet bi khoang thoi gian > 92 ngay (B thay truc thang)', () => {
+    const byEquipment = new Map<number, { from: string; to: string }[]>();
+    for (const p of data.equipmentPlans) {
+      const list = byEquipment.get(p.equipmentId) ?? [];
+      list.push({ from: p.plannedStart, to: p.plannedFinish });
+      byEquipment.set(p.equipmentId, list);
+    }
+    const spans = [...byEquipment.values()].map((segs) => {
+      const minFrom = segs.map((s) => s.from).reduce((m, s) => (s < m ? s : m));
+      const maxTo = segs.map((s) => s.to).reduce((m, s) => (s > m ? s : m));
+      return (new Date(maxTo).getTime() - new Date(minFrom).getTime()) / 86_400_000;
+    });
+    expect(spans.some((d) => d > 92)).toBe(true);
+  });
+
+  it('P3C-A: moi loai co dot deu co quota, khong dot nao vuot Tong SL (findOverloads rong)', () => {
+    const quotaByEquipment = new Map(data.equipmentQuotas.map((q) => [q.equipmentId, q.totalQty]));
+    const segByEquipment = new Map<number, { from: string; to: string; qty: number }[]>();
+    for (const p of data.equipmentPlans) {
+      const list = segByEquipment.get(p.equipmentId) ?? [];
+      list.push({ from: p.plannedStart, to: p.plannedFinish, qty: p.qty });
+      segByEquipment.set(p.equipmentId, list);
+    }
+    for (const [equipmentId, segs] of segByEquipment) {
+      const total = quotaByEquipment.get(equipmentId);
+      expect(total).toBeGreaterThanOrEqual(1);
+      expect(findOverloads(total!, segs)).toEqual([]);
+    }
+  });
+
+  it('P3C-A: tong moi thang KH nhan luc dung [450,700,800,900,800,650,400]', () => {
+    const byMonth = new Map<string, number>();
+    for (const m of data.manpowerPlanMonths) {
+      byMonth.set(m.yearMonth, (byMonth.get(m.yearMonth) ?? 0) + m.planned);
+    }
+    const months = [...byMonth.keys()].sort();
+    expect(months.map((ym) => byMonth.get(ym))).toEqual([450, 700, 800, 900, 800, 650, 400]);
   });
 });

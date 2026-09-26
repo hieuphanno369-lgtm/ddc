@@ -2,8 +2,12 @@ import type { RepoData } from '@/data/seed/history';
 import { DEFAULT_STAGE_WEIGHTS, STAGE_ORDER } from '@/lib/stages';
 import { planAliasChange } from '@/lib/project-code';
 import { equipPlanAuditText } from '@/lib/equipment-plan';
+import { resolveShiftRatios } from '@/lib/manpower-plan';
 import { audit, type EntryMockDeps } from './mock-repo-entry';
-import type { AuditLogEntry, EquipmentPlanInput, ProjectMember, StageWeightInput } from './types';
+import type {
+  AuditLogEntry, EquipmentPlanInput, EquipmentPlanSegment, EquipmentQuota, ManpowerPlanMonthRow, ProjectMember,
+  ShiftRatio, StageWeightInput,
+} from './types';
 
 /**
  * S-2 (vòng sửa 1): thân `isProjectCodeTaken` tách nhận `d: RepoData` để dùng lại ở `createProject`
@@ -201,6 +205,48 @@ export function makeFormMockRepo({ getData, persist }: EntryMockDeps) {
         .concat(rows.map((r) => ({ id: nextId++, projectId, ...r, qty: 1, updatedAt: now, updatedBy: by })));
       audit(d, 'project_equipment_plan', String(projectId), 'replace', beforeText, afterText, by);
       persist();
+    },
+
+    // ---- P3C-A: 4 hàm đọc theo hợp đồng P3C (B chỉ import từ src/server/repo/types.ts) ----
+
+    async readEquipmentPlanSegments(projectId: number): Promise<EquipmentPlanSegment[]> {
+      const d = getData();
+      const nameById = new Map(d.equipments.map((e) => [e.id, e.name]));
+      return d.equipmentPlans
+        .filter((p) => p.projectId === projectId)
+        .map((p) => ({
+          id: p.id, equipmentId: p.equipmentId, equipmentName: nameById.get(p.equipmentId) ?? `#${p.equipmentId}`,
+          from: p.plannedStart, to: p.plannedFinish, qty: p.qty,
+        }))
+        .sort((a, b) => a.equipmentId - b.equipmentId || a.from.localeCompare(b.from) || a.id - b.id);
+    },
+
+    async readEquipmentQuotas(projectId: number): Promise<EquipmentQuota[]> {
+      const d = getData();
+      const nameById = new Map(d.equipments.map((e) => [e.id, e.name]));
+      return d.equipmentQuotas
+        .filter((q) => q.projectId === projectId)
+        .map((q) => ({ equipmentId: q.equipmentId, equipmentName: nameById.get(q.equipmentId) ?? `#${q.equipmentId}`, totalQty: q.totalQty }))
+        .sort((a, b) => a.equipmentId - b.equipmentId);
+    },
+
+    async readManpowerPlanMonths(projectId: number): Promise<ManpowerPlanMonthRow[]> {
+      const d = getData();
+      const sortOrderByCode = new Map(d.shifts.map((s) => [s.code, s.sortOrder]));
+      return d.manpowerPlanMonths
+        .filter((m) => m.projectId === projectId)
+        .map((m) => ({ yearMonth: m.yearMonth, shiftCode: m.shiftCode, planned: m.planned, isManual: m.isManual }))
+        .sort((a, b) =>
+          a.yearMonth.localeCompare(b.yearMonth)
+          || (sortOrderByCode.get(a.shiftCode) ?? Infinity) - (sortOrderByCode.get(b.shiftCode) ?? Infinity)
+          || a.shiftCode.localeCompare(b.shiftCode));
+    },
+
+    async readShiftRatios(projectId: number): Promise<ShiftRatio[]> {
+      const d = getData();
+      const activeCodes = d.shifts.filter((s) => s.isActive).sort((a, b) => a.sortOrder - b.sortOrder).map((s) => s.code);
+      const stored = d.shiftRatios.filter((r) => r.projectId === projectId);
+      return resolveShiftRatios(activeCodes, stored);
     },
   };
 }

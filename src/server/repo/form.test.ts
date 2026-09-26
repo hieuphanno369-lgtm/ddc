@@ -243,3 +243,48 @@ describe('readProjectAuditTrail (mock-repo)', () => {
     expect(repo.readProjectAuditTrail(1, 2)).toHaveLength(2);
   });
 });
+
+describe('P3C-A: 4 ham doc hop dong (mock-repo)', () => {
+  it('readEquipmentPlanSegments(1): 7 dong dung thu tu, equipmentName dung', async () => {
+    const rows = await repo.readEquipmentPlanSegments(1);
+    expect(rows).toHaveLength(7);
+    expect(rows.map((r) => [r.equipmentId, r.from, r.to, r.qty])).toEqual([
+      [1, '2026-07-06', '2026-08-30', 1],
+      [1, '2026-08-31', '2026-10-25', 3],
+      [1, '2026-10-26', '2026-11-29', 2],
+      [2, '2026-08-17', '2026-09-20', 2],
+      [2, '2026-09-21', '2026-10-25', 1],
+      [3, '2026-09-01', '2026-09-30', 3],
+      [3, '2026-09-15', '2026-10-31', 1],
+    ]);
+    expect(rows.find((r) => r.equipmentId === 1)?.equipmentName).toBe('Cẩu bánh xích');
+  });
+
+  it('readEquipmentQuotas(1): 3 dong', async () => {
+    const rows = await repo.readEquipmentQuotas(1);
+    expect(rows).toHaveLength(3);
+    expect(rows.map((r) => [r.equipmentId, r.totalQty])).toEqual([[1, 3], [2, 2], [3, 4]]);
+  });
+
+  it('readManpowerPlanMonths(1): 14 dong, dong dau morning 270, dong 2 evening 180', async () => {
+    const rows = await repo.readManpowerPlanMonths(1);
+    expect(rows).toHaveLength(14);
+    expect(rows[0]).toEqual({ yearMonth: '2026-06', shiftCode: 'morning', planned: 270, isManual: false });
+    expect(rows[1]).toEqual({ yearMonth: '2026-06', shiftCode: 'evening', planned: 180, isManual: false });
+  });
+
+  it('readShiftRatios(1): 60/40', async () => {
+    expect(await repo.readShiftRatios(1)).toEqual([
+      { shiftCode: 'morning', pct: 0.6 }, { shiftCode: 'evening', pct: 0.4 },
+    ]);
+  });
+
+  it('du an 17 (khong co seed T4/T5): segments/quotas/months rong, ratios = mac dinh 60/40', async () => {
+    expect(await repo.readEquipmentPlanSegments(17)).toEqual([]);
+    expect(await repo.readEquipmentQuotas(17)).toEqual([]);
+    expect(await repo.readManpowerPlanMonths(17)).toEqual([]);
+    expect(await repo.readShiftRatios(17)).toEqual([
+      { shiftCode: 'morning', pct: 0.6 }, { shiftCode: 'evening', pct: 0.4 },
+    ]);
+  });
+});

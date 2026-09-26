@@ -26,7 +26,10 @@ import type {
   ProjectSapCode,
   ProjectPhoto,
   ProjectEquipmentPlan,
+  ProjectEquipmentQuota,
   ProjectHistoryEntry,
+  ProjectManpowerPlanMonth,
+  ProjectShiftRatio,
   ProjectStageWeight,
   ProjectWorkItem,
   SapQueueItem,
@@ -38,14 +41,14 @@ import type {
 import { splitHeadcount } from '@/lib/shifts';
 import { customers, exchangeRates, factories, teams, currencies } from './dims';
 import {
-  DAY_FACTORS, ERP_DETAIL_PROJECT_ID, contractors, equipmentLastDay, equipmentPlanSeed, equipments,
-  keyMilestoneSeed, manpowerLastDay, shifts, stages, workItemNames,
+  DAY_FACTORS, ERP_DETAIL_PROJECT_ID, contractors, equipmentLastDay, equipmentPlanSeed, equipmentQuotaSeed,
+  equipments, keyMilestoneSeed, manpowerLastDay, manpowerPlanSeed, shiftRatioSeed, shifts, stages, workItemNames,
 } from './erp';
 import { seedProjects, type SeedProject } from './projects';
 
 // Hằng số seed - CHỈ dùng để sinh dữ liệu mẫu. Code production đọc src/lib/clock.ts.
 /** Kỳ báo cáo hiện tại (tháng 09/2026). */
-export const SEED_VERSION = '2026-09-25-p3a';
+export const SEED_VERSION = '2026-09-26-p3c-a';
 export const SEED_REPORT_DATE = new Date('2026-09-16T00:00:00Z');
 export const SEED_CURRENT_MONTH = '2026-09';
 export const SEED_HISTORY_MONTHS = [
@@ -530,6 +533,9 @@ export interface RepoData {
   dailyManpowerShifts: FactDailyManpowerShift[];
   dailyEquipment: FactDailyEquipmentUsage[];
   equipmentPlans: ProjectEquipmentPlan[];
+  equipmentQuotas: ProjectEquipmentQuota[];
+  manpowerPlanMonths: ProjectManpowerPlanMonth[];
+  shiftRatios: ProjectShiftRatio[];
   jobRuns: JobRunEntry[];
 }
 
@@ -676,6 +682,9 @@ export function buildRepoData(): RepoData {
     dailyManpowerShifts: res.manpowerShifts,
     dailyEquipment: res.equipmentUsage,
     equipmentPlans: equipmentPlanSeed,
+    equipmentQuotas: equipmentQuotaSeed,
+    manpowerPlanMonths: manpowerPlanSeed,
+    shiftRatios: shiftRatioSeed,
     jobRuns: [],
   };
 }

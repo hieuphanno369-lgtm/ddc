@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { equipmentPlanSeed, equipments, workItemNames } from '@/data/seed/erp';
+import { legacyEquipmentPlanFixture, equipments, workItemNames } from '@/data/seed/erp';
 import { buildGantt } from '@/lib/equipment-gantt';
 
 (globalThis as unknown as { React: typeof React }).React = React;
@@ -16,7 +16,7 @@ const SEED_WORK_ITEMS = workItemNames.map((name, i) => ({ id: i + 1, name, sortO
 
 describe('EquipmentGantt', () => {
   it('render du 5 nhan hang + it nhat 1 rangeLabel', () => {
-    const model = buildGantt({ plans: equipmentPlanSeed, usage: [], equipments, workItems: SEED_WORK_ITEMS, noWorkItemName: 'Chưa gán' })!;
+    const model = buildGantt({ plans: legacyEquipmentPlanFixture, usage: [], equipments, workItems: SEED_WORK_ITEMS, noWorkItemName: 'Chưa gán' })!;
     const out = renderToStaticMarkup(React.createElement(EquipmentGantt, { model }));
     for (const row of model.rows) expect(out).toContain(row.label);
     const hasRangeLabel = model.rows.some((r) => r.bars.some((b) => out.includes(b.rangeLabel)));

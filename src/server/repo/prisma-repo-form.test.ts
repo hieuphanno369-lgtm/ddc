@@ -8,6 +8,7 @@ const {
   projectEquipmentPlanDeleteMany, projectEquipmentPlanCreateMany, projectAssignmentFindUnique,
   projectAssignmentFindFirst, projectAssignmentUpdate, projectAssignmentCreate, projectAssignmentDelete,
   auditCreate, executeRaw, transactionMock,
+  projectEquipmentQuotaFindMany, projectManpowerPlanMonthFindMany, projectShiftRatioFindMany, shiftFindMany,
 } = vi.hoisted(() => {
   const projectFindUnique = vi.fn(async () => ({
     id: 7, currentAliasCode: 'OLD-CODE', createdAt: new Date('2026-01-01T00:00:00Z'),
@@ -32,12 +33,20 @@ const {
   const projectAssignmentDelete = vi.fn(async () => ({}));
   const auditCreate = vi.fn(async () => ({}));
   const executeRaw = vi.fn(async () => 1);
+  const projectEquipmentQuotaFindMany = vi.fn(async () => [] as unknown[]);
+  const projectManpowerPlanMonthFindMany = vi.fn(async () => [] as unknown[]);
+  const projectShiftRatioFindMany = vi.fn(async () => [] as unknown[]);
+  const shiftFindMany = vi.fn(async () => [] as unknown[]);
   const client = {
     project: { findUnique: projectFindUnique, findFirst: projectFindFirst, update: projectUpdate },
     projectAlias: { findMany: projectAliasFindMany, findFirst: projectAliasFindFirst, create: projectAliasCreate, update: projectAliasUpdate },
     projectHistory: { create: projectHistoryCreate },
     projectStageWeight: { findMany: projectStageWeightFindMany, deleteMany: projectStageWeightDeleteMany, createMany: projectStageWeightCreateMany },
     projectEquipmentPlan: { findMany: projectEquipmentPlanFindMany, deleteMany: projectEquipmentPlanDeleteMany, createMany: projectEquipmentPlanCreateMany },
+    projectEquipmentQuota: { findMany: projectEquipmentQuotaFindMany },
+    projectManpowerPlanMonth: { findMany: projectManpowerPlanMonthFindMany },
+    projectShiftRatio: { findMany: projectShiftRatioFindMany },
+    shift: { findMany: shiftFindMany },
     projectAssignment: {
       findUnique: projectAssignmentFindUnique, findFirst: projectAssignmentFindFirst,
       update: projectAssignmentUpdate, create: projectAssignmentCreate, delete: projectAssignmentDelete,
@@ -53,6 +62,7 @@ const {
     projectEquipmentPlanDeleteMany, projectEquipmentPlanCreateMany, projectAssignmentFindUnique,
     projectAssignmentFindFirst, projectAssignmentUpdate, projectAssignmentCreate, projectAssignmentDelete,
     auditCreate, executeRaw, transactionMock,
+    projectEquipmentQuotaFindMany, projectManpowerPlanMonthFindMany, projectShiftRatioFindMany, shiftFindMany,
   };
 });
 
@@ -63,6 +73,10 @@ vi.mock('@/server/db', () => ({
     projectHistory: { create: projectHistoryCreate },
     projectStageWeight: { findMany: projectStageWeightFindMany, deleteMany: projectStageWeightDeleteMany, createMany: projectStageWeightCreateMany },
     projectEquipmentPlan: { findMany: projectEquipmentPlanFindMany, deleteMany: projectEquipmentPlanDeleteMany, createMany: projectEquipmentPlanCreateMany },
+    projectEquipmentQuota: { findMany: projectEquipmentQuotaFindMany },
+    projectManpowerPlanMonth: { findMany: projectManpowerPlanMonthFindMany },
+    projectShiftRatio: { findMany: projectShiftRatioFindMany },
+    shift: { findMany: shiftFindMany },
     projectAssignment: {
       findUnique: projectAssignmentFindUnique, findFirst: projectAssignmentFindFirst,
       update: projectAssignmentUpdate, create: projectAssignmentCreate, delete: projectAssignmentDelete,
@@ -99,6 +113,14 @@ beforeEach(() => {
   projectAssignmentCreate.mockClear();
   projectAssignmentDelete.mockClear();
   executeRaw.mockClear();
+  projectEquipmentQuotaFindMany.mockClear();
+  projectEquipmentQuotaFindMany.mockResolvedValue([]);
+  projectManpowerPlanMonthFindMany.mockClear();
+  projectManpowerPlanMonthFindMany.mockResolvedValue([]);
+  projectShiftRatioFindMany.mockClear();
+  projectShiftRatioFindMany.mockResolvedValue([]);
+  shiftFindMany.mockClear();
+  shiftFindMany.mockResolvedValue([]);
 });
 
 describe('prisma-repo.changeProjectCode', () => {
@@ -218,5 +240,56 @@ describe('prisma-repo.removeProjectMember', () => {
     expect(auditCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({ tableName: 'project_assignments', recordId: '7/pm@daidung.com.vn', changedBy: 'admin@x' }),
     });
+  });
+});
+
+describe('P3C-A: 4 ham doc hop dong (prisma-repo-form)', () => {
+  it('readEquipmentPlanSegments: goi findMany dung where/orderBy/include, map Date -> YYYY-MM-DD', async () => {
+    projectEquipmentPlanFindMany.mockResolvedValueOnce([
+      {
+        id: 1, equipmentId: 1, qty: 3,
+        plannedStart: new Date('2026-08-31T00:00:00Z'), plannedFinish: new Date('2026-10-25T00:00:00Z'),
+        equipment: { name: 'Cẩu bánh xích' },
+      },
+    ]);
+    const rows = await repo.readEquipmentPlanSegments(7);
+    expect(projectEquipmentPlanFindMany).toHaveBeenCalledWith({
+      where: { projectId: 7 },
+      include: { equipment: { select: { name: true } } },
+      orderBy: [{ equipmentId: 'asc' }, { plannedStart: 'asc' }, { id: 'asc' }],
+    });
+    expect(rows).toEqual([{ id: 1, equipmentId: 1, equipmentName: 'Cẩu bánh xích', from: '2026-08-31', to: '2026-10-25', qty: 3 }]);
+  });
+
+  it('readEquipmentQuotas: goi findMany dung where/orderBy/include', async () => {
+    projectEquipmentQuotaFindMany.mockResolvedValueOnce([{ equipmentId: 2, totalQty: 2, equipment: { name: 'Cẩu bánh lốp' } }]);
+    const rows = await repo.readEquipmentQuotas(7);
+    expect(projectEquipmentQuotaFindMany).toHaveBeenCalledWith({
+      where: { projectId: 7 }, include: { equipment: { select: { name: true } } }, orderBy: { equipmentId: 'asc' },
+    });
+    expect(rows).toEqual([{ equipmentId: 2, equipmentName: 'Cẩu bánh lốp', totalQty: 2 }]);
+  });
+
+  it('readManpowerPlanMonths: goi findMany dung where/include, sort theo yearMonth + sortOrder ca', async () => {
+    projectManpowerPlanMonthFindMany.mockResolvedValueOnce([
+      { yearMonth: '2026-09', shiftCode: 'evening', planned: 180, isManual: false, shift: { sortOrder: 2 } },
+      { yearMonth: '2026-09', shiftCode: 'morning', planned: 270, isManual: false, shift: { sortOrder: 1 } },
+    ]);
+    const rows = await repo.readManpowerPlanMonths(7);
+    expect(projectManpowerPlanMonthFindMany).toHaveBeenCalledWith({
+      where: { projectId: 7 }, include: { shift: { select: { sortOrder: true } } },
+    });
+    expect(rows).toEqual([
+      { yearMonth: '2026-09', shiftCode: 'morning', planned: 270, isManual: false },
+      { yearMonth: '2026-09', shiftCode: 'evening', planned: 180, isManual: false },
+    ]);
+  });
+
+  it('readShiftRatios: khong co dong -> mac dinh theo ca active (sortOrder)', async () => {
+    shiftFindMany.mockResolvedValueOnce([{ code: 'morning' }, { code: 'evening' }]);
+    const rows = await repo.readShiftRatios(7);
+    expect(shiftFindMany).toHaveBeenCalledWith({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } });
+    expect(projectShiftRatioFindMany).toHaveBeenCalledWith({ where: { projectId: 7 } });
+    expect(rows).toEqual([{ shiftCode: 'morning', pct: 0.6 }, { shiftCode: 'evening', pct: 0.4 }]);
   });
 });

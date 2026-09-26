@@ -3,9 +3,13 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import { DEFAULT_STAGE_WEIGHTS, STAGE_ORDER } from '@/lib/stages';
 import { planAliasChange } from '@/lib/project-code';
 import { equipPlanAuditText } from '@/lib/equipment-plan';
+import { resolveShiftRatios } from '@/lib/manpower-plan';
 import type { IsoDate } from '@/lib/clock';
 import { audit } from './prisma-repo-entry';
-import type { AuditLogEntry, EquipmentPlanInput, ProjectAlias, ProjectMember, Role, StageWeightInput } from './types';
+import type {
+  AuditLogEntry, EquipmentPlanInput, EquipmentPlanSegment, EquipmentQuota, ManpowerPlanMonthRow, ProjectAlias,
+  ProjectMember, Role, ShiftRatio, StageWeightInput,
+} from './types';
 
 /** '00:00:00Z' của ngày `s` ('YYYY-MM-DD') - khớp cách lưu ngày @db.Date ở prisma-repo.ts. */
 const dayStart = (s: string): Date => new Date(`${s}T00:00:00Z`);
@@ -301,5 +305,48 @@ export const formPrismaRepo = {
       }
       await audit(tx, 'project_equipment_plan', String(projectId), 'replace', beforeText, afterText, by);
     });
+  },
+
+  // ---- P3C-A: 4 hàm đọc theo hợp đồng P3C (B chỉ import từ src/server/repo/types.ts) ----
+
+  async readEquipmentPlanSegments(projectId: number): Promise<EquipmentPlanSegment[]> {
+    const rows = await prisma.projectEquipmentPlan.findMany({
+      where: { projectId },
+      include: { equipment: { select: { name: true } } },
+      orderBy: [{ equipmentId: 'asc' }, { plannedStart: 'asc' }, { id: 'asc' }],
+    });
+    return rows.map((r) => ({
+      id: r.id, equipmentId: r.equipmentId, equipmentName: r.equipment.name,
+      from: day(r.plannedStart)!, to: day(r.plannedFinish)!, qty: r.qty,
+    }));
+  },
+
+  async readEquipmentQuotas(projectId: number): Promise<EquipmentQuota[]> {
+    const rows = await prisma.projectEquipmentQuota.findMany({
+      where: { projectId },
+      include: { equipment: { select: { name: true } } },
+      orderBy: { equipmentId: 'asc' },
+    });
+    return rows.map((r) => ({ equipmentId: r.equipmentId, equipmentName: r.equipment.name, totalQty: r.totalQty }));
+  },
+
+  async readManpowerPlanMonths(projectId: number): Promise<ManpowerPlanMonthRow[]> {
+    const rows = await prisma.projectManpowerPlanMonth.findMany({
+      where: { projectId },
+      include: { shift: { select: { sortOrder: true } } },
+    });
+    return rows
+      .map((r) => ({ yearMonth: r.yearMonth, shiftCode: r.shiftCode, planned: r.planned, isManual: r.isManual, sortOrder: r.shift.sortOrder }))
+      .sort((a, b) =>
+        a.yearMonth.localeCompare(b.yearMonth) || a.sortOrder - b.sortOrder || a.shiftCode.localeCompare(b.shiftCode))
+      .map(({ yearMonth, shiftCode, planned, isManual }) => ({ yearMonth, shiftCode, planned, isManual }));
+  },
+
+  async readShiftRatios(projectId: number): Promise<ShiftRatio[]> {
+    const [activeShifts, stored] = await Promise.all([
+      prisma.shift.findMany({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } }),
+      prisma.projectShiftRatio.findMany({ where: { projectId } }),
+    ]);
+    return resolveShiftRatios(activeShifts.map((s) => s.code), stored);
   },
 };
