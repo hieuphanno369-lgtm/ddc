@@ -119,24 +119,29 @@ export function ManpowerPlanEditor(p: {
               const allManual = r.cells.every((c) => c.isManual);
               const manualSum = r.cells.filter((c) => c.isManual).reduce((s, c) => s + c.planned, 0);
               const hasManual = r.cells.some((c) => c.isManual);
-              const totalOk = r.totalInput.trim() === String(r.cells.reduce((s, c) => s + c.planned, 0));
+              const totalTrim = r.totalInput.trim();
+              const totalOk = /^\d+$/.test(totalTrim) && Number(totalTrim) === r.cells.reduce((s, c) => s + c.planned, 0);
               return (
                 <tr key={r.yearMonth}>
                   <td>{`${r.yearMonth.slice(5, 7)}/${r.yearMonth.slice(0, 4)}`}</td>
-                  {r.cells.map((c, ci) => (
-                    <td key={ci}>
-                      <input
-                        type="number" min={0}
-                        value={r.cellInputs[ci]}
-                        onChange={(e) => setState(setCell(state, ri, ci, e.target.value))}
-                        onBlur={() => setState((s) => revertCell(s, ri, ci))}
-                        className={`inp${isCellInputValid(r, ci) ? '' : ' bad'}`}
-                        data-manual={c.isManual ? '1' : undefined}
-                        title={c.isManual ? t('manpowerPlan.manualHint') : undefined}
-                        style={c.isManual ? { borderColor: 'var(--accent)', fontWeight: 650, width: 88 } : { width: 88 }}
-                      />
-                    </td>
-                  ))}
+                  {r.cells.map((c, ci) => {
+                    // Ô đang gõ dở/sai: bỏ viền xanh "sửa tay" (style inline) để viền đỏ .bad hiện ra.
+                    const cellOk = isCellInputValid(r, ci);
+                    return (
+                      <td key={ci}>
+                        <input
+                          type="number" min={0}
+                          value={r.cellInputs[ci]}
+                          onChange={(e) => setState(setCell(state, ri, ci, e.target.value))}
+                          onBlur={() => setState((s) => revertCell(s, ri, ci))}
+                          className={`inp${cellOk ? '' : ' bad'}`}
+                          data-manual={c.isManual ? '1' : undefined}
+                          title={c.isManual ? t('manpowerPlan.manualHint') : undefined}
+                          style={c.isManual ? { ...(cellOk ? { borderColor: 'var(--accent)' } : {}), fontWeight: 650, width: 88 } : { width: 88 }}
+                        />
+                      </td>
+                    );
+                  })}
                   <td>
                     <input
                       type="number" min={0}
