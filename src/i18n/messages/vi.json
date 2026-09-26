@@ -1032,7 +1032,8 @@
       "not_member": "Người này không thuộc dự án",
       "forbidden": "Bạn không có quyền sửa dự án này.",
       "notFound": "Không tìm thấy dự án.",
-      "generic": "Lưu thất bại: {msg}"
+      "generic": "Lưu thất bại: {msg}",
+      "unexpected": "Lưu thất bại do lỗi hệ thống hoặc mất kết nối. Thử lại, nếu vẫn lỗi hãy báo quản trị."
     },
     "tip": {
       "plannedFinish": "Mốc nội bộ để chạy tiến độ. % Kế hoạch = số ngày đã trôi từ Ngày BĐ kế hoạch ÷ tổng số ngày từ BĐ đến HT kế hoạch. Đồng hồ đếm ngược ở Chi tiết dự án đếm tới 17:00 ngày này. Không nhầm với Bàn giao cam kết.",

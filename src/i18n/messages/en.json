@@ -1032,7 +1032,8 @@
       "not_member": "This person is not on the project",
       "forbidden": "You cannot edit this project.",
       "notFound": "Project not found.",
-      "generic": "Save failed: {msg}"
+      "generic": "Save failed: {msg}",
+      "unexpected": "Save failed due to a system or connection error. Try again, and contact an administrator if it persists."
     },
     "tip": {
       "plannedFinish": "Internal target used to run the schedule. % Plan = days elapsed since Planned start ÷ total days from Planned start to Planned finish. The countdown on Project detail counts to 17:00 on this date. Not the same as Committed handover.",

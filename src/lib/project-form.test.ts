@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildUpdatePatch, checkDateChain, countFilled, dateInput, emptyProjectForm, fxPreview, validateAliasChange,
-  validateProjectForm, type DateChainInput, type ProjectFormState,
+  buildUpdatePatch, checkDateChain, countFilled, createErrorField, dateInput, emptyProjectForm, fxPreview,
+  validateAliasChange, validateProjectForm, type DateChainInput, type ProjectFormState,
 } from './project-form';
 import type { ExchangeRate } from '@/server/repo/types';
 
@@ -125,6 +125,21 @@ describe('validateProjectForm - tao moi', () => {
     const r = validateProjectForm(FULL_FORM, 'new', null, RATES);
     expect(r.ok).toBe(true);
   });
+
+  it('ma dang M-00001 (mau tu sinh) -> code_reserved', () => {
+    const r = validateProjectForm({ ...FULL_FORM, currentAliasCode: 'M-00001' }, 'new', null, RATES);
+    expect(r.errors.currentAliasCode).toBe('code_reserved');
+  });
+
+  it('ma dang m-12 (khong phan biet hoa thuong) -> code_reserved', () => {
+    const r = validateProjectForm({ ...FULL_FORM, currentAliasCode: 'm-12' }, 'new', null, RATES);
+    expect(r.errors.currentAliasCode).toBe('code_reserved');
+  });
+
+  it('ma CT-01 -> khong loi ma', () => {
+    const r = validateProjectForm({ ...FULL_FORM, currentAliasCode: 'CT-01' }, 'new', null, RATES);
+    expect(r.errors.currentAliasCode).toBeUndefined();
+  });
 });
 
 describe('validateProjectForm - sua', () => {
@@ -137,6 +152,26 @@ describe('validateProjectForm - sua', () => {
     const emptyBase: ProjectFormState = { ...FULL_FORM, plannedStartDate: '' };
     const r = validateProjectForm(emptyBase, 'edit', emptyBase, RATES);
     expect(r.errors.plannedStartDate).toBeUndefined();
+  });
+
+  it('sua, giu nguyen ma goc dang M-00001 -> khong loi code_reserved', () => {
+    const base: ProjectFormState = { ...FULL_FORM, currentAliasCode: 'M-00001' };
+    const r = validateProjectForm(base, 'edit', base, RATES);
+    expect(r.errors.currentAliasCode).toBeUndefined();
+  });
+});
+
+describe('createErrorField', () => {
+  it('code_taken -> gan o Ma CT', () => {
+    expect(createErrorField('code_taken')).toEqual({ field: 'currentAliasCode', code: 'code_taken' });
+  });
+
+  it('code_reserved -> gan o Ma CT', () => {
+    expect(createErrorField('code_reserved')).toEqual({ field: 'currentAliasCode', code: 'code_reserved' });
+  });
+
+  it('ma loi khac -> null', () => {
+    expect(createErrorField('invalid_team')).toBeNull();
   });
 });
 

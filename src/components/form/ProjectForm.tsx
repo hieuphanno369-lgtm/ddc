@@ -9,8 +9,8 @@ import type {
 } from '@/server/repo/types';
 import type { AssignableUser, ProjectFormState } from '@/lib/project-form';
 import {
-  FORM_COUNT_FIELDS, PROJECT_NAME_MAX, buildCreateInput, buildUpdatePatch, countFilled, emptyProjectForm,
-  fxPreview, projectFormFromProject, validateAliasChange, validateProjectForm,
+  FORM_COUNT_FIELDS, PROJECT_NAME_MAX, buildCreateInput, buildUpdatePatch, countFilled, createErrorField,
+  emptyProjectForm, fxPreview, projectFormFromProject, validateAliasChange, validateProjectForm,
 } from '@/lib/project-form';
 import { isValidProjectCode } from '@/lib/project-code';
 import { marketKey, typeKey } from '@/lib/labels';
@@ -65,11 +65,10 @@ function weightsFromProps(rows: ProjectStageWeight[]): StageWeightInput[] {
   });
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; required?: boolean; children: React.ReactNode }) {
+function Field({ label, hint, alignRight, children }: { label: string; hint?: string; required?: boolean; alignRight?: boolean; children: React.ReactNode }) {
   return (
     <div className="field">
-      <span className="lb">{label}</span>
-      {hint && <HelpTip text={hint} label={hint} />}
+      <span className="lb">{label}{hint && <HelpTip text={hint} label={hint} alignRight={alignRight} />}</span>
       {children}
     </div>
   );
@@ -93,6 +92,7 @@ export function ProjectForm(p: ProjectFormProps) {
   const [msErrors, setMsErrors] = useState<KeyMsErrors>({});
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ tone: 'ok' | 'bad'; text: string } | null>(null);
+  const [serverErr, setServerErr] = useState<{ currentAliasCode?: 'code_taken' | 'code_reserved' }>({});
   const [aliasReason, setAliasReason] = useState('');
   const [pendingDraft, setPendingDraft] = useState<Extract<ReturnType<typeof checkProjectDraft>, { kind: 'fresh' | 'stale' }> | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
@@ -104,6 +104,7 @@ export function ProjectForm(p: ProjectFormProps) {
   function set<K extends keyof ProjectFormState>(key: K, value: ProjectFormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
     setMsg(null);
+    if (key === 'currentAliasCode') setServerErr({});
   }
 
   // G-6 (Q1, ĐÃ CHỐT): đổi Loại dự án lúc TẠO mới, chưa tự sửa trọng số tay -> điền lại bảng trọng số
@@ -183,6 +184,7 @@ export function ProjectForm(p: ProjectFormProps) {
   const inputCls = (key: keyof ProjectFormState) => `inp${errors[key] ? ' bad' : ''}`;
   const codeChanged = mode === 'edit' && form.currentAliasCode !== base.currentAliasCode;
   const aliasIssue = codeChanged ? validateAliasChange(base, form, aliasReason) : null;
+  const aliasErr = errors.currentAliasCode ?? serverErr.currentAliasCode;
 
   function partialErrorMsg(error: string | undefined): string {
     if (!error) return '';
@@ -232,9 +234,18 @@ export function ProjectForm(p: ProjectFormProps) {
         router.replace(`?project=${res.id}`);
         router.refresh();
       } else {
-        const key = `projectForm.err.${res.error}`;
-        setMsg({ tone: 'bad', text: t.has(key) ? t(key) : t('projectForm.err.generic', { msg: res.error }) });
+        const f = createErrorField(res.error ?? '');
+        if (f) {
+          setServerErr({ [f.field]: f.code });
+          setMsg({ tone: 'bad', text: t(`projectForm.err.${f.code}`) });
+          formRef.current?.querySelector<HTMLElement>('[data-field="currentAliasCode"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+          const key = `projectForm.err.${res.error}`;
+          setMsg({ tone: 'bad', text: t.has(key) ? t(key) : t('projectForm.err.generic', { msg: res.error }) });
+        }
       }
+    } catch {
+      setMsg({ tone: 'bad', text: t('projectForm.err.unexpected') });
     } finally {
       setSaving(false);
     }
@@ -304,6 +315,8 @@ export function ProjectForm(p: ProjectFormProps) {
       setWeightsDirty(false);
       setMsDirty(false);
       router.refresh();
+    } catch {
+      setMsg({ tone: 'bad', text: t('projectForm.err.unexpected') });
     } finally {
       setSaving(false);
     }
@@ -391,22 +404,21 @@ export function ProjectForm(p: ProjectFormProps) {
           {/* Mục 1: Định danh */}
           <div className="fsec">
             <div className="h"><span className="n">1</span><h4>{t('projectForm.sec.identity.title')}</h4><p>{t('projectForm.sec.identity.sub')}</p></div>
-            <div className="f4">
+            <div className="f4 feven">
               <Field label={t('projectForm.field.masterCode')}>
                 <input className="inp ro" readOnly value={mode === 'new' ? t('projectForm.field.masterAuto') : project?.masterCode ?? ''} />
                 <span className="hintline">{t('projectForm.field.masterHint')}</span>
               </Field>
               <div className="field" data-field="currentAliasCode">
-                <span className="lb">{t('projectForm.field.aliasCode')}</span>
-                <HelpTip text={t('projectForm.tipText.aliasCode')} label={t('projectForm.tipText.aliasCode')} />
+                <span className="lb">{t('projectForm.field.aliasCode')}<HelpTip text={t('projectForm.tipText.aliasCode')} label={t('projectForm.tipText.aliasCode')} /></span>
                 <input
                   value={form.currentAliasCode}
                   onChange={(e) => set('currentAliasCode', e.target.value)}
-                  className={`inp${errors.currentAliasCode || aliasIssue === 'required' ? ' bad' : ''}`}
+                  className={`inp${aliasErr || aliasIssue === 'required' ? ' bad' : ''}`}
                 />
                 <span className="hintline">{t('projectForm.field.aliasHint')}</span>
-                {errors.currentAliasCode && <p className="hintline" style={{ color: 'var(--danger)' }}>{t(`projectForm.err.${errors.currentAliasCode}`)}</p>}
-                {!errors.currentAliasCode && aliasIssue === 'required' && <p className="hintline" style={{ color: 'var(--danger)' }}>{t('projectForm.err.required')}</p>}
+                {aliasErr && <p className="hintline" style={{ color: 'var(--danger)' }}>{t(`projectForm.err.${aliasErr}`)}</p>}
+                {!aliasErr && aliasIssue === 'required' && <p className="hintline" style={{ color: 'var(--danger)' }}>{t('projectForm.err.required')}</p>}
               </div>
               {codeChanged && (
                 <div className="field" data-field="aliasReason" style={{ gridColumn: 'span 2' }}>
@@ -434,10 +446,9 @@ export function ProjectForm(p: ProjectFormProps) {
               </div>
             </div>
             <div style={{ height: 14 }} />
-            <div className="f4">
+            <div className="f4 feven">
               <div className="field" data-field="customerId">
-                <span className="lb">{t('form.customer')}</span>
-                <HelpTip text={t('projectForm.tipText.customer')} label={t('projectForm.tipText.customer')} />
+                <span className="lb">{t('form.customer')}<HelpTip text={t('projectForm.tipText.customer')} label={t('projectForm.tipText.customer')} /></span>
                 <Combobox
                   value={form.customerId}
                   onChange={(v) => set('customerId', v)}
@@ -469,8 +480,7 @@ export function ProjectForm(p: ProjectFormProps) {
                 <Combobox value={form.marketCode} onChange={(v) => set('marketCode', v)} options={MARKETS.map((m) => ({ value: m, label: t(marketKey[m]) }))} className="inp" />
               </Field>
               <div className="field" data-field="projectType">
-                <span className="lb">{t('form.projectType')}</span>
-                <HelpTip text={t('projectForm.tipText.projectType')} label={t('projectForm.tipText.projectType')} alignRight />
+                <span className="lb">{t('form.projectType')}<HelpTip text={t('projectForm.tipText.projectType')} label={t('projectForm.tipText.projectType')} alignRight /></span>
                 <Combobox value={form.projectType} onChange={setProjectType} options={TYPES.map((ty) => ({ value: ty, label: t(typeKey[ty]) }))} className="inp" />
               </div>
             </div>
@@ -479,10 +489,9 @@ export function ProjectForm(p: ProjectFormProps) {
           {/* Mục 2: Giá trị */}
           <div className="fsec">
             <div className="h"><span className="n">2</span><h4>{t('projectForm.sec.value.title')}</h4><p>{t('projectForm.sec.value.sub')}</p></div>
-            <div className="f4">
+            <div className="f4 feven">
               <div className="field" data-field="contractValue">
-                <span className="lb">{t('form.contractValue')}</span>
-                <HelpTip text={t('projectForm.tipText.contractValue')} label={t('projectForm.tipText.contractValue')} />
+                <span className="lb">{t('form.contractValue')}<HelpTip text={t('projectForm.tipText.contractValue')} label={t('projectForm.tipText.contractValue')} /></span>
                 <input
                   type="number" step="0.001"
                   readOnly={fx.kind === 'converted'}
@@ -496,7 +505,7 @@ export function ProjectForm(p: ProjectFormProps) {
               <div className="field" data-field="contractValueOriginal">
                 <span className="lb">{t('projectForm.field.originalValue')}</span>
                 <div className="inline">
-                  <select value={form.currencyCode} onChange={(e) => set('currencyCode', e.target.value)} className="inp" style={{ width: 96 }}>
+                  <select value={form.currencyCode} onChange={(e) => set('currencyCode', e.target.value)} className="inp">
                     {currencies.map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}
                   </select>
                   <input
@@ -512,14 +521,12 @@ export function ProjectForm(p: ProjectFormProps) {
                 {fx.kind === 'no_rate' && <span className="hintline" style={{ color: 'var(--danger)' }}>{t('projectForm.fx.noRate', { cur: form.currencyCode, ym: fx.ym })}</span>}
               </div>
               <div className="field" data-field="tonnage">
-                <span className="lb">{t('common.tonnage')}</span>
-                <HelpTip text={t('projectForm.tipText.tonnage')} label={t('projectForm.tipText.tonnage')} />
+                <span className="lb">{t('common.tonnage')}<HelpTip text={t('projectForm.tipText.tonnage')} label={t('projectForm.tipText.tonnage')} /></span>
                 <input type="number" step="0.1" value={fmtNum(form.tonnage)} onChange={(e) => set('tonnage', e.target.value)} className={inputCls('tonnage')} />
                 {errors.tonnage && <p className="hintline" style={{ color: 'var(--danger)' }}>{t(`projectForm.err.${errors.tonnage}`)}</p>}
               </div>
               <div className="field">
-                <span className="lb">{t('form.priority')}</span>
-                <HelpTip text={t('projectForm.tipText.priority')} label={t('projectForm.tipText.priority')} alignRight />
+                <span className="lb">{t('form.priority')}<HelpTip text={t('projectForm.tipText.priority')} label={t('projectForm.tipText.priority')} alignRight /></span>
                 <Combobox value={form.priority} onChange={(v) => set('priority', v)} options={PRIORITIES.map((pr) => ({ value: pr, label: t(`projectForm.priority.${pr}`) }))} className="inp" />
               </div>
             </div>
@@ -539,7 +546,7 @@ export function ProjectForm(p: ProjectFormProps) {
           {/* Mục 3: Mốc thời gian */}
           <div className="fsec">
             <div className="h"><span className="n">3</span><h4>{t('projectForm.sec.dates.title')}</h4><p>{t('projectForm.sec.dates.sub')}</p></div>
-            <div className="f4">
+            <div className="f4 feven">
               <Field label={t('form.contractDate')}>
                 <input type="date" value={form.contractDate} onChange={(e) => set('contractDate', e.target.value)} className="inp" />
               </Field>
@@ -548,26 +555,22 @@ export function ProjectForm(p: ProjectFormProps) {
                 <input type="date" value={form.plannedStartDate} onChange={(e) => set('plannedStartDate', e.target.value)} className={inputCls('plannedStartDate')} />
               </div>
               <div className="field" data-field="plannedFinishDate">
-                <span className="lb">{t('form.plannedFinish')}</span>
-                <HelpTip text={t('projectForm.tip.plannedFinish')} label={t('projectForm.tip.plannedFinish')} />
+                <span className="lb">{t('form.plannedFinish')}<HelpTip text={t('projectForm.tip.plannedFinish')} label={t('projectForm.tip.plannedFinish')} /></span>
                 <input type="date" value={form.plannedFinishDate} onChange={(e) => set('plannedFinishDate', e.target.value)} className={inputCls('plannedFinishDate')} />
               </div>
               <div className="field" data-field="committedHandoverDate">
-                <span className="lb">{t('form.committedHandover')}</span>
-                <HelpTip text={t('projectForm.tip.committedHandover')} label={t('projectForm.tip.committedHandover')} alignRight />
+                <span className="lb">{t('form.committedHandover')}<HelpTip text={t('projectForm.tip.committedHandover')} label={t('projectForm.tip.committedHandover')} alignRight /></span>
                 <input type="date" value={form.committedHandoverDate} onChange={(e) => set('committedHandoverDate', e.target.value)} className={inputCls('committedHandoverDate')} />
               </div>
             </div>
             <div style={{ height: 14 }} />
-            <div className="f4">
+            <div className="f4 feven">
               <div className="field" data-field="actualStartDate">
-                <span className="lb">{t('form.actualStart')}</span>
-                <HelpTip text={t('projectForm.tip.actualStart')} label={t('projectForm.tip.actualStart')} />
+                <span className="lb">{t('form.actualStart')}<HelpTip text={t('projectForm.tip.actualStart')} label={t('projectForm.tip.actualStart')} /></span>
                 <input type="date" value={form.actualStartDate} onChange={(e) => set('actualStartDate', e.target.value)} className={inputCls('actualStartDate')} />
               </div>
               <div className="field" data-field="actualFinishDate">
-                <span className="lb">{t('form.actualFinish')}</span>
-                <HelpTip text={t('projectForm.tip.actualFinish')} label={t('projectForm.tip.actualFinish')} />
+                <span className="lb">{t('form.actualFinish')}<HelpTip text={t('projectForm.tip.actualFinish')} label={t('projectForm.tip.actualFinish')} /></span>
                 <input type="date" value={form.actualFinishDate} onChange={(e) => set('actualFinishDate', e.target.value)} className={inputCls('actualFinishDate')} />
               </div>
               <Field label={t('projectForm.field.penalized')}>
@@ -579,8 +582,7 @@ export function ProjectForm(p: ProjectFormProps) {
                 </div>
               </Field>
               <div className="field">
-                <span className="lb">{t('form.penaltyValue')}</span>
-                <HelpTip text={t('projectForm.tip.penaltyValue')} label={t('projectForm.tip.penaltyValue')} alignRight />
+                <span className="lb">{t('form.penaltyValue')}<HelpTip text={t('projectForm.tip.penaltyValue')} label={t('projectForm.tip.penaltyValue')} alignRight /></span>
                 <input type="number" step="0.1" value={fmtNum(form.penaltyValue)} onChange={(e) => set('penaltyValue', e.target.value)} className="inp" />
               </div>
             </div>

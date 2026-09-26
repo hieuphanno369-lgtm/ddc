@@ -1,6 +1,6 @@
 import { daysBetween, isValidIsoDate } from '@/lib/clock';
 import { findMonthRate, toVndBillion } from '@/lib/fx';
-import { isValidProjectCode } from '@/lib/project-code';
+import { isReservedProjectCode, isValidProjectCode } from '@/lib/project-code';
 import type { UpdateProjectPatch } from '@/server/actions-project';
 import type { CreateProjectInput, CurrencyCode, ExchangeRate, Market, Priority, Project, ProjectType, Role } from '@/server/repo/types';
 
@@ -143,7 +143,13 @@ export function countFilled(f: ProjectFormState): number {
   return FORM_COUNT_FIELDS.filter((k) => f[k].trim() !== '').length;
 }
 
-export type ProjectFieldError = 'required' | 'positive' | 'too_long' | 'code_invalid' | 'date_order' | 'fx';
+export type ProjectFieldError = 'required' | 'positive' | 'too_long' | 'code_invalid' | 'date_order' | 'fx' | 'code_reserved';
+
+/** Map mã lỗi server của createProjectAction về ô cần tô đỏ; null = lỗi chung không gắn ô. */
+export function createErrorField(error: string): { field: 'currentAliasCode'; code: 'code_taken' | 'code_reserved' } | null {
+  if (error === 'code_taken' || error === 'code_reserved') return { field: 'currentAliasCode', code: error };
+  return null;
+}
 
 export type FxPreview =
   | { kind: 'vnd' }
@@ -213,6 +219,9 @@ export function validateProjectForm(
 
   if (f.projectName.trim().length > PROJECT_NAME_MAX) errors.projectName = 'too_long';
   if (f.currentAliasCode.trim() !== '' && !isValidProjectCode(f.currentAliasCode)) errors.currentAliasCode = 'code_invalid';
+  if (mode === 'new' && f.currentAliasCode.trim() !== '' && isValidProjectCode(f.currentAliasCode) && isReservedProjectCode(f.currentAliasCode, null)) {
+    errors.currentAliasCode = 'code_reserved';
+  }
 
   const dates = checkDateChain({
     contractDate: f.contractDate,
