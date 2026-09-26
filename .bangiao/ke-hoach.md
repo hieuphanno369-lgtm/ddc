@@ -18,7 +18,13 @@ Lớp 3: test tĩnh quét mọi `app/[locale]/(app)/**/page.tsx` và mọi `app/
 
 ---
 
-## CÂU HỎI CÒN BỎ NGỎ (cần chủ dự án quyết)
+## ĐÃ CHỐT (chủ dự án trả lời 2026-09-26), coder làm theo đây
+
+1. Sau đăng nhập: giữ như hiện tại, về trang chủ theo vai; KHÔNG làm quay lại trang đang mở (callbackUrl) trong P3D-B.
+2. Người chưa đăng nhập gõ đường dẫn không tồn tại: đưa về trang đăng nhập (không lộ trang nào có thật).
+3. Hai điểm yếu phần ảnh (`app/api/photos/[...path]` xem chéo dự án, `deletePhotoAction` dò mã ảnh): KHÔNG vá trong P3D-B; A gỡ toàn bộ code ảnh ở P3E (chủ dự án đã chốt bỏ tính năng ảnh). Không giữ `actions.ts`.
+
+## CÂU HỎI CÒN BỎ NGỎ (đã trả lời, xem ĐÃ CHỐT)
 
 Coder làm theo **đề xuất** đã ghi trong từng Bước.
 Nếu chủ dự án trả lời khác thì chỉ sửa đúng chỗ ghi trong ngoặc.
