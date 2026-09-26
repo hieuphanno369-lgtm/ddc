@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import type {
   AlertLog,
@@ -13,13 +13,14 @@ import type {
   Factory,
   Project,
   ProjectPhoto,
+  ProjectStageWeight,
+  Stage,
   TeamKd,
   ValueChainProgress,
 } from '@/server/repo/types';
 import type { IsoDate } from '@/lib/clock';
-import { stageKey } from '@/lib/labels';
 import { computeEvm } from '@/lib/evm';
-import { STAGE_ORDER, calcChainPctActual, findCurrentStage, normPct } from '@/lib/stages';
+import { activeStages, calcChainPctActual, findCurrentStage, normPct, stageName, stageNameMap } from '@/lib/stages';
 import { THRESHOLDS } from '@/lib/thresholds';
 import { fmtNum, formatDateTime, formatPct, formatRatio } from '@/lib/format';
 import { closeAlertAction, deletePhotoAction, lockMonthAction, saveMonthlyData } from '@/server/actions';
@@ -33,6 +34,7 @@ import {
   makeStamp,
   restoreDraft,
   saveErrorKind,
+  stageInputsOf,
   toDraftForm,
   type DraftCheck,
   type FormState,
@@ -69,6 +71,9 @@ interface Props {
   canEditFinance: boolean;
   resourcesPanel: React.ReactNode;
   ownerEmail: string;
+  /** P7-C2: giai đoạn chuỗi giá trị đọc từ dim_stage (repo.getStages() - cả ngừng dùng, component tự lọc). */
+  stages: Stage[];
+  stageWeights: ProjectStageWeight[];
 }
 
 export function DataEntryForm({
@@ -94,15 +99,23 @@ export function DataEntryForm({
   canEditFinance,
   resourcesPanel,
   ownerEmail,
+  stages,
+  stageWeights,
 }: Props) {
   const t = useTranslations();
+  const locale = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
   const ownerTag = useMemo(() => draftOwnerTag(ownerEmail), [ownerEmail]);
 
+  const active = useMemo(() => activeStages(stages), [stages]);
+  const order = useMemo(() => active.map((s) => s.code), [active]);
+  const stageNames = useMemo(() => stageNameMap(stages, locale), [stages, locale]);
+
   const base = useMemo(
-    () => buildBaseForm(project, fact, financial, chain, volumeTonnage),
-    [project, fact, financial, chain, volumeTonnage],
+    () => buildBaseForm(project, fact, financial, chain, volumeTonnage, order),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [project, fact, financial, chain, volumeTonnage, order.join(',')],
   );
   const stamp = useMemo(() => makeStamp(project, fact, financial), [project, fact, financial]);
 
@@ -133,7 +146,7 @@ export function DataEntryForm({
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       if (pendingDraft) return;
-      if (draftFieldsEqual(form, base)) {
+      if (draftFieldsEqual(form, base, order)) {
         localStorage.removeItem(draftKey(ownerTag, projectId, month));
       } else {
         localStorage.setItem(
@@ -145,7 +158,7 @@ export function DataEntryForm({
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [form, base, stamp, pendingDraft, projectId, month]);
+  }, [form, base, stamp, pendingDraft, projectId, month, order]);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }) as FormState);
@@ -163,13 +176,10 @@ export function DataEntryForm({
     router.replace(`?${params}`, { scroll: false });
   }
 
-  const stageInputs = STAGE_ORDER.map((s) => ({
-    stageCode: s,
-    pctComplete: normPct(form.stagePct?.[s] ?? '') ?? 0,
-    applicable: form.stageApplicable?.[s] ?? true,
-  }));
-  const derivedPctActual = calcChainPctActual(stageInputs);
-  const currentStage = findCurrentStage(stageInputs);
+  const stageInputs = stageInputsOf(form, order);
+  // K11: xem trước %TT theo TRỌNG SỐ CỦA DỰ ÁN (không phải trọng số mặc định) - khớp số server lưu.
+  const derivedPctActual = calcChainPctActual(stageInputs, stageWeights);
+  const currentStage = findCurrentStage(stageInputs, order, stageWeights);
 
   function validate(): boolean {
     const e: Record<string, string> = {};
@@ -177,18 +187,18 @@ export function DataEntryForm({
     const num = (s: string) => (s.trim() === '' ? null : Number(s));
     const pctPlan = num(form.pctPlan);
     if (pctPlan != null && (pctPlan < 0 || pctPlan > THRESHOLDS.pctInputMax)) e.pctPlan = t('form.validation.pctRange');
-    for (const s of STAGE_ORDER) {
+    for (const s of order) {
       const v = normPct(form.stagePct?.[s] ?? '');
       if (v != null && (v < 0 || v > THRESHOLDS.pctInputMax)) e['stagePct.' + s] = t('form.validation.stageRange');
     }
     setErrors(e);
     // Chỉ chặn khi nhập SAI (vượt range %). Thiếu field → cho submit, bổ sung sau.
-    return !e.pctPlan && !STAGE_ORDER.some((s) => e['stagePct.' + s]);
+    return !e.pctPlan && !order.some((s) => e['stagePct.' + s]);
   }
 
   async function submit() {
     if (!validate()) return;
-    const patch = buildSavePatch(base, form, { canEditFinance });
+    const patch = buildSavePatch(base, form, { canEditFinance, order });
     const hasPatch = Object.keys(patch).length > 0;
     if (!hasPatch) {
       setSaveErr(undefined);
@@ -362,12 +372,13 @@ export function DataEntryForm({
             <div>
               <div className="sect"><b>{t('form.stageSection')}</b><i /></div>
               <div className="stagegrid">
-                {STAGE_ORDER.map((s, i) => {
+                {active.map((stage, i) => {
+                  const s = stage.code;
                   const pct = stageInputs[i].pctComplete;
                   return (
                     <div key={s}>
                       <div className="stage">
-                        <span className="nm">{t(stageKey[s])}</span>
+                        <span className="nm">{stageName(stage, locale)}</span>
                         <span className="w">-</span>
                         <div className="bar"><i className="fill" style={{ width: `${Math.min(100, Math.max(0, pct * 100))}%` }} /></div>
                         <span className="pc">{formatPct(pct)}</span>
@@ -398,7 +409,7 @@ export function DataEntryForm({
               <p className="hintline">{t('form.stagePctHint')}</p>
               <div className="chainfoot">
                 <span>{t('form.stageTotal')}: <b>{formatPct(derivedPctActual)}</b></span>
-                <span>{t('form.currentStage')}: <b>{currentStage ? t(stageKey[currentStage]) : '-'}</b></span>
+                <span>{t('form.currentStage')}: <b>{currentStage ? stageNames[currentStage] : '-'}</b></span>
               </div>
             </div>
 

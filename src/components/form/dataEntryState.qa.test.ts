@@ -26,7 +26,7 @@ const EMPTY_CHAIN: ValueChainProgress[] = [];
 
 describe('F6 - chuoi JSON ghi vao localStorage khong lo so tien/ten du an', () => {
   it('JSON.stringify(toDraftForm(...)) khong chua ten du an nhay cam, khong chua cac con so tai chinh dac trung', () => {
-    const base = buildBaseForm(makeProject(), undefined, undefined, EMPTY_CHAIN);
+    const base = buildBaseForm(makeProject(), undefined, undefined, EMPTY_CHAIN, null, ['design']);
     const draftForm = toDraftForm(base);
     const json = JSON.stringify(draftForm);
 
@@ -45,7 +45,7 @@ describe('F6 - chuoi JSON ghi vao localStorage khong lo so tien/ten du an', () =
   });
 
   it('moi key cua toDraftForm(...) deu nam trong DRAFT_FIELDS (khong lot field la)', () => {
-    const base = buildBaseForm(makeProject(), undefined, undefined, EMPTY_CHAIN);
+    const base = buildBaseForm(makeProject(), undefined, undefined, EMPTY_CHAIN, null, ['design']);
     const draftForm = toDraftForm(base);
     for (const k of Object.keys(draftForm)) {
       expect((DRAFT_FIELDS as readonly string[]).includes(k)).toBe(true);

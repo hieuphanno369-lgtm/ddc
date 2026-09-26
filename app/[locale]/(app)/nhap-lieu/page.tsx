@@ -83,6 +83,10 @@ export default async function NhapLieuPage({
       ? (await repo.getVolumes(project.id, month)).find((v) => v.factoryId === project.factoryId)?.tonnageProcessed ?? null
       : null;
 
+  // P7-C2: giai đoạn chuỗi giá trị đọc từ dim_stage + trọng số của dự án (không dùng hằng cứng nữa).
+  const stages = await repo.getStages();
+  const stageWeights = project ? await repo.getStageWeights(project.id) : [];
+
   return (
     <div className="mx-auto w-full max-w-5xl">
       <section className="mb-5">
@@ -119,6 +123,8 @@ export default async function NhapLieuPage({
             today={today}
             initialStep={initialStep}
             canEditFinance={user.role === 'admin'}
+            stages={stages}
+            stageWeights={stageWeights}
             resourcesPanel={
               <>
                 <ResourceEntryPanel

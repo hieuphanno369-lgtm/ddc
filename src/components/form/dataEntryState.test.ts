@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Project, ValueChainProgress } from '@/server/repo/types';
-import { STAGE_ORDER } from '@/lib/stages';
+import { SEED_STAGE_CODES, STAGE_ORDER } from '@/lib/stages';
 import { repo } from '@/server/repo/mock-repo';
 import {
   buildBaseForm,
@@ -11,12 +11,16 @@ import {
   formsEqual,
   restoreDraft,
   saveErrorKind,
+  stageInputsOf,
   toDateInput,
   toDraftForm,
   type DraftStamp,
   type FormState,
   type StoredDraft,
 } from './dataEntryState';
+
+/** P7-C2: order dung de test = 8 ma seed (gom Thanh quyet toan), khop tap giai doan dang dung that. */
+const ORDER = SEED_STAGE_CODES;
 
 function makeProject(overrides: Partial<Project> = {}): Project {
   return {
@@ -73,7 +77,7 @@ describe('buildBaseForm', () => {
       actualStartDate: '2025-12-15T00:00:00.000Z',
       actualFinishDate: '2026-09-30T00:00:00.000Z',
     });
-    const base = buildBaseForm(project, undefined, undefined, []);
+    const base = buildBaseForm(project, undefined, undefined, [], null, ORDER);
     expect(base.contractDate).toBe('2025-11-20');
     expect(base.plannedStartDate).toBe('2025-12-15');
     expect(base.plannedFinishDate).toBe('2026-09-29');
@@ -88,7 +92,7 @@ describe('buildBaseForm', () => {
       projectName: 'Du an moi', customerId: 1, teamKdId: 1, marketCode: 'TN',
       projectType: 'EPC', priority: 'P1', contractValue: 100,
     });
-    const base = buildBaseForm(created, undefined, undefined, []);
+    const base = buildBaseForm(created, undefined, undefined, [], null, ORDER);
     expect(base.contractDate).toBe('');
     expect(base.plannedStartDate).toBe('');
     expect(base.plannedFinishDate).toBe('');
@@ -104,7 +108,7 @@ describe('buildBaseForm', () => {
       projectType: 'Cau_cang', priority: 'P2', contractValue: 250.5, tonnage: 999,
       currencyCode: 'USD',
     });
-    const base = buildBaseForm(created, undefined, undefined, []);
+    const base = buildBaseForm(created, undefined, undefined, [], null, ORDER);
     expect(base.projectName).toBe('Du an ABC');
     expect(base.customerId).toBe(String(created.customerId));
     expect(base.teamKdId).toBe(String(created.teamKdId));
@@ -118,102 +122,124 @@ describe('buildBaseForm', () => {
 
   it('co factoryId cua du an + volumeTonnage tu tham so', () => {
     const project = makeProject({ factoryId: 2 });
-    const base = buildBaseForm(project, undefined, undefined, [], 120);
+    const base = buildBaseForm(project, undefined, undefined, [], 120, ORDER);
     expect(base.factoryId).toBe('2');
     expect(base.volumeTonnage).toBe('120');
   });
 
   it('khong co factory / volume -> o rong', () => {
-    const base = buildBaseForm(makeProject({ factoryId: null }), undefined, undefined, []);
+    const base = buildBaseForm(makeProject({ factoryId: null }), undefined, undefined, [], null, ORDER);
     expect(base.factoryId).toBe('');
     expect(base.volumeTonnage).toBe('');
+  });
+
+  it("P7-C2: order 8 ma, chain chi co 7 dong (thieu settlement) -> stagePct.settlement = '', stageApplicable.settlement = true", () => {
+    const chain7 = STAGE_ORDER.map((stageCode) => ({ projectId: 1, stageCode, yearMonth: '2026-09', pctComplete: 0.5, applicable: true }));
+    const base = buildBaseForm(makeProject(), undefined, undefined, chain7, null, ORDER);
+    expect(base.stagePct.settlement).toBe('');
+    expect(base.stageApplicable.settlement).toBe(true);
+    expect(base.stagePct.design).toBe('0.5');
   });
 });
 
 const EMPTY_CHAIN: ValueChainProgress[] = [];
 
 function baseForm(): FormState {
-  return buildBaseForm(makeProject(), undefined, undefined, EMPTY_CHAIN);
+  return buildBaseForm(makeProject(), undefined, undefined, EMPTY_CHAIN, null, ORDER);
 }
 
 describe('buildSavePatch', () => {
   it('form = base -> {}', () => {
     const base = baseForm();
-    expect(buildSavePatch(base, { ...base }, { canEditFinance: false })).toEqual({});
+    expect(buildSavePatch(base, { ...base }, { canEditFinance: false, order: ORDER })).toEqual({});
   });
 
   it('doi dung ten -> { projectName }', () => {
     const base = baseForm();
     const form = { ...base, projectName: 'Ten moi' };
-    expect(buildSavePatch(base, form, { canEditFinance: false })).toEqual({ projectName: 'Ten moi' });
+    expect(buildSavePatch(base, form, { canEditFinance: false, order: ORDER })).toEqual({ projectName: 'Ten moi' });
   });
 
-  it('doi 1 giai doan -> co chain du 7 phan tu', () => {
+  it('doi 1 giai doan -> co chain du 8 phan tu (P7-C2: gom settlement)', () => {
     const base = baseForm();
     const form: FormState = { ...base, stagePct: { ...base.stagePct, design: '50' } };
-    const patch = buildSavePatch(base, form, { canEditFinance: false });
-    expect(patch.chain).toHaveLength(7);
+    const patch = buildSavePatch(base, form, { canEditFinance: false, order: ORDER });
+    expect(patch.chain).toHaveLength(8);
+  });
+
+  it("doi settlement -> co chain du 8 phan tu; order co custom_1 -> co mat trong patch.chain", () => {
+    const base = baseForm();
+    const form: FormState = { ...base, stagePct: { ...base.stagePct, settlement: '30' } };
+    const patch = buildSavePatch(base, form, { canEditFinance: false, order: ORDER });
+    expect(patch.chain).toHaveLength(8);
+    expect(patch.chain!.some((c) => c.stageCode === 'settlement')).toBe(true);
+
+    const orderWithCustom = [...ORDER, 'custom_1'];
+    const base2 = buildBaseForm(makeProject(), undefined, undefined, EMPTY_CHAIN, null, orderWithCustom);
+    const form2: FormState = { ...base2, stagePct: { ...base2.stagePct, custom_1: '10' } };
+    const patch2 = buildSavePatch(base2, form2, { canEditFinance: false, order: orderWithCustom });
+    expect(patch2.chain!.some((c) => c.stageCode === 'custom_1')).toBe(true);
   });
 
   it('khong doi giai doan -> khong co chain', () => {
     const base = baseForm();
-    const patch = buildSavePatch(base, { ...base }, { canEditFinance: false });
+    const patch = buildSavePatch(base, { ...base }, { canEditFinance: false, order: ORDER });
     expect(patch.chain).toBeUndefined();
   });
 
   it('doi doanh thu voi canEditFinance:false -> khong co key tai chinh', () => {
     const base = baseForm();
     const form = { ...base, revenueCumulative: '999' };
-    const patch = buildSavePatch(base, form, { canEditFinance: false });
+    const patch = buildSavePatch(base, form, { canEditFinance: false, order: ORDER });
     expect(patch.revenueCumulative).toBeUndefined();
   });
 
   it('doi doanh thu voi canEditFinance:true -> co key tai chinh', () => {
     const base = baseForm();
     const form = { ...base, revenueCumulative: '999' };
-    const patch = buildSavePatch(base, form, { canEditFinance: true });
+    const patch = buildSavePatch(base, form, { canEditFinance: true, order: ORDER });
     expect(patch.revenueCumulative).toBe(999);
   });
 
   it('xoa penaltyValue -> null', () => {
     const base = { ...baseForm(), penaltyValue: '15' };
     const form = { ...base, penaltyValue: '' };
-    const patch = buildSavePatch(base, form, { canEditFinance: false });
+    const patch = buildSavePatch(base, form, { canEditFinance: false, order: ORDER });
     expect(patch.penaltyValue).toBeNull();
   });
 
   it('xoa contractValue -> khong co key', () => {
     const base = baseForm();
     const form = { ...base, contractValue: '' };
-    const patch = buildSavePatch(base, form, { canEditFinance: false });
+    const patch = buildSavePatch(base, form, { canEditFinance: false, order: ORDER });
     expect(patch.contractValue).toBeUndefined();
   });
 
   it('xoa 1 ngay -> null', () => {
     const base = { ...baseForm(), contractDate: '2026-01-01' };
     const form = { ...base, contractDate: '' };
-    const patch = buildSavePatch(base, form, { canEditFinance: false });
+    const patch = buildSavePatch(base, form, { canEditFinance: false, order: ORDER });
     expect(patch.contractDate).toBeNull();
   });
 
   it("doi khu vuc ve '' -> factoryId: null", () => {
     const base = { ...baseForm(), factoryId: '2' };
     const form = { ...base, factoryId: '' };
-    const patch = buildSavePatch(base, form, { canEditFinance: false });
+    const patch = buildSavePatch(base, form, { canEditFinance: false, order: ORDER });
     expect(patch.factoryId).toBeNull();
   });
 
   it('xoa san luong -> khong co key', () => {
     const base = { ...baseForm(), volumeTonnage: '100' };
     const form = { ...base, volumeTonnage: '' };
-    const patch = buildSavePatch(base, form, { canEditFinance: false });
+    const patch = buildSavePatch(base, form, { canEditFinance: false, order: ORDER });
     expect(patch.volumeTonnage).toBeUndefined();
   });
 
   it('doi san luong -> co key so', () => {
     const base = baseForm();
     const form = { ...base, volumeTonnage: '150' };
-    const patch = buildSavePatch(base, form, { canEditFinance: false });
+    const patch = buildSavePatch(base, form, { canEditFinance: false, order: ORDER });
     expect(patch.volumeTonnage).toBe(150);
   });
 });
@@ -295,6 +321,24 @@ describe('restoreDraft', () => {
     expect(restored.projectName).toBe(base.projectName);
     expect(restored.pctPlan).toBe('55');
   });
+
+  it("P7-C2: nhap chua ma la 'x' (giai doan da ngung dung) - stageInputsOf(..., order) khong chua no", () => {
+    const base = buildBaseForm(makeProject(), undefined, undefined, EMPTY_CHAIN, null, ORDER);
+    const draft: StoredDraft = {
+      v: DRAFT_VERSION,
+      savedAt: '2026-01-02T00:00:00.000Z',
+      stamp: { projectCreatedAt: '', projectUpdatedAt: '', factVersion: null, financialVersion: null },
+      form: {
+        ...toDraftForm(base),
+        stagePct: { ...base.stagePct, x: '50' },
+        stageApplicable: { ...base.stageApplicable, x: true },
+      },
+    };
+    const restored = restoreDraft(base, draft);
+    expect(restored.stagePct.x).toBe('50'); // restoreDraft chi merge, khong loc
+    const inputs = stageInputsOf(restored, ORDER);
+    expect(inputs.some((i) => i.stageCode === 'x')).toBe(false); // stageInputsOf loc theo order
+  });
 });
 
 describe('toDraftForm', () => {
@@ -311,17 +355,17 @@ describe('toDraftForm', () => {
 describe('draftFieldsEqual', () => {
   it('giong nhau -> true', () => {
     const base = baseForm();
-    expect(draftFieldsEqual(base, { ...base })).toBe(true);
+    expect(draftFieldsEqual(base, { ...base }, ORDER)).toBe(true);
   });
 
   it('khac field ho so (projectName) khong tinh -> van true', () => {
     const base = baseForm();
-    expect(draftFieldsEqual(base, { ...base, projectName: 'TEN KHAC' })).toBe(true);
+    expect(draftFieldsEqual(base, { ...base, projectName: 'TEN KHAC' }, ORDER)).toBe(true);
   });
 
   it('khac pctPlan -> false', () => {
     const base = baseForm();
-    expect(draftFieldsEqual(base, { ...base, pctPlan: '77' })).toBe(false);
+    expect(draftFieldsEqual(base, { ...base, pctPlan: '77' }, ORDER)).toBe(false);
   });
 });
 
@@ -330,6 +374,7 @@ describe('saveErrorKind', () => {
     ['Forbidden', 'forbidden'],
     ['locked', 'locked'],
     ['Not found', 'notFound'],
+    ['stages_changed', 'stagesChanged'],
     ['Bat ky loi nao khac', 'generic'],
   ] as const)('%s -> %s', (error, kind) => {
     expect(saveErrorKind(error)).toBe(kind);
@@ -339,12 +384,12 @@ describe('saveErrorKind', () => {
 describe('formsEqual', () => {
   it('giong nhau -> true', () => {
     const base = baseForm();
-    expect(formsEqual(base, { ...base })).toBe(true);
+    expect(formsEqual(base, { ...base }, ORDER)).toBe(true);
   });
   it('khac 1 giai doan -> false', () => {
     const base = baseForm();
     const other: FormState = { ...base, stagePct: { ...base.stagePct, design: '99' } };
-    expect(formsEqual(base, other)).toBe(false);
+    expect(formsEqual(base, other, ORDER)).toBe(false);
   });
 });
 
