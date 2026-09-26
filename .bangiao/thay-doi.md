@@ -98,7 +98,7 @@
   `t5-sau-luu-1440.png`, `t5-390.png`.
 - Kiem trinh duyet dung Playwright qua script tam (`playwright-core` + Chromium, xoa sau khi dung),
   **khong dung Playwright MCP** (khong co san trong danh sach cong cu cua lan chay nay) - dang nhap
-  that bang `admin@daidung.com.vn` / `Admin@123` tren dev server that cong 3000, DB `ddc_control_tower`.
+  that bang `admin@daidung.com.vn` (mat khau seed dev) tren dev server that cong 3000, DB `ddc_control_tower`.
 - **Luu y quan trong cho Tester:** trong luc kiem T4/T5, coder co luu THAT qua UI (khong chi xem) de
   xac nhan hanh vi dung - sau moi lan lam vay da chay lai `npx prisma db seed` + `npm run check:read`
   de dua DB ve dung seed goc truoc khi tiep tuc/ket thuc. Neu Tester thay du lieu du an 1 khac seed
@@ -157,7 +157,7 @@ khong con la flex-row nua, nen `<select>` va `<input>` ben trong khong cung dong
 xuong 1 dong rieng ben duoi `<select>` (lech dung 38px = 1 hang).
 
 **Da tai hien That truoc khi sua** (Playwright qua `node_modules/playwright-core` co san trong repo,
-dang nhap that `admin@daidung.com.vn`/`Admin@123`, dev server that cong 3000, DB `ddc_control_tower`,
+dang nhap that `admin@daidung.com.vn`/(mat khau seed dev), dev server that cong 3000, DB `ddc_control_tower`,
 KHONG qua UI luu du lieu):
 - Doc `document.styleSheets` cua trang that: xac nhan dung 2 rule `.inline` trong `layout.css`, rule
   `display:flex` cua app o INDEX 232, rule `display:inline` cua Tailwind o INDEX 389 (sau) - dung nhu

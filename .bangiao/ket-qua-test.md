@@ -9,7 +9,7 @@ Nhanh `feature/p3c-a-form-ke-hoach`, kiem cac commit `a1fbaa6`, `7a9ff2a` (sua C
 
 Khong tim them loi moi. Da kiem lai bang du lieu THAT nhap qua giao dien (khong doan, khong doc code
 suy dien) tren DB tam `ddc_control_tower_qa_a`, dev server that cong 3000, dang nhap that
-`admin@daidung.com.vn` / `Admin@123`, trinh duyet that (Playwright MCP, zoom 90%, da dat viewport
+`admin@daidung.com.vn` (mat khau seed dev, xem `src/data/seed/history.ts`), trinh duyet that (Playwright MCP, zoom 90%, da dat viewport
 1296x810 = 1440x900 CSS va 351x760 = 390x844 CSS, kiem `innerWidth` truoc moi lan do).
 
 ### 1. Gantt thiet bi `#eq-gantt` - 3 kich ban du lieu that (nhap qua UI, bam Luu that)
@@ -60,7 +60,7 @@ tran ngang; khung boc SVG (`#eq-gantt .bd > div[style*="overflow-x"]`) co `scrol
   `dim_shift.isActive=false` cho ma `evening` TREN DB TAM (khong dung DB that), kiem xong bat lai
   `true`. Sau khi tat: form KH nhan luc chi con dung 1 cot "Ca sang" (Ty le 100%) - dung theo thiet
   ke; chart chi ve 1 cot "Ca sang", chi 1 nhan gia tri "60" (duong Tong KH thang trung cot, dung nhu
-  logic "1 ca thi bo so tren cot" da sua o `a1fbaa6`), **0 cap giao nhau**. Anh:
+  logic "1 ca thi bo so tren cot" da sua o `7a9ff2a`), **0 cap giao nhau**. Anh:
   `.bangiao/anh-test/p3c-a-b11-v2-resshift-1ca-1440.png`.
 
 ### 3. 1440x900 va 390x844 - khung cuon ngang, khong tran
@@ -190,7 +190,7 @@ Da viet 4 file test doc lap (`*.qa.test.ts`, khong sua code san pham):
 
 Moi truong: DB tam `ddc_control_tower_qa_a` (tao bang psql, migrate deploy + `npx tsx
 prisma/seed.ts`), dev server that `npm run dev -- -p 3000`, dang nhap that
-`admin@daidung.com.vn` / `Admin@123` (va `viewer@daidung.com.vn` / `Viewer@12345` cho muc
+`admin@daidung.com.vn` (mat khau seed dev, xem `src/data/seed/history.ts`) (va `viewer@daidung.com.vn` cho muc
 quyen xem). Da kiem `devicePixelRatio` truoc: MCP dang zoom **90%** (`devicePixelRatio:
 0.8999...`) - da dat lai viewport `1296x810` (=1440x900 CSS thuc, xac nhan bang
 `window.innerWidth === 1440`) va `351x760` (=390x844 CSS thuc, xac nhan `innerWidth === 390`)
@@ -229,7 +229,7 @@ Theo dung yeu cau: **KHONG nghi guard `isExpectedDbUrl`/`E2E_TARGETS` trong
 cua B/C. Thay the bang kiem tay tung buoc tuong duong `e2e/03-project-detail.spec.ts` qua
 Playwright MCP tren cong 3000 / DB tam `ddc_control_tower_qa_a` cua A:
 
-- Dang nhap that (`admin@daidung.com.vn`/`Admin@123`), vao `/vi/projects/1`: xac nhan
+- Dang nhap that (`admin@daidung.com.vn` (tai khoan seed dev)), vao `/vi/projects/1`: xac nhan
   `#res-shift` va `#eq-gantt` co mat, co the `<svg class="chart">` (tuong duong dong spec kiem
   `#res-shift svg.chart` count > 0).
 - Vao `/vi/projects/17`: xac nhan hien dung 2 chuoi trang thai rong (tuong duong nhanh

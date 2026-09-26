@@ -1,6 +1,5 @@
 import type { ActivityLogEntry, AuditLogEntry, FactProgressMonthly, Shift } from './types';
 
-/** Nhân lực theo tháng × nhà thầu × ca (đã cộng các ngày). days = số ngày có dòng của ca đó. */
 /** Nhân lực theo tuần ISO (Thứ 2) × nhà thầu, đã cộng mọi ca + mọi ngày trong tuần. */
 export interface WeekContractorRow { weekStart: string; contractorId: number; planned: number; actual: number }
 export interface DateRange { from: string; to: string } // 'YYYY-MM-DD', from <= to

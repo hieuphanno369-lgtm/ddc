@@ -132,7 +132,7 @@ Các lựa chọn kỹ thuật đã tự quyết ghi ở mục "Quyết định 
 
 - [ ] `git status` sạch, nhánh `feature/p3c-a-form-ke-hoach`. Chạy `npx tsc --noEmit` + `npm test`, ghi mốc (số file/test) vào đầu `.bangiao/thay-doi.md` mục "Mốc đầu phase" (tạo file).
 - [ ] Đọc `phien-B.md`: B không giữ `globals.css`, `vi.json`, `en.json` thì ghi `app/globals.css`, `vi.json`, `en.json` vào "Đang giữ" của `phien-A.md` khi tới Task 1.
-- [ ] **Chụp ảnh TRƯỚC khi sửa** `/vi/ho-so-du-an?mode=new` và `/vi/ho-so-du-an?project=1` (đăng nhập `admin@daidung.com.vn` / `Admin@123`, dev cổng 3000) ở 1440px và 390px, phần mục 1, 2, 3; lưu `.bangiao/anh-test/t3-truoc-{1440,390}-{moi,sua}.png`.
+- [ ] **Chụp ảnh TRƯỚC khi sửa** `/vi/ho-so-du-an?mode=new` và `/vi/ho-so-du-an?project=1` (đăng nhập `admin@daidung.com.vn` (mat khau seed dev), dev cổng 3000) ở 1440px và 390px, phần mục 1, 2, 3; lưu `.bangiao/anh-test/t3-truoc-{1440,390}-{moi,sua}.png`.
 - Không commit riêng (gộp vào commit Task 1).
 
 ---
