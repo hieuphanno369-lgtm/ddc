@@ -1,36 +1,36 @@
-# P3C-B — Chart T1/T2/T4/T5: kế hoạch triển khai
+# P3C-B - Chart T1/T2/T4/T5: kế hoạch triển khai
 
 > Skill đã dùng khi lập: `writing-plans`. Tra docs Recharts (context7) cho `LabelList` (`dataKey` nhận hàm, `position`, `offset`).
 > Coder CHỈ đọc file này. Mỗi Bước = 1 commit riêng. Checkbox `- [ ]` để đánh dấu tiến độ.
 
 **Mục tiêu:** nhãn số cho chart tuần (T1), thẻ "Top dự án trọng điểm" ở Tổng quan (T2), Gantt thiết bị theo đợt (T4) và chart KH nhân lực theo tháng cột + đường (T5), theo đúng hợp đồng dữ liệu với A.
 
-**Kiến trúc:** logic thuần ở `src/lib/*` (test được, không đọc đồng hồ, không đụng repo) → component client ở `src/components/*` nhận model qua props → tầng query ở `src/server/*`. T4/T5 chỉ nối vào trang Chi tiết SAU khi A merge P3C-A (Bước 11 — TREO).
+**Kiến trúc:** logic thuần ở `src/lib/*` (test được, không đọc đồng hồ, không đụng repo) → component client ở `src/components/*` nhận model qua props → tầng query ở `src/server/*`. T4/T5 chỉ nối vào trang Chi tiết SAU khi A merge P3C-A (Bước 11 - TREO).
 
-**Tech:** Next.js 14 app router, React 18, Recharts 2.12.7 (T1), SVG tự vẽ (T4, T5 — theo mẫu `src/components/project/EquipmentGantt.tsx`), next-intl, Vitest 2.
+**Tech:** Next.js 14 app router, React 18, Recharts 2.12.7 (T1), SVG tự vẽ (T4, T5 - theo mẫu `src/components/project/EquipmentGantt.tsx`), next-intl, Vitest 2.
 
-**Nguồn sự thật:** `D:\_project\DDC_dieu-phoi\hop-dong-du-lieu-P3C.md` (quyết định chủ dự án T1–T5 + kiểu dữ liệu). Không đổi tên/kiểu trong hợp đồng.
+**Nguồn sự thật:** `D:\_project\DDC_dieu-phoi\hop-dong-du-lieu-P3C.md` (quyết định chủ dự án T1-T5 + kiểu dữ liệu). Không đổi tên/kiểu trong hợp đồng.
 
 ---
 
-## ĐÃ CHỐT (chủ dự án trả lời 2026-09-25) — coder làm theo đây, không còn câu nào bỏ ngỏ
+## ĐÃ CHỐT (chủ dự án trả lời 2026-09-25) - coder làm theo đây, không còn câu nào bỏ ngỏ
 
 1. T5 đường "TT TB/ngày" = tổng thực tế tháng ÷ **số ngày có nhập liệu** trong tháng.
 2. T4 loại thiết bị có Tổng SL nhưng chưa có đợt → **vẫn hiện 1 hàng** trống, cột SL = `0/tổng`.
 3. T2 "Top dự án trọng điểm" **lọc theo FilterBar** giống thẻ cũ; rỗng → "Không có dự án P0 đang triển khai".
 4. T5 trục tháng = **dải tháng liên tục** từ tháng sớm nhất tới muộn nhất của (tháng có KH ∪ tháng có TT).
 
-## CÂU HỎI CÒN BỎ NGỎ (đã trả lời — xem ĐÃ CHỐT)
+## CÂU HỎI CÒN BỎ NGỎ (đã trả lời - xem ĐÃ CHỐT)
 
 Coder làm theo **đề xuất** (đã ghi vào từng Bước); nếu chủ dự án trả lời khác thì chỉ phải sửa đúng chỗ ghi trong ngoặc.
 
-1. **T5 — đường "TT TB/ngày" chia cho mấy ngày?** Chia cho **số ngày có nhập liệu** trong tháng, hay chia cho **số ngày lịch** của tháng (ngày không nhập tính là 0 người, giống chart tuần P2B)?
+1. **T5 - đường "TT TB/ngày" chia cho mấy ngày?** Chia cho **số ngày có nhập liệu** trong tháng, hay chia cho **số ngày lịch** của tháng (ngày không nhập tính là 0 người, giống chart tuần P2B)?
    *Đề xuất:* chia cho số ngày có nhập liệu. Lý do: KH tháng là số người huy động chứ không phải người-ngày; tháng đang chạy hoặc ngày quên nhập mà tính 0 người thì đường TT tụt giả. (Chỗ sửa nếu khác: `buildManpowerMonthModel`, Bước 7.)
-2. **T4 — loại thiết bị đã có "Tổng SL" nhưng chưa nhập đợt nào:** vẫn hiện 1 hàng (không có thanh, cột SL = `0/tổng`) hay ẩn đi?
+2. **T4 - loại thiết bị đã có "Tổng SL" nhưng chưa nhập đợt nào:** vẫn hiện 1 hàng (không có thanh, cột SL = `0/tổng`) hay ẩn đi?
    *Đề xuất:* vẫn hiện, để thấy thiết bị đã khai báo mà chưa lên lịch. (Chỗ sửa: `buildPlanGantt`, Bước 4.)
-3. **T2 — "Top dự án trọng điểm" có lọc theo FilterBar** (team, khách hàng, loại, thị trường, tháng) như thẻ "Dự án cần lưu ý" cũ không?
+3. **T2 - "Top dự án trọng điểm" có lọc theo FilterBar** (team, khách hàng, loại, thị trường, tháng) như thẻ "Dự án cần lưu ý" cũ không?
    *Đề xuất:* có, giữ như thẻ cũ. Nếu người dùng lọc Priority = P1 thì thẻ rỗng, hiện dòng "Không có dự án P0 đang triển khai". (Chỗ sửa: `getTopPriority`, Bước 3.)
-4. **T5 — trục tháng:** các tháng có số liệu thực tế nhưng không có KH (vd trước khi lập KH tháng) có hiện trên trục không (cột KH = 0, chỉ có điểm TT)?
+4. **T5 - trục tháng:** các tháng có số liệu thực tế nhưng không có KH (vd trước khi lập KH tháng) có hiện trên trục không (cột KH = 0, chỉ có điểm TT)?
    *Đề xuất:* có. Trục = dải tháng liên tục, từ tháng nhỏ nhất tới tháng lớn nhất của (tháng có KH ∪ tháng có TT). (Chỗ sửa: `buildManpowerMonthModel`, Bước 7.)
 
 ---
@@ -39,9 +39,9 @@ Coder làm theo **đề xuất** (đã ghi vào từng Bước); nếu chủ d�
 
 - **Worktree / nhánh:** `D:\_project\DDC_Control_Tower-B`, nhánh `feature/p3c-b-chart`. Trước commit đầu tiên chạy `git branch --show-current` → phải ra `feature/p3c-b-chart` (git status đầu phiên báo `HEAD`, có thể đang detached). Nếu không đúng nhánh thì `git switch feature/p3c-b-chart`.
 - **Không migration.** Không sửa `prisma/schema.prisma`, `prisma/migrations/`, `src/server/repo/types.ts`, form của A, `mock-repo.ts`, `prisma-repo.ts`, `actions.ts`, `app/globals.css`, `PROGRESS.md`, `.serena/memories/`.
-- **File nóng B sẽ sửa:** chỉ `src/i18n/messages/vi.json` + `en.json` (Bước 9). **Không** sửa `queries.ts`/`project-queries.ts` — T2 đặt ở file mới. Trước Bước 9 đọc `D:\_project\DDC_dieu-phoi\phien-A.md`: nếu A còn giữ `vi.json`/`en.json` thì Bước 9 và Bước 10 CHỜ, làm các bước khác trước. Khi làm: ghi 2 file vào "Đang giữ" của `phien-B.md`, commit xong thì bỏ ra.
+- **File nóng B sẽ sửa:** chỉ `src/i18n/messages/vi.json` + `en.json` (Bước 9). **Không** sửa `queries.ts`/`project-queries.ts` - T2 đặt ở file mới. Trước Bước 9 đọc `D:\_project\DDC_dieu-phoi\phien-A.md`: nếu A còn giữ `vi.json`/`en.json` thì Bước 9 và Bước 10 CHỜ, làm các bước khác trước. Khi làm: ghi 2 file vào "Đang giữ" của `phien-B.md`, commit xong thì bỏ ra.
 - **Sau mỗi commit:** cập nhật `D:\_project\DDC_dieu-phoi\phien-B.md` (bước vừa xong, commit cuối, bước kế, file đang giữ, giờ).
-- **Cổng mỗi Bước** (PowerShell, ổ `D:` viết hoa — Git Bash làm Vitest báo giả "No test suite found"):
+- **Cổng mỗi Bước** (PowerShell, ổ `D:` viết hoa - Git Bash làm Vitest báo giả "No test suite found"):
   ```powershell
   Set-Location D:\_project\DDC_Control_Tower-B
   npx tsc --noEmit
@@ -58,7 +58,7 @@ Coder làm theo **đề xuất** (đã ghi vào từng Bước); nếu chủ d�
   - Test query dùng mock repo (`vi.mock('@/server/repo', ... mock-repo)`): `src/server/manpower-queries.test.ts`.
   - Test read-prisma (mock `$queryRaw`, kiểm `sql.values`): `src/server/repo/read-prisma.test.ts`. Test read-mock: `src/server/repo/read-mock.test.ts`.
   - SVG chart + tooltip `ChartTip`/`useChartTip`: `src/components/project/EquipmentGantt.tsx`.
-  - Đo bề rộng bằng ResizeObserver + cuộn ngang: `src/components/project/WeeklyManpowerStackChart.tsx` dòng 21–35.
+  - Đo bề rộng bằng ResizeObserver + cuộn ngang: `src/components/project/WeeklyManpowerStackChart.tsx` dòng 21-35.
   - Danh sách 5 dòng + cuộn: `src/components/dashboard/Watchlist.tsx` + `src/lib/visible-rows.ts` (`WATCHLIST_VISIBLE_ROWS`, `maxHeightForRows`).
   - Cache overview: `src/server/cache.ts` (`loadWatchlist`).
   - Tên test: tiếng Việt không dấu (vd `'du an 17 -> null'`). Chú thích code: tiếng Việt.
@@ -84,7 +84,7 @@ Coder làm theo **đề xuất** (đã ghi vào từng Bước); nếu chủ d�
 | `src/components/project/ManpowerMonthChart.tsx` (+ `.test.ts`) (mới) | 8 | vẽ chart T5 |
 | `src/i18n/messages/vi.json`, `en.json` (NÓNG), `src/i18n/messages.test.ts` | 9 | key mới (CHỜ A nhả) |
 | `src/components/dashboard/TopPriorityList.tsx` (+ `.test.ts`) (mới), `OverviewWidgets.tsx`, `app/[locale]/(app)/overview/page.tsx`, `src/server/overview-finance-gate.test.ts`; xoá `Watchlist.tsx` + `Watchlist.test.ts` | 10 | T2 lên giao diện (sau Bước 9) |
-| `app/[locale]/(app)/projects/[id]/page.tsx`, `src/server/manpower-queries.ts`, `src/server/equipment-plan-gantt-queries.ts` (mới), xoá chart cũ, `e2e/03-project-detail.spec.ts`, … | 11 | **TREO** — nối trang Chi tiết |
+| `app/[locale]/(app)/projects/[id]/page.tsx`, `src/server/manpower-queries.ts`, `src/server/equipment-plan-gantt-queries.ts` (mới), xoá chart cũ, `e2e/03-project-detail.spec.ts`, … | 11 | **TREO** - nối trang Chi tiết |
 | `.bangiao/thay-doi.md` | 12 | tổng kết cho Tester |
 
 ---
@@ -93,7 +93,7 @@ Coder làm theo **đề xuất** (đã ghi vào từng Bước); nếu chủ d�
 
 **Files:** Create `src/lib/p3c-contract.ts`, `src/lib/p3c-contract.test.ts`.
 
-**Produces** (Bước 4, 7, 8, 11 dùng — tên và trường phải giữ nguyên):
+**Produces** (Bước 4, 7, 8, 11 dùng - tên và trường phải giữ nguyên):
 ```ts
 /**
  * Kiểu TẠM, chép nguyên văn hợp đồng P3C (D:\_project\DDC_dieu-phoi\hop-dong-du-lieu-P3C.md).
@@ -110,7 +110,7 @@ export interface ManpowerPlanMonthRow { yearMonth: string; shiftCode: string; pl
 export interface ShiftRatio { shiftCode: string; pct: number }
 ```
 
-**Test** `p3c-contract.test.ts` (đọc file dạng chữ bằng `readFileSync(join(process.cwd(), ...))`, mẫu `src/i18n/messages.test.ts` dòng 10–13):
+**Test** `p3c-contract.test.ts` (đọc file dạng chữ bằng `readFileSync(join(process.cwd(), ...))`, mẫu `src/i18n/messages.test.ts` dòng 10-13):
 - Hàm `fieldsOf(src: string, name: string): string[] | null`: regex `export interface ${name}\s*\{([^}]*)\}`; không khớp → `null`; bỏ chú thích `//…` tới cuối dòng; tách theo `;` và xuống dòng; trim, bỏ chuỗi rỗng; bỏ mọi khoảng trắng (`'id: number'` → `'id:number'`); sort.
 - `it('p3c-contract khai du 4 kieu')`: với cả 4 tên, `fieldsOf(p3c, name)` khác `null`; `EquipmentPlanSegment` có đúng 6 trường `['equipmentId:number','equipmentName:string','from:string','id:number','qty:number','to:string']`.
 - `it('khop truong voi types.ts neu A da merge')`: với từng tên, `const a = fieldsOf(typesSrc, name)`; `a === null` → bỏ qua tên đó (A chưa merge); ngược lại `expect(fieldsOf(p3c, name)).toEqual(a)`.
@@ -121,7 +121,7 @@ Bước này không đụng code khác. Ghi mốc `npm test` (số file/số tes
 
 ---
 
-### Bước 2: T1 — nhãn số chart tuần + sửa tooltip "Tổng TT"
+### Bước 2: T1 - nhãn số chart tuần + sửa tooltip "Tổng TT"
 
 **Files:** Modify `src/components/project/WeeklyManpowerStackChart.tsx`, `src/components/project/WeeklyManpowerStackChart.test.ts`.
 
@@ -164,7 +164,7 @@ export function weeklyTooltip(contractors: ContractorInfo[], t: ReturnType<typeo
 
 ---
 
-### Bước 3: T2 — logic "Top dự án trọng điểm"
+### Bước 3: T2 - logic "Top dự án trọng điểm"
 
 **Files:** Create `src/lib/top-priority.ts`, `src/lib/top-priority.test.ts`, `src/server/top-priority-queries.ts`, `src/server/top-priority-queries.test.ts`; Modify `src/server/cache.ts`.
 
@@ -205,7 +205,7 @@ export const loadTopPriority = (month: string, filters: DashboardFilters) =>
 
 ---
 
-### Bước 4: T4 — model Gantt thiết bị theo đợt
+### Bước 4: T4 - model Gantt thiết bị theo đợt
 
 **Files:** Create `src/lib/equipment-gantt-v2.ts`, `src/lib/equipment-gantt-v2.test.ts`.
 
@@ -241,7 +241,7 @@ export function buildPlanGantt(segments: EquipmentPlanSegment[], quotas: Equipme
 - `assignLanes`: sort theo `from`, rồi `id`; mỗi đợt vào lane nhỏ nhất có `to` cuối cùng `< seg.from` (trùng 1 ngày = chồng, vì cả 2 đợt cùng dùng ngày đó); không có → mở lane mới.
 - `buildPlanGantt`:
   1. Bỏ qua đợt hỏng: `from > to` hoặc `qty < 1` hoặc ngày không phải 'YYYY-MM-DD' (dùng regex `/^\d{4}-\d{2}-\d{2}$/`). Không ném lỗi.
-  2. Còn 0 đợt hợp lệ → `return null` (kể cả khi có quota — không có trục thời gian).
+  2. Còn 0 đợt hợp lệ → `return null` (kể cả khi có quota - không có trục thời gian).
   3. Hàng = hợp các `equipmentId` trong đợt và trong quota (theo Câu hỏi 2: có quota mà không có đợt vẫn có hàng, `segments: []`, `spanFrom/spanTo: null`, `lanes: 1`, `qtyNow: 0`). Sort `equipmentId` tăng. `name` = `equipmentName` của đợt đầu, không có thì của quota. `color = equipmentColor(index hàng)`.
   4. `days = daysBetween(from, to) + 1`; `lane` từ `assignLanes` theo từng hàng; `lanes = max(lane)+1`.
   5. `planFrom/planTo` = min `from` / max `to` của mọi đợt hợp lệ; `axis = buildGanttAxis(planFrom, planTo)`.
@@ -249,10 +249,10 @@ export function buildPlanGantt(segments: EquipmentPlanSegment[], quotas: Equipme
   7. `qtyTotal`: quota có → `totalQty`; không → `null`. KHÔNG kẹp `qtyNow <= qtyTotal` (form của A đã chặn; nếu lệch thì hiện đúng số).
 
 **Test `equipment-gantt-v2.test.ts`:**
-- Ngắn (1 thiết bị, 01/09–30/10/2026, 60 ngày) → `mode 'week'`, tick đầu = `'2026-08-31'` label `'31/08'`, mọi tick là Thứ 2.
-- Dài (01/07/2026–31/12/2026) → `mode 'month'`, 6 tick, label `'07.2026'` … `'12.2026'`, `labelStep 1`; 30 tháng → `labelStep 3`.
+- Ngắn (1 thiết bị, 01/09-30/10/2026, 60 ngày) → `mode 'week'`, tick đầu = `'2026-08-31'` label `'31/08'`, mọi tick là Thứ 2.
+- Dài (01/07/2026-31/12/2026) → `mode 'month'`, 6 tick, label `'07.2026'` … `'12.2026'`, `labelStep 1`; 30 tháng → `labelStep 3`.
 - Biên 92/93 ngày: `2026-09-01..2026-12-01` (92 ngày) → week; thêm 1 ngày → month.
-- Chồng đợt: cẩu (id 1) đợt A 01/09–20/09 SL 2, đợt B 15/09–30/09 SL 1, đợt C 21/09–30/09 SL 1 → lane A=0, B=1, C=0, `lanes 2`; `today '2026-09-16'` → `qtyNow 3`; quota 3 → `qtyTotal 3`; `spanFrom '2026-09-01'`, `spanTo '2026-09-30'`.
+- Chồng đợt: cẩu (id 1) đợt A 01/09-20/09 SL 2, đợt B 15/09-30/09 SL 1, đợt C 21/09-30/09 SL 1 → lane A=0, B=1, C=0, `lanes 2`; `today '2026-09-16'` → `qtyNow 3`; quota 3 → `qtyTotal 3`; `spanFrom '2026-09-01'`, `spanTo '2026-09-30'`.
 - Đợt kết thúc đúng hôm nay được tính vào `qtyNow`; đợt bắt đầu ngày mai thì không.
 - Quota không có đợt (id 9) → có hàng, `segments []`, `qtyNow 0`, `spanFrom null`. Đợt không có quota → `qtyTotal null`.
 - Không có dữ liệu: `buildPlanGantt([], [], t)` → `null`; `buildPlanGantt([], [quota], t)` → `null`; chỉ có đợt hỏng (`from > to`) → `null`.
@@ -264,17 +264,17 @@ export function buildPlanGantt(segments: EquipmentPlanSegment[], quotas: Equipme
 
 ---
 
-### Bước 5: T4 — component `EquipmentPlanGantt`
+### Bước 5: T4 - component `EquipmentPlanGantt`
 
 **Files:** Create `src/components/project/EquipmentPlanGantt.tsx`, `src/components/project/EquipmentPlanGantt.test.ts`. Chép khung từ `src/components/project/EquipmentGantt.tsx` (SVG `className="chart"`, `ChartTip`/`useChartTip`, `xOf` từ `@/lib/stage-timeline`).
 
 **Produces:** `export function EquipmentPlanGantt({ model }: { model: PlanGanttModel })` (`'use client'`).
 
 **Bố cục** (hằng số đầu file): `W = 1000, NAME_W = 190, QTY_W = 76, ML = NAME_W + QTY_W, MR = 16, MT = 40, LANE_H = 24, ROW_PAD = 10, BH = 16, ROW_MIN_H = 46, MIN_SVG_W = 720, LABEL_MIN_W = 44`. `rowH = max(ROW_MIN_H, ROW_PAD*2 + lanes*LANE_H)`. `IW = W - ML - MR`; `X = (d) => xOf(d, { from: axis.from, to: axis.toExclusive, ticks: [] }, ML, IW)`.
-- Bọc: `<div style={{ overflowX: 'auto' }}><svg className="chart" viewBox={`0 0 ${W} ${H}`} style={{ minWidth: MIN_SVG_W }} role="img" aria-label={t('equipmentPlanGantt.title')}>` — ở 390px sẽ cuộn ngang thay vì thu chữ.
+- Bọc: `<div style={{ overflowX: 'auto' }}><svg className="chart" viewBox={`0 0 ${W} ${H}`} style={{ minWidth: MIN_SVG_W }} role="img" aria-label={t('equipmentPlanGantt.title')}>` - ở 390px sẽ cuộn ngang thay vì thu chữ.
 - Hàng đầu (y ≈ MT − 18): chữ hoa nhỏ `t('equipmentPlanGantt.colEquipment')` ở x = 8 (textAnchor start), `t('equipmentPlanGantt.colQty')` ở giữa cột SL; fontSize 10, fontWeight 700, `var(--label3)`.
 - Trục: mỗi tick 1 đường dọc `var(--grid)` từ `MT − 8` tới đáy; nhãn (chỉ khi `i % labelStep === 0`) ở `y = MT − 18`, fontSize 10.5, fontWeight 700, `var(--axis)`, textAnchor middle.
-- Mỗi hàng: kẻ ngang `var(--grid)` giữa các hàng; tên thiết bị x = 8, fontSize 12, fontWeight 700, `var(--label)`, cắt bớt nếu dài > 24 ký tự (thêm "…", tên đủ trong `<title>`); dòng phụ ngay dưới, fontSize 10, `var(--label3)`: `${formatDateShort(spanFrom)} – ${formatDateShort(spanTo)}` (không có đợt → `-`). Cột SL: `${qtyNow}/${qtyTotal ?? '–'}` căn giữa cột, fontSize 12; `qtyNow > 0` → fontWeight 700 `var(--label)`, ngược lại `var(--label3)`.
+- Mỗi hàng: kẻ ngang `var(--grid)` giữa các hàng; tên thiết bị x = 8, fontSize 12, fontWeight 700, `var(--label)`, cắt bớt nếu dài > 24 ký tự (thêm "…", tên đủ trong `<title>`); dòng phụ ngay dưới, fontSize 10, `var(--label3)`: `${formatDateShort(spanFrom)} - ${formatDateShort(spanTo)}` (không có đợt → `-`). Cột SL: `${qtyNow}/${qtyTotal ?? '-'}` căn giữa cột, fontSize 12; `qtyNow > 0` → fontWeight 700 `var(--label)`, ngược lại `var(--label3)`.
 - Thanh đợt: `y = top + ROW_PAD + lane*LANE_H + (LANE_H − BH)/2`; `x = X(from)`, `width = max(X(addDaysIso(to,1)) − x, 3)`, `rx 4`, `style={{ fill: row.color }}`, không đổ mờ/đậm. Nhãn `t('equipmentPlanGantt.qty', { n: qty })`: `width >= LABEL_MIN_W` → trong thanh, chữ trắng, fontSize 10.5, fontWeight 700; ngược lại → sau thanh `var(--label2)` nếu khoảng trống tới đợt kế cùng lane (hoặc mép phải) `>= LABEL_MIN_W`; không đủ chỗ → không vẽ (tooltip vẫn có).
 - Tooltip mỗi thanh (`show(ev, row.name, rows)`): `{ k: t('equipmentPlanGantt.tipRange'), v: `${formatDateShort(from)} → ${formatDateShort(to)}`, color: row.color }`, `{ k: t('equipmentPlanGantt.tipQty'), v: String(qty) }`, `{ k: t('equipmentPlanGantt.tipDays'), v: String(days) }`. **Không** có dòng "ngày có dùng".
 - Hôm nay (chỉ khi `todayInRange`): `xt = X(today) + (X(addDaysIso(today,1)) − X(today))/2`; đường dọc `var(--danger)` strokeWidth 1.5 từ `MT − 4` tới đáy; nhãn pill trên cùng (y = 12): rect `rx 8` nền `var(--danger)` + chữ trắng fontSize 10.5 fontWeight 700 `t('equipmentPlanGantt.today', { date: formatDayMonthDot(today) })`, căn giữa `xt`, kẹp trong `[ML, W − MR]`.
@@ -293,7 +293,7 @@ export function buildPlanGantt(segments: EquipmentPlanSegment[], quotas: Equipme
 
 ---
 
-### Bước 6: T5 — đọc thực tế nhân lực theo tháng (read repo của B)
+### Bước 6: T5 - đọc thực tế nhân lực theo tháng (read repo của B)
 
 **Files:** Modify `src/server/repo/read-types.ts`, `src/server/repo/read-prisma.ts`, `src/server/repo/read-mock.ts`, `src/server/repo/read-prisma.test.ts`, `src/server/repo/read-mock.test.ts`, `scripts/check-read-parity.ts`.
 
@@ -325,7 +325,7 @@ readManpowerActualByMonth(projectId: number): Promise<ManpowerActualMonthRow[]>;
 
 ---
 
-### Bước 7: T5 — model chart KH nhân lực theo tháng
+### Bước 7: T5 - model chart KH nhân lực theo tháng
 
 **Files:** Create `src/lib/manpower-month-chart.ts`, `src/lib/manpower-month-chart.test.ts`.
 
@@ -352,7 +352,7 @@ export function buildManpowerMonthModel(input: {
 **Thuật toán:**
 - Ca hiển thị = hợp mã ca trong `plan` và `ratios`; tên/thứ tự lấy từ `shifts` (`sortOrder` tăng, rồi `code`); mã không có trong `shifts` → `name = code`, `sortOrder = 999` (như `shiftsForMonth` trong `src/lib/manpower-charts.ts`). Hợp rỗng → dùng các ca `isActive`.
 - Tháng = dải liên tục từ min tới max của (yearMonth trong `plan`) ∪ (yearMonth trong `actual` có `days > 0`) (Câu hỏi 4). Không có tháng nào → `null`.
-- `actualAvg`: theo Câu hỏi 1 — chia cho `days` (ngày có nhập liệu).
+- `actualAvg`: theo Câu hỏi 1 - chia cho `days` (ngày có nhập liệu).
 - `planned` âm hoặc không phải số nguyên hữu hạn → coi là 0 (phòng thủ, không ném).
 - `maxY = niceMax(max của mọi planned từng ca, plannedTotal, actualAvg)`; `niceMax(0) = 10`; còn lại làm tròn lên bậc 1/2/2.5/5 × 10^k (vd 900 → 1000, 450 → 500, 26 → 50, 7 → 10).
 
@@ -368,14 +368,14 @@ export function buildManpowerMonthModel(input: {
 
 ---
 
-### Bước 8: T5 — component `ManpowerMonthChart`
+### Bước 8: T5 - component `ManpowerMonthChart`
 
 **Files:** Create `src/components/project/ManpowerMonthChart.tsx`, `src/components/project/ManpowerMonthChart.test.ts`.
 
 **Produces:** `export function ManpowerMonthChart({ model }: { model: ManpowerMonthModel })` (`'use client'`). SVG tự vẽ (Recharts không vẽ được trục 2 tầng ca/tháng với đường theo tháng).
 
 **Bố cục:**
-- Hằng số: `ML = 44, MR = 16, MT = 26, PLOT_H = 220, AXIS_H = 40, BAR_W = 26, BAR_GAP = 6, MIN_MONTH_W = 96`. `groupW = shifts.length*BAR_W + (shifts.length−1)*BAR_GAP`. Đo bề rộng khung bằng ResizeObserver (chép `WeeklyManpowerStackChart.tsx` dòng 21–35, mặc định 800): `monthW = max(MIN_MONTH_W, groupW + 24, (containerWidth − ML − MR) / months.length)`; `W = ML + months.length*monthW + MR`; `H = MT + PLOT_H + AXIS_H`. SVG vẽ đúng pixel (`width={W} height={H}`, không `viewBox` co giãn), bọc `<div ref style={{ overflowX: 'auto' }}>` → nhiều tháng hoặc 390px thì cuộn ngang.
+- Hằng số: `ML = 44, MR = 16, MT = 26, PLOT_H = 220, AXIS_H = 40, BAR_W = 26, BAR_GAP = 6, MIN_MONTH_W = 96`. `groupW = shifts.length*BAR_W + (shifts.length−1)*BAR_GAP`. Đo bề rộng khung bằng ResizeObserver (chép `WeeklyManpowerStackChart.tsx` dòng 21-35, mặc định 800): `monthW = max(MIN_MONTH_W, groupW + 24, (containerWidth − ML − MR) / months.length)`; `W = ML + months.length*monthW + MR`; `H = MT + PLOT_H + AXIS_H`. SVG vẽ đúng pixel (`width={W} height={H}`, không `viewBox` co giãn), bọc `<div ref style={{ overflowX: 'auto' }}>` → nhiều tháng hoặc 390px thì cuộn ngang.
 - `y(v) = MT + PLOT_H − (v / maxY) * PLOT_H`. Lưới ngang 5 mức (0, maxY/4 … maxY) `var(--grid)`, nhãn trục Y fontSize 10.5 `var(--axis)`.
 - Màu ca theo thứ tự: `SHIFT_COLORS = ['var(--s-plan)', 'var(--s-cost)', 'var(--s-third-lt)', 'var(--s-neutral)']` (vòng lại). Đường tổng KH: `var(--s-actual)`, liền, 2px, chấm tròn r 3.5. Đường TT TB/ngày: `var(--s-third)`, nét đứt `4 3`, 2px, chấm tròn r 3.5.
 - Mỗi tháng i: tâm nhóm `cx = ML + (i + 0.5)*monthW`; cột ca j ở `cx − groupW/2 + j*(BAR_W+BAR_GAP)`, cao theo `planned[code]`, `rx 3`. Nhãn số trên cột (fontSize 10, `var(--label2)`, textAnchor middle, y = đỉnh cột − 4), ẩn khi 0.
@@ -397,11 +397,11 @@ export function buildManpowerMonthModel(input: {
 
 ---
 
-### Bước 9: Key i18n mới — **CHỜ A nhả `vi.json`/`en.json`**
+### Bước 9: Key i18n mới - **CHỜ A nhả `vi.json`/`en.json`**
 
 **Điều kiện bắt đầu:** `phien-A.md` mục "Đang giữ" KHÔNG còn `vi.json`, `en.json`. Nếu còn → dừng bước này + Bước 10, ghi "Bước 9 chờ A nhả i18n" vào `phien-B.md`, làm Bước 12 phần đã có hoặc báo điều phối. Khi bắt đầu: nếu A đã merge vào `main` thì `git merge main` trước (giải xung đột: giữ đủ cả 2 bên), `npm test` xanh, rồi mới sửa.
 
-**Files:** Modify `src/i18n/messages/vi.json`, `src/i18n/messages/en.json` (NÓNG — ghi "Đang giữ" trước), `src/i18n/messages.test.ts`.
+**Files:** Modify `src/i18n/messages/vi.json`, `src/i18n/messages/en.json` (NÓNG - ghi "Đang giữ" trước), `src/i18n/messages.test.ts`.
 
 Thêm 3 nhóm MỚI ở **cuối file** (sau nhóm cuối hiện có, hiện là `notifyAdmin`; không chèn giữa key có sẵn), cùng thứ tự ở 2 file:
 
@@ -413,7 +413,7 @@ Thêm 3 nhóm MỚI ở **cuối file** (sau nhóm cuối hiện có, hiện là
 | `topPriority.behind` | Trễ tiến độ | Behind schedule |
 | `topPriority.onTrack` | Đúng tiến độ | On track |
 | `equipmentPlanGantt.title` | Lịch sử dụng thiết bị | Equipment usage schedule |
-| `equipmentPlanGantt.help` | Mỗi hàng là 1 loại thiết bị, mỗi thanh là 1 đợt sử dụng theo kế hoạch kèm số lượng dùng trong đợt. Cột "SL nay/tổng": số lượng theo kế hoạch đang dùng hôm nay / tổng số lượng của loại thiết bị. Dòng nhỏ dưới tên: ngày bắt đầu – kết thúc toàn quá trình sử dụng. | Each row is one equipment type; each bar is one planned usage period with its quantity. "Qty now/total": planned quantity in use today / total quantity of that type. Small line under the name: first – last day of the whole usage. |
+| `equipmentPlanGantt.help` | Mỗi hàng là 1 loại thiết bị, mỗi thanh là 1 đợt sử dụng theo kế hoạch kèm số lượng dùng trong đợt. Cột "SL nay/tổng": số lượng theo kế hoạch đang dùng hôm nay / tổng số lượng của loại thiết bị. Dòng nhỏ dưới tên: ngày bắt đầu - kết thúc toàn quá trình sử dụng. | Each row is one equipment type; each bar is one planned usage period with its quantity. "Qty now/total": planned quantity in use today / total quantity of that type. Small line under the name: first - last day of the whole usage. |
 | `equipmentPlanGantt.colEquipment` | THIẾT BỊ | EQUIPMENT |
 | `equipmentPlanGantt.colQty` | SL nay/tổng | Qty now/total |
 | `equipmentPlanGantt.qty` | SL: {n} | Qty: {n} |
@@ -437,9 +437,9 @@ Thêm 3 nhóm MỚI ở **cuối file** (sau nhóm cuối hiện có, hiện là
 
 ---
 
-### Bước 10: T2 — thẻ "Top dự án trọng điểm" lên Tổng quan (sau Bước 9)
+### Bước 10: T2 - thẻ "Top dự án trọng điểm" lên Tổng quan (sau Bước 9)
 
-> **BẮT BUỘC (tester bước 1–8):** `getTopPriority` trả `ProjectSummary` thô → `TopPriorityCard` PHẢI gọi `maskProjectSummaries` (như `WatchlistCard`) theo `canViewFinance`, có test N-3 (không lộ contractValue/eac/vac).
+> **BẮT BUỘC (tester bước 1-8):** `getTopPriority` trả `ProjectSummary` thô → `TopPriorityCard` PHẢI gọi `maskProjectSummaries` (như `WatchlistCard`) theo `canViewFinance`, có test N-3 (không lộ contractValue/eac/vac).
 
 **Files:** Create `src/components/dashboard/TopPriorityList.tsx`, `src/components/dashboard/TopPriorityList.test.ts`; Modify `src/components/dashboard/OverviewWidgets.tsx`, `app/[locale]/(app)/overview/page.tsx`, `src/server/overview-finance-gate.test.ts`, `src/i18n/messages.test.ts`; Delete `src/components/dashboard/Watchlist.tsx`, `src/components/dashboard/Watchlist.test.ts`.
 
@@ -466,9 +466,9 @@ export async function TopPriorityCard({ month, filters, canViewFinance }: { mont
 
 ---
 
-### Bước 11: Nối T4 + T5 vào trang Chi tiết — **CHUYỂN SANG A** (chủ dự án chốt 2026-09-26: A làm trong P3C-A; B chốt P3C-B không có bước này)
+### Bước 11: Nối T4 + T5 vào trang Chi tiết - **CHUYỂN SANG A** (chủ dự án chốt 2026-09-26: A làm trong P3C-A; B chốt P3C-B không có bước này)
 
-**Điều kiện bắt đầu (đủ cả 3):** (a) A đã merge P3C-A vào `main` — `git log main` có commit merge P3C-A và `src/server/repo/types.ts` trên `main` có 4 kiểu hợp đồng; `repo` có `readEquipmentPlanSegments`, `readEquipmentQuotas`, `readManpowerPlanMonths`, `readShiftRatios` (cả Prisma lẫn mock); (b) Bước 9 đã xong; (c) A KHÔNG đang nâng Next (phien-A.md). Thiếu 1 điều → ghi "Bước 11 TREO: thiếu <điều kiện>" vào `phien-B.md` và chuyển sang Bước 12.
+**Điều kiện bắt đầu (đủ cả 3):** (a) A đã merge P3C-A vào `main` - `git log main` có commit merge P3C-A và `src/server/repo/types.ts` trên `main` có 4 kiểu hợp đồng; `repo` có `readEquipmentPlanSegments`, `readEquipmentQuotas`, `readManpowerPlanMonths`, `readShiftRatios` (cả Prisma lẫn mock); (b) Bước 9 đã xong; (c) A KHÔNG đang nâng Next (phien-A.md). Thiếu 1 điều → ghi "Bước 11 TREO: thiếu <điều kiện>" vào `phien-B.md` và chuyển sang Bước 12.
 
 **11.1 Kéo main:** `git merge main` → `npx prisma migrate deploy` (DB `ddc_control_tower_b`) → `npx prisma db seed` nếu A đổi seed → `npm install` nếu `package.json` đổi → `npx tsc --noEmit` + `npm test`. **`p3c-contract.test.ts` phải xanh** (4 kiểu khớp `types.ts`); đỏ → dừng, báo điều phối (không tự sửa hợp đồng).
 
@@ -509,7 +509,7 @@ export async function getManpowerMonthChartData(projectId: number, locale: strin
 
 ### Bước 12: Tổng kết cho Tester
 
-**File:** `.bangiao/thay-doi.md` — mốc test đầu/cuối, danh sách commit theo Bước, bước nào TREO/CHỜ + lý do, kết quả `check:read`, ảnh trình duyệt, nợ để sau (key i18n cũ chưa xoá; nhãn T1 có thể đè nhau khi KH ≈ TT nếu có), các câu hỏi còn mở + đề xuất đã áp.
+**File:** `.bangiao/thay-doi.md` - mốc test đầu/cuối, danh sách commit theo Bước, bước nào TREO/CHỜ + lý do, kết quả `check:read`, ảnh trình duyệt, nợ để sau (key i18n cũ chưa xoá; nhãn T1 có thể đè nhau khi KH ≈ TT nếu có), các câu hỏi còn mở + đề xuất đã áp.
 
 - [ ] Cổng cuối: `npx tsc --noEmit` sạch, `npm test` xanh (≥ mốc), `git diff main...HEAD --stat` KHÔNG có `prisma/`, `types.ts`, `mock-repo.ts`, `prisma-repo.ts`, `actions.ts`, `queries.ts`, `project-queries.ts`, `globals.css`, `PROGRESS.md`, `.serena/` → commit `docs(bangiao): P3C-B thay-doi cho tester`.
 
@@ -519,5 +519,5 @@ export async function getManpowerMonthChartData(projectId: number, locale: strin
 
 - T1: tuần 0 người → không có nhãn; tooltip "Tổng TT" = `actualAvg` (TB thật), không cộng số đã làm tròn.
 - T2: không có P0 đang triển khai → dòng rỗng; > 5 dòng → cuộn; banner giữ logic cũ; viewer không thấy tiền.
-- T4: không có đợt / chỉ đợt hỏng → trạng thái rỗng; đợt chồng ngày → nhiều lane trong 1 hàng; kế hoạch 92/93 ngày → đổi trục tuần/tháng; hôm nay ngoài trục → không vẽ marker; đợt kết thúc đúng hôm nay tính vào "nay"; quota không có đợt → hàng trống `0/tổng`; đợt không có quota → `n/–`; 390px → cuộn ngang.
+- T4: không có đợt / chỉ đợt hỏng → trạng thái rỗng; đợt chồng ngày → nhiều lane trong 1 hàng; kế hoạch 92/93 ngày → đổi trục tuần/tháng; hôm nay ngoài trục → không vẽ marker; đợt kết thúc đúng hôm nay tính vào "nay"; quota không có đợt → hàng trống `0/tổng`; đợt không có quota → `n/-`; 390px → cuộn ngang.
 - T5: không KH và không TT → trạng thái rỗng; tháng thiếu giữa dải → cột 0, đường đứt; tháng không có TT → không có điểm TT; mã ca lạ → hiện mã, xếp cuối; nhiều tháng / 390px → cuộn ngang.

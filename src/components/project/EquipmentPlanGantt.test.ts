@@ -100,3 +100,15 @@ describe('EquipmentPlanGantt - 390px cuon ngang', () => {
     expect(out).not.toContain('unplanned');
   });
 });
+
+describe('EquipmentPlanGantt - khong dung gach dai (luat chu du an)', () => {
+  const segments: EquipmentPlanSegment[] = [seg({ id: 1, from: '2026-09-01', to: '2026-09-20', qty: 2 })];
+  const model = buildPlanGantt(segments, [], '2026-09-05')!;
+  const out = render(model);
+
+  it('dong ngay va o SL khi chua co Tong SL dung gach thuong, khong co U+2013/U+2014', () => {
+    expect(out).not.toMatch(/[\u2013\u2014]/);
+    expect(out).toContain('/-');
+    expect(out).toContain('01/09/26 - 20/09/26');
+  });
+});

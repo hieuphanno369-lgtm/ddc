@@ -92,7 +92,7 @@ describe('i18n P3C-B Buoc 9-10: PHAI THAT BAI NEU LECH - khong co en/em dash tro
     for (const group of NEW_GROUPS) {
       const strings = collectStrings(vi[group] as Record<string, unknown>);
       for (const s of strings) {
-        expect(s, `vi.json ${group} co dash la: "${s}"`).not.toMatch(/[–—]/);
+        expect(s, `vi.json ${group} co dash la: "${s}"`).not.toMatch(/[\u2013\u2014]/);
       }
     }
   });
@@ -101,7 +101,7 @@ describe('i18n P3C-B Buoc 9-10: PHAI THAT BAI NEU LECH - khong co en/em dash tro
     for (const group of NEW_GROUPS) {
       const strings = collectStrings(en[group] as Record<string, unknown>);
       for (const s of strings) {
-        expect(s, `en.json ${group} co dash la: "${s}"`).not.toMatch(/[–—]/);
+        expect(s, `en.json ${group} co dash la: "${s}"`).not.toMatch(/[\u2013\u2014]/);
       }
     }
   });

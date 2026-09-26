@@ -71,8 +71,8 @@ export function EquipmentPlanGantt({ model }: { model: PlanGanttModel }) {
           const rowH = rowHeight(row.lanes);
           const cy = top + rowH / 2;
           const displayName = row.name.length > NAME_MAX_LEN ? `${row.name.slice(0, NAME_MAX_LEN)}…` : row.name;
-          const spanText = row.spanFrom && row.spanTo ? `${formatDateShort(row.spanFrom)} – ${formatDateShort(row.spanTo)}` : '-';
-          const qtyText = `${row.qtyNow}/${row.qtyTotal ?? '–'}`;
+          const spanText = row.spanFrom && row.spanTo ? `${formatDateShort(row.spanFrom)} - ${formatDateShort(row.spanTo)}` : '-';
+          const qtyText = `${row.qtyNow}/${row.qtyTotal ?? '-'}`;
           return (
             <g key={row.equipmentId}>
               {i > 0 && <line x1={0} x2={W} y1={top} y2={top} style={{ stroke: 'var(--grid)' }} />}

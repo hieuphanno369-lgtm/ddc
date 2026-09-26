@@ -127,7 +127,7 @@ export function WeeklyManpowerStackChart({ data, initialMonth }: { data: WeeklyC
               ))}
             </Bar>
           ))}
-          {/* Bar rong o dinh chong: chi de vẽ nhãn tổng, luôn nằm trên cùng dù nhà thầu cuối = 0 */}
+          {/* Bar rỗng ở đỉnh chồng: chỉ để vẽ nhãn tổng, luôn nằm trên cùng dù nhà thầu cuối = 0 */}
           <Bar stackId="a" dataKey={() => 0} fill="transparent" isAnimationActive={false} legendType="none">
             <LabelList
               dataKey={(w: unknown) => weeklyLabelValues(w as WeekBucket).total ?? ''}
