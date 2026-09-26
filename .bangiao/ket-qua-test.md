@@ -1,5 +1,95 @@
 KET QUA TEST: XANH
 
+## Kiem lai vong 2 (Tester doc lap) - Buoc 11, 2026-09-26
+
+Skill da dung: `test-driven-development`, `verification-before-completion`.
+Nhanh `feature/p3c-a-form-ke-hoach`, kiem cac commit `a1fbaa6`, `7a9ff2a` (sua CS-1 + 6 loi chu de nhau vong truoc).
+
+### Ket luan: XANH
+
+Khong tim them loi moi. Da kiem lai bang du lieu THAT nhap qua giao dien (khong doan, khong doc code
+suy dien) tren DB tam `ddc_control_tower_qa_a`, dev server that cong 3000, dang nhap that
+`admin@daidung.com.vn` / `Admin@123`, trinh duyet that (Playwright MCP, zoom 90%, da dat viewport
+1296x810 = 1440x900 CSS va 351x760 = 390x844 CSS, kiem `innerWidth` truoc moi lan do).
+
+### 1. Gantt thiet bi `#eq-gantt` - 3 kich ban du lieu that (nhap qua UI, bam Luu that)
+
+- **Du an 1 (sua tu seed): 12 thang** - keo dai `Cau banh xich` dot 1 tu `2026-01-05`, dot 3 den
+  `2026-12-20` (giu nguyen 2 dot chong ngay san co cua seed). Da bam "Luu ke hoach thiet bi", server
+  tra "Da luu 3 loai thiet bi, 7 dot".
+- **Du an 2 (SVĐ Hung Vuong): 24 thang** - nhap moi 1 loai `Cau banh xich`, Tong SL 5, 3 dot:
+  `2025-01-05..2025-08-15 x3`, `2025-07-01..2026-06-30 x2` (chong voi dot 1 tu 07-01: 3+2=5 = Tong,
+  khong vuot), `2026-07-01..2026-12-30 x4`. Luu thanh cong "1 loai thiet bi, 3 dot".
+- **Du an 3 (Apec S3): 75 ngay (<=92, truc tuan)** - 1 loai `Cau banh xich`, Tong SL 2, 1 dot
+  `2026-06-01..2026-08-15 x2`. Luu thanh cong "1 loai thiet bi, 1 dot".
+
+Do that bang `getBoundingClientRect()` tren tung `<text>` trong `#eq-gantt svg.chart` (khong dung
+accessibility tree, dung DOM SVG that):
+
+| Kich ban | Man hinh | Locale | Tick dau - tick 2 (mau) | Header "SL nay/tong" - tick dau | Tat ca cap tick lien ke | Tick can giua luoi |
+|---|---|---|---|---|---|---|
+| 12 thang (DA1) | 1440 | vi | 24,55px | 30,98px | 18,53 - 24,87px (11 cap) | dung (lech <0,2px, do bang `getScreenCTM`) |
+| 12 thang (DA1) | 1440 | en | - | 26,79px | tuong tu vi | - |
+| 12 thang (DA1) | 390 | vi | 22,03px | - | 16,66 - 22,32px (11 cap) | - |
+| 12 thang (DA1) | 390 | en | - | 24,28px | - | - |
+| 24 thang (DA2) | 1440 | vi | 21,54px | 30,98px | 21,54 - 24,55px (11 cap, 12 nhan hien/24 thang = buoc 2) | - |
+| 24 thang (DA2) | 390 | vi | 19,35px | - | 19,35 - 22,03px (11 cap) | - |
+| 75 ngay/truc tuan (DA3) | 1440 | vi | 40,14px | 36,58px | 39,40 - 40,14px (10 cap) | - |
+| 75 ngay/truc tuan (DA3) | 390 | vi | 35,96px | - | 35,22 - 35,96px (10 cap) | - |
+
+Moi khoang cach deu duong (khong am) va >= 2px o ca 8 to hop man hinh x locale x kich ban da do
+(24 phep do rieng, khong chi 1 mau) - CS-1 (tick can giua, sua o `7a9ff2a`) va BUG-A (header de tick
+dau, sua o `a1fbaa6`) van dung sau khi doi ca 3 kich ban do vong truoc chua kiem het (12/24 thang/tuan).
+Nhan "Hom nay" (vd "Hom nay 26.09", y 4230,9-4243,5) khong giao nhan tick nao (hang tick o y
+4249,9-4262,5, cach 6,4px ve truc doc).
+
+390px ca 3 du an: `document.documentElement.scrollWidth` (379) <= `innerWidth` (390) - trang khong
+tran ngang; khung boc SVG (`#eq-gantt .bd > div[style*="overflow-x"]`) co `scrollWidth` 1000 >
+`clientWidth` 306 - cuon ngang NOI BO dung thiet ke; hinh chu nhat cua khung nam gon trong card
+(vd DA1: wrap left/right 36,7/342,5 nam trong card 19,99/359,27) - khong tran card.
+
+### 2. Chart KH nhan luc `#res-shift` - du an 1 (seed, 2 ca) va du an 4 (that, 1 ca)
+
+- Du an 1 (seed, khong doi): dung thuat toan quet toan bo cap `<text>` trong svg tim giao nhau
+  bang bounding box (khong chi do 1-2 nhan nhu vong truoc) - **48 nhan chu, 0 cap giao nhau** o ca
+  1440px va 390px. Truong hop kho nhat cua BUG-B (thang 09/2026: KH 540/360, TT TB/ngay 453) van
+  tach ro: nhan "453" cach nhan cot "540" 3,3px o truc doc (khong am, khong de).
+- Du an 4 (that su chi con 1 ca): giao dien KHONG co cach chon "chi 1 ca" cho tung du an (ca luon
+  lay tu `dim_shift.isActive` toan he thong - dung K6). Da tao canh that bang cach: luu KH nhan luc
+  du an 4 qua UI (thang 09/2026, Tong 100, ca ty le mac dinh 60/40 -> 60/40), roi tam tat
+  `dim_shift.isActive=false` cho ma `evening` TREN DB TAM (khong dung DB that), kiem xong bat lai
+  `true`. Sau khi tat: form KH nhan luc chi con dung 1 cot "Ca sang" (Ty le 100%) - dung theo thiet
+  ke; chart chi ve 1 cot "Ca sang", chi 1 nhan gia tri "60" (duong Tong KH thang trung cot, dung nhu
+  logic "1 ca thi bo so tren cot" da sua o `a1fbaa6`), **0 cap giao nhau**. Anh:
+  `.bangiao/anh-test/p3c-a-b11-v2-resshift-1ca-1440.png`.
+
+### 3. 1440x900 va 390x844 - khung cuon ngang, khong tran
+
+Kiem `#eq-gantt` va `#res-shift` o ca 2 kich thuoc (xem so lieu muc 1); rieng `#res-shift` du an 1
+390px: khung boc svg (`div[style="overflow-x: auto;"]`, KHONG phai div dau tien trong `.bd` - do la
+legend) co `scrollWidth` 753 > `clientWidth` 306, nam gon trong card (wrap 36,7-342,5 trong card
+19,99-359,27). Khong lap lai loi vong truoc chon nham svg dau tien (icon HelpTip).
+
+### 4. Hoi quy o ca KH nhan luc (commit `a524407`) - du an 1, thang 06/2026
+
+Bam o Ca sang (270) -> Backspace x3 het chu -> o rong, class `inp bad` (dung ky vong). Tab ra:
+o tra ve dung **270**, o Tong van **450** (khong doi, khong bi treo `isManual`). Go lai **600** roi
+Tab: o giu **600** (nhan `aria-label="O da sua tay, khong tu tinh lai"`), Tong tu cap nhat **780**
+(600+180), nut "Tinh lai theo ty le" hien ra. Dung hanh vi ke hoach. Khong bam Luu (chi kiem state
+client, khong ghi DB).
+
+### 5. Cong kiem
+
+- `npx tsc --noEmit`: sach.
+- `npm test`: **210 file / 2397 test xanh** (dung moc, khong tut).
+- Khong sua file san pham nao trong luot kiem lai nay (chi doc code de hieu cau truc do, khong sua).
+- DB tam `ddc_control_tower_qa_a`: sau khi xong da xoa 3 du an test tao them KHONG can (DB se bi xoa
+  toan bo, xem cuoi). `dim_shift.evening.isActive` da tra ve `true` truoc khi ket thuc.
+
+### File anh moi
+
+`.bangiao/anh-test/p3c-a-b11-v2-resshift-1ca-1440.png` (chart KH nhan luc du an 4, thuc su chi 1 ca).
+
 > Dong dau cu cua Tester: `KET QUA TEST: DO`. Da doi thanh XANH sau vong sua ben duoi (commit `a1fbaa6`).
 > Vong sua va kiem lai do DIEU PHOI VIEN lam (khong phai Tester doc lap); reviewer can soi lai.
 
