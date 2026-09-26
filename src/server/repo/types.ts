@@ -37,6 +37,8 @@ export interface Customer {
   aliases: string[]; // tên cũ/đồng nghĩa - dùng để autocomplete + truy vết merge
   isActive: boolean;
   mergedIntoId: number | null; // id canonical sau khi merge (null = chưa merge)
+  needsReview: boolean; // true = tao tu form boi data-entry, cho admin duyet/gop (G-5)
+  createdBy: string; // email nguoi tao; 'system' = seed/import
 }
 
 export interface TeamKd {
@@ -123,6 +125,30 @@ export interface Project {
   updatedBy: string;
 }
 
+/** P3A (Task 4): input tạo dự án - mở rộng từ input cũ để nhận đủ các trường hồ sơ mới. */
+export interface CreateProjectInput {
+  projectName: string;
+  customerId: number;
+  teamKdId: number;
+  marketCode: Market;
+  projectType: ProjectType;
+  priority: Priority;
+  contractValue: number;
+  tonnage?: number;
+  currencyCode?: CurrencyCode;
+  contractDate?: string | null;
+  plannedStartDate?: string | null;
+  plannedFinishDate?: string | null;
+  committedHandoverDate?: string | null;
+  penaltyValue?: number | null;
+  actualStartDate?: string | null;
+  actualFinishDate?: string | null;
+  penalized?: boolean;
+  factoryId?: number | null;
+  contractValueOriginal?: number | null;
+  currentAliasCode?: string;
+}
+
 export interface FactProgressMonthly {
   projectId: number;
   yearMonth: string; // 'YYYY-MM'
@@ -174,6 +200,13 @@ export interface ProjectStageWeight {
   projectId: number;
   stageCode: StageCode;
   weightPct: number;      // điểm phần trăm 0..100
+  applicable: boolean;
+}
+
+/** P3A (Task 4): 1 hàng trọng số gửi lên khi lưu (không có projectId - áp cho dự án đang sửa). */
+export interface StageWeightInput {
+  stageCode: StageCode;
+  weightPct: number;
   applicable: boolean;
 }
 
@@ -291,6 +324,16 @@ export interface ProjectEquipmentPlan {
   updatedBy: string;
 }
 
+/** P3A (Task 12): 1 dòng kế hoạch gửi lên khi lưu - không có id/projectId/updatedAt/updatedBy. */
+export interface EquipmentPlanInput {
+  equipmentId: number;
+  unitNo: number;
+  workItemId: number | null;
+  plannedStart: string; // 'YYYY-MM-DD'
+  plannedFinish: string; // 'YYYY-MM-DD'
+  note: string;
+}
+
 /** Kết quả lưu 1 tháng: đã có dòng isLatest ('updated'), chưa có dòng nào ('created'), hoặc dự án không tồn tại ('not_found'). */
 export type SaveFactResult = 'created' | 'updated' | 'not_found';
 
@@ -399,6 +442,16 @@ export interface ActivityLogEntry {
 export interface ProjectAssignment {
   projectId: number;
   userEmail: string;
+  roleInProject: 'PIC' | 'Backup';
+  assignedBy: string;
+  assignedAt: string;
+}
+
+/** P3A (G-17): 1 người phụ trách dự án - role = null khi tài khoản đã bị xoá. */
+export interface ProjectMember {
+  userEmail: string;
+  name: string;
+  role: Role | null;
   roleInProject: 'PIC' | 'Backup';
   assignedBy: string;
   assignedAt: string;

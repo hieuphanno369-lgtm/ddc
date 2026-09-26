@@ -8,6 +8,7 @@ import { commitImportAction, importExcelAction, resolveSapQueueAction } from '@/
 import { Badge } from '@/components/ui/Badge';
 import { CardHeader } from '@/components/ui/Card';
 import { IconUpload } from '@/components/icons';
+import { IMPORT_MAX_MB, isImportTooBig } from '@/lib/import-limits';
 
 type ImportRowReason = 'no_sap' | 'no_pct' | 'bad_pct' | 'not_assigned';
 interface ImportResult {
@@ -46,10 +47,16 @@ export function ImportPanel({
   const [resolveSel, setResolveSel] = useState<Record<number, number>>({});
   const [month, setMonth] = useState(currentMonth);
   const [committed, setCommitted] = useState<{ imported: number; failed: { projectId: number; reason: 'not_assigned' | 'not_found' }[] } | null>(null);
+  const [tooBig, setTooBig] = useState<string | null>(null);
 
   async function onFile(files: FileList | null) {
     const file = files?.[0];
     if (!file) return;
+    if (isImportTooBig(file.size)) {
+      setTooBig(t('importLimit.tooBig', { name: file.name, mb: IMPORT_MAX_MB }));
+      return;
+    }
+    setTooBig(null);
     setBusy(true);
     const fd = new FormData();
     fd.append('file', file);
@@ -104,6 +111,8 @@ export function ImportPanel({
               onChange={(e) => onFile(e.target.files)}
             />
           </label>
+          <p className="hintline">{t('importLimit.note', { mb: IMPORT_MAX_MB })}</p>
+          {tooBig && <p className="sumbar bad">{tooBig}</p>}
           {busy && <p className="hintline">{t('common.loading')}</p>}
         </div>
       </div>

@@ -3,6 +3,17 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P3A — Form Tạo/Sửa dự án (Tài khoản A) — CHỐT + ĐÃ MERGE vào `main` (2026-09-26)
+Nhánh `feature/p3a-form-tao-sua`; hồ sơ `.bangiao/archive/p3a-form-tao-sua-2026-09-26/`. Sau merge P3B: 177 file · 1958 test.
+Reviewer vòng 1 CẦN SỬA 7 mục → vòng sửa 1 → security CẦN SỬA F-1/N-1 → vá → ĐẠT → reviewer vòng 2 CHỐT.
+- Trang `/ho-so-du-an`: tạo/sửa dự án 6 bước (định danh, giá trị HĐ + nguyên tệ quy đổi, mốc thời gian, các mốc chính, trọng số 7 giai đoạn, liên kết SAP/PIC/nhà thầu), nháp localStorage không chứa số tiền (v2), dấu vết thay đổi.
+- Mã CT không trùng (không phân biệt hoa thường): unique index `lower(currentAliasCode)` + khoá advisory; mẫu `M-\d+` dành cho mã tự sinh, bị chặn cả khi tạo lẫn khi đổi.
+- Tối đa 1 PIC/dự án: partial unique index; thêm/đổi thành viên trong transaction có audit.
+- Form kế hoạch thiết bị `project_equipment_plan` (Task 10), ghi chú giới hạn import 10MB.
+- Migration mới `20260925110000_p3a_unique_code_pic` (có rollback): bên B chạy `npx prisma migrate deploy`.
+- L-10 xong (audit đổi role ghi đúng admin). T-1 (data-entry luôn xem tiền) nay là quyết định lâu dài QĐ-10, không gỡ.
+- Để sau: S-1 bắt buộc trước go-live P6; `handleSaveNew` chưa báo lỗi khác mã CT (P3C-A); test tích hợp race 2 kết nối Postgres.
+
 ### ✅ P3B — Thông báo + e2e + chặn số tiền (Tài khoản B) — CHỐT + ĐÃ MERGE vào `main` (2026-09-25)
 Nhánh `feature/p3b-thong-bao`; hồ sơ `.bangiao/archive/p3b-thong-bao-2026-09-25/`. 139/139 file · 1603 test; e2e 21/21.
 Security vòng 1 CẦN SỬA (T-1…T-5) → vòng 2 ĐẠT; reviewer CHỐT. Không migration.
@@ -12,8 +23,7 @@ Security vòng 1 CẦN SỬA (T-1…T-5) → vòng 2 ĐẠT; reviewer CHỐT. Kh
 - N-3 (chủ dự án: "liên quan đến đơn vị tiền đều tính hết"): mọi số tiền chặn ở server theo `canViewFinance` — Tổng quan,
   Chi tiết, Cảnh báo, Báo cáo, `/api/export`, `/api/report/export`. SPI/CPI/%/tấn vẫn hiện.
 - Q6: quyền xem tiền đọc cột `user_roles.canViewFinance` từng người (admin luôn có), bật/tắt trong Quản trị, có audit,
-  hiệu lực ≤5 phút với phiên đang mở; khoá tài khoản → mất phiên. **Tạm: data-entry luôn có quyền** (T-1) tới khi P3A
-  gate form Nhập liệu + Hồ sơ dự án.
+  hiệu lực ≤5 phút với phiên đang mở; khoá tài khoản → mất phiên. **Data-entry luôn có quyền** (T-1, nay là quyết định lâu dài QĐ-10).
 - e2e Playwright (`npm run test:e2e`, cổng 3001, chốt DB B): 8 spec luồng chính.
 - Để sau: L-7/L-9/L-10 (cần `actions.ts`)/L-11, gỡ T-1 — xem `danh-gia.md` trong archive.
 

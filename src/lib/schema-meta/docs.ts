@@ -23,6 +23,8 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
       aliases: 'tên cũ/đồng nghĩa - dùng để autocomplete + truy vết merge',
       isActive: 'false = đã merge vào khách hàng khác',
       mergedIntoId: 'id khách hàng đích sau khi merge (null = chưa merge)',
+      needsReview: 'true = chủ đầu tư do data-entry tạo từ form, chờ admin duyệt hoặc gộp (G-5)',
+      createdBy: 'email người tạo; system = seed/import',
     },
   },
   dim_team_kd: {
@@ -131,7 +133,7 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
     fields: {
       id: 'khoá chính - khoá ghép cho mọi bảng fact',
       masterCode: 'mã surrogate nội bộ (M-00001), không đổi theo mã hợp đồng',
-      currentAliasCode: 'mã hiện hành đang dùng để gọi dự án',
+      currentAliasCode: 'mã hiện hành đang dùng để gọi dự án - duy nhất, không phân biệt hoa thường (index lower() tạo tay ở migration 20260925110000)',
       projectName: 'tên dự án',
       customerId: 'FK tới dim_customer.id',
       teamKdId: 'FK tới dim_team_kd.id',
@@ -193,7 +195,7 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
     fields: {
       projectId: 'khoá ghép - FK tới dim_project.id',
       userEmail: 'khoá ghép - FK tới user_roles.email',
-      roleInProject: 'PIC | Backup',
+      roleInProject: 'PIC | Backup - tối đa 1 PIC mỗi dự án (partial unique index tạo tay ở migration 20260925110000)',
       assignedBy: 'người gán quyền',
       assignedAt: 'thời điểm gán quyền',
     },

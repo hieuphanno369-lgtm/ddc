@@ -45,7 +45,7 @@ import { seedProjects, type SeedProject } from './projects';
 
 // Hằng số seed - CHỈ dùng để sinh dữ liệu mẫu. Code production đọc src/lib/clock.ts.
 /** Kỳ báo cáo hiện tại (tháng 09/2026). */
-export const SEED_VERSION = '2026-09-24-p2a';
+export const SEED_VERSION = '2026-09-25-p3a';
 export const SEED_REPORT_DATE = new Date('2026-09-16T00:00:00Z');
 export const SEED_CURRENT_MONTH = '2026-09';
 export const SEED_HISTORY_MONTHS = [

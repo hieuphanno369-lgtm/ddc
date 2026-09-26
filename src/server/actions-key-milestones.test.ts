@@ -69,6 +69,7 @@ describe('createProjectAction voi keyMilestones', () => {
   const base = {
     projectName: 'DU AN TEST', customerId: 1, teamKdId: 1, marketCode: 'TN' as const,
     projectType: 'EPC' as const, priority: 'P1' as const, contractValue: 10,
+    tonnage: 100, plannedStartDate: '2026-10-01', plannedFinishDate: '2027-06-30', committedHandoverDate: '2027-07-31',
   };
 
   it('kem keyMilestones -> du an moi co 1 moc', async () => {
@@ -81,5 +82,35 @@ describe('createProjectAction voi keyMilestones', () => {
     const res = await createProjectAction(base);
     expect(res.ok).toBe(true);
     expect(repo.getKeyMilestones(res.id!)).toHaveLength(0);
+  });
+});
+
+describe('createProjectAction - F-1 (vong sua 1, vong 2): chan mau ma tu sinh M-\\d+ ngay luc TAO du an', () => {
+  const base = {
+    projectName: 'DU AN TEST F-1', customerId: 1, teamKdId: 1, marketCode: 'TN' as const,
+    projectType: 'EPC' as const, priority: 'P1' as const, contractValue: 10,
+    tonnage: 100, plannedStartDate: '2026-10-01', plannedFinishDate: '2027-06-30', committedHandoverDate: '2027-07-31',
+  };
+
+  it('currentAliasCode = "M-00099" (dung mau, hoa) -> code_reserved, khong tao du an moi', async () => {
+    const before = repo.getProject(1);
+    const res = await createProjectAction({ ...base, currentAliasCode: 'M-00099' });
+    expect(res).toEqual({ ok: false, error: 'code_reserved' });
+    expect(repo.getProject(1)).toEqual(before);
+  });
+
+  it('currentAliasCode = "  m-00099  " (thuong, khoang trang 2 dau) -> van code_reserved', async () => {
+    const res = await createProjectAction({ ...base, currentAliasCode: '  m-00099  ' });
+    expect(res).toEqual({ ok: false, error: 'code_reserved' });
+  });
+
+  it('currentAliasCode khong khop mau M-<so> (vd "CT-2026-01") -> khong bi chan boi F-1, tao du an binh thuong', async () => {
+    const res = await createProjectAction({ ...base, currentAliasCode: 'CT-2026-01' });
+    expect(res.ok).toBe(true);
+  });
+
+  it('khong nhap currentAliasCode -> khong bi anh huong boi F-1, tao du an binh thuong (ma tu sinh)', async () => {
+    const res = await createProjectAction(base);
+    expect(res.ok).toBe(true);
   });
 });

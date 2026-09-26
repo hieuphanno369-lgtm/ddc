@@ -6,6 +6,10 @@ import { DAILY_VALUE_MAX } from '@/lib/daily-entry';
 import { DAILY_IMPORT_MAX_DAYS } from '@/lib/daily-import';
 import { FX_CURRENCIES } from '@/lib/fx';
 import { currentMonth } from '@/lib/clock';
+import { IMPORT_MAX_BYTES } from '@/lib/import-limits';
+import { PROJECT_NAME_MAX } from '@/lib/project-form';
+import { isValidProjectCode, PROJECT_CODE_MAX } from '@/lib/project-code';
+import { EQUIP_NOTE_MAX, EQUIP_PLAN_MAX_ROWS, EQUIP_UNIT_MAX } from '@/lib/equipment-plan';
 
 /**
  * Zod schema validate input mọi server action (spec §7.5 - không tin client).
@@ -20,8 +24,8 @@ import { currentMonth } from '@/lib/clock';
 const yearMonth = z.string().refine(isValidYearMonth, 'yearMonth phải dạng YYYY-MM hợp lệ (tháng 01-12)');
 const pct = z.number().min(0).max(THRESHOLDS.pctInputMax);
 const nonNegative = z.number().min(0);
-const nullableDate = z.string().nullable().optional();
 const isoDate = z.string().refine(isValidIsoDate, 'Ngày phải dạng YYYY-MM-DD hợp lệ');
+const nullableDate = isoDate.nullable().optional();
 export const keyMilestoneRowSchema = z.object({
   name: z.string().trim().min(1).max(KEY_MS_NAME_MAX),
   plannedDate: isoDate,
@@ -62,7 +66,7 @@ export const saveMonthlyDataSchema = z.object({
       .optional(),
     ac: nonNegative.optional(),
     equipmentActual: nonNegative.optional(),
-    projectName: z.string().optional(),
+    projectName: z.string().trim().min(1).max(PROJECT_NAME_MAX).transform((s) => s.toUpperCase()).optional(),
     customerId: z.number().int().positive().optional(),
     teamKdId: z.number().int().positive().optional(),
     marketCode: z.enum(MARKET).optional(),
@@ -89,22 +93,90 @@ export const saveMonthlyDataSchema = z.object({
   }),
 });
 
-export const createProjectSchema = z.object({
-  projectName: z.string().trim().min(1),
+/** P3A (Task 5): bảng trọng số 7 giai đoạn gửi từ form - đủ 7 mã khác nhau. */
+export const stageWeightRowsSchema = z
+  .array(
+    z.object({
+      stageCode: z.enum(STAGE_CODES),
+      weightPct: z.number().min(0).max(100),
+      applicable: z.boolean(),
+    }),
+  )
+  .length(7)
+  .refine((arr) => new Set(arr.map((s) => s.stageCode)).size === 7, { message: 'stageCode phải đủ 7 giai đoạn khác nhau' });
+
+/** P3A (Task 5): các trường hồ sơ dùng chung cho tạo mới VÀ sửa (G-4/7/8/11/12). */
+const PROFILE_SHAPE = {
+  projectName: z.string().trim().min(1).max(PROJECT_NAME_MAX).transform((s) => s.toUpperCase()),
   customerId: z.number().int().positive(),
   teamKdId: z.number().int().positive(),
   marketCode: z.enum(MARKET),
   projectType: z.enum(PROJECT_TYPE),
   priority: z.enum(PRIORITY),
   contractValue: z.number().positive(),
-  tonnage: nonNegative.optional(),
+  tonnage: nonNegative,
+  currencyCode: z.enum(CURRENCY),
+  contractValueOriginal: z.number().positive().nullable(),
+  contractDate: isoDate.nullable(),
+  plannedStartDate: isoDate.nullable(),
+  plannedFinishDate: isoDate.nullable(),
+  committedHandoverDate: isoDate.nullable(),
+  actualStartDate: isoDate.nullable(),
+  actualFinishDate: isoDate.nullable(),
+  penaltyValue: z.number().min(0).nullable(),
+  penalized: z.boolean(),
+  factoryId: z.number().int().positive().nullable(),
+};
+
+/** P3A (Task 5): patch hồ sơ khi SỬA dự án (`updateProjectAction`) - chỉ nhận field đã khai báo. */
+export const updateProjectSchema = z.object({
+  projectId: z.number().int().positive(),
+  patch: z.object(PROFILE_SHAPE).partial().strict(),
+});
+
+/** P3A (Task 5, G-3): đổi mã CT hiện hành. */
+export const projectCodeSchema = z.object({
+  projectId: z.number().int().positive(),
+  code: z.string().trim().min(1).max(PROJECT_CODE_MAX).refine(isValidProjectCode, 'Mã CT không hợp lệ'),
+  reason: z.string().trim().min(5).max(300),
+});
+
+/** P3A (Task 5): gỡ 1 mã SAP khỏi dự án. */
+export const removeSapSchema = z.object({
+  projectId: z.number().int().positive(),
+  sapCodeId: z.number().int().positive(),
+});
+
+/** P3A (Task 6, G-17): gán/gỡ PIC hoặc Backup cho dự án - chỉ admin. */
+export const projectMemberSchema = z.object({
+  projectId: z.number().int().positive(),
+  email: z.string().trim().toLowerCase().email(),
+  roleInProject: z.enum(['PIC', 'Backup']),
+});
+
+export const createProjectSchema = z.object({
+  projectName: z.string().trim().min(1).max(PROJECT_NAME_MAX).transform((s) => s.toUpperCase()),
+  customerId: z.number().int().positive(),
+  teamKdId: z.number().int().positive(),
+  marketCode: z.enum(MARKET),
+  projectType: z.enum(PROJECT_TYPE),
+  priority: z.enum(PRIORITY),
+  contractValue: z.number().positive(),
+  tonnage: z.number().positive(),
   currencyCode: z.enum(CURRENCY).optional(),
-  contractDate: nullableDate,
-  plannedStartDate: nullableDate,
-  plannedFinishDate: nullableDate,
-  committedHandoverDate: nullableDate,
+  contractDate: isoDate.nullable().optional(),
+  plannedStartDate: isoDate,
+  plannedFinishDate: isoDate,
+  committedHandoverDate: isoDate,
+  actualStartDate: isoDate.nullable().optional(),
+  actualFinishDate: isoDate.nullable().optional(),
   penaltyValue: z.number().min(0).nullable().optional(),
+  penalized: z.boolean().optional(),
+  factoryId: z.number().int().positive().nullable().optional(),
+  contractValueOriginal: z.number().positive().nullable().optional(),
+  currentAliasCode: z.string().trim().min(1).max(PROJECT_CODE_MAX).refine(isValidProjectCode, 'Mã CT không hợp lệ').optional(),
   keyMilestones: z.array(keyMilestoneRowSchema).max(KEY_MS_MAX_ROWS).optional(),
+  stageWeights: stageWeightRowsSchema.optional(),
 });
 
 export const addSapCodeSchema = z.object({
@@ -154,7 +226,7 @@ export const commitImportSchema = z.object({
 // ---- Import Excel ----
 
 /** Giới hạn dung lượng 1 file import (10MB) - chặn ở action trước khi parse (chống DoS). */
-export const IMPORT_MAX_BYTES = 10 * 1024 * 1024;
+export { IMPORT_MAX_BYTES };
 
 /** H-1a (danh-gia.md vòng 1): giới hạn số dòng đọc ở `importExcelAction` (import SAP legacy) - chặn TRƯỚC khi dựng preview. */
 export const IMPORT_LEGACY_MAX_ROWS = 5000;
@@ -289,4 +361,21 @@ export const closeAlertSchema = z.object({
   alertId: z.number().int().positive(),
   action: z.string().trim().min(3).max(500),
   note: z.string().trim().max(1000),
+});
+
+/** P3A (Task 12): kế hoạch sử dụng thiết bị theo từng chiếc - nguồn Gantt thiết bị (T14). */
+export const saveEquipmentPlansSchema = z.object({
+  projectId: z.number().int().positive(),
+  rows: z
+    .array(
+      z.object({
+        equipmentId: z.number().int().positive(),
+        unitNo: z.number().int().min(1).max(EQUIP_UNIT_MAX),
+        workItemId: z.number().int().positive().nullable(),
+        plannedStart: isoDate,
+        plannedFinish: isoDate,
+        note: z.string().trim().max(EQUIP_NOTE_MAX),
+      }),
+    )
+    .max(EQUIP_PLAN_MAX_ROWS),
 });

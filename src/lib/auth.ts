@@ -35,7 +35,7 @@ const roleSeed: Record<string, Role> = (process.env.ROLE_SEED ?? '')
  */
 export async function resolveAccess(email: string): Promise<{ role: Role; canViewFinance: boolean }> {
   const seedRole = roleSeed[email.toLowerCase()] ?? 'viewer';
-  // T-1 (danh-gia-bao-mat.md, phương án b tạm thời tới khi P3A gate form nhập liệu): data-entry
+  // T-1 (danh-gia-bao-mat.md, phương án b; nay là quyết định lâu dài QĐ-10): data-entry
   // luôn canViewFinance=true, giống admin - tránh "cảm giác an toàn giả" khi Quản trị tắt được nút
   // nhưng /nhap-lieu vẫn lộ số tiền cho role này.
   const alwaysOn = (r: Role) => r === 'admin' || r === 'data-entry';

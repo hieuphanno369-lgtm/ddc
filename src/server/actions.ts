@@ -6,10 +6,11 @@ import ExcelJS from 'exceljs';
 import { getCurrentUser, type CurrentUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
 import { hashPassword, verifyPassword } from '@/lib/password';
-import { calcChainPctActual, findCurrentStage, normPct } from '@/lib/stages';
+import { calcChainPctActual, findCurrentStage, normPct, validateStageWeights } from '@/lib/stages';
+import { isReservedProjectCode, ProjectCodeTakenError } from '@/lib/project-code';
 import { cellText, type CellValue } from '@/lib/daily-import';
 import { assertXlsxInflatedSize, readBoundedSheet } from './daily-import';
-import type { CurrencyCode, KeyMilestoneInput, Market, Priority, Project, ProjectType, Role, StageCode } from './repo/types';
+import type { CreateProjectInput, CurrencyCode, KeyMilestoneInput, Market, Priority, Project, ProjectType, Role, StageCode, StageWeightInput } from './repo/types';
 import { listTag, overviewTag, profileTag, trendTag } from './cache';
 import { addSapCodeSchema, changePasswordSchema, closeAlertSchema, commitImportSchema, createAccountSchema, createDimSchema, createProjectSchema, deletePhotoSchema, importFileSchema, IMPORT_LEGACY_MAX_ROWS, lockMonthSchema, mergeDimSchema, renameDimSchema, resetPasswordSchema, saveKeyMilestonesSchema, saveMonthlyDataSchema, userRoleSchema } from './validation';
 import { repo } from './repo';
@@ -17,6 +18,7 @@ import { deletePhotoFile } from '@/lib/uploads';
 import { addPhotoForUser } from './photo-service';
 import { historyMonths } from '@/lib/clock';
 import { runAlertEngineSafe } from './alert-engine';
+import { checkProfileRules } from './project-profile-rules';
 
 /** Chặn write theo role - viewer không được ghi, khóa số liệu chỉ Admin/Trưởng phòng. */
 async function requireRole(allowed: Role[]): Promise<CurrentUser | null> {
@@ -113,7 +115,7 @@ export async function saveMonthlyData(
     arOverdue,
     factoryId,
     volumeTonnage,
-  } = patch;
+  } = parsed.data.patch; // S-4: dùng bản đã parse (tên VIẾT HOA, ngày ISO), không dùng input thô
 
   // T8 (Task 6, P2A): khu vực sản xuất + sản lượng tháng - kiểm TRƯỚC mọi ghi.
   if (factoryId != null) {
@@ -145,7 +147,10 @@ export async function saveMonthlyData(
 
   const profileChanged = Object.keys(profilePatch).length > 0;
   if (profileChanged) {
-    await repo.saveProjectProfile(projectId, profilePatch, by);
+    const rates = await repo.getExchangeRates();
+    const rules = checkProfileRules(project, profilePatch, rates);
+    if (!rules.ok) return { ok: false, error: rules.error };
+    await repo.saveProjectProfile(projectId, rules.patch, by);
   }
 
   let derivedPctActual: number | undefined;
@@ -210,31 +215,56 @@ export async function saveMonthlyData(
 }
 
 /** Tạo dự án mới - data-entry tự gán làm PIC. */
-export async function createProjectAction(input: {
-  projectName: string;
-  customerId: number;
-  teamKdId: number;
-  marketCode: Market;
-  projectType: ProjectType;
-  priority: Priority;
-  contractValue: number;
-  tonnage?: number;
-  currencyCode?: CurrencyCode;
-  contractDate?: string | null;
-  plannedStartDate?: string | null;
-  plannedFinishDate?: string | null;
-  committedHandoverDate?: string | null;
-  penaltyValue?: number | null;
-  keyMilestones?: KeyMilestoneInput[];
-}) {
+export async function createProjectAction(
+  input: CreateProjectInput & { keyMilestones?: KeyMilestoneInput[]; stageWeights?: StageWeightInput[] },
+) {
   const user = await requireRole(['admin', 'data-entry']);
   if (!user) return { ok: false, error: 'Forbidden' };
   const parsed = createProjectSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
-  const { keyMilestones, ...projectInput } = parsed.data;
-  const p = await repo.createProject(projectInput, user.email);
+  const { keyMilestones, stageWeights, currentAliasCode, ...rest } = parsed.data;
+
+  // F-1 (vòng sửa 1, vòng 2): chặn gõ tay mã theo mẫu masterCode tự sinh ('M-00001') ngay lúc TẠO
+  // dự án - trước đây chỉ chặn ở changeProjectCodeAction, cho phép người tạo "cướp trước" mã tự sinh
+  // của một dự án tương lai (chưa được tạo). Dự án mới chưa có masterCode nên không có ngoại lệ nào.
+  if (currentAliasCode && isReservedProjectCode(currentAliasCode, null)) {
+    return { ok: false, error: 'code_reserved' };
+  }
+  if (currentAliasCode && (await repo.isProjectCodeTaken(currentAliasCode, null))) {
+    return { ok: false, error: 'code_taken' };
+  }
+  if (stageWeights && !validateStageWeights(stageWeights).ok) {
+    return { ok: false, error: 'weights_invalid' };
+  }
+  const dims = await repo.getDims();
+  if (rest.factoryId != null) {
+    const active = dims.factories.some((f) => f.id === rest.factoryId && f.isActive);
+    if (!active) return { ok: false, error: 'invalid_factory' };
+  }
+  if (!dims.customers.some((c) => c.id === rest.customerId && c.isActive && c.mergedIntoId == null)) {
+    return { ok: false, error: 'invalid_customer' };
+  }
+  if (!dims.teams.some((tm) => tm.id === rest.teamKdId && tm.isActive && tm.mergedIntoId == null)) {
+    return { ok: false, error: 'invalid_team' };
+  }
+
+  const rates = await repo.getExchangeRates();
+  const rules = checkProfileRules(null, rest, rates);
+  if (!rules.ok) return { ok: false, error: rules.error };
+
+  let p: Project;
+  try {
+    p = await repo.createProject({ ...rest, ...rules.patch, currentAliasCode }, user.email);
+  } catch (e) {
+    // S-2 (vòng sửa 1): kiểm nhanh `isProjectCodeTaken` ở trên là fast-path; bắt lại ở đây để
+    // chống race (2 request tạo dự án cùng mã CT gần như đồng thời) - mock/prisma cùng ném lỗi này.
+    if (e instanceof ProjectCodeTakenError) return { ok: false, error: 'code_taken' };
+    throw e;
+  }
   if (user.role === 'data-entry') await repo.addAssignment(p.id, user.email, 'PIC');
+  if (stageWeights) await repo.replaceStageWeights(p.id, stageWeights, user.email);
   if (keyMilestones?.length) await repo.replaceKeyMilestones(p.id, keyMilestones, user.email);
+  await runAlertEngineSafe(p.id).catch(() => {});
   await logActivity(user, 'create_project', p.projectName);
   revalidateTag(profileTag);
   revalidateTag(trendTag);
@@ -278,7 +308,8 @@ export async function setUserRoleAction(email: string, role: Role) {
   if (!user) return { ok: false, error: 'Forbidden' };
   const parsed = userRoleSchema.safeParse({ email, role });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
-  await repo.setUserRole(parsed.data.email.toLowerCase(), parsed.data.role, parsed.data.role !== 'viewer');
+  // L-10: truyền người đổi để audit canViewFinance (khi role ép đổi cờ) ghi đúng admin thay vì 'system'.
+  await repo.setUserRole(parsed.data.email.toLowerCase(), parsed.data.role, parsed.data.role !== 'viewer', user.email);
   await logActivity(user, 'set_role', `${parsed.data.email} → ${parsed.data.role}`);
   revalidateTag(profileTag);
   return { ok: true };
@@ -602,7 +633,10 @@ export async function createDimValueAction(field: 'customer' | 'team', name: str
   if (!user) return { ok: false, error: 'Forbidden' };
   const parsed = createDimSchema.safeParse({ field, name });
   if (!parsed.success) return { ok: false, error: 'invalid' };
-  const id = await repo.createDimValue(parsed.data.field, parsed.data.name);
+  const id = await repo.createDimValue(parsed.data.field, parsed.data.name, {
+    needsReview: parsed.data.field === 'customer' && user.role !== 'admin',
+    by: user.email,
+  });
   await logActivity(user, 'create_dim', `${field}: ${parsed.data.name}`);
   revalidateTag(profileTag);
   return { ok: true, id };

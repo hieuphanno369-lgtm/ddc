@@ -10,8 +10,8 @@ const intlMiddleware = createMiddleware(routing);
 /** Route-level RBAC: role nào bị chặn khỏi đường dẫn nào. */
 const DENIED: Record<Role, string[]> = {
   'data-entry': ['/overview', '/admin'],
-  viewer: ['/nhap-lieu', '/admin', '/import'],
-  bod: ['/nhap-lieu', '/admin', '/import'],
+  viewer: ['/nhap-lieu', '/admin', '/import', '/ho-so-du-an'],
+  bod: ['/nhap-lieu', '/admin', '/import', '/ho-so-du-an'],
   admin: [],
 };
 

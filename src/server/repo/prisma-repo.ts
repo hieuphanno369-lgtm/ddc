@@ -1,15 +1,19 @@
+import { randomUUID } from 'node:crypto';
 import { prisma } from '@/server/db';
 import { DEFAULT_STAGE_WEIGHTS, type StageInput } from '@/lib/stages';
 import { calcCpi, calcDayVariance, calcDurationPctComplete, calcEv, calcPv, calcSpi } from '@/lib/evm';
-import { endOfMonth } from '@/lib/clock';
+import { endOfMonth, todayIso } from '@/lib/clock';
 import { keyMsAuditText } from '@/lib/key-milestones';
 import { sumManpowerShifts } from '@/lib/shifts';
+import { ProjectCodeTakenError } from '@/lib/project-code';
 import { entryPrismaRepo } from './prisma-repo-entry';
+import { formPrismaRepo, isP2002On, isProjectCodeTakenWith, PROJECT_CODE_UNIQUE_TARGETS } from './prisma-repo-form';
 import type {
   ActivityLogEntry,
   AlertLog,
   AuditLogEntry,
   Contractor,
+  CreateProjectInput,
   Customer,
   Currency,
   CurrencyCode,
@@ -466,6 +470,7 @@ const coreRepo = {
       customers: customers.map((c) => ({
         id: c.id, name: c.name, group: c.group, aliases: c.aliases,
         isActive: c.isActive, mergedIntoId: c.mergedIntoId,
+        needsReview: c.needsReview, createdBy: c.createdBy,
       })),
       teams: teams.map((t) => ({
         id: t.id, name: t.name, picName: t.picName, aliases: t.aliases,
@@ -510,13 +515,15 @@ const coreRepo = {
       .map((x) => ({ id: x.id, name: x.name }));
   },
 
-  async createDimValue(field: 'customer' | 'team', name: string): Promise<number> {
+  async createDimValue(field: 'customer' | 'team', name: string, opts?: { needsReview?: boolean; by?: string }): Promise<number> {
     const n = name.trim();
     const existing = await this.suggestDim(field, '');
     const match = existing.find((x) => x.name.toLowerCase() === n.toLowerCase());
     if (match) return match.id;
     if (field === 'customer') {
-      const c = await prisma.customer.create({ data: { name: n, group: 'Khác' } });
+      const c = await prisma.customer.create({
+        data: { name: n, group: 'Khác', needsReview: opts?.needsReview ?? false, createdBy: opts?.by ?? 'system' },
+      });
       return c.id;
     }
     const t = await prisma.teamKd.create({ data: { name: n, picName: '-' } });
@@ -548,7 +555,7 @@ const coreRepo = {
       if (!aliases.includes(from.name)) aliases.push(from.name);
       for (const a of from.aliases) if (!aliases.includes(a)) aliases.push(a);
       await prisma.customer.update({ where: { id: toId }, data: { aliases } });
-      await prisma.customer.update({ where: { id: fromId }, data: { isActive: false, mergedIntoId: toId } });
+      await prisma.customer.update({ where: { id: fromId }, data: { isActive: false, mergedIntoId: toId, needsReview: false } });
       return r.count;
     }
     const from = await prisma.teamKd.findUnique({ where: { id: fromId } });
@@ -573,6 +580,7 @@ const coreRepo = {
       name: x.name,
       isActive: x.isActive,
       mergedIntoId: x.mergedIntoId,
+      needsReview: field === 'customer' ? (x as { needsReview: boolean }).needsReview : false,
       refCount: projects.filter((p) => (field === 'customer' ? p.customerId : p.teamKdId) === x.id).length,
     }));
   },
@@ -634,7 +642,7 @@ const coreRepo = {
   async setUserRole(email: string, role: Role, _canViewFinanceHint: boolean, changedBy = 'system') {
     // T-2 (danh-gia-bao-mat.md): tham số `_canViewFinanceHint` do caller (actions.ts) truyền bị BỎ QUA
     // có chủ đích - đổi role không được âm thầm ghi đè canViewFinance Q6 đã đặt riêng cho từng người.
-    // viewer -> luôn tắt; data-entry -> luôn bật (T-1, tạm thời tới khi P3A gate form nhập liệu); vai
+    // viewer -> luôn tắt; data-entry -> luôn bật (T-1, nay là quyết định lâu dài QĐ-10); vai
     // trò khác -> giữ nguyên giá trị hiện có.
     const e = email.toLowerCase();
     const existing = await prisma.userRole.findUnique({ where: { email: e } });
@@ -1032,45 +1040,75 @@ const coreRepo = {
     await this.logAudit('dim_project', String(projectId), fields.join(','), '', note, changedBy);
   },
 
-  async createProject(
-    input: {
-      projectName: string; customerId: number; teamKdId: number; marketCode: Market;
-      projectType: ProjectType; priority: Priority; contractValue: number; tonnage?: number;
-      currencyCode?: CurrencyCode; contractDate?: string | null; plannedStartDate?: string | null;
-      plannedFinishDate?: string | null; committedHandoverDate?: string | null; penaltyValue?: number | null;
-    },
-    changedBy = 'system',
-  ): Promise<Project> {
-    const tmp = `TMP-${Date.now()}`;
-    const created = await prisma.project.create({
-      data: {
-        masterCode: tmp,
-        currentAliasCode: tmp,
-        projectName: input.projectName,
-        customerId: input.customerId,
-        teamKdId: input.teamKdId,
-        marketCode: input.marketCode,
-        projectType: input.projectType,
-        priority: input.priority,
-        contractValue: input.contractValue,
-        tonnage: input.tonnage ?? 0,
-        currencyCode: input.currencyCode ?? 'VND',
-        contractDate: d8(input.contractDate ?? null),
-        plannedStartDate: d8(input.plannedStartDate ?? null),
-        plannedFinishDate: d8(input.plannedFinishDate ?? null),
-        committedHandoverDate: d8(input.committedHandoverDate ?? null),
-        penaltyValue: input.penaltyValue ?? null,
-        createdBy: changedBy,
-        updatedBy: changedBy,
-      },
-    });
-    const code = `M-${String(created.id).padStart(5, '0')}`;
-    const p = await prisma.project.update({
-      where: { id: created.id },
-      data: { masterCode: code, currentAliasCode: code },
-    });
-    await this.logAudit('dim_project', String(p.id), 'create', '', p.projectName, changedBy);
-    return mapProject(p);
+  async createProject(input: CreateProjectInput, changedBy = 'system'): Promise<Project> {
+    try {
+      const p = await prisma.$transaction(async (tx) => {
+        // I-2 (vòng sửa 1, vòng 2): UUID thay Date.now() - 2 request cùng mili giây không còn va masterCode tạm.
+        const tmp = `TMP-${randomUUID()}`;
+        const created = await tx.project.create({
+          data: {
+            masterCode: tmp,
+            currentAliasCode: tmp,
+            projectName: input.projectName,
+            customerId: input.customerId,
+            teamKdId: input.teamKdId,
+            marketCode: input.marketCode,
+            projectType: input.projectType,
+            priority: input.priority,
+            contractValue: input.contractValue,
+            tonnage: input.tonnage ?? 0,
+            currencyCode: input.currencyCode ?? 'VND',
+            contractDate: d8(input.contractDate ?? null),
+            plannedStartDate: d8(input.plannedStartDate ?? null),
+            plannedFinishDate: d8(input.plannedFinishDate ?? null),
+            committedHandoverDate: d8(input.committedHandoverDate ?? null),
+            actualStartDate: d8(input.actualStartDate ?? null),
+            actualFinishDate: d8(input.actualFinishDate ?? null),
+            penaltyValue: input.penaltyValue ?? null,
+            penalized: input.penalized ?? false,
+            factoryId: input.factoryId ?? null,
+            contractValueOriginal: input.contractValueOriginal ?? null,
+            createdBy: changedBy,
+            updatedBy: changedBy,
+          },
+        });
+        const code = `M-${String(created.id).padStart(5, '0')}`;
+        // S-2 (vòng sửa 1): khoá advisory + kiểm lại trong `tx` trước khi gán currentAliasCode - chống
+        // race giữa 2 request tạo dự án cùng mã (index chỉ bắt được P2002, không bắt được trùng masterCode/alias cũ).
+        // F-1 (vòng sửa 1, vòng 2): nhánh không nhập mã (dùng mã tự sinh) cũng khoá + kiểm trùng y như vậy.
+        const finalCode = input.currentAliasCode ?? code;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(lower(${finalCode})))`;
+        if (await isProjectCodeTakenWith(tx, finalCode, created.id)) {
+          throw new ProjectCodeTakenError(finalCode);
+        }
+        const p = await tx.project.update({
+          where: { id: created.id },
+          data: { masterCode: code, currentAliasCode: finalCode },
+        });
+        if (input.currentAliasCode) {
+          await tx.projectAlias.create({
+            data: {
+              projectId: p.id,
+              aliasCode: input.currentAliasCode,
+              aliasType: 'Ma_CT',
+              effectiveFrom: new Date(`${todayIso()}T00:00:00Z`),
+              effectiveTo: null,
+              reason: 'Mã CT khi tạo dự án',
+              approvedBy: changedBy,
+            },
+          });
+        }
+        return p;
+      });
+      await this.logAudit('dim_project', String(p.id), 'create', '', p.projectName, changedBy);
+      return mapProject(p);
+    } catch (e) {
+      // N-1 (vòng sửa 1, vòng 2): chỉ map P2002 của index mã CT, ràng buộc khác ném nguyên lỗi gốc.
+      if (isP2002On(e, PROJECT_CODE_UNIQUE_TARGETS)) {
+        throw new ProjectCodeTakenError(input.currentAliasCode ?? '');
+      }
+      throw e;
+    }
   },
 
   async addAssignment(projectId: number, userEmail: string, roleInProject: 'PIC' | 'Backup' = 'PIC') {
@@ -1152,4 +1190,4 @@ const coreRepo = {
   },
 };
 
-export const repo = { ...coreRepo, ...entryPrismaRepo };
+export const repo = { ...coreRepo, ...entryPrismaRepo, ...formPrismaRepo };

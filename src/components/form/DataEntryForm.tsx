@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/navigation';
 import type {
   AlertLog,
   Currency,
@@ -10,40 +11,32 @@ import type {
   FactFinancial,
   FactProgressMonthly,
   Factory,
-  Market,
-  Priority,
   Project,
-  ProjectAlias,
-  ProjectKeyMilestone,
   ProjectPhoto,
-  ProjectSapCode,
-  ProjectType,
   TeamKd,
   ValueChainProgress,
 } from '@/server/repo/types';
 import type { IsoDate } from '@/lib/clock';
-import { marketKey, stageKey, typeKey } from '@/lib/labels';
+import { stageKey } from '@/lib/labels';
 import { computeEvm } from '@/lib/evm';
 import { STAGE_ORDER, calcChainPctActual, findCurrentStage, normPct } from '@/lib/stages';
 import { THRESHOLDS } from '@/lib/thresholds';
-import { fmtNum, formatDateTime, formatPct, formatRatio, toTitleCase } from '@/lib/format';
-import { normalizeKeyMilestones, toKeyMilestoneDraft, validateKeyMilestones, type KeyMilestoneDraft, type KeyMsErrors } from '@/lib/key-milestones';
-import { addSapCodeAction, closeAlertAction, createDimValueAction, deletePhotoAction, lockMonthAction, saveKeyMilestonesAction, saveMonthlyData } from '@/server/actions';
+import { fmtNum, formatDateTime, formatPct, formatRatio } from '@/lib/format';
+import { closeAlertAction, deletePhotoAction, lockMonthAction, saveMonthlyData } from '@/server/actions';
+import { draftOwnerTag, purgeForeignDrafts } from '@/lib/drafts';
 import {
   buildBaseForm,
   buildSavePatch,
   checkDraft,
+  draftFieldsEqual,
   draftKey,
-  formsEqual,
-  legacyDraftKey,
   makeStamp,
   restoreDraft,
   saveErrorKind,
+  toDraftForm,
   type DraftCheck,
   type FormState,
 } from './dataEntryState';
-import { Combobox } from './Combobox';
-import { KeyMilestoneEditor } from './KeyMilestoneEditor';
 import { PhotoDropzone } from './PhotoDropzone';
 import { Badge, Dot } from '@/components/ui/Badge';
 import { StatusBadge } from '@/components/ui/Badges';
@@ -53,10 +46,6 @@ import { HelpTip } from '@/components/ui/HelpTip';
 export type DataEntryStep = 'progress' | 'finance' | 'profile' | 'extras' | 'resources';
 type Step = DataEntryStep;
 
-const TYPES: ProjectType[] = ['EPC', 'San_van_dong', 'San_bay', 'Nha_xuong', 'Cau_cang', 'Cao_tang', 'Dong_tau', 'Cau_giao_thong', 'Khac'];
-const PRIORITIES: Priority[] = ['P0', 'P1', 'P2', 'P3'];
-const MARKETS: Market[] = ['TN', 'XK', 'NoiBo'];
-
 interface Props {
   projectId: number;
   projects: { id: number; name: string; code: string }[];
@@ -65,8 +54,6 @@ interface Props {
   financial: FactFinancial | undefined;
   chain: ValueChainProgress[];
   alerts: AlertLog[];
-  aliases: ProjectAlias[];
-  sapCodes: ProjectSapCode[];
   photos: ProjectPhoto[];
   month: string;
   months: string[];
@@ -77,11 +64,11 @@ interface Props {
   currencies: Currency[];
   factories: Factory[];
   volumeTonnage: number | null;
-  keyMilestones: ProjectKeyMilestone[];
   today: IsoDate;
   initialStep?: DataEntryStep;
   canEditFinance: boolean;
   resourcesPanel: React.ReactNode;
+  ownerEmail: string;
 }
 
 export function DataEntryForm({
@@ -92,8 +79,6 @@ export function DataEntryForm({
   financial,
   chain,
   alerts,
-  aliases,
-  sapCodes,
   photos,
   month,
   months,
@@ -104,15 +89,16 @@ export function DataEntryForm({
   currencies,
   factories,
   volumeTonnage,
-  keyMilestones,
   today,
   initialStep,
   canEditFinance,
   resourcesPanel,
+  ownerEmail,
 }: Props) {
   const t = useTranslations();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const ownerTag = useMemo(() => draftOwnerTag(ownerEmail), [ownerEmail]);
 
   const base = useMemo(
     () => buildBaseForm(project, fact, financial, chain, volumeTonnage),
@@ -127,24 +113,15 @@ export function DataEntryForm({
   const [saveErr, setSaveErr] = useState<string | undefined>(undefined);
   const [noChangeMsg, setNoChangeMsg] = useState(false);
   const [pendingDraft, setPendingDraft] = useState<Extract<DraftCheck, { kind: 'fresh' | 'stale' }> | null>(null);
-  const [msRows, setMsRows] = useState<KeyMilestoneDraft[]>(() => keyMilestones.map(toKeyMilestoneDraft));
-  const [msDirty, setMsDirty] = useState(false);
-  const [msErrors, setMsErrors] = useState<KeyMsErrors>({});
-  const [msSaveErr, setMsSaveErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // SAP add
-  const [sapCode, setSapCode] = useState('');
-  const [sapDoc, setSapDoc] = useState('Hợp đồng con');
-  const [sapMsg, setSapMsg] = useState<string | null>(null);
-
-  // Chạy 1 lần khi mount: dọn bản nháp v1 cũ (không bao giờ áp), rồi soi bản nháp v2 hiện có.
+  // Chạy 1 lần khi mount: dọn bản nháp v1/v2 và bản nháp của người khác, rồi soi bản nháp v3 hiện có.
   useEffect(() => {
-    localStorage.removeItem(legacyDraftKey(projectId, month));
-    const check = checkDraft(localStorage.getItem(draftKey(projectId, month)), stamp);
+    purgeForeignDrafts(localStorage, ownerTag);
+    const check = checkDraft(localStorage.getItem(draftKey(ownerTag, projectId, month)), stamp);
     if (check.kind === 'foreign') {
-      localStorage.removeItem(draftKey(projectId, month));
+      localStorage.removeItem(draftKey(ownerTag, projectId, month));
     } else if (check.kind === 'fresh' || check.kind === 'stale') {
       setPendingDraft(check);
     }
@@ -156,12 +133,12 @@ export function DataEntryForm({
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       if (pendingDraft) return;
-      if (formsEqual(form, base)) {
-        localStorage.removeItem(draftKey(projectId, month));
+      if (draftFieldsEqual(form, base)) {
+        localStorage.removeItem(draftKey(ownerTag, projectId, month));
       } else {
         localStorage.setItem(
-          draftKey(projectId, month),
-          JSON.stringify({ v: 2, savedAt: new Date().toISOString(), stamp, form }),
+          draftKey(ownerTag, projectId, month),
+          JSON.stringify({ v: 3, savedAt: new Date().toISOString(), stamp, form: toDraftForm(form) }),
         );
       }
     }, 800);
@@ -204,26 +181,16 @@ export function DataEntryForm({
       const v = normPct(form.stagePct?.[s] ?? '');
       if (v != null && (v < 0 || v > THRESHOLDS.pctInputMax)) e['stagePct.' + s] = t('form.validation.stageRange');
     }
-    if (derivedPctActual < 1 && project.actualStartDate && !form.committedHandoverDate) {
-      e.committedHandoverDate = t('form.validation.committedRequired');
-    }
     setErrors(e);
-    let msOk = true;
-    if (msDirty) {
-      const r = validateKeyMilestones(msRows);
-      setMsErrors(r.errors);
-      msOk = r.ok;
-      if (!r.ok) setStep('profile');
-    }
     // Chỉ chặn khi nhập SAI (vượt range %). Thiếu field → cho submit, bổ sung sau.
-    return msOk && !e.pctPlan && !STAGE_ORDER.some((s) => e['stagePct.' + s]);
+    return !e.pctPlan && !STAGE_ORDER.some((s) => e['stagePct.' + s]);
   }
 
   async function submit() {
     if (!validate()) return;
     const patch = buildSavePatch(base, form, { canEditFinance });
     const hasPatch = Object.keys(patch).length > 0;
-    if (!hasPatch && !msDirty) {
+    if (!hasPatch) {
       setSaveErr(undefined);
       setSaved(false);
       setNoChangeMsg(true);
@@ -232,17 +199,10 @@ export function DataEntryForm({
     setNoChangeMsg(false);
     setSaving(true);
     try {
-      let res: { ok: boolean; error?: string } = { ok: true };
-      if (hasPatch) {
-        res = await saveMonthlyData(projectId, month, patch);
-      }
+      const res = await saveMonthlyData(projectId, month, patch);
       if (res.ok) {
-        localStorage.removeItem(draftKey(projectId, month));
+        localStorage.removeItem(draftKey(ownerTag, projectId, month));
         setSaveErr(undefined);
-        if (msDirty) {
-          const ms = await saveKeyMilestonesAction(projectId, normalizeKeyMilestones(msRows));
-          if (ms.ok) { setMsDirty(false); setMsSaveErr(null); } else setMsSaveErr(t('form.keyMs.saveError'));
-        }
         router.refresh();
         setSaved(true);
       } else {
@@ -255,16 +215,6 @@ export function DataEntryForm({
       setSaveErr(e instanceof Error ? e.message : 'Lỗi không xác định');
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function addSap() {
-    if (!sapCode.trim()) return;
-    const res = await addSapCodeAction(projectId, sapCode.trim(), sapDoc);
-    setSapMsg(res.ok ? null : 'Trùng mã SAP');
-    if (res.ok) {
-      setSapCode('');
-      router.refresh();
     }
   }
 
@@ -351,7 +301,7 @@ export function DataEntryForm({
             <button
               className="btn ghost"
               onClick={() => {
-                localStorage.removeItem(draftKey(projectId, month));
+                localStorage.removeItem(draftKey(ownerTag, projectId, month));
                 setPendingDraft(null);
               }}
             >
@@ -385,140 +335,10 @@ export function DataEntryForm({
       <div className={`card overflow-visible ${locked ? 'pointer-events-none opacity-60' : ''}`}>
         <div className="bd">
         {step === 'profile' && (
-          <>
-          <div className="f2">
-            <Field label={t('form.projectCode')}>
-              <input value={project.currentAliasCode} disabled className="inp ro" />
-              <p className="hintline">{t('form.validation.codeReadonly')}</p>
-            </Field>
-            <Field label={t('form.projectName') + ' *'} hint={t('form.hintLabel.projectName')}>
-              <input value={form.projectName} onChange={(e) => set('projectName', e.target.value.toUpperCase())} className={inputCls('name')} />
-              {errors.projectName && <p className="hintline" style={{ color: 'var(--danger)' }}>{errors.projectName}</p>}
-            </Field>
-            <Field label={t('form.customer')} hint={t('form.hintLabel.customer')}>
-              <Combobox
-                value={form.customerId}
-                onChange={(v) => set('customerId', v)}
-                options={customers.map((c) => ({ value: String(c.id), label: c.name }))}
-                allowCreate
-                createLabel={t('common.add')}
-                onCreate={async (name) => {
-                  const res = await createDimValueAction('customer', toTitleCase(name));
-                  return res.ok ? String(res.id) : '';
-                }}
-                className={selectCls}
-              />
-            </Field>
-            <Field label={t('form.teamKd')}>
-              <Combobox
-                value={form.teamKdId}
-                onChange={(v) => set('teamKdId', v)}
-                options={teams.map((x) => ({ value: String(x.id), label: x.name }))}
-                allowCreate
-                createLabel={t('common.add')}
-                onCreate={async (name) => {
-                  const res = await createDimValueAction('team', name);
-                  return res.ok ? String(res.id) : '';
-                }}
-                className={selectCls}
-              />
-            </Field>
-            <Field label={t('form.projectType')} hint={t('form.hintLabel.projectType')}>
-              <Combobox
-                value={form.projectType}
-                onChange={(v) => set('projectType', v)}
-                options={TYPES.map((ty) => ({ value: ty, label: t(typeKey[ty]) }))}
-                className={selectCls}
-              />
-            </Field>
-            <Field label={t('form.priority')} hint={t('form.hintLabel.priority')}>
-              <Combobox
-                value={form.priority}
-                onChange={(v) => set('priority', v)}
-                options={PRIORITIES.map((p) => ({ value: p, label: p }))}
-                className={selectCls}
-              />
-            </Field>
-            <Field label={t('common.market')} hint={t('form.hintLabel.market')}>
-              <Combobox
-                value={form.marketCode}
-                onChange={(v) => set('marketCode', v)}
-                options={MARKETS.map((m) => ({ value: m, label: t(marketKey[m]) }))}
-                className={selectCls}
-              />
-            </Field>
-            <Field label={t('form.currency')}>
-              <Combobox
-                value={form.currencyCode}
-                onChange={(v) => set('currencyCode', v)}
-                options={currencies.map((c) => ({ value: c.code, label: c.code }))}
-                className={selectCls}
-              />
-            </Field>
-            <Field label={t('form.contractValue')} hint={t('form.hintLabel.contractValue')}>
-              <input type="number" step="0.1" value={fmtNum(form.contractValue)} onChange={(e) => set('contractValue', e.target.value)} className={inputCls('contractValue')} />
-            </Field>
-            <Field label={`${t('common.tonnage')} (${t('common.ton')})`}>
-              <input type="number" step="0.1" value={fmtNum(form.tonnage)} onChange={(e) => set('tonnage', e.target.value)} className={inputCls('tonnage')} />
-            </Field>
-            <Field label={t('volumeEntry.factory')}>
-              <select value={form.factoryId} onChange={(e) => set('factoryId', e.target.value)} className="inp">
-                <option value="">{t('volumeEntry.none')}</option>
-                {factories.filter((f) => f.isActive).map((f) => (
-                  <option key={f.id} value={f.id}>{f.name}</option>
-                ))}
-                {(() => {
-                  const current = factories.find((f) => !f.isActive && String(f.id) === form.factoryId);
-                  return current ? (
-                    <option key={current.id} value={current.id}>{current.name} {t('volumeEntry.inactiveSuffix')}</option>
-                  ) : null;
-                })()}
-              </select>
-            </Field>
-            <Field label={t('form.contractDate')}>
-              <input type="date" value={form.contractDate} onChange={(e) => set('contractDate', e.target.value)} className={inputCls('contractDate')} />
-            </Field>
-            <Field label={t('form.plannedStart')}>
-              <input type="date" value={form.plannedStartDate} onChange={(e) => set('plannedStartDate', e.target.value)} className={inputCls('plannedStartDate')} />
-            </Field>
-            <Field label={t('form.plannedFinish')}>
-              <input type="date" value={form.plannedFinishDate} onChange={(e) => set('plannedFinishDate', e.target.value)} className={inputCls('plannedFinishDate')} />
-            </Field>
-            <Field label={t('form.committedHandover') + ' *'}>
-              <input
-                type="date"
-                value={form.committedHandoverDate}
-                onChange={(e) => set('committedHandoverDate', e.target.value)}
-                className={inputCls('committedHandoverDate')}
-              />
-              {errors.committedHandoverDate && <p className="hintline" style={{ color: 'var(--danger)' }}>{errors.committedHandoverDate}</p>}
-            </Field>
-            <Field label={t('form.actualStart')}>
-              <input type="date" value={form.actualStartDate} onChange={(e) => set('actualStartDate', e.target.value)} className={inputCls('actualStartDate')} />
-            </Field>
-            <Field label={t('form.actualFinish')}>
-              <input type="date" value={form.actualFinishDate} onChange={(e) => set('actualFinishDate', e.target.value)} className={inputCls('actualFinishDate')} />
-            </Field>
-            <Field label={t('form.penaltyValue')}>
-              <input type="number" step="0.1" value={fmtNum(form.penaltyValue)} onChange={(e) => set('penaltyValue', e.target.value)} className={inputCls('penaltyValue')} />
-            </Field>
-            <div className="flex items-end">
-              <label className="flex items-center gap-2 text-footnote">
-                <input
-                  type="checkbox"
-                  checked={form.penalized}
-                  onChange={(e) => set('penalized', e.target.checked)}
-                  className="h-4 w-4 rounded border-sep2 text-brand focus:ring-brand"
-                />
-                {t('penalty.penalized')}
-              </label>
-            </div>
+          <div className="sumbar">
+            <span>{t('projectForm.movedHint')}</span>
+            <Link href={`/ho-so-du-an?project=${projectId}`} className="btn">{t('projectForm.openForm')}</Link>
           </div>
-            <KeyMilestoneEditor id="key-milestones" value={msRows} today={today} errors={msErrors}
-              onChange={(rows) => { setMsRows(rows); setMsDirty(true); setSaved(false); }} />
-            {Object.keys(msErrors).length > 0 && <p className="sumbar bad" style={{ marginTop: 10 }}>{t('form.keyMs.invalid')}</p>}
-            {msSaveErr && <p className="sumbar bad" style={{ marginTop: 10 }}>{msSaveErr}</p>}
-          </>
         )}
 
         {step === 'progress' && (
@@ -616,58 +436,6 @@ export function DataEntryForm({
               </div>
             </Field>
             {!canEditFinance && <p className="hintline" style={{ gridColumn: '1 / -1' }}>{t('dataGuard.save.financeReadonly')}</p>}
-          </div>
-        )}
-
-        {step === 'extras' && (
-          <div className="space-y-5">
-            <div>
-              <h4 className="text-footnote font-semibold">{t('detail.aliasHistory')}</h4>
-              <ul className="mt-2 flex flex-col">
-                {aliases.map((a) => (
-                  <li key={a.id} className="flex items-center justify-between py-2 text-footnote border-t-[0.5px] border-sep first:border-t-0">
-                    <span className="mono">{a.aliasCode}</span>
-                    <span className="text-caption1 text-label3">{a.aliasType}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-footnote font-semibold">{t('sap.linked')}</h4>
-              <ul className="mt-2 flex flex-col">
-                {sapCodes.length === 0 && <li className="empty">{t('common.noData')}</li>}
-                {sapCodes.map((s) => (
-                  <li key={s.id} className="flex items-center justify-between py-2 text-footnote border-t-[0.5px] border-sep first:border-t-0">
-                    <span className="mono">{s.sapCode}</span>
-                    <span className="text-caption1 text-label3">{s.sourceDocType}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-3 flex flex-wrap items-end gap-2">
-                <div className="min-w-0 flex-1 field">
-                  <span className="lb">{t('sap.addSap')}</span>
-                  <input
-                    value={sapCode}
-                    onChange={(e) => setSapCode(e.target.value)}
-                    placeholder="SAP-..."
-                    className="inp"
-                  />
-                </div>
-                <input
-                  value={sapDoc}
-                  onChange={(e) => setSapDoc(e.target.value)}
-                  className="inp"
-                  style={{ width: 'auto' }}
-                />
-                <button
-                  onClick={addSap}
-                  className="btn"
-                >
-                  {t('common.add')}
-                </button>
-              </div>
-              {sapMsg && <p className="hintline" style={{ color: 'var(--danger)' }}>{sapMsg}</p>}
-            </div>
           </div>
         )}
 

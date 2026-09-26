@@ -204,7 +204,15 @@ export function buildSavePatch(base: FormState, form: FormState, opts: { canEdit
   return patch;
 }
 
-export const DRAFT_VERSION = 2;
+export const DRAFT_VERSION = 3;
+
+/**
+ * F6 (P3A, Task 10): bản nháp CHỈ còn số liệu tiến độ/thiết bị - không bao giờ chứa số tài chính
+ * (revenueCumulative...) hay hồ sơ dự án (projectName, ngày tháng...) - 2 nhóm này đã có 1 chỗ sửa
+ * riêng đủ an toàn (ProjectForm, các action chuyên biệt), lưu vào localStorage là thừa rủi ro.
+ */
+export const DRAFT_FIELDS = ['pctPlan', 'ac', 'equipmentActual', 'volumeTonnage', 'stagePct', 'stageApplicable'] as const;
+export type DraftForm = Pick<FormState, (typeof DRAFT_FIELDS)[number]>;
 
 export interface DraftStamp {
   projectCreatedAt: string;
@@ -214,20 +222,38 @@ export interface DraftStamp {
 }
 
 export interface StoredDraft {
-  v: 2;
+  v: 3;
   savedAt: string;
   stamp: DraftStamp;
-  form: FormState;
+  form: DraftForm;
 }
 
-/** Bản nháp hiện hành (v2), có dấu phiên bản (project.updatedAt + version fact/financial). */
-export function draftKey(projectId: number, month: string): string {
-  return `ddc_draft_v2_${projectId}_${month}`;
+/** Bản nháp hiện hành (v3), gắn theo người dùng (`ownerTag` - xem `src/lib/drafts.ts`) + dấu phiên bản. */
+export function draftKey(ownerTag: string, projectId: number, month: string): string {
+  return `ddc_draft_v3_${ownerTag}_${projectId}_${month}`;
 }
 
-/** Bản nháp cũ (v1, không có dấu phiên bản) - chỉ để xoá, không bao giờ áp lại. */
-export function legacyDraftKey(projectId: number, month: string): string {
-  return `ddc_draft_${projectId}_${month}`;
+export function toDraftForm(f: FormState): DraftForm {
+  return {
+    pctPlan: f.pctPlan,
+    ac: f.ac,
+    equipmentActual: f.equipmentActual,
+    volumeTonnage: f.volumeTonnage,
+    stagePct: f.stagePct,
+    stageApplicable: f.stageApplicable,
+  };
+}
+
+/** So sánh CHỈ các trường có trong bản nháp (khác `formsEqual` - so toàn bộ form). */
+export function draftFieldsEqual(a: FormState, b: FormState): boolean {
+  if (a.pctPlan !== b.pctPlan || a.ac !== b.ac || a.equipmentActual !== b.equipmentActual || a.volumeTonnage !== b.volumeTonnage) {
+    return false;
+  }
+  for (const s of STAGE_ORDER) {
+    if (a.stagePct[s] !== b.stagePct[s]) return false;
+    if (a.stageApplicable[s] !== b.stageApplicable[s]) return false;
+  }
+  return true;
 }
 
 export function makeStamp(
@@ -279,14 +305,24 @@ export function checkDraft(raw: string | null, current: DraftStamp): DraftCheck 
   return fresh ? { kind: 'fresh', draft } : { kind: 'stale', draft };
 }
 
-/** Áp bản nháp lên base - field mới thêm sau này (không có trong nháp cũ) vẫn lấy từ base. */
+/**
+ * Áp bản nháp lên base - CHỈ áp field khai báo trong `DRAFT_FIELDS`, bỏ mọi key khác kể cả khi có
+ * trong JSON (phòng bản nháp cũ/bị chỉnh tay chèn thêm field tài chính hoặc hồ sơ - F6).
+ */
 export function restoreDraft(base: FormState, draft: StoredDraft): FormState {
-  return {
-    ...base,
-    ...draft.form,
-    stagePct: { ...base.stagePct, ...(draft.form.stagePct ?? {}) },
-    stageApplicable: { ...base.stageApplicable, ...(draft.form.stageApplicable ?? {}) },
-  };
+  const src = draft.form as Partial<Record<keyof FormState, unknown>>;
+  const next: FormState = { ...base };
+  if (typeof src.pctPlan === 'string') next.pctPlan = src.pctPlan;
+  if (typeof src.ac === 'string') next.ac = src.ac;
+  if (typeof src.equipmentActual === 'string') next.equipmentActual = src.equipmentActual;
+  if (typeof src.volumeTonnage === 'string') next.volumeTonnage = src.volumeTonnage;
+  if (src.stagePct && typeof src.stagePct === 'object') {
+    next.stagePct = { ...base.stagePct, ...(src.stagePct as Record<StageCode, string>) };
+  }
+  if (src.stageApplicable && typeof src.stageApplicable === 'object') {
+    next.stageApplicable = { ...base.stageApplicable, ...(src.stageApplicable as Record<StageCode, boolean>) };
+  }
+  return next;
 }
 
 export type SaveErrorKind = 'forbidden' | 'locked' | 'notFound' | 'generic';

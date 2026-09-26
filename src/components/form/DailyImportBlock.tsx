@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { groupImportByDay, type DailyImportRow } from '@/lib/daily-import';
 import { commitDailyImportAction, previewDailyImportAction, type DailyImportError, type DailySaveError } from '@/server/actions-entry';
 import { Badge } from '@/components/ui/Badge';
+import { IMPORT_MAX_MB, isImportTooBig } from '@/lib/import-limits';
 
 export interface DailyImportBlockProps {
   projectId: number;
@@ -23,10 +24,16 @@ export function DailyImportBlock({ projectId, disabled }: DailyImportBlockProps)
   const [reason, setReason] = useState('');
   const [done, setDone] = useState<{ days: number; created: number; updated: number } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [tooBig, setTooBig] = useState<string | null>(null);
 
   async function preview() {
     const file = fileRef.current?.files?.[0];
     if (!file) return;
+    if (isImportTooBig(file.size)) {
+      setTooBig(t('importLimit.tooBig', { name: file.name, mb: IMPORT_MAX_MB }));
+      return;
+    }
+    setTooBig(null);
     setBusy(true);
     setErr(null);
     setDone(null);
@@ -93,6 +100,8 @@ export function DailyImportBlock({ projectId, disabled }: DailyImportBlockProps)
           {t('dailyImport.preview')}
         </button>
       </div>
+      <p className="hintline">{t('importLimit.note', { mb: IMPORT_MAX_MB })}</p>
+      {tooBig && <p className="sumbar bad">{tooBig}</p>}
 
       {summary && (
         <p className="hintline">{t('dailyImport.summary', { ok: summary.okCount, invalid: summary.invalidCount })}</p>

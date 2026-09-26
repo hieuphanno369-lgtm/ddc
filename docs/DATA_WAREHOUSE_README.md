@@ -115,6 +115,8 @@ erDiagram
       StringArray aliases
       Boolean isActive
       Int mergedIntoId FK
+      Boolean needsReview
+      String createdBy
     }
     dim_date {
       Date date PK

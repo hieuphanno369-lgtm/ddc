@@ -3,17 +3,20 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node
 import { join } from 'node:path';
 import { DEFAULT_STAGE_WEIGHTS, type StageInput } from '@/lib/stages';
 import { calcDayVariance, calcDurationPctComplete, calcSpi } from '@/lib/evm';
-import { endOfMonth } from '@/lib/clock';
+import { endOfMonth, todayIso } from '@/lib/clock';
 import { keyMsAuditText } from '@/lib/key-milestones';
 import { sumManpowerShifts } from '@/lib/shifts';
+import { ProjectCodeTakenError } from '@/lib/project-code';
 import { createReadMock } from './read-mock';
 import { makeEntryMockRepo } from './mock-repo-entry';
+import { isProjectCodeTakenIn, makeFormMockRepo } from './mock-repo-form';
 import { makeNotifyMockRepo, resetNotifyMock } from './mock-repo-notify';
 import type {
   ActivityLogEntry,
   AlertLog,
   AuditLogEntry,
   Contractor,
+  CreateProjectInput,
   CurrencyCode,
   Customer,
   Equipment,
@@ -350,7 +353,7 @@ const coreRepo = {
   },
 
   /** Tạo dim mới nếu chưa có (match name hoặc alias). Trả về id. */
-  createDimValue(field: 'customer' | 'team', name: string): number {
+  createDimValue(field: 'customer' | 'team', name: string, opts?: { needsReview?: boolean; by?: string }): number {
     const list = this._dimList(field);
     const n = name.trim();
     const existing = list.find(
@@ -359,7 +362,10 @@ const coreRepo = {
     if (existing) return existing.id;
     const id = list.reduce((m, x) => Math.max(m, x.id), 0) + 1;
     if (field === 'customer') {
-      (list as Customer[]).push({ id, name: n, group: 'Khác', aliases: [], isActive: true, mergedIntoId: null });
+      (list as Customer[]).push({
+        id, name: n, group: 'Khác', aliases: [], isActive: true, mergedIntoId: null,
+        needsReview: opts?.needsReview ?? false, createdBy: opts?.by ?? 'system',
+      });
     } else {
       (list as TeamKd[]).push({ id, name: n, picName: '-', aliases: [], isActive: true, mergedIntoId: null });
     }
@@ -389,6 +395,7 @@ const coreRepo = {
     for (const a of from.aliases) if (!to.aliases.includes(a)) to.aliases.push(a);
     from.isActive = false;
     from.mergedIntoId = toId;
+    if (field === 'customer') (from as Customer).needsReview = false;
     return n;
   },
 
@@ -399,6 +406,7 @@ const coreRepo = {
       name: x.name,
       isActive: x.isActive,
       mergedIntoId: x.mergedIntoId,
+      needsReview: field === 'customer' ? (x as Customer).needsReview : false,
       refCount: d.projects.filter((p) => (field === 'customer' ? p.customerId : p.teamKdId) === x.id).length,
     }));
   },
@@ -425,7 +433,7 @@ const coreRepo = {
     if (!u) return;
     // T-2 (danh-gia-bao-mat.md): tham số `_canViewFinanceHint` do caller (actions.ts) truyền bị BỎ QUA
     // có chủ đích - đổi role không được âm thầm ghi đè canViewFinance Q6 đã đặt riêng cho từng người.
-    // viewer -> luôn tắt; data-entry -> luôn bật (T-1, tạm thời tới khi P3A gate form nhập liệu); vai
+    // viewer -> luôn tắt; data-entry -> luôn bật (T-1, nay là quyết định lâu dài QĐ-10); vai
     // trò khác -> giữ nguyên giá trị hiện có.
     const prev = u.canViewFinance;
     const next = role === 'viewer' ? false : role === 'data-entry' ? true : prev;
@@ -849,33 +857,18 @@ const coreRepo = {
     this.logAudit('dim_project', String(projectId), fields.join(','), '', note, changedBy);
   },
 
-  createProject(
-    input: {
-      projectName: string;
-      customerId: number;
-      teamKdId: number;
-      marketCode: Market;
-      projectType: ProjectType;
-      priority: Priority;
-      contractValue: number;
-      tonnage?: number;
-      currencyCode?: CurrencyCode;
-      contractDate?: string | null;
-      plannedStartDate?: string | null;
-      plannedFinishDate?: string | null;
-      committedHandoverDate?: string | null;
-      penaltyValue?: number | null;
-    },
-    changedBy = 'system',
-  ): Project {
+  createProject(input: CreateProjectInput, changedBy = 'system'): Project {
     const d = getData();
     const id = d.projects.reduce((m, p) => Math.max(m, p.id), 0) + 1;
     const code = `M-${String(id).padStart(5, '0')}`;
+    // F-1 (vòng sửa 1, vòng 2): kiểm trùng cả mã tự sinh khi không nhập mã - đồng bộ prisma-repo.
+    const finalCode = input.currentAliasCode ?? code;
+    if (isProjectCodeTakenIn(d, finalCode, null)) throw new ProjectCodeTakenError(finalCode);
     const now = new Date().toISOString();
     const p: Project = {
       id,
       masterCode: code,
-      currentAliasCode: code,
+      currentAliasCode: finalCode,
       projectName: input.projectName,
       customerId: input.customerId,
       teamKdId: input.teamKdId,
@@ -889,25 +882,44 @@ const coreRepo = {
       plannedStartDate: input.plannedStartDate ?? null,
       plannedFinishDate: input.plannedFinishDate ?? null,
       committedHandoverDate: input.committedHandoverDate ?? null,
-      actualStartDate: null,
-      actualFinishDate: null,
+      actualStartDate: input.actualStartDate ?? null,
+      actualFinishDate: input.actualFinishDate ?? null,
       penaltyValue: input.penaltyValue ?? null,
-      penalized: false,
+      penalized: input.penalized ?? false,
       isActive: true,
-      factoryId: null,
-      contractValueOriginal: null,
+      factoryId: input.factoryId ?? null,
+      contractValueOriginal: input.contractValueOriginal ?? null,
       createdAt: now,
       updatedAt: now,
       createdBy: changedBy,
       updatedBy: changedBy,
     };
     d.projects.push(p);
+    if (input.currentAliasCode) {
+      const aliasId = d.aliases.reduce((m, a) => Math.max(m, a.id), 0) + 1;
+      d.aliases.push({
+        id: aliasId,
+        projectId: id,
+        aliasCode: input.currentAliasCode,
+        aliasType: 'Ma_CT',
+        effectiveFrom: todayIso(),
+        effectiveTo: null,
+        reason: 'Mã CT khi tạo dự án',
+        approvedBy: changedBy,
+      });
+    }
     this.logAudit('dim_project', String(id), 'create', '', p.projectName, changedBy);
     return p;
   },
 
   addAssignment(projectId: number, userEmail: string, roleInProject: 'PIC' | 'Backup' = 'PIC') {
-    getData().assignments.push({
+    const d = getData();
+    const prev = d.assignments.find((a) => a.projectId === projectId && a.userEmail === userEmail);
+    if (prev) {
+      prev.roleInProject = roleInProject;
+      return;
+    }
+    d.assignments.push({
       projectId,
       userEmail,
       roleInProject,
@@ -956,12 +968,12 @@ const coreRepo = {
 };
 
 /**
- * P2B/P3B: gộp read repo + repo thông báo vào repo qua `Object.assign` (mutate object gốc, tầng
+ * P2B/P3A/P3B: gộp read repo + repo thông báo vào repo qua `Object.assign` (mutate object gốc, tầng
  * trên chỉ import `repo` như cũ) - dùng dạng gán lại (không phải statement rời) để kiểu tĩnh của
  * `repo` gồm đủ cả 2 phần gộp (test import thẳng `./mock-repo` mới thấy được các hàm này).
  */
 export const repo = Object.assign(
-  { ...coreRepo, ...makeEntryMockRepo({ getData, persist }) },
+  { ...coreRepo, ...makeEntryMockRepo({ getData, persist }), ...makeFormMockRepo({ getData, persist }) },
   createReadMock(getData),
   makeNotifyMockRepo({ getData, persist }),
 );

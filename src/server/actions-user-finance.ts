@@ -10,7 +10,7 @@ import { repo } from './repo';
  * Q6 (2026-09-25, chủ dự án chốt): bật/tắt quyền xem tài chính (`user_roles.canViewFinance`) cho TỪNG
  * tài khoản - chỉ admin, độc lập với role. Admin luôn xem được (không đọc cột này) - xem `resolveAccess()`
  * (src/lib/auth.ts). Có hiệu lực trong tối đa ~5 phút với phiên đang mở (T-5: callback `jwt` đọc lại
- * quyền định kỳ), không cần người bị đổi quyền đăng nhập lại. Role data-entry tạm luôn true (T-1).
+ * quyền định kỳ), không cần người bị đổi quyền đăng nhập lại. Role data-entry luôn true (T-1, quyết định lâu dài QĐ-10).
  */
 export async function setUserCanViewFinanceAction(
   email: string,
@@ -25,7 +25,7 @@ export async function setUserCanViewFinanceAction(
   // Prisma nem loi kieu du lieu -> 500 thay vi tra loi ro.
   if (typeof canViewFinance !== 'boolean') return { ok: false, error: 'Invalid input' };
 
-  // T-1 (danh-gia-bao-mat.md, phương án b tạm thời tới khi P3A gate form nhập liệu): role data-entry
+  // T-1 (danh-gia-bao-mat.md, phương án b; nay là quyết định lâu dài QĐ-10): role data-entry
   // luôn canViewFinance=true (xem resolveAccess trong auth.ts) - từ chối tắt ở đây để không tạo "cảm
   // giác an toàn giả" (nút tắt được nhưng /nhap-lieu vẫn lộ số tiền).
   if (!canViewFinance) {

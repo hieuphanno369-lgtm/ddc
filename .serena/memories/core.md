@@ -17,8 +17,11 @@ Invariants:
 - Alert engine (T11): `src/lib/alert-rules.ts` = pure rules R1–R7; `src/server/alert-engine.ts` writes new alerts (dedup inside `repo.insertEngineAlerts`). Every save action calls `runAlertEngineSafe(projectId)` (never throws, must not break the save) — new write actions affecting progress/resources must call it too. Closing an alert requires an action note.
 - Background jobs: `src/server/jobs.ts` `runJob()` always records a `job_run` row and never throws; triggered by external cron via `POST /api/cron/[job]` (`alerts_daily`, `rates_monthly`) with `Authorization: Bearer $CRON_SECRET` (timing-safe compare). No in-process scheduler.
 - FX rates (T6): auto-fetched from Vietcombank (`src/lib/vcb-rates.ts`, `src/server/fx-rates.ts`); manually edited rates (`dim_exchange_rate.source`) are never overwritten by the auto fetch.
-- Notification secrets (webhook URL, SMTP password — P3B) must be encrypted with `src/lib/secret-box.ts` (AES-256-GCM, key env `NOTIFY_SECRET_KEY`) before storing in `notify_channel`; tables exist since P2A, UI not yet.
+- Notification secrets (webhook URL, SMTP password — P3B) must be encrypted with `src/lib/secret-box.ts` (AES-256-GCM, key env `NOTIFY_SECRET_KEY`) before storing in `notify_channel` (admin UI + sending since P3B).
 - Photo uploads: both entry points (`addPhotoAction`, `POST /api/photo-upload`) go through `addPhotoForUser` (`src/server/photo-service.ts`); file type is decided by magic bytes (`detectImageKind` in `src/lib/uploads.ts`), never by client MIME/filename.
+- Project code (mã CT, `dim_project.currentAliasCode`) is unique case-insensitively (index `lower(...)` created in raw SQL, Prisma cannot express it - rerun `prisma migrate diff` after Prisma upgrades so it is not dropped). Pattern `M-\d+` is reserved for auto-generated `masterCode`: blocked on create and on code change (`isReservedProjectCode`). Writes take `pg_advisory_xact_lock(hashtext(lower(code)))` and re-check with `tx`.
+- At most 1 PIC per project (partial unique index `project_assignments_one_pic_key`). Map Prisma P2002 via `isP2002On(e, targets)` (`prisma-repo-form.ts`), never blanket-catch P2002.
+- Data-entry ALWAYS has finance visibility (T-1, permanent decision QĐ-10); `canViewFinance` per user applies to BOD/viewer.
 - Finance visibility is fail-closed (`canViewFinance ?? false`); pages must self-check role, not rely on middleware alone.
 - 4 roles: Admin, BOD, Data-entry, Viewer. Auth = next-auth v4 credentials + Google OAuth stub (no CLIENT_ID set, not live).
 
