@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { SidebarProjectBrand } from '@/components/layout/SidebarBrand';
 import dynamic from 'next/dynamic';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
@@ -158,6 +159,7 @@ export default async function ProjectDetailPage({
 
   return (
     <>
+      <SidebarProjectBrand name={project.projectName} code={project.currentAliasCode} />
       {/* Breadcrumb + switcher */}
       <div className="flex flex-wrap items-center justify-between gap-2 text-footnote text-label2">
         <div className="flex items-center gap-1">

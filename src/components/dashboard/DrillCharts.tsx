@@ -42,7 +42,11 @@ export function DrillDonut({ data }: { data: { status: Status; value: number }[]
   const total = data.reduce((a, b) => a + b.value, 0);
   return (
     <div>
-      <StatusDonut data={chartData} onSelect={(s) => drill({ status: s })} />
+      <StatusDonut
+        data={chartData}
+        onSelect={(s) => drill({ status: s })}
+        center={{ value: String(total), label: t('kpi.totalProjects') }}
+      />
       <div className="mt-2 space-y-1.5">
         {chartData.map((d) => (
           <button

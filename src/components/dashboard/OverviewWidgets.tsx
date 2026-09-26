@@ -9,7 +9,6 @@ import {
   loadStatusBreakdown,
   loadTonnageByGroup,
   loadTopPriority,
-  loadWatchlist,
 } from '@/server/cache';
 import type { DashboardFilters, GroupBy } from '@/server/queries';
 import { getOverdueScorecard, type Scorecard } from '@/server/overdue-scorecard';
@@ -31,22 +30,6 @@ const SpiCpiLine = dynamic(() => import('./charts').then((m) => m.SpiCpiLine), {
 const DrillDonut = dynamic(() => import('./DrillCharts').then((m) => m.DrillDonut), { ssr: false, loading: () => <CardSkeleton h={200} /> });
 const GroupByCard = dynamic(() => import('./DrillCharts').then((m) => m.GroupByCard), { ssr: false, loading: () => <CardSkeleton h={260} /> });
 
-export async function AlertBanner({ month, filters }: { month: string; filters: DashboardFilters }) {
-  const t = await getTranslations();
-  const watchlist = await loadWatchlist(month, filters);
-  const p0Red = watchlist.filter((w) => w.priority === 'P0' && (w.penalty === 'risk' || w.penalty === 'penalized'));
-  if (p0Red.length === 0) return null;
-  return (
-    <div className="alert">
-      <span className="dot" style={{ background: 'var(--danger)' }} />
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <h4>{t('overview.watchlist')}</h4>
-        <p>{p0Red.map((w) => w.projectName).join(', ')} - {t('penalty.risk')}/{t('penalty.penalized')}</p>
-      </div>
-    </div>
-  );
-}
-
 export async function KpiGrid({ month, filters, canViewFinance }: { month: string; filters: DashboardFilters; canViewFinance: boolean }) {
   const t = await getTranslations();
   const locale = await getLocale();
@@ -55,8 +38,8 @@ export async function KpiGrid({ month, filters, canViewFinance }: { month: strin
   return (
     <Rise className={`kpis${canViewFinance ? '' : ' k5'}`}>
       <KpiCard label={t('kpi.totalProjects')} value={String(kpis.totalProjects)} delta={kpis.delta.totalProjects} deltaSuffix={prevLabel} icon={IconProject} />
-      <KpiCard label={t('kpi.inProgress')} value={String(kpis.inProgress)} delta={kpis.delta.inProgress} deltaSuffix={prevLabel} tone="ok" icon={IconFactory} />
-      <KpiCard label={t('kpi.behindSchedule')} value={String(kpis.behindSchedule)} delta={kpis.delta.behindSchedule} deltaSuffix={prevLabel} tone="warn" invertDelta hero icon={IconTrend} />
+      <KpiCard label={t('kpi.inProgress')} value={String(kpis.inProgress)} delta={kpis.delta.inProgress} deltaSuffix={prevLabel} tone="ok" hero icon={IconFactory} />
+      <KpiCard label={t('kpi.behindSchedule')} value={String(kpis.behindSchedule)} delta={kpis.delta.behindSchedule} deltaSuffix={prevLabel} tone="warn" invertDelta icon={IconTrend} />
       <KpiCard label={t('kpi.penaltyRisk')} value={String(kpis.penaltyRisk)} delta={kpis.delta.penaltyRisk} deltaSuffix={prevLabel} tone="warn" invertDelta icon={IconFlag} />
       <KpiCard label={t('kpi.penalized')} value={String(kpis.penalized)} delta={kpis.delta.penalized} deltaSuffix={prevLabel} tone="danger" invertDelta icon={IconAlert} />
       {canViewFinance && (

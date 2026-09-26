@@ -10,7 +10,6 @@ import { safeListSort } from '@/lib/finance-gate';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { FilterBar } from '@/components/dashboard/FilterBar';
 import {
-  AlertBanner,
   BacklogOverdueCard,
   CapacityCard,
   GroupBarCard,
@@ -66,7 +65,6 @@ export default async function OverviewPage({
     groupKey: p(searchParams, 'groupKey') || undefined,
   };
 
-  const isAdmin = user?.role === 'admin';
   const canViewFinance = user?.canViewFinance ?? false;
   const search = p(searchParams, 'search');
   const rawSort = (p(searchParams, 'sort') as 'priority' | 'name' | 'value' | 'spi' | 'pctActual') || 'priority';
@@ -83,12 +81,6 @@ export default async function OverviewPage({
         <FilterBar teams={dims.teams} customers={dims.customers} months={historyMonths()} currentMonth={currentMonth()} />
       </Suspense>
 
-      {isAdmin && (
-        <Suspense fallback={null}>
-          <AlertBanner month={month} filters={filters} />
-        </Suspense>
-      )}
-
       <div className="sect"><b>{t('overview.title')}</b><i /></div>
 
       <Suspense fallback={<KpiSkeleton />}>
@@ -96,11 +88,11 @@ export default async function OverviewPage({
       </Suspense>
 
       <div className="g2">
-        <Suspense fallback={<CardSkeleton h={260} />}>
-          <GroupBarCard month={month} groupBy={groupBy} filters={filters} canViewFinance={canViewFinance} />
-        </Suspense>
         <Suspense fallback={<CardSkeleton h={220} />}>
           <StatusDonutCard month={month} filters={filters} />
+        </Suspense>
+        <Suspense fallback={<CardSkeleton h={260} />}>
+          <GroupBarCard month={month} groupBy={groupBy} filters={filters} canViewFinance={canViewFinance} />
         </Suspense>
       </div>
 

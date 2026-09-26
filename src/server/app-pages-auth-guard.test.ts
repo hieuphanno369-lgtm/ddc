@@ -31,7 +31,6 @@ vi.mock('@/server/repo', async () => {
   return { repo: mockRepo.repo };
 });
 vi.mock('@/components/dashboard/OverviewWidgets', () => ({
-  AlertBanner: () => null,
   BacklogOverdueCard: () => null,
   CapacityCard: () => null,
   GroupBarCard: () => null,
