@@ -26,6 +26,10 @@ const BANNED: { re: RegExp; why: string }[] = [
   { re: /\bdark:/, why: 'bien the dark: - token tu doi theo theme, khong can dark:' },
   { re: /\btable-zebra\b/, why: 'zebra cu - mock-up chi co hover, khong soc mau' },
   { re: /#B91C1C/i, why: 'do cu #B91C1C' },
+  {
+    re: /className=(["'])inline\1/,
+    why: 'class rieng .inline trung Tailwind utility bare "inline" (P3C-A BUG-01, xem app/globals.css .inline-row) - dung .inline-row',
+  },
 ];
 
 const HEX = /#[0-9a-fA-F]{3,8}\b/;
@@ -62,6 +66,25 @@ describe('canh style cu', () => {
       }
     });
   }
+
+  it('BANNED chan className="inline" tran (P3C-A BUG-01), khong chan inline-row/inline-flex', () => {
+    const rule = BANNED.find((b) => b.why.includes('BUG-01'));
+    expect(rule, 'chua co rule chan class "inline" tran trong BANNED').toBeTruthy();
+    expect('<div className="inline">').toMatch(rule!.re);
+    expect("<div className='inline'>").toMatch(rule!.re);
+    expect('<div className="inline-row">').not.toMatch(rule!.re);
+    expect('<label className="inline-row" style={{...}}>').not.toMatch(rule!.re);
+    expect('<div className="inline-flex">').not.toMatch(rule!.re);
+    expect('<div className="inline-block">').not.toMatch(rule!.re);
+  });
+
+  it('khong con file nao trong src/ va app/ dung className="inline" tran', () => {
+    for (const file of FILES) {
+      const src = readFileSync(join(ROOT, file), 'utf-8');
+      const m = src.match(/className=(["'])inline\1/);
+      expect(m, `${file}: con className="inline" tran (BUG-01) -> doi sang inline-row`).toBeNull();
+    }
+  });
 
   it('globals.css khong con override .dark', () => {
     const css = readFileSync(join(ROOT, 'app/globals.css'), 'utf-8');
