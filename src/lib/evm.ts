@@ -1,5 +1,5 @@
 import { THRESHOLDS } from './thresholds';
-import { findCurrentStage } from './stages';
+import { findCurrentStage, type StageWeight } from './stages';
 import type { StageCode, Status, ValueChainProgress } from '@/server/repo/types';
 
 /**
@@ -144,8 +144,12 @@ export function penaltyState(input: {
 }
 
 /** Khâu nghẽn: stage applicable ĐẦU TIÊN trong chuỗi có %HT < 100% (bỏ qua giai đoạn không áp dụng). */
-export function findBottleneck(chain: ValueChainProgress[]): StageCode | null {
-  return findCurrentStage(chain);
+export function findBottleneck(
+  chain: ValueChainProgress[],
+  order?: readonly StageCode[],
+  weights?: readonly StageWeight[],
+): StageCode | null {
+  return findCurrentStage(chain, order, weights);
 }
 
 /** Cảnh báo công nợ quá hạn > 5% giá trị HĐ. */

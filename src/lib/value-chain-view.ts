@@ -1,6 +1,6 @@
-import type { ProjectStageWeight, StageCode } from '@/server/repo/types';
+import type { ProjectStageWeight, Stage, StageCode } from '@/server/repo/types';
 import type { WorkItemCompare } from '@/lib/stage-timeline';
-import { STAGE_ORDER, calcChainPctActual, validateStageWeights, type StageInput } from '@/lib/stages';
+import { STAGE_ORDER, activeStages, calcChainPctActual, validateStageWeights, type StageInput } from '@/lib/stages';
 
 function formatWeightPoints(value: number, locale: string): string {
   return `${new Intl.NumberFormat(locale === 'vi' ? 'vi-VN' : 'en-US', { maximumFractionDigits: 1 }).format(value)}%`;
@@ -30,12 +30,19 @@ export const VALUE_CHAIN_COLUMNS: readonly [readonly StageCode[], readonly Stage
   ['shop', 'fabrication', 'erection'],
 ];
 
+/** 2 cột (trái, phải) của thẻ "Chuỗi giá trị quản lý dự án" - chỉ giai đoạn đang dùng, mỗi cột
+ * xếp theo `sortOrder` tăng dần (dùng `activeStages`). Nguồn thay cho `VALUE_CHAIN_COLUMNS` cứng. */
+export function valueChainColumns(stages: readonly Stage[]): [Stage[], Stage[]] {
+  const active = activeStages(stages);
+  return [active.filter((s) => s.side === 'left'), active.filter((s) => s.side === 'right')];
+}
+
 type ChainStageRow = { stageCode: StageCode; pctComplete: number; applicable: boolean };
 
-/** Đủ 7 giai đoạn theo `STAGE_ORDER`, thiếu dòng -> applicable=true/pctComplete=0 (khớp cách mỗi
+/** Đủ giai đoạn theo `order`, thiếu dòng -> applicable=true/pctComplete=0 (khớp cách mỗi
  * hàng trong thẻ tự suy `v?.pctComplete ?? 0` khi không có dòng chain). */
-function chainStageInputs(chain: ChainStageRow[]): StageInput[] {
-  return STAGE_ORDER.map((code) => {
+function chainStageInputs(chain: ChainStageRow[], order: readonly StageCode[]): StageInput[] {
+  return order.map((code) => {
     const v = chain.find((c) => c.stageCode === code);
     return { stageCode: code, pctComplete: v?.pctComplete ?? 0, applicable: v?.applicable ?? true };
   });
@@ -48,9 +55,13 @@ export interface ChainFooterSummary { weightTotal: number; weightOk: boolean; pc
  * `weightOk=false` khi lệch, để tô cảnh báo) + %TT = Σ(trọng số × %HT giai đoạn), tính bằng đúng
  * `calcChainPctActual`/`validateStageWeights` của `src/lib/stages.ts` (nhất quán với wizard nhập liệu).
  */
-export function chainFooterSummary(chain: ChainStageRow[], weights: ProjectStageWeight[]): ChainFooterSummary {
+export function chainFooterSummary(
+  chain: ChainStageRow[],
+  weights: ProjectStageWeight[],
+  order: readonly StageCode[] = STAGE_ORDER,
+): ChainFooterSummary {
   const v = validateStageWeights(weights);
-  const pctTotal = calcChainPctActual(chainStageInputs(chain), weights);
+  const pctTotal = calcChainPctActual(chainStageInputs(chain, order), weights);
   return { weightTotal: v.total, weightOk: v.ok, pctTotal };
 }
 

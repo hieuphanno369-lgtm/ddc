@@ -1,4 +1,4 @@
-import type { StageCode } from '@/server/repo/types';
+import type { Stage, StageCode, StageWeightInput } from '@/server/repo/types';
 import { THRESHOLDS } from '@/lib/thresholds';
 
 /**
@@ -15,6 +15,14 @@ export const STAGE_ORDER: StageCode[] = [
   'erection',
   'handover',
 ];
+
+/** Tối đa số giai đoạn (tính cả ngừng dùng) - chặn payload/giao diện vô hạn. */
+export const STAGE_MAX_COUNT = 30;
+
+/** 8 mã gốc (7 cũ + Thanh quyết toán) - CHỈ seed, preset và test dùng; code chạy thật đọc repo.getStages(). */
+export const SEED_STAGE_CODES = [
+  'design', 'shop', 'procurement', 'fabrication', 'transport', 'erection', 'handover', 'settlement',
+] as const;
 
 export interface StageInput {
   stageCode: StageCode;
@@ -48,6 +56,19 @@ export const DEFAULT_STAGE_WEIGHTS: StageWeight[] = [
   { stageCode: 'transport', weightPct: 5, applicable: true },
   { stageCode: 'erection', weightPct: 27, applicable: true },
   { stageCode: 'handover', weightPct: 3, applicable: true },
+];
+
+/** Bộ trọng số "dự án cũ": 7 số cũ + Thanh quyết toán 0% áp dụng (khớp migration p7_c2).
+ * %TT dự án cũ không đổi khi thêm giai đoạn Thanh quyết toán vì trọng số của nó = 0. */
+export const LEGACY_STAGE_WEIGHTS: StageWeight[] = [
+  { stageCode: 'design', weightPct: 5, applicable: true },
+  { stageCode: 'shop', weightPct: 10, applicable: true },
+  { stageCode: 'procurement', weightPct: 10, applicable: true },
+  { stageCode: 'fabrication', weightPct: 40, applicable: true },
+  { stageCode: 'transport', weightPct: 5, applicable: true },
+  { stageCode: 'erection', weightPct: 27, applicable: true },
+  { stageCode: 'handover', weightPct: 3, applicable: true },
+  { stageCode: 'settlement', weightPct: 0, applicable: true },
 ];
 
 /** manual = nhập tay %HT; volume = suy từ sản lượng hạng mục (fact_stage_work_item). Bộ phân loại đã chốt (Q5). */
@@ -155,11 +176,75 @@ export function calcStageContributions(
   });
 }
 
-/** Giai đoạn hiện tại = giai đoạn applicable ĐẦU TIÊN (theo STAGE_ORDER) có pctComplete < 1. Không có → null. */
-export function findCurrentStage(stages: StageInput[]): StageCode | null {
-  for (const stage of STAGE_ORDER) {
-    const item = stages.find((s) => s.stageCode === stage);
-    if (item && item.applicable && item.pctComplete < THRESHOLDS.completionPct) return stage;
+/**
+ * Giai đoạn hiện tại = giai đoạn applicable ĐẦU TIÊN (theo `order`) có pctComplete < 1. Không có → null.
+ * `weights` có truyền (Q4a) -> bỏ qua giai đoạn có effectiveWeight = 0 (trọng số 0% hoặc tắt áp dụng
+ * ở bảng trọng số không coi là khâu nghẽn, khớp cách tính %TT). Không truyền -> hành vi cũ (chỉ xét chain).
+ */
+export function findCurrentStage(
+  stages: StageInput[],
+  order: readonly StageCode[] = STAGE_ORDER,
+  weights?: readonly StageWeight[],
+): StageCode | null {
+  for (const code of order) {
+    const item = stages.find((s) => s.stageCode === code);
+    if (!item || !item.applicable) continue;
+    if (weights && effectiveWeight(item, weights as StageWeight[]) === 0) continue;
+    if (item.pctComplete < THRESHOLDS.completionPct) return code;
   }
   return null;
+}
+
+/** Giai đoạn đang dùng, xếp theo `sortOrder` tăng dần; trùng `sortOrder` thì xếp theo `code` tăng dần. */
+export function activeStages(stages: readonly Stage[]): Stage[] {
+  return stages
+    .filter((s) => s.isActive)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code));
+}
+
+/** Thứ tự mã giai đoạn đang dùng (chuỗi tính khâu nghẽn, form nhập, timeline). */
+export function stageOrder(stages: readonly Stage[]): StageCode[] {
+  return activeStages(stages).map((s) => s.code);
+}
+
+/** Tên hiển thị theo locale: 'vi' -> nameVi, còn lại -> nameEn. */
+export function stageName(stage: Pick<Stage, 'nameVi' | 'nameEn'>, locale: string): string {
+  return locale === 'vi' ? stage.nameVi : stage.nameEn;
+}
+
+/** Bảng tên theo mã, gồm CẢ giai đoạn ngừng dùng (dùng để hiện tên khâu nghẽn của tháng cũ). */
+export function stageNameMap(stages: readonly Stage[], locale: string): Record<StageCode, string> {
+  const map: Record<StageCode, string> = {};
+  for (const s of stages) map[s.code] = stageName(s, locale);
+  return map;
+}
+
+/** Điền đủ trọng số cho danh sách giai đoạn `order`: thiếu dòng -> {weightPct: 0, applicable: true};
+ * bỏ mã ngoài `order`; luôn trả đúng thứ tự `order`. */
+export function fillWeightsForStages(
+  rows: readonly StageWeightInput[],
+  order: readonly StageCode[],
+): StageWeightInput[] {
+  return order.map((code) => {
+    const found = rows.find((r) => r.stageCode === code);
+    return found ?? { stageCode: code, weightPct: 0, applicable: true };
+  });
+}
+
+/** So sánh tập mã KHÔNG kể thứ tự: không trùng, không thiếu, không thừa so với `order`. */
+export function isSameStageSet(codes: readonly string[], order: readonly StageCode[]): boolean {
+  if (codes.length !== order.length) return false;
+  const set = new Set(codes);
+  if (set.size !== codes.length) return false;
+  return order.every((code) => set.has(code));
+}
+
+/** Mã giai đoạn admin thêm: 'custom_' + (số lớn nhất trong các mã 'custom_<n>' hiện có + 1). */
+export function nextCustomStageCode(existing: readonly string[]): StageCode {
+  const nums = existing
+    .map((code) => /^custom_(\d+)$/.exec(code))
+    .filter((m): m is RegExpExecArray => m !== null)
+    .map((m) => Number(m[1]));
+  const next = (nums.length ? Math.max(...nums) : 0) + 1;
+  return `custom_${next}`;
 }

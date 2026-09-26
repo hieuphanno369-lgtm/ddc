@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { STAGE_ORDER } from '@/lib/stages';
-import type { ProjectStageWeight, StageMilestoneView } from '@/server/repo/types';
-import { buildStageTimelineRows, buildTimeDomain, stageMarkers, xOf } from './stage-timeline';
+import type { ProjectStageWeight, Stage, StageMilestoneView } from '@/server/repo/types';
+import { buildStageTimelineRows, buildTimeDomain, defaultCompareStage, stageMarkers, xOf } from './stage-timeline';
 
 const ms = (over: Partial<StageMilestoneView>): StageMilestoneView => ({
   projectId: 1, stageCode: 'design', plannedStart: null, plannedFinish: null, actualStart: null,
@@ -26,6 +26,38 @@ describe('buildStageTimelineRows', () => {
     const rows = buildStageTimelineRows(milestones, weights);
     expect(rows.find((r) => r.stageCode === 'design')?.weightPct).toBeNull();
     expect(rows.find((r) => r.stageCode === 'shop')?.weightPct).toBeNull();
+  });
+
+  it('truyen order rieng -> duyet theo order do, khong theo STAGE_ORDER', () => {
+    const milestones = [ms({ stageCode: 'settlement' }), ms({ stageCode: 'design' })];
+    const rows = buildStageTimelineRows(milestones, [], ['settlement', 'design']);
+    expect(rows.map((r) => r.stageCode)).toEqual(['settlement', 'design']);
+  });
+});
+
+const ST = (code: string, over: Partial<Stage> = {}): Stage => ({
+  code, nameVi: code, nameEn: code, sortOrder: 1, calcMode: 'manual', side: 'left', isActive: true, ...over,
+});
+
+describe('defaultCompareStage', () => {
+  it("co fabrication dang dung -> 'fabrication'", () => {
+    const stages = [ST('design', { sortOrder: 1 }), ST('fabrication', { sortOrder: 2, calcMode: 'volume' })];
+    expect(defaultCompareStage(stages)).toBe('fabrication');
+  });
+  it('fabrication ngung dung -> giai doan volume dau tien', () => {
+    const stages = [
+      ST('design', { sortOrder: 1 }),
+      ST('shop', { sortOrder: 2, calcMode: 'volume' }),
+      ST('fabrication', { sortOrder: 3, calcMode: 'volume', isActive: false }),
+    ];
+    expect(defaultCompareStage(stages)).toBe('shop');
+  });
+  it('khong co giai doan volume nao -> giai doan dau tien', () => {
+    const stages = [ST('design', { sortOrder: 2 }), ST('shop', { sortOrder: 1 })];
+    expect(defaultCompareStage(stages)).toBe('shop');
+  });
+  it('rong -> null', () => {
+    expect(defaultCompareStage([])).toBeNull();
   });
 });
 

@@ -20,15 +20,11 @@ export type Priority = 'P0' | 'P1' | 'P2' | 'P3';
 export type Status = 'Chuan_bi' | 'Dang_trien_khai' | 'Hoan_thanh' | 'Tam_dung';
 export type CurrencyCode = 'VND' | 'USD' | 'EUR';
 
-/** Chuỗi giá trị DDC - theo đúng thứ tự Thiết kế → Shop → Gia công → Vận chuyển → Lắp dựng → Nghiệm thu. */
-export type StageCode =
-  | 'design'
-  | 'shop'
-  | 'procurement'
-  | 'fabrication'
-  | 'transport'
-  | 'erection'
-  | 'handover';
+/** Mã giai đoạn - khoá dim_stage, do admin thêm được (không còn union cố định). */
+export type StageCode = string;
+
+/** Cột hiển thị ở thẻ "Chuỗi giá trị quản lý dự án": trái/phải. */
+export type StageSide = 'left' | 'right';
 
 export interface Customer {
   id: number;
@@ -194,6 +190,11 @@ export interface Stage {
   nameEn: string;
   sortOrder: number;
   calcMode: StageCalcMode;
+  /** Bên hiển thị ở thẻ Chuỗi giá trị quản lý dự án. Optional ở Task 1 (repo/seed chưa cấp);
+   * Task 2 trở đi mọi nguồn thật (Prisma, mock) đều điền đủ. */
+  side?: StageSide;
+  /** false = ngừng dùng: ẩn khỏi chart/form, giữ số liệu cũ. Optional cùng lý do với `side`. */
+  isActive?: boolean;
 }
 
 export interface ProjectStageWeight {
