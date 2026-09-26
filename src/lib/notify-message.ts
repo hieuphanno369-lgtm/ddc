@@ -62,11 +62,11 @@ export function testNotice(baseUrl: string | undefined): AlertNotice {
   return {
     alertId: 0,
     projectId: 0,
-    projectName: 'DDC Control Tower',
+    projectName: 'BÁO CÁO QUẢN TRỊ',
     severity: 'Amber',
     ruleCode: null,
     rule: 'TEST',
-    message: 'Tin nhắn thử từ DDC Control Tower',
+    message: 'Tin nhắn thử từ BÁO CÁO QUẢN TRỊ',
     deadline: '',
     owner: '',
     openedAt: new Date().toISOString(),

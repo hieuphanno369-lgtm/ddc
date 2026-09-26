@@ -54,5 +54,28 @@ kết quả: `6 failed | 13 passed (19)` - lỗi `TypeError: parseE2eBaseUrl is 
 - `npx tsc --noEmit` → sạch.
 - `npm test` → `201 passed (files) | 2182 passed (tests)`.
 
-**2.6 - Commit:** `feat(p7-c1): go han chuc nang xoa toan bo du lieu o trang quan tri (7.1)`.
-Sau commit: nhả khoá `src/server/actions.ts`, `src/server/repo/prisma-repo.ts` trong `phien-C.md` (đã xong, xem mục "Bước kế tiếp" bên dưới).
+**2.6 - Commit:** `feat(p7-c1): go han chuc nang xoa toan bo du lieu o trang quan tri (7.1)` (`d633404`).
+Sau commit: nhả khoá `src/server/actions.ts`, `src/server/repo/prisma-repo.ts` trong `phien-C.md` (đã xong).
+
+## Bước 3 - 7.3: đổi tên app hiển thị
+
+**File đổi:**
+- Tạo `src/i18n/messages-p7-c1.test.ts` (4 case cho 7.3; case 7.6 thêm ở Bước 4 cùng file).
+- `src/i18n/messages/vi.json` dòng 3-4: `app.name` → `"Danh Mục Dự Án"`, `app.headerTitle` → `"BÁO CÁO QUẢN TRỊ"`.
+- `src/i18n/messages/en.json` dòng 3-4: `app.name` → `"Project Portfolio"`, `app.headerTitle` → `"MANAGEMENT REPORTS"`.
+- `app/[locale]/layout.tsx`: thay `export const metadata` (title gõ cứng) bằng `generateMetadata({ params: { locale } })` dùng `getTranslations`, tiêu đề tab `${t('app.headerTitle')} - ${t('app.name')}` theo locale.
+- `app/[locale]/login/page.tsx` dòng 22: `<h1>DDC Control Tower</h1>` → `<h1>{t('app.headerTitle')}</h1>`.
+- `src/lib/notify-message.ts` (K6): `testNotice()` → `projectName: 'BÁO CÁO QUẢN TRỊ'`, `message: 'Tin nhắn thử từ BÁO CÁO QUẢN TRỊ'`. Cập nhật kỳ vọng tương ứng ở `src/lib/notify-message.test.ts` dòng 98/101 (dòng 107 `'http://localhost:3001/'` là dữ liệu test thuần, không sửa - theo kế hoạch).
+- `src/i18n/messages.test.ts`: thêm 2 dòng vào `CHANGED_SOURCES` (`layout [locale] (metadata)` → `app/[locale]/layout.tsx`, `trang /login` → `app/[locale]/login/page.tsx`).
+- KHÔNG sửa `src/components/layout/AppShell.tsx` (dòng 79 fallback theo K5, dòng 109-110 đã đúng thứ tự) - trừ khi rơi vào nhánh fallback ở Bước 5.
+
+**3.2 - Test đỏ trước khi sửa** (`npx vitest run src/i18n/messages-p7-c1.test.ts`): `4 failed (4)` (giá trị JSON còn cũ, còn chuỗi "DDC Control Tower"/"Performance Hub", đúng kỳ vọng).
+
+**3.8 - Rà chuỗi cũ** (grep `DDC Control Tower|Performance Hub|headerTitle` trong `src`, `app`, `e2e`, `.ts`/`.tsx`): chỉ còn ở comment `src/components/icons/index.tsx` dòng 4 (không sửa), `AppShell.tsx` dòng 79/109 (dùng key `t('app.headerTitle')`), `layout.tsx`/`login/page.tsx` (dùng key), và file test mới. Không có spec e2e nào khẳng định chữ cũ.
+
+**3.9 - Cổng kiểm:**
+- `npx vitest run src/i18n/messages-p7-c1.test.ts src/lib/notify-message.test.ts src/i18n/messages.test.ts` → `61 passed (61)`.
+- `npx tsc --noEmit` → sạch.
+- `npm test` → `202 passed (files) | 2188 passed (tests)`.
+
+**3.10 - Commit:** `feat(p7-c1): doi ten app thanh BAO CAO QUAN TRI / Danh Muc Du An, tieu de tab theo locale (7.3)`.

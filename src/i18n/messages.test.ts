@@ -65,6 +65,8 @@ const CHANGED_SOURCES: Record<string, string> = {
   'EquipmentPlanGantt': 'src/components/project/EquipmentPlanGantt.tsx',
   'ManpowerMonthChart': 'src/components/project/ManpowerMonthChart.tsx',
   'TopPriorityList': 'src/components/dashboard/TopPriorityList.tsx',
+  'layout [locale] (metadata)': 'app/[locale]/layout.tsx',
+  'trang /login': 'app/[locale]/login/page.tsx',
 };
 
 describe('i18n: vi/en phủ key như nhau', () => {

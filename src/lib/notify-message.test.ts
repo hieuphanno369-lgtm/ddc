@@ -95,10 +95,10 @@ describe('testNotice', () => {
     expect(n).toMatchObject({
       alertId: 0,
       projectId: 0,
-      projectName: 'DDC Control Tower',
+      projectName: 'BÁO CÁO QUẢN TRỊ',
       severity: 'Amber',
       rule: 'TEST',
-      message: 'Tin nhắn thử từ DDC Control Tower',
+      message: 'Tin nhắn thử từ BÁO CÁO QUẢN TRỊ',
       url: null,
     });
   });

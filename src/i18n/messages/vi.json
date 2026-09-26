@@ -1,7 +1,7 @@
 {
   "app": {
-    "name": "DDC Control Tower",
-    "headerTitle": "Performance Hub",
+    "name": "Danh Mục Dự Án",
+    "headerTitle": "BÁO CÁO QUẢN TRỊ",
     "subtitle": "Quản trị danh mục dự án kết cấu thép",
     "builtBy": "Built by Buffalo Tech"
   },
