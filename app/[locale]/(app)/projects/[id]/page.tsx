@@ -5,7 +5,7 @@ import { Link } from '@/i18n/navigation';
 import { repo } from '@/server/repo';
 import { getProjectSummary } from '@/server/queries';
 import { currentMonth, isValidYearMonth, todayIso } from '@/lib/clock';
-import { getCurrentUser } from '@/lib/session';
+import { requireUser } from '@/lib/require-user';
 import { requireProjectRead } from '@/server/authz';
 import { stageKey } from '@/lib/labels';
 import type { FactFinancial, StageCode } from '@/server/repo/types';
@@ -72,10 +72,10 @@ export default async function ProjectDetailPage({
   // month rác (vd ?month=abc) từng lọt qua thẳng vào endOfMonth() và ném RangeError (500) -
   // validate đúng format 'YYYY-MM' trước khi dùng, sai thì rơi về tháng hiện tại.
   const month = typeof searchParams.month === 'string' && isValidYearMonth(searchParams.month) ? searchParams.month : currentMonth();
-  const t = await getTranslations();
   const locale = await getLocale();
-  const user = await getCurrentUser();
-  const canViewFinance = user?.canViewFinance ?? false;
+  const user = await requireUser(locale);
+  const t = await getTranslations();
+  const canViewFinance = user.canViewFinance ?? false;
   // B-4 (danh-gia.md, vòng 2 - BOLA/IDOR): data-entry/viewer chỉ được xem dự án mình có trong
   // project_assignments; admin/bod xem mọi dự án. Check TRƯỚC khi đọc project để không lộ qua
   // timing/behavior khác nhau giữa "không có quyền" và "chưa load xong".

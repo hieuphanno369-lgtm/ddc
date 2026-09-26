@@ -103,5 +103,47 @@ phần nào của cây trang.
 
 ---
 
-(Các mục còn lại - kết quả Bước 3 trở đi, bảng "Sau khi sửa" đầy đủ theo Bước 6.3, rà API/server action, việc
+## Bước 3 - Helper `requireUser`
+
+Tạo `src/lib/require-user.ts` + `src/lib/require-user.test.ts` (7 ca, đỏ khi module chưa tồn tại, xanh sau khi
+tạo file). `npx tsc --noEmit` sạch; `npm test` **195 file / 2105 test xanh**.
+
+## Bước 4 - Mọi page `(app)` + layout gọi `requireUser` trước khi đọc dữ liệu
+
+- Test tĩnh `src/server/app-pages-require-user.test.ts` (21 ca: quét layout + 13 page, đòi hỏi `requireUser`
+  là lệnh await đầu tiên) và test thật `src/server/app-pages-auth-guard.test.ts` (10 ca: overview, projects,
+  projects/[id], import - 4 page vốn KHÔNG tự kiểm gì): viết đỏ trước (21/21 đỏ vì `app-pages-require-user`
+  chưa có `requireUser` trong bất kỳ file nào; toàn bộ `app-pages-auth-guard` đỏ vì 4 page đọc dữ liệu trước
+  khi biết có phiên). Sau khi sửa layout + 13 page theo đúng bảng kế hoạch: **25/25 xanh** (không cần thêm
+  `redirect` vào mock của file test nào, không gặp trường hợp biên nêu ở Bước 4.5).
+- Chạy lại 15 file test trang hiện có (`pages-role-guard`, `nhap-lieu-page-guard`, `ho-so-du-an-page-guard`
+  (+ `.qa`), `compliance-page`, `admin-notify-page`, `data-pages-render`, `operation-pages-render`,
+  `finance-gate-pages`, `projects-detail-page-render`, `projects-detail-page-month-guard`,
+  `projects-detail-page-finance-guard`, `projects-detail-finance-gate`, `queries-n1`, `messages`): **143/143
+  xanh**, không sửa kỳ vọng nào.
+- `npx tsc --noEmit` sạch. `npm test`: **197 file / 2130 test xanh**.
+- `npx playwright test` (toàn bộ, sau khi dọn 1 tiến trình `next dev` chiếm nhầm cổng 3001 - xem mục "Sự cố
+  môi trường" dưới đây): **60/60 xanh**.
+
+## Sự cố môi trường gặp phải khi kiểm chứng Bước 4 (không liên quan code sửa)
+
+Lần chạy `npx playwright test` đầu tiên sau Bước 4 báo đỏ 2 ca hoàn toàn không liên quan phạm vi P3D-B:
+`e2e/07-admin.spec.ts` - "them khu vuc san xuat moi" và "kenh thong bao...". Điều tra cho thấy:
+- Máy đang chạy song song 2 tài khoản; lúc đó có 1 tiến trình `next dev` khởi động TỪ thư mục
+  `D:\_project\DDC_Control_Tower` (tài khoản A) nhưng lại LẮNG NGHE nhầm cổng **3001** (cổng của B), khiến
+  Playwright của B (dùng `reuseExistingServer: true`) vô tình nối vào app của A. Bộ nhớ máy lúc đó chỉ còn
+  0.7-0.8GB trống trên tổng 15.5GB.
+- Xác nhận rõ đây là do môi trường, không phải do code: chạy lại riêng `auth.setup.ts` (chỉ đăng nhập, không
+  đụng gì tới thay đổi của P3D-B) cũng timeout 60s ở bước `waitForURL` - một thao tác đăng nhập bình thường
+  không thể tự nhiên chậm vậy nếu không phải do tranh chấp tài nguyên hệ thống.
+- Đã dừng ĐÚNG 1 tiến trình đó (PID chiếm nhầm cổng 3001, không đụng tiến trình đang nghe cổng 3000 thật của
+  A). Sau đó chạy lại riêng `e2e/07-admin.spec.ts`: **6/6 xanh**. Chạy lại toàn bộ: **60/60 xanh** (log ở
+  trên). Kết luận: 2 ca đỏ ban đầu là nhiễu môi trường (cổng bị chiếm nhầm + máy gần hết RAM do 2 phiên chạy
+  song song), không phải hồi quy từ thay đổi P3D-B.
+- **Ghi chú cho Tester:** nếu gặp e2e đỏ ngẫu nhiên không liên quan vùng sửa, kiểm tra `netstat -ano | findstr :3001`
+  xem đúng là tiến trình từ `DDC_Control_Tower-B` không trước khi kết luận có lỗi.
+
+---
+
+(Các mục còn lại - bảng "Sau khi sửa" đầy đủ theo Bước 6.3, rà API/server action, kiểm tay trình duyệt, việc
 không làm - sẽ điền tiếp trong các bước kế, xem lịch sử commit `test(p3d-b)/fix(p3d-b)`.)

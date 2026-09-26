@@ -1,6 +1,5 @@
-import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
-import { getCurrentUser, homeForRole } from '@/lib/session';
+import { requireUser } from '@/lib/require-user';
 import { formatDateTime } from '@/lib/format';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -14,10 +13,8 @@ export default async function AuditPage({
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
   // RBAC server-side: nhật ký thay đổi chỉ dành cho admin (không phó mặc middleware).
-  const user = await getCurrentUser();
   const locale = await getLocale();
-  if (!user) redirect(`/${locale}/login`);
-  if (user.role !== 'admin') redirect(`/${locale}${homeForRole(user.role)}`);
+  await requireUser(locale, ['admin']);
   const t = await getTranslations();
 
   const range = parseLogRange(searchParams.range);

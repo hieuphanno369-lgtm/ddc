@@ -1,6 +1,5 @@
-import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
-import { getCurrentUser, homeForRole } from '@/lib/session';
+import { requireUser } from '@/lib/require-user';
 import { repo } from '@/server/repo';
 import { historyMonths } from '@/lib/clock';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
@@ -20,10 +19,8 @@ import { getAuditLogPage } from '@/server/audit-log-page';
 
 export default async function AdminPage() {
   // RBAC server-side: trang admin chỉ dành cho admin (không phó mặc middleware).
-  const user = await getCurrentUser();
   const locale = await getLocale();
-  if (!user) redirect(`/${locale}/login`);
-  if (user.role !== 'admin') redirect(`/${locale}${homeForRole(user.role)}`);
+  await requireUser(locale, ['admin']);
   const t = await getTranslations();
   const dims = await repo.getDims();
   const projects = (await repo.listProjects()).map((p) => ({ id: p.id, name: p.projectName, code: p.currentAliasCode }));

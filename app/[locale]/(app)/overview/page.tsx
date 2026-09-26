@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { getLocale, getTranslations } from 'next-intl/server';
-import { getCurrentUser } from '@/lib/session';
+import { requireUser } from '@/lib/require-user';
 import { repo } from '@/server/repo';
 import { formatDateTime } from '@/lib/format';
 import { type DashboardFilters, type GroupBy } from '@/server/queries';
@@ -42,9 +42,9 @@ export default async function OverviewPage({
 }: {
   searchParams: Record<string, string | string[] | undefined>;
 }) {
-  const user = await getCurrentUser();
-  const t = await getTranslations();
   const locale = await getLocale();
+  const user = await requireUser(locale, ['admin', 'bod', 'viewer']);
+  const t = await getTranslations();
   const lastUpdate = await repo.readLastAuditAt();
   const dims = await repo.getDims();
 

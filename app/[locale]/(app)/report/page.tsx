@@ -1,6 +1,5 @@
-import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
-import { getCurrentUser, homeForRole } from '@/lib/session';
+import { requireUser } from '@/lib/require-user';
 import { getReportData } from '@/server/report';
 import { currentMonth } from '@/lib/clock';
 import { Link } from '@/i18n/navigation';
@@ -23,10 +22,8 @@ import {
 
 export default async function ReportPage() {
   // RBAC server-side: trang vận hành dành cho admin + bod (không phó mặc middleware).
-  const user = await getCurrentUser();
   const locale = await getLocale();
-  if (!user) redirect(`/${locale}/login`);
-  if (!['admin', 'bod'].includes(user.role)) redirect(`/${locale}${homeForRole(user.role)}`);
+  const user = await requireUser(locale, ['admin', 'bod']);
   const t = await getTranslations();
   const canViewFinance = user.canViewFinance;
   const { kpis, p0Red, rows } = await getReportData(currentMonth());
