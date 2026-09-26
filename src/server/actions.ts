@@ -308,7 +308,8 @@ export async function setUserRoleAction(email: string, role: Role) {
   if (!user) return { ok: false, error: 'Forbidden' };
   const parsed = userRoleSchema.safeParse({ email, role });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
-  await repo.setUserRole(parsed.data.email.toLowerCase(), parsed.data.role, parsed.data.role !== 'viewer');
+  // L-10: truyền người đổi để audit canViewFinance (khi role ép đổi cờ) ghi đúng admin thay vì 'system'.
+  await repo.setUserRole(parsed.data.email.toLowerCase(), parsed.data.role, parsed.data.role !== 'viewer', user.email);
   await logActivity(user, 'set_role', `${parsed.data.email} → ${parsed.data.role}`);
   revalidateTag(profileTag);
   return { ok: true };

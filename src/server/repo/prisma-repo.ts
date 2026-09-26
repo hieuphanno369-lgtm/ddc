@@ -642,7 +642,7 @@ const coreRepo = {
   async setUserRole(email: string, role: Role, _canViewFinanceHint: boolean, changedBy = 'system') {
     // T-2 (danh-gia-bao-mat.md): tham số `_canViewFinanceHint` do caller (actions.ts) truyền bị BỎ QUA
     // có chủ đích - đổi role không được âm thầm ghi đè canViewFinance Q6 đã đặt riêng cho từng người.
-    // viewer -> luôn tắt; data-entry -> luôn bật (T-1, tạm thời tới khi P3A gate form nhập liệu); vai
+    // viewer -> luôn tắt; data-entry -> luôn bật (T-1, nay là quyết định lâu dài QĐ-10); vai
     // trò khác -> giữ nguyên giá trị hiện có.
     const e = email.toLowerCase();
     const existing = await prisma.userRole.findUnique({ where: { email: e } });
