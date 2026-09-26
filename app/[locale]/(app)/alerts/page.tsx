@@ -3,6 +3,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { getCurrentUser, homeForRole } from '@/lib/session';
 import { repo } from '@/server/repo';
 import { AlertList } from '@/components/alerts/AlertList';
+import { maskAlertMessage } from '@/lib/finance-gate';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 
@@ -18,7 +19,7 @@ export default async function AlertsPage() {
   const nameById = new Map(projects.map((p) => [p.id, p.projectName]));
   const open = (await repo.getAlerts())
     .filter((a) => !a.closedAt)
-    .map((a) => ({ ...a, projectName: nameById.get(a.projectId) ?? '-' }));
+    .map((a) => ({ ...maskAlertMessage(a, user.canViewFinance, t('financeGate.alertHidden')), projectName: nameById.get(a.projectId) ?? '-' }));
 
   return (
     <>

@@ -8,7 +8,8 @@ import { currentMonth, isValidYearMonth, todayIso } from '@/lib/clock';
 import { getCurrentUser } from '@/lib/session';
 import { requireProjectRead } from '@/server/authz';
 import { stageKey } from '@/lib/labels';
-import type { StageCode } from '@/server/repo/types';
+import type { FactFinancial, StageCode } from '@/server/repo/types';
+import { maskAlertMessage } from '@/lib/finance-gate';
 import { THRESHOLDS } from '@/lib/thresholds';
 import { calcScheduleGap } from '@/lib/evm';
 import { calcScheduleGap as calcKpiScheduleGap } from '@/lib/schedule-gap';
@@ -94,7 +95,7 @@ export default async function ProjectDetailPage({
     repo.readLastAuditAt(),
     repo.getFacts(id),
     repo.getValueChain(id, month),
-    repo.getFinancial(id),
+    canViewFinance ? repo.getFinancial(id) : Promise.resolve([] as FactFinancial[]),
     repo.getAlerts(id),
     repo.getAliases(id),
     repo.getSapCodes(id),
@@ -142,7 +143,7 @@ export default async function ProjectDetailPage({
   const team = dims.teams.find((x) => x.id === project.teamKdId);
   const switcherProjects = projectsList.map((p) => ({ id: p.id, name: p.projectName, code: p.currentAliasCode }));
 
-  const sCurve = facts.map((f) => ({ month: f.yearMonth, pv: Math.round(f.pv), ev: Math.round(f.ev), ac: Math.round(f.ac) }));
+  const sCurve = canViewFinance ? facts.map((f) => ({ month: f.yearMonth, pv: Math.round(f.pv), ev: Math.round(f.ev), ac: Math.round(f.ac) })) : [];
   const trend = facts.map((f) => ({ month: f.yearMonth, spi: f.spi, cpi: f.cpi }));
   const bottleneck = chain.find((c) => c.stageCode === latest?.bottleneckStage);
   const chainFooter = chainFooterSummary(chain, stageWeights);
@@ -190,11 +191,18 @@ export default async function ProjectDetailPage({
               <span><MarketLabel market={project.marketCode} /></span>
             </div>
           </div>
-          <div className="val">
-            <div className="l">{t('metric.contractValue')}</div>
-            <div className="v">{formatTyd(project.contractValue, locale)}</div>
-            <div className="s">{formatTon(project.tonnage)} tấn</div>
-          </div>
+          {canViewFinance ? (
+            <div className="val">
+              <div className="l">{t('metric.contractValue')}</div>
+              <div className="v">{formatTyd(project.contractValue, locale)}</div>
+              <div className="s">{formatTon(project.tonnage)} tấn</div>
+            </div>
+          ) : (
+            <div className="val">
+              <div className="l">{t('financeGate.tonnage')}</div>
+              <div className="v">{formatTon(project.tonnage)} tấn</div>
+            </div>
+          )}
           {/* Q1 mac dinh (a): dem toi ngay HT ke hoach. Thieu ngay -> khong ve panel */}
           {project.plannedFinishDate && (
             <CountdownPanel targetDate={project.plannedFinishDate.slice(0, 10)} appToday={today} locale={locale} />
@@ -403,13 +411,15 @@ export default async function ProjectDetailPage({
 
       {/* Cum xu huong + ho so dat cuoi trang theo yeu cau chu du an 2026-09-24 */}
       {/* Charts */}
-      <div className="g2">
-        <Card>
-          <CardHeader title={t('detail.sCurve12')} />
-          <CardBody>
-            <SCurve data={sCurve} />
-          </CardBody>
-        </Card>
+      <div className={canViewFinance ? 'g2' : ''}>
+        {canViewFinance && (
+          <Card>
+            <CardHeader title={t('detail.sCurve12')} />
+            <CardBody>
+              <SCurve data={sCurve} />
+            </CardBody>
+          </Card>
+        )}
         <Card>
           <CardHeader title={t('detail.spiCpi12')} />
           <CardBody>
@@ -419,7 +429,7 @@ export default async function ProjectDetailPage({
       </div>
 
       {/* What-if */}
-      {latest && (
+      {latest && canViewFinance && (
         <Card>
           <CardHeader title={t('whatif.title')} />
           <CardBody>
@@ -484,7 +494,7 @@ export default async function ProjectDetailPage({
               <p className="empty">{t('overview.noAlerts')}</p>
             ) : (
               <div className="flex flex-col gap-2.5">
-                {alerts.map((a) => (
+                {alerts.map((a) => maskAlertMessage(a, canViewFinance, t('financeGate.alertHidden'))).map((a) => (
                   <div key={a.id} className="alert">
                     <span className="dot" style={{ background: a.alertType === 'Red' ? 'var(--danger)' : 'var(--warn)' }} />
                     <div className="min-w-0 flex-1">

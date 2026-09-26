@@ -12,6 +12,7 @@ export async function GET() {
   if (!user || !['admin', 'bod'].includes(user.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+  const canViewFinance = user.canViewFinance;
   const { kpis, p0Red, rows } = await getReportData(currentMonth());
 
   const wb = new ExcelJS.Workbook();
@@ -27,7 +28,7 @@ export async function GET() {
     { label: 'Trễ tiến độ', value: kpis.behindSchedule },
     { label: 'Nguy cơ phạt', value: kpis.penaltyRisk },
     { label: 'Đã phạt', value: kpis.penalized },
-    { label: 'Backlog (tỷ)', value: kpis.backlog },
+    ...(canViewFinance ? [{ label: 'Backlog (tỷ)', value: kpis.backlog }] : []),
   ]);
 
   const p0Ws = wb.addWorksheet('P0-Red');
@@ -46,9 +47,16 @@ export async function GET() {
     { header: 'SPI', key: 'spi', width: 10 },
     { header: 'CPI', key: 'cpi', width: 10 },
     { header: '% TT', key: 'pctActual', width: 10 },
-    { header: 'Backlog (tỷ)', key: 'backlog', width: 14 },
+    ...(canViewFinance ? [{ header: 'Backlog (tỷ)', key: 'backlog', width: 14 }] : []),
   ];
-  rows.forEach((r) => ws.addRow({ code: safeCell(r.code), name: safeCell(r.name), spi: r.spi ?? '', cpi: r.cpi ?? '', pctActual: r.pctActual, backlog: r.backlog }));
+  rows.forEach((r) => ws.addRow({
+    code: safeCell(r.code),
+    name: safeCell(r.name),
+    spi: r.spi ?? '',
+    cpi: r.cpi ?? '',
+    pctActual: r.pctActual,
+    ...(canViewFinance ? { backlog: r.backlog } : {}),
+  }));
 
   for (const sheet of [kpiWs, p0Ws, ws]) {
     sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };

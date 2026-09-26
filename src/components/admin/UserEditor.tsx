@@ -11,6 +11,7 @@ import {
   setUserRoleAction,
   toggleAccountActiveAction,
 } from '@/server/actions';
+import { setUserCanViewFinanceAction } from '@/server/actions-user-finance';
 import { formatDate } from '@/lib/format';
 import { IconClose } from '@/components/icons';
 import { PasswordInput } from '@/components/ui/PasswordInput';
@@ -99,6 +100,7 @@ export function UserEditor({ users }: { users: UserAccount[] }) {
               <th>{t('admin.email')}</th>
               <th>{t('admin.name')}</th>
               <th>{t('admin.role')}</th>
+              <th>{t('admin.canViewFinance')}</th>
               <th>{t('admin.status')}</th>
               <th>{t('admin.lastLogin')}</th>
               <th></th>
@@ -124,6 +126,28 @@ export function UserEditor({ users }: { users: UserAccount[] }) {
                       <option key={r} value={r}>{roleLabel(r)}</option>
                     ))}
                   </select>
+                </td>
+                <td>
+                  {u.role === 'admin' ? (
+                    <Badge tone="ok">{t('admin.canViewFinanceAlways')}</Badge>
+                  ) : u.role === 'data-entry' ? (
+                    // T-1 (danh-gia-bao-mat.md): data-entry luôn canViewFinance=true ở tầng server
+                    // (resolveAccess + setUserCanViewFinanceAction từ chối tắt) - không cho bấm tắt
+                    // ở đây để tránh "cảm giác an toàn giả".
+                    <Badge tone="ok">{t('admin.canViewFinanceOn')}</Badge>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        window.dispatchEvent(new Event('ddc:sync'));
+                        await setUserCanViewFinanceAction(u.email, !u.canViewFinance);
+                        router.refresh();
+                      }}
+                    >
+                      <Badge tone={u.canViewFinance ? 'ok' : 'neutral'}>
+                        {u.canViewFinance ? t('admin.canViewFinanceOn') : t('admin.canViewFinanceOff')}
+                      </Badge>
+                    </button>
+                  )}
                 </td>
                 <td>
                   <button

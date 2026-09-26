@@ -527,7 +527,7 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
       minSeverity: 'mức tối thiểu gửi - Red (chỉ Đỏ) | Amber (cả Vàng và Đỏ)',
       settings: 'cấu hình không bí mật (JSON)',
       secretEnc: 'bí mật (webhook URL / mật khẩu SMTP) mã hoá AES-256-GCM',
-      secretHint: 'gợi ý nhận diện bí mật (vd 4 ký tự cuối), không lộ giá trị',
+      secretHint: 'gợi ý nhận diện bí mật, không lộ giá trị/token (webhook: host URL; email: cố định)',
       updatedAt: 'thời điểm cập nhật gần nhất',
       updatedBy: 'người cập nhật gần nhất',
     },

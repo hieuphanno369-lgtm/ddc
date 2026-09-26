@@ -3,6 +3,28 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P3B — Thông báo + e2e + chặn số tiền (Tài khoản B) — CHỐT + ĐÃ MERGE vào `main` (2026-09-25)
+Nhánh `feature/p3b-thong-bao`; hồ sơ `.bangiao/archive/p3b-thong-bao-2026-09-25/`. 139/139 file · 1603 test; e2e 21/21.
+Security vòng 1 CẦN SỬA (T-1…T-5) → vòng 2 ĐẠT; reviewer CHỐT. Không migration.
+- Thông báo cảnh báo: kênh webhook (generic/Slack/Teams) + email SMTP (`nodemailer@10`) cấu hình trong Quản trị, bí mật
+  mã hoá AES-256-GCM (`NOTIFY_SECRET_KEY`), gửi nền khi engine T11 mở alert (không chặn lưu), chống trùng, thử lại ≤3,
+  "Gửi thử" 5 lần/phút; chống SSRF (ghim IP đã kiểm, chặn IP nội bộ mọi dạng; SMTP cho IP LAN). Tin không kèm số tiền.
+- N-3 (chủ dự án: "liên quan đến đơn vị tiền đều tính hết"): mọi số tiền chặn ở server theo `canViewFinance` — Tổng quan,
+  Chi tiết, Cảnh báo, Báo cáo, `/api/export`, `/api/report/export`. SPI/CPI/%/tấn vẫn hiện.
+- Q6: quyền xem tiền đọc cột `user_roles.canViewFinance` từng người (admin luôn có), bật/tắt trong Quản trị, có audit,
+  hiệu lực ≤5 phút với phiên đang mở; khoá tài khoản → mất phiên. **Tạm: data-entry luôn có quyền** (T-1) tới khi P3A
+  gate form Nhập liệu + Hồ sơ dự án.
+- e2e Playwright (`npm run test:e2e`, cổng 3001, chốt DB B): 8 spec luồng chính.
+- Để sau: L-7/L-9/L-10 (cần `actions.ts`)/L-11, gỡ T-1 — xem `danh-gia.md` trong archive.
+
+### ✅ P2B Bước 11 — T1 hiệu năng ĐẠT (Tài khoản B) — CHỐT + ĐÃ MERGE vào `main` (2026-09-25)
+Nhánh `feature/p2b-t1-hieu-nang`; hồ sơ `.bangiao/archive/p2b-t1-hieu-nang-2026-09-25/`. 120/120 file · 1396/1396 test.
+- 10.046.500 dòng / 517 dự án, `next start` thật, đo độc lập 2 bên: Tổng quan max 833 ms (quy trình có kiểm soát),
+  cold-start thật 941 ms, Chi tiết dự án lớn nhất ≤ 441 ms → **tiêu chí ≤1,5 s ĐẠT, KHÔNG cần migration/index**.
+- Gốc chậm là `summarize()` (JS) bị gọi 6–8 lần/lượt render `/overview`, không phải SQL → `requestMemo()` (React.cache
+  trong 1 request) cho `getProjectSummaries`; validate `month` ở /overview (N-2). Vá L-1/L-2/L-3 script perf.
+- Để sau: R-1/R-2/R-3 (guard perf), N-2b (whitelist filter /overview) — xem `danh-gia.md` trong archive.
+
 ### ✅ P2B — Biểu đồ & hiệu năng (Tài khoản B) — CHỐT + ĐÃ MERGE vào `main` (2026-09-25, sau P2A)
 Nhánh `feature/p2b-bieu-do`, dây chuyền ship đủ chặng (vòng 1 CAN SUA → vòng 2 CHỐT → vòng bổ sung KPI CHỐT; security ĐẠT
 cả 3 vòng). Hồ sơ: `.bangiao/archive/p2b-bieu-do-2026-09-25/`. Sau khi gộp P2A: `tsc` sạch, 119/119 file · 1378/1378 test.

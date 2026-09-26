@@ -26,21 +26,32 @@ const roleSeed: Record<string, Role> = (process.env.ROLE_SEED ?? '')
     return acc;
   }, {});
 
-/** Quyền: đọc từ user_roles (DB) hoặc mock store, fallback ROLE_SEED env. */
+/**
+ * Quyền: đọc từ user_roles (DB) hoặc mock store, fallback ROLE_SEED env.
+ * Q6 (2026-09-25, chủ dự án chốt): canViewFinance đọc theo TỪNG người từ cột DB `user_roles.canViewFinance`
+ * (Quản trị bật/tắt được - xem `setUserCanViewFinanceAction`), KHÔNG còn suy từ role. Admin luôn xem được
+ * bất kể cột DB. Có hiệu lực ngay lúc đăng nhập, và trong vòng `ACCESS_RECHECK_INTERVAL_MS` cho session
+ * đang mở (T-5, danh-gia-bao-mat.md - callback `jwt` đọc lại định kỳ, không chỉ lúc đăng nhập).
+ */
 export async function resolveAccess(email: string): Promise<{ role: Role; canViewFinance: boolean }> {
   const seedRole = roleSeed[email.toLowerCase()] ?? 'viewer';
-  const fallback: { role: Role; canViewFinance: boolean } = { role: seedRole, canViewFinance: seedRole !== 'viewer' };
+  // T-1 (danh-gia-bao-mat.md, phương án b tạm thời tới khi P3A gate form nhập liệu): data-entry
+  // luôn canViewFinance=true, giống admin - tránh "cảm giác an toàn giả" khi Quản trị tắt được nút
+  // nhưng /nhap-lieu vẫn lộ số tiền cho role này.
+  const alwaysOn = (r: Role) => r === 'admin' || r === 'data-entry';
+  const fallback: { role: Role; canViewFinance: boolean } = { role: seedRole, canViewFinance: alwaysOn(seedRole) };
   if (process.env.DATABASE_URL) {
     try {
       const row = await prisma.userRole.findUnique({ where: { email: email.toLowerCase() } });
-      if (row) return { role: row.role as Role, canViewFinance: row.role !== 'viewer' };
+      if (row) return { role: row.role as Role, canViewFinance: alwaysOn(row.role as Role) ? true : row.canViewFinance };
     } catch {
       /* ignore */
     }
     return fallback;
   }
   const u = repo.getUserRoles().find((x) => x.email === email.toLowerCase());
-  return u ? { role: u.role, canViewFinance: u.role !== 'viewer' } : fallback;
+  if (!u) return fallback;
+  return { role: u.role, canViewFinance: alwaysOn(u.role) ? true : u.canViewFinance };
 }
 
 async function findAccount(email: string): Promise<UserAccount | null> {
@@ -77,6 +88,13 @@ async function touchLastLogin(email: string) {
   }
   repo.updateLastLogin(email);
 }
+
+/**
+ * T-5 (danh-gia-bao-mat.md): chu ky doc lai quyen (role/canViewFinance/isActive) trong callback jwt,
+ * thay vi chi luc dang nhap - tat quyen/khoa tai khoan co hieu luc trong vai phut thay vi phai cho
+ * toi 8h (session maxAge).
+ */
+export const ACCESS_RECHECK_INTERVAL_MS = 5 * 60 * 1000;
 
 export function isAllowedDomain(email: string): boolean {
   if (!allowedDomains.length) return true; // chưa cấu hình → cho phép (dev)
@@ -135,10 +153,37 @@ export const authOptions: NextAuthOptions = {
         const access = await resolveAccess(user.email);
         token.role = access.role;
         token.canViewFinance = access.canViewFinance;
+        token.accessCheckedAt = Date.now();
+        return token;
+      }
+      // T-5: token đã có (không phải lần đăng nhập) - đọc lại quyền định kỳ mỗi
+      // ACCESS_RECHECK_INTERVAL_MS thay vì chỉ tin token cũ tới khi hết hạn (8h).
+      const email = token.email;
+      if (typeof email === 'string' && email) {
+        const last = typeof token.accessCheckedAt === 'number' ? token.accessCheckedAt : 0;
+        if (Date.now() - last > ACCESS_RECHECK_INTERVAL_MS) {
+          const account = await findAccount(email);
+          if (!account || !account.isActive) {
+            // Tài khoản bị khoá hoặc đã bị xoá khỏi DB - vô hiệu session ở callback session().
+            token.invalid = true;
+          } else {
+            const access = await resolveAccess(email);
+            token.role = access.role;
+            token.canViewFinance = access.canViewFinance;
+            token.invalid = false;
+          }
+          token.accessCheckedAt = Date.now();
+        }
       }
       return token;
     },
     async session({ session, token }) {
+      if (token.invalid) {
+        // T-5: isActive=false hoặc tài khoản không còn trong DB - vô hiệu session ngay, không cho
+        // dùng tiếp tới khi hết hạn 8h.
+        if (session.user) session.user.email = null;
+        return session;
+      }
       if (session.user) {
         (session.user as { role?: Role }).role = (token.role as Role) ?? 'viewer';
         session.user.canViewFinance = token.canViewFinance ?? false;

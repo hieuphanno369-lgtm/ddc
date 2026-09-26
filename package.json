@@ -8,6 +8,7 @@
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "check:read": "tsx scripts/check-read-parity.ts",
     "perf:seed": "tsx scripts/perf/seed-perf.ts",
     "perf:clean": "tsx scripts/perf/seed-perf.ts --clean-only",
@@ -23,6 +24,7 @@
     "next": "14.2.35",
     "next-auth": "4.24.7",
     "next-intl": "3.26.3",
+    "nodemailer": "^10.0.10",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "recharts": "2.12.7",
@@ -30,8 +32,10 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "20.14.15",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "18.3.5",
     "@types/react-dom": "18.3.0",
     "autoprefixer": "10.4.20",
@@ -44,5 +48,10 @@
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
+  },
+  "overrides": {
+    "next-auth": {
+      "nodemailer": "$nodemailer"
+    }
   }
 }

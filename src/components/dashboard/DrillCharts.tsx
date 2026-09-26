@@ -66,9 +66,11 @@ export function DrillDonut({ data }: { data: { status: Status; value: number }[]
 export function GroupByCard({
   data,
   groupBy,
+  showValue = true,
 }: {
-  data: { key: string; tonnage: number; value: number }[];
+  data: { key: string; tonnage: number; value: number | null }[];
   groupBy: GroupBy;
+  showValue?: boolean;
 }) {
   const t = useTranslations();
   const drill = useDrill();
@@ -85,7 +87,7 @@ export function GroupByCard({
     <div>
       <div className="mb-2 flex items-center justify-between">
         <span className="text-footnote font-semibold">
-          {t('overview.tonnageValueByTeam', { group: groupLabel })}
+          {showValue ? t('overview.tonnageValueByTeam', { group: groupLabel }) : t('financeGate.tonnageByGroup', { group: groupLabel })}
         </span>
         <select
           value={groupBy}
@@ -100,6 +102,7 @@ export function GroupByCard({
       </div>
       <GroupBar
         data={data.map((d) => ({ ...d, key: displayKey(d.key) }))}
+        showValue={showValue}
         onSelect={(key) => {
           const raw = data.find((d) => displayKey(d.key) === key);
           if (raw) drill({ groupBy, groupKey: raw.key });

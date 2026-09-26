@@ -77,9 +77,11 @@ export function StatusDonut({
 export function GroupBar({
   data,
   onSelect,
+  showValue = true,
 }: {
-  data: { key: string; tonnage: number; value: number }[];
+  data: { key: string; tonnage: number; value: number | null }[];
   onSelect?: (key: string) => void;
+  showValue?: boolean;
 }) {
   const c = useChartTokens();
   return (
@@ -93,28 +95,45 @@ export function GroupBar({
           tickLine={false}
           axisLine={false}
         />
-        <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} />
+        {showValue && (
+          <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} />
+        )}
         <Tooltip {...TOOLTIP_STYLE} />
         <Legend wrapperStyle={{ fontSize: 'var(--t-caption1)' }} />
-        <Bar
-          yAxisId="left"
-          dataKey="value"
-          name="Trị (tỷ VNĐ)"
-          fill={c.actual}
-          radius={[4, 4, 0, 0]}
-          maxBarSize={40}
-          onClick={(d: any) => onSelect?.(d?.key)}
-          className="cursor-pointer"
-        />
-        <Line
-          yAxisId="right"
-          type="monotone"
-          dataKey="tonnage"
-          name="Lượng (tấn)"
-          stroke={c.cost}
-          strokeWidth={2}
-          dot={{ r: 3 }}
-        />
+        {showValue ? (
+          <>
+            <Bar
+              yAxisId="left"
+              dataKey="value"
+              name="Trị (tỷ VNĐ)"
+              fill={c.actual}
+              radius={[4, 4, 0, 0]}
+              maxBarSize={40}
+              onClick={(d: any) => onSelect?.(d?.key)}
+              className="cursor-pointer"
+            />
+            <Line
+              yAxisId="right"
+              type="monotone"
+              dataKey="tonnage"
+              name="Lượng (tấn)"
+              stroke={c.cost}
+              strokeWidth={2}
+              dot={{ r: 3 }}
+            />
+          </>
+        ) : (
+          <Bar
+            yAxisId="left"
+            dataKey="tonnage"
+            name="Lượng (tấn)"
+            fill={c.cost}
+            radius={[4, 4, 0, 0]}
+            maxBarSize={40}
+            onClick={(d: any) => onSelect?.(d?.key)}
+            className="cursor-pointer"
+          />
+        )}
       </ComposedChart>
     </ResponsiveContainer>
   );

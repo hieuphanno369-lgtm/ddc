@@ -6,7 +6,7 @@
  * Usage: PERF_EMAIL=... PERF_PASSWORD=... npx tsx scripts/perf/measure-pages.ts
  */
 import { addMonths, currentMonth } from '@/lib/clock';
-import { PERF_PREFIX } from '@/lib/perf-guard';
+import { assertPerfLocalBase, PERF_PREFIX } from '@/lib/perf-guard';
 import { prisma } from '@/server/db';
 
 const BASE = process.env.PERF_BASE ?? 'http://localhost:3001';
@@ -15,6 +15,13 @@ const PASSWORD = process.env.PERF_PASSWORD;
 
 if (!EMAIL || !PASSWORD) {
   console.error('[measure-pages] Thieu env PERF_EMAIL / PERF_PASSWORD.');
+  process.exit(1);
+}
+
+try {
+  assertPerfLocalBase(BASE, process.env.PERF_ALLOW_REMOTE === '1');
+} catch (err) {
+  console.error(err instanceof Error ? err.message : err);
   process.exit(1);
 }
 
@@ -82,8 +89,15 @@ async function main() {
   console.log(`[measure-pages] Dang nhap ${EMAIL} tai ${BASE}...`);
   const jar = await login();
 
+  // Buoc 11 muc 4b: goi 1 URL lam nong KHONG thuoc /overview truoc tien - tach chi phi cold-start
+  // tien trinh (nap module, mo pool Prisma) ra khoi lan do /overview dau tien. Khong tinh vao ket qua.
+  const warmupMs = await measure(`${BASE}/vi/projects/1`, jar);
+  console.log(`[measure-pages] Lam nong (khong tinh diem): /vi/projects/1 -> ${warmupMs.toFixed(0)} ms`);
+
+  // 'all' do TRUOC TIEN (khoa cache loadSpiCpiTrend/loadSCurve theo filters, chua am cho thang
+  // nao) roi moi den cac thang khac - khong de thang truoc "an theo" cache cua thang sau.
   const months = [currentMonth(), ...Array.from({ length: 4 }, (_, i) => addMonths(currentMonth(), -(i + 1)))];
-  const overviewUrls = [...months.map((m) => `${BASE}/vi/overview?month=${m}`), `${BASE}/vi/overview?month=all`];
+  const overviewUrls = [`${BASE}/vi/overview?month=all`, ...months.map((m) => `${BASE}/vi/overview?month=${m}`)];
   const detailUrls = [...perfProjects.map((p) => `${BASE}/vi/projects/${p.id}`), `${BASE}/vi/projects/1`];
 
   const results: { url: string; ms: number }[] = [];

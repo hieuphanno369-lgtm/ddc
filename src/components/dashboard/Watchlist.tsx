@@ -5,12 +5,12 @@ import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { THRESHOLDS } from '@/lib/thresholds';
 import { maxHeightForRows, WATCHLIST_VISIBLE_ROWS } from '@/lib/visible-rows';
-import type { ProjectSummary } from '@/server/queries';
+import type { SafeProjectSummary } from '@/lib/finance-gate';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { IconChevronRight } from '@/components/icons';
 
-function reasonsOf(t: (k: string) => string, s: ProjectSummary) {
+function reasonsOf(t: (k: string) => string, s: SafeProjectSummary) {
   const reasons: string[] = [];
   if (s.spi != null && s.spi < THRESHOLDS.spiWarn) reasons.push(`${t('metric.spi')} ${s.spi.toFixed(2)}`);
   if (s.cpi != null && s.cpi < THRESHOLDS.cpiWarn) reasons.push(`${t('metric.cpi')} ${s.cpi.toFixed(2)}`);
@@ -19,7 +19,7 @@ function reasonsOf(t: (k: string) => string, s: ProjectSummary) {
   return reasons;
 }
 
-export function Watchlist({ items }: { items: ProjectSummary[] }) {
+export function Watchlist({ items }: { items: SafeProjectSummary[] }) {
   const t = useTranslations();
   const listRef = useRef<HTMLDivElement>(null);
   const [measured, setMeasured] = useState<number | null>(null);

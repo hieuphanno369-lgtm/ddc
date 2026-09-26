@@ -4,8 +4,10 @@
  */
 import { repo as prismaRepo } from './prisma-repo';
 import { readRepoPrisma } from './read-prisma';
+import { notifyRepoPrisma } from './prisma-repo-notify';
 
 /** P2B: gộp read repo vào repo (mutate object gốc) - tầng trên chỉ import `repo` như cũ. */
-export const repo = Object.assign(prismaRepo, readRepoPrisma);
+/** P3B (Task 4): gộp thêm repo kênh/người nhận thông báo. */
+export const repo = Object.assign(prismaRepo, readRepoPrisma, notifyRepoPrisma);
 export type * from './types';
 export type * from './read-types';

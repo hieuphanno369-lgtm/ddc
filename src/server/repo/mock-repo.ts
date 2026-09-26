@@ -10,6 +10,7 @@ import { ProjectCodeTakenError } from '@/lib/project-code';
 import { createReadMock } from './read-mock';
 import { makeEntryMockRepo } from './mock-repo-entry';
 import { isProjectCodeTakenIn, makeFormMockRepo } from './mock-repo-form';
+import { makeNotifyMockRepo, resetNotifyMock } from './mock-repo-notify';
 import type {
   ActivityLogEntry,
   AlertLog,
@@ -100,6 +101,7 @@ function getData(): RepoData {
 
 const coreRepo = {
   reset() {
+    resetNotifyMock();
     delete globalForData.__ddcRepoData;
     if (PERSIST_ENABLED) {
       try {
@@ -426,11 +428,19 @@ const coreRepo = {
     getData().userRoles.push(account);
   },
 
-  setUserRole(email: string, role: Role, canViewFinance: boolean) {
+  setUserRole(email: string, role: Role, _canViewFinanceHint: boolean, changedBy = 'system') {
     const u = this.findAccount(email);
-    if (u) {
-      u.role = role;
-      u.canViewFinance = canViewFinance;
+    if (!u) return;
+    // T-2 (danh-gia-bao-mat.md): tham số `_canViewFinanceHint` do caller (actions.ts) truyền bị BỎ QUA
+    // có chủ đích - đổi role không được âm thầm ghi đè canViewFinance Q6 đã đặt riêng cho từng người.
+    // viewer -> luôn tắt; data-entry -> luôn bật (T-1, nay là quyết định lâu dài QĐ-10); vai
+    // trò khác -> giữ nguyên giá trị hiện có.
+    const prev = u.canViewFinance;
+    const next = role === 'viewer' ? false : role === 'data-entry' ? true : prev;
+    u.role = role;
+    if (next !== prev) {
+      this.logAudit('user_roles', u.email, 'canViewFinance', String(prev), String(next), changedBy);
+      u.canViewFinance = next;
     }
   },
 
@@ -957,6 +967,13 @@ const coreRepo = {
   },
 };
 
-export const repo = { ...coreRepo, ...makeEntryMockRepo({ getData, persist }), ...makeFormMockRepo({ getData, persist }) };
-/** P2B: gộp read repo vào repo (mutate object gốc) - tầng trên chỉ import `repo` như cũ. */
-Object.assign(repo, createReadMock(getData));
+/**
+ * P2B/P3A/P3B: gộp read repo + repo thông báo vào repo qua `Object.assign` (mutate object gốc, tầng
+ * trên chỉ import `repo` như cũ) - dùng dạng gán lại (không phải statement rời) để kiểu tĩnh của
+ * `repo` gồm đủ cả 2 phần gộp (test import thẳng `./mock-repo` mới thấy được các hàm này).
+ */
+export const repo = Object.assign(
+  { ...coreRepo, ...makeEntryMockRepo({ getData, persist }), ...makeFormMockRepo({ getData, persist }) },
+  createReadMock(getData),
+  makeNotifyMockRepo({ getData, persist }),
+);

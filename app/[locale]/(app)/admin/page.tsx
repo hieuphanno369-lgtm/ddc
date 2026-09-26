@@ -4,7 +4,7 @@ import { getCurrentUser, homeForRole } from '@/lib/session';
 import { repo } from '@/server/repo';
 import { historyMonths } from '@/lib/clock';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
-import { IconFactory, IconMoney, IconUser } from '@/components/icons';
+import { IconAlert, IconFactory, IconMoney, IconUser } from '@/components/icons';
 import { ResetDataButton } from '@/components/admin/ResetDataButton';
 import { UserEditor } from '@/components/admin/UserEditor';
 import { ActivityViewer } from '@/components/admin/ActivityViewer';
@@ -13,6 +13,8 @@ import { DeleteProject } from '@/components/admin/DeleteProject';
 import { AuditMiniTable } from '@/components/admin/AuditMiniTable';
 import { FactoryEditor } from '@/components/admin/FactoryEditor';
 import { ExchangeRateEditor } from '@/components/admin/ExchangeRateEditor';
+import { NotifyChannelEditor } from '@/components/admin/NotifyChannelEditor';
+import { hasSecretKey } from '@/lib/secret-box';
 import { logSince } from '@/lib/log-paging';
 import { getAuditLogPage } from '@/server/audit-log-page';
 
@@ -112,6 +114,13 @@ export default async function AdminPage() {
             rates={await repo.getExchangeRates()}
             lastRun={(await repo.getRecentJobRuns('rates_monthly', 1))[0] ?? null}
           />
+        </CardBody>
+      </Card>
+
+      <Card className="overflow-visible">
+        <CardHeader title={t('notifyAdmin.title')} action={<IconAlert size={18} />} />
+        <CardBody>
+          <NotifyChannelEditor channels={await repo.listNotifyChannels()} recipients={await repo.getNotifyRecipients()} secretKeyReady={hasSecretKey()} />
         </CardBody>
       </Card>
 

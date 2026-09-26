@@ -78,6 +78,31 @@ async function benchDetail(projectId: number, month: string): Promise<number> {
     ]));
 }
 
+/** Do rieng tung ham cua nhanh 'all' (tuan tu, khong Promise.all) de chi ra ham cham nhat. */
+async function benchOverviewBreakdown(month: string): Promise<{ label: string; median: number; max: number }[]> {
+  const fns: { label: string; run: () => Promise<unknown> }[] = [
+    { label: 'getPortfolioKpis', run: () => getPortfolioKpis(month, {}) },
+    { label: 'getStatusBreakdown', run: () => getStatusBreakdown(month, {}) },
+    { label: 'getTonnageValueByGroup', run: () => getTonnageValueByGroup(month, 'team', {}) },
+    { label: 'getCapacityData', run: () => getCapacityData(month, {}) },
+    { label: 'getSpiCpiTrend', run: () => getSpiCpiTrend({}) },
+    { label: 'getPortfolioSCurve', run: () => getPortfolioSCurve({}) },
+    { label: 'getWatchlist', run: () => getWatchlist(month, {}) },
+    { label: 'listProjects', run: () => listProjects({ month, pageSize: 10 }) },
+    { label: 'getOverdueScorecard', run: () => getOverdueScorecard(month, {}) },
+    { label: 'getMissingMonth', run: () => getMissingMonth(month) },
+    { label: 'repo.getDims', run: () => repo.getDims() },
+    { label: 'repo.readLastAuditAt', run: () => repo.readLastAuditAt() },
+  ];
+  const out: { label: string; median: number; max: number }[] = [];
+  for (const f of fns) {
+    const times: number[] = [];
+    for (let i = 0; i < ROUNDS; i++) times.push(await timeit(f.run));
+    out.push({ label: f.label, median: median(times), max: Math.max(...times) });
+  }
+  return out;
+}
+
 async function main() {
   const month = currentMonth();
   const perfProject = await prisma.project.findFirst({
@@ -103,6 +128,14 @@ async function main() {
     const times: number[] = [];
     for (let i = 0; i < ROUNDS; i++) times.push(await s.run());
     console.log(`| ${s.label} | ${median(times).toFixed(0)} | ${Math.max(...times).toFixed(0)} |`);
+  }
+
+  console.log(`\n[bench-data] Phan ra tung ham nhanh 'all' (tuan tu, khong Promise.all, ${ROUNDS} vong/ham):\n`);
+  console.log('| Ham | Median (ms) | Max (ms) |');
+  console.log('|---|---|---|');
+  const breakdown = await benchOverviewBreakdown('all');
+  for (const b of [...breakdown].sort((a, b) => b.median - a.median)) {
+    console.log(`| ${b.label} | ${b.median.toFixed(0)} | ${b.max.toFixed(0)} |`);
   }
 
   await prisma.$disconnect();

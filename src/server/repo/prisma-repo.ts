@@ -639,11 +639,20 @@ const coreRepo = {
     });
   },
 
-  async setUserRole(email: string, role: Role, canViewFinance: boolean) {
-    await prisma.userRole.updateMany({
-      where: { email: email.toLowerCase() },
-      data: { role, canViewFinance },
-    });
+  async setUserRole(email: string, role: Role, _canViewFinanceHint: boolean, changedBy = 'system') {
+    // T-2 (danh-gia-bao-mat.md): tham số `_canViewFinanceHint` do caller (actions.ts) truyền bị BỎ QUA
+    // có chủ đích - đổi role không được âm thầm ghi đè canViewFinance Q6 đã đặt riêng cho từng người.
+    // viewer -> luôn tắt; data-entry -> luôn bật (T-1, tạm thời tới khi P3A gate form nhập liệu); vai
+    // trò khác -> giữ nguyên giá trị hiện có.
+    const e = email.toLowerCase();
+    const existing = await prisma.userRole.findUnique({ where: { email: e } });
+    if (!existing) return;
+    const prev = existing.canViewFinance;
+    const next = role === 'viewer' ? false : role === 'data-entry' ? true : prev;
+    await prisma.userRole.update({ where: { email: e }, data: { role, canViewFinance: next } });
+    if (next !== prev) {
+      await this.logAudit('user_roles', e, 'canViewFinance', String(prev), String(next), changedBy);
+    }
   },
 
   async removeUserRole(email: string) {

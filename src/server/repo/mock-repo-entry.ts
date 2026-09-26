@@ -312,8 +312,13 @@ export function makeEntryMockRepo({ getData, persist }: EntryMockDeps) {
      * bất kể đóng/mở (K6), HOẶC đang có alert MỞ cùng (projectId, ruleCode). Trả số dòng tạo mới.
      */
     insertEngineAlerts(rows: NewEngineAlert[]): number {
+      return this.insertEngineAlertsReturningIds(rows).length;
+    },
+
+    /** Task 4 (P3B): giống `insertEngineAlerts` nhưng trả id các dòng TẠO MỚI (để xếp hàng gửi thông báo). */
+    insertEngineAlertsReturningIds(rows: NewEngineAlert[]): number[] {
       const d = getData();
-      let created = 0;
+      const ids: number[] = [];
       for (const r of rows) {
         const dup = d.alerts.some((a) => a.projectId === r.projectId && a.dedupeKey === r.dedupeKey);
         const openSameRule = d.alerts.some((a) => a.projectId === r.projectId && a.ruleCode === r.ruleCode && !a.closedAt);
@@ -326,10 +331,24 @@ export function makeEntryMockRepo({ getData, persist }: EntryMockDeps) {
           notifyChannel: null, notifySentAt: null, notifyError: null, notifyAttempts: 0,
         };
         d.alerts.push(entry);
-        created++;
+        ids.push(id);
       }
-      if (created > 0) persist();
-      return created;
+      if (ids.length > 0) persist();
+      return ids;
+    },
+
+    /**
+     * Q6 (2026-09-25, chủ dự án chốt): Quản trị bật/tắt quyền xem tài chính cho TỪNG tài khoản (độc lập
+     * với role) - đọc bởi `resolveAccess()` (src/lib/auth.ts). false = not_found.
+     */
+    setUserCanViewFinance(email: string, canViewFinance: boolean, by: string): boolean {
+      const d = getData();
+      const u = d.userRoles.find((x) => x.email === email.toLowerCase());
+      if (!u) return false;
+      auditMock(d, 'user_roles', u.email, 'canViewFinance', String(u.canViewFinance), String(canViewFinance), by);
+      u.canViewFinance = canViewFinance;
+      persist();
+      return true;
     },
   };
 }

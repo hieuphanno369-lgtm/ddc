@@ -2,6 +2,7 @@ import { addDaysIso, currentMonth, todayIso, type IsoDate } from '@/lib/clock';
 import { ALERT_DEADLINE_DAYS, evaluateProjectAlerts } from '@/lib/alert-rules';
 import type { NewEngineAlert } from './repo/types';
 import { repo } from './repo';
+import { queueAlertNotifications } from './notify/dispatch';
 
 /** Tổng theo ngày, lấy ngày lớn nhất (gần hôm nay nhất) có `planned > 0`. */
 function latestDayTotal(
@@ -26,7 +27,9 @@ function latestDayTotal(
  * T11 (Task 8, P2A): chạy engine cảnh báo cho 1 nhóm dự án (hoặc tất cả) - đánh giá luật (Q9)
  * rồi ghi các alert MỚI (`repo.insertEngineAlerts` tự chống trùng - K6).
  */
-export async function runAlertEngine(opts: { projectIds?: number[] } = {}): Promise<{ checked: number; created: number }> {
+export async function runAlertEngine(
+  opts: { projectIds?: number[] } = {},
+): Promise<{ checked: number; created: number; createdIds: number[] }> {
   const ym = currentMonth();
   const today = todayIso();
   const from = addDaysIso(today, -6);
@@ -82,8 +85,9 @@ export async function runAlertEngine(opts: { projectIds?: number[] } = {}): Prom
     }
   }
 
-  const created = newAlerts.length > 0 ? await repo.insertEngineAlerts(newAlerts) : 0;
-  return { checked, created };
+  const createdIds = newAlerts.length > 0 ? await repo.insertEngineAlertsReturningIds(newAlerts) : [];
+  if (createdIds.length) queueAlertNotifications(createdIds);
+  return { checked, created: createdIds.length, createdIds };
 }
 
 /** Gọi sau mỗi lần lưu số liệu - KHÔNG BAO GIỜ throw (không được làm hỏng thao tác lưu chính). */

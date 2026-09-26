@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
-import type { ProjectSummary } from '@/server/queries';
+import type { SafeProjectSummary } from '@/lib/finance-gate';
 import { typeKey } from '@/lib/labels';
 import { formatPct, formatRatio, formatTyd } from '@/lib/format';
 import { THRESHOLDS } from '@/lib/thresholds';
@@ -12,13 +12,14 @@ import { Badge } from '@/components/ui/Badge';
 import { IconChevronRight } from '@/components/icons';
 
 interface Props {
-  items: ProjectSummary[];
+  items: SafeProjectSummary[];
   total: number;
   page: number;
   totalPages: number;
+  canViewFinance: boolean;
 }
 
-export function ProjectTable({ items, total, page, totalPages }: Props) {
+export function ProjectTable({ items, total, page, totalPages, canViewFinance }: Props) {
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
@@ -49,7 +50,7 @@ export function ProjectTable({ items, total, page, totalPages }: Props) {
           style={{ width: 'auto', padding: '5px 10px' }}
         >
           <option value="priority">Priority</option>
-          <option value="value">{t('common.value')}</option>
+          {canViewFinance && <option value="value">{t('common.value')}</option>}
           <option value="spi">SPI</option>
           <option value="pctActual">% TT</option>
           <option value="name">{t('form.projectName')}</option>
@@ -72,7 +73,7 @@ export function ProjectTable({ items, total, page, totalPages }: Props) {
               <th className="num">% TT</th>
               <th className="num">SPI</th>
               <th className="num">CPI</th>
-              <th className="num">{t('metric.contractValue')}</th>
+              {canViewFinance && <th className="num">{t('metric.contractValue')}</th>}
               <th />
             </tr>
           </thead>
@@ -106,7 +107,7 @@ export function ProjectTable({ items, total, page, totalPages }: Props) {
                     {formatRatio(s.cpi)}
                   </Badge>
                 </td>
-                <td className="num">{formatTyd(s.contractValue, locale)}</td>
+                {canViewFinance && <td className="num">{formatTyd(s.contractValue, locale)}</td>}
                 <td>
                   <Link href={`/projects/${s.id}`} className="text-label3">
                     <IconChevronRight size={18} />
@@ -116,7 +117,7 @@ export function ProjectTable({ items, total, page, totalPages }: Props) {
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={13} className="empty">
+                <td colSpan={canViewFinance ? 13 : 12} className="empty">
                   {t('common.noData')}
                 </td>
               </tr>
