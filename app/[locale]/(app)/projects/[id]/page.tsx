@@ -68,12 +68,15 @@ export default async function ProjectDetailPage({
   params: { id: string; locale: string };
   searchParams: Record<string, string | string[] | undefined>;
 }) {
-  const id = Number(params.id);
   // month rác (vd ?month=abc) từng lọt qua thẳng vào endOfMonth() và ném RangeError (500) -
   // validate đúng format 'YYYY-MM' trước khi dùng, sai thì rơi về tháng hiện tại.
   const month = typeof searchParams.month === 'string' && isValidYearMonth(searchParams.month) ? searchParams.month : currentMonth();
   const locale = await getLocale();
   const user = await requireUser(locale);
+  // L-1 (security P3D-B): matcher middleware bỏ qua đường dẫn có dấu chấm ('/vi/projects/1.0'),
+  // mà Number() lại nhận '1.0', '1e0', '0x1' -> chỉ nhận số nguyên dương viết chuẩn.
+  if (!/^[1-9]\d*$/.test(params.id)) notFound();
+  const id = Number(params.id);
   const t = await getTranslations();
   const canViewFinance = user.canViewFinance ?? false;
   // B-4 (danh-gia.md, vòng 2 - BOLA/IDOR): data-entry/viewer chỉ được xem dự án mình có trong

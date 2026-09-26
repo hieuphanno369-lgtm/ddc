@@ -142,6 +142,15 @@ describe('projects/[id]/page.tsx - chua tu kiem dang nhap (S-1)', () => {
     expect(url).toBe('/vi/login');
     expect(getProject).not.toHaveBeenCalled();
   });
+
+  // L-1 (security P3D-B): matcher middleware bo qua duong dan co dau cham, '/vi/projects/1.0' lot
+  // vao page va Number('1.0') === 1 -> id phai la so nguyen duong viet chuan, sai thi NOT_FOUND.
+  it.each(['1.0', '1.x', '1e0', '0x1', '01', '0', '-1', ' 1', 'abc'])('admin, id "%s" -> NOT_FOUND, khong doc getProject', async (id) => {
+    login(user('admin'));
+    const getProject = vi.spyOn(repo, 'getProject');
+    await expect(ProjectDetailPage({ params: { id, locale: 'vi' }, searchParams: {} })).rejects.toThrow('NOT_FOUND');
+    expect(getProject).not.toHaveBeenCalled();
+  });
 });
 
 describe('import/page.tsx - chua tu kiem dang nhap (S-1)', () => {
