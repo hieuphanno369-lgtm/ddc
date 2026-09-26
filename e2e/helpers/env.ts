@@ -66,6 +66,15 @@ export function parseE2eBaseUrl(nextAuthUrl: string): { baseURL: string; port: s
  * `public` (hoặc không có query nào). Trước đây hàm bỏ qua toàn bộ query string, nên
  * `?host=<máy khác>` lọt qua guard trong khi tầng kết nối của Prisma ưu tiên `host` trong query
  * hơn host trong URL - guard tưởng là `localhost` nhưng kết nối thực lại đi nơi khác.
+ *
+ * Vòng 2 (ket-qua-test.md muc "Vong 2"): bản vá L-1 dùng `.every((k) => k === 'schema')` +
+ * `.get('schema')` chỉ kiểm TÊN key, không đếm SỐ LẦN key `schema` xuất hiện - `.get()` luôn đọc
+ * giá trị ĐẦU TIÊN nên `?schema=public&schema=evil` vẫn qua được guard trong khi giá trị `evil`
+ * vẫn nằm nguyên trong chuỗi kết nối thật truyền cho Prisma/pg (lặp lại đúng mô hình lỗi của L-1
+ * gốc: bộ đọc dùng để kiểm khác bộ đọc dùng để kết nối). Hàm cũng thiếu kiểm `u.hash` dù
+ * `parseE2eBaseUrl` trong cùng file đã chặn hash cho `NEXTAUTH_URL` - sửa lại: đếm tổng số cặp
+ * query (`entries()`), chỉ chấp nhận 0 cặp hoặc đúng 1 cặp `['schema','public']`, và luôn chặn
+ * `u.hash !== ''`.
  */
 export function isExpectedDbUrl(dbUrl: string, port: string): boolean {
   let u: URL;
@@ -75,9 +84,10 @@ export function isExpectedDbUrl(dbUrl: string, port: string): boolean {
     return false;
   }
   if (u.hostname !== 'localhost' || u.port !== '5433') return false;
-  if (![...u.searchParams.keys()].every((k) => k === 'schema') || (u.searchParams.get('schema') ?? 'public') !== 'public') {
-    return false;
-  }
+  if (u.hash !== '') return false;
+  const entries = [...u.searchParams.entries()];
+  if (entries.length > 1) return false;
+  if (entries.length === 1 && (entries[0][0] !== 'schema' || entries[0][1] !== 'public')) return false;
   return E2E_TARGETS.some((t) => t.port === port && u.pathname === '/' + t.dbName);
 }
 

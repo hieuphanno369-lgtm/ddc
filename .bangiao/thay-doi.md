@@ -159,3 +159,75 @@ guard cũ trả `true`, đúng kỳ vọng).
   bộ + 6 lần lặp lại của `--repeat-each=6`, không tính 3 lần "setup" thuộc file khác).
 - Mục 5: `3/64 (~4.7%)` → sửa thành `1/62 (~1.6%)` (đối chiếu `thay-doi.md` Bước 1: `61 passed / 1
   failed` = 62 test, 1 lần đỏ ở lần chạy đầu của coder).
+
+## Debugger vòng 1 - sửa 4 test đỏ ở Vòng 2 (`ket-qua-test.md`, commit tester `896217b`)
+
+> Skill đã dùng: `systematic-debugging`, `investigate-first`. Chỉ sửa 1 file sản phẩm:
+> `e2e/helpers/env.ts` (hàm `isExpectedDbUrl`). Không sửa `e2e/helpers/env.test.ts`.
+
+### Root cause (kiểm chứng bằng `node -e` trực tiếp, không đoán)
+
+Hàm `isExpectedDbUrl` sau bản vá L-1 (vòng 1) dùng điều kiện:
+```
+if (![...u.searchParams.keys()].every((k) => k === 'schema') || (u.searchParams.get('schema') ?? 'public') !== 'public') return false;
+```
+Điều kiện này có 2 lỗ hổng, cả 2 đều là lỗi logic thật (không phải test tester viết sai):
+
+1. **`.every((k) => k === 'schema')` chỉ kiểm TÊN các key, không đếm SỐ LẦN key `schema` xuất
+   hiện.** Khi `URLSearchParams` có 2 cặp `schema=...` (vd `?schema=public&schema=evil`),
+   `.keys()` trả về `['schema', 'schema']` - mọi phần tử đều bằng `'schema'` nên `.every()` vẫn
+   `true`, và `.get('schema')` chỉ đọc GIÁ TRỊ ĐẦU TIÊN (`'public'`) nên điều kiện thứ 2 cũng
+   qua. Cả đoạn code coi là hợp lệ, trong khi giá trị thứ 2 (`evil`) vẫn nằm nguyên trong chuỗi
+   `DATABASE_URL` thật được truyền thẳng cho Prisma/pg - đúng y hệt mô hình lỗi của L-1 gốc (bộ
+   đọc dùng để KIỂM tra khác với bộ đọc THỰC SỰ dùng để kết nối), chỉ khác mức rủi ro (nhắm vào
+   `schema` thay vì `host`).
+2. **Hàm hoàn toàn không kiểm `u.hash`.** File này đã có tiền lệ xử lý đúng: `parseE2eBaseUrl`
+   (cùng file, dùng cho `NEXTAUTH_URL`) đã chặn `u.hash !== ''` từ vòng 1 trước, nhưng
+   `isExpectedDbUrl` (dùng cho `DATABASE_URL`) thì không - một sự bất đối xứng không có lý do kỹ
+   thuật, khiến `...?schema=public#x` vẫn được coi là hợp lệ.
+
+Đã kiểm chứng bằng script Node độc lập (chạy `new URL(...)` thật, xem
+`u.searchParams.entries()` và `u.hash` thực tế cho 7 chuỗi biên) trước khi sửa, xác nhận đúng 2
+giả thuyết trên, không đoán mò.
+
+### Cách sửa (tối thiểu, đúng vị trí)
+
+Thay điều kiện trên bằng: đếm TỔNG SỐ CẶP query qua `[...u.searchParams.entries()]` (không chỉ
+tên key) - chỉ chấp nhận 0 cặp hoặc đúng 1 cặp `['schema', 'public']`; thêm điều kiện
+`u.hash !== '' -> false` (đối xứng với `parseE2eBaseUrl`):
+```ts
+if (u.hostname !== 'localhost' || u.port !== '5433') return false;
+if (u.hash !== '') return false;
+const entries = [...u.searchParams.entries()];
+if (entries.length > 1) return false;
+if (entries.length === 1 && (entries[0][0] !== 'schema' || entries[0][1] !== 'public')) return false;
+return E2E_TARGETS.some((t) => t.port === port && u.pathname === '/' + t.dbName);
+```
+Không dùng hướng "đếm số lần xuất hiện của riêng key `schema`" (vd `getAll('schema').length`) vì
+vấn đề KHÔNG chỉ giới hạn ở key `schema` - bất kỳ cặp query nào khác ngoài đúng 1 cặp
+`schema=public` đều phải bị từ chối (đúng tinh thần "fail-closed" của kế hoạch), nên đếm tổng số
+cặp là điều kiện chính xác và đơn giản hơn.
+
+**Đối chiếu 6 test biên trong báo cáo tester** (`?SCHEMA=public`, `?schema=public&schema=public`,
+`?schema=public&schema=evil`, `?` rỗng, `#x`, `?schema=public#x`): cả 6 case đều đúng kết quả
+"hợp lý" tester đề ra (không có case nào tester viết sai kỳ vọng) - đã kiểm lại bằng chính file
+test có sẵn, không sửa `env.test.ts`.
+
+### Cổng kiểm (chạy thật, `D:\_project\DDC_Control_Tower-C`)
+
+- `npx vitest run e2e/helpers/env.test.ts` → **31 passed (31)** (tăng từ 27 passed/4 failed).
+- `npx tsc --noEmit` → sạch, exit 0, không output.
+- `npm test` → **203 file passed | 2205 test passed** (0 fail).
+- `npx playwright test e2e/09-chan-chua-dang-nhap.spec.ts` (cổng 3003, DB `ddc_control_tower_c`,
+  `.env` thật của worktree C) → **44 passed (31.7s)** ở lần chạy thứ 3. 2 lần chạy đầu bị
+  `Error: Timed out waiting 180000ms from config.webServer` - đã điều tra riêng: không liên quan
+  tới sửa đổi (webServer chỉ gọi `next dev`, không dùng `isExpectedDbUrl`), máy đang chạy rất
+  nhiều tiến trình `node.exe` khác cùng lúc (khớp mô tả CLAUDE.md về 3 tài khoản A/B/C chạy song
+  song trên cùng máy); kiểm tay `npx next dev -p 3003` độc lập mất **53.2s** để "Ready" (bình
+  thường nhanh hơn nhiều), xác nhận là do tải máy tại thời điểm đó, không phải lỗi guard. Lần
+  chạy thứ 3 (không đổi gì khác) xanh hết 44/44. Đã kiểm cổng 3003 không còn LISTENING sau khi
+  chạy xong (chỉ còn các kết nối `TIME_WAIT` đang tự đóng).
+
+### Commit
+
+`fix(p7-c1): guard e2e chan key schema lap va fragment trong DATABASE_URL`.
