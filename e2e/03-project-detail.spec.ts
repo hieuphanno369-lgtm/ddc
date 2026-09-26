@@ -18,10 +18,14 @@ test.describe('03 - Chi tiet du an (admin, du an 1)', () => {
     const gantt = page.locator('#eq-gantt');
     await expect(gantt).toBeVisible();
     const hasChart = await gantt.locator('svg.chart').count();
-    const hasEmptyText = await gantt.getByText(vi('equipmentGantt.noPlan')).count();
+    const hasEmptyText = await gantt.getByText(vi('equipmentPlanGantt.noPlan')).count();
     expect(hasChart > 0 || hasEmptyText > 0).toBe(true);
 
-    await expect(page.locator('#res-shift')).toBeVisible();
+    const resShift = page.locator('#res-shift');
+    await expect(resShift).toBeVisible();
+    const hasShiftChart = await resShift.locator('svg.chart').count();
+    const hasShiftEmptyText = await page.getByText(vi('manpowerMonthChart.noData')).count();
+    expect(hasShiftChart > 0 || hasShiftEmptyText > 0).toBe(true);
 
     await expect(page.getByText(vi('detail.sCurve12'))).toBeVisible();
     await expect(page.getByText(vi('whatif.title'))).toBeVisible();
