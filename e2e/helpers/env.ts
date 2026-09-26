@@ -61,6 +61,11 @@ export function parseE2eBaseUrl(nextAuthUrl: string): { baseURL: string; port: s
  * L-5 (danh-gia-bao-mat.md): DATABASE_URL phải khớp CHÍNH XÁC host/port/tên DB của cặp đã đăng ký
  * có cổng trùng tham số `port` - không dùng `includes('/ddc_control_tower_b')` vì khớp nhầm cả
  * `ddc_control_tower_b2` (hoặc bất kỳ tên nào chứa chuỗi con này) và không kiểm host/port.
+ *
+ * L-1 (danh-gia.md muc CAN SUA #1): query string chỉ được chứa đúng key `schema` với giá trị
+ * `public` (hoặc không có query nào). Trước đây hàm bỏ qua toàn bộ query string, nên
+ * `?host=<máy khác>` lọt qua guard trong khi tầng kết nối của Prisma ưu tiên `host` trong query
+ * hơn host trong URL - guard tưởng là `localhost` nhưng kết nối thực lại đi nơi khác.
  */
 export function isExpectedDbUrl(dbUrl: string, port: string): boolean {
   let u: URL;
@@ -70,6 +75,9 @@ export function isExpectedDbUrl(dbUrl: string, port: string): boolean {
     return false;
   }
   if (u.hostname !== 'localhost' || u.port !== '5433') return false;
+  if (![...u.searchParams.keys()].every((k) => k === 'schema') || (u.searchParams.get('schema') ?? 'public') !== 'public') {
+    return false;
+  }
   return E2E_TARGETS.some((t) => t.port === port && u.pathname === '/' + t.dbName);
 }
 

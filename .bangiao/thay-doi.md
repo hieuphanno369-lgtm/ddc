@@ -123,3 +123,39 @@ So với kết quả nền Bước 1 (61 passed/1 failed, `02-overview.spec.ts` 
 **5.6 - Cổng kiểm cuối:** `npx tsc --noEmit` → sạch; `npm test` → `202 passed (files) | 2190 passed (tests)`.
 
 **5.7 - Commit:** `test(p7-c1): e2e ten app o sidebar/login/tab vi+en, ket qua e2e tron bo tren 3003` (kèm `AppShell.tsx` do dùng fallback).
+
+## Vòng CẦN SỬA #1 - vá L-1 (`danh-gia.md`)
+
+Nguồn: `.bangiao/danh-gia.md` mục CẦN SỬA #1. `isExpectedDbUrl` bỏ qua query string, nên
+`?host=<máy khác>` lọt qua guard trong khi tầng kết nối của Prisma ưu tiên `host` trong query hơn
+host trong URL.
+
+**File đổi:**
+- `e2e/helpers/env.test.ts`: thêm 6 case mới vào `describe('isExpectedDbUrl')`, tất cả với cổng
+  `'3003'` và DB `_c` (`?host=...` → false, `?schema=public&host=...` → false, `?options=...` →
+  false, `?schema=khac` → false, không có query → true, `?schema=public` → true).
+- `e2e/helpers/env.ts`: hàm `isExpectedDbUrl` thêm điều kiện chặn - query chỉ được chứa đúng key
+  `schema` với giá trị `public` (hoặc không có query nào), khác thì trả `false`. Cập nhật JSDoc
+  giải thích lý do (L-1).
+
+**Test đỏ trước khi sửa** (`npx vitest run e2e/helpers/env.test.ts`): `4 failed | 21 passed (25)`
+(4 case mới liên quan `?host=`, `?schema=public&host=`, `?options=`, `?schema=khac` đều fail vì
+guard cũ trả `true`, đúng kỳ vọng).
+
+**Sau khi sửa:**
+- `npx vitest run e2e/helpers/env.test.ts` → `25 passed (25)`.
+- `npx tsc --noEmit` → sạch, không output.
+- `npm test` → `203 passed (files) | 2199 passed (tests)` (tăng đúng 6 test so với 2193 trước đó).
+- `npx playwright test e2e/09-chan-chua-dang-nhap.spec.ts` (cổng 3003, DB `ddc_control_tower_c`,
+  dùng `.env` thật của worktree C) → `44 passed (44)`. Guard vẫn nhận đúng cặp DB `_c` + cổng 3003.
+  Đã kiểm cổng 3003 không còn tiến trình LISTENING sau khi chạy xong.
+
+**Commit:** `fix(p7-c1): guard e2e chi cho query schema=public trong DATABASE_URL (L-1)`.
+
+## Vòng CẦN SỬA #1 - sửa số liệu tự mâu thuẫn (`danh-gia.md` mục NÊN SỬA #2)
+
+`.bangiao/ket-qua-test.md`:
+- Mục 1: `0/79 lần chạy 02-overview.spec.ts bị đỏ` → sửa thành `0/9` (khớp mục 5 - 3 lần chạy trọn
+  bộ + 6 lần lặp lại của `--repeat-each=6`, không tính 3 lần "setup" thuộc file khác).
+- Mục 5: `3/64 (~4.7%)` → sửa thành `1/62 (~1.6%)` (đối chiếu `thay-doi.md` Bước 1: `61 passed / 1
+  failed` = 62 test, 1 lần đỏ ở lần chạy đầu của coder).

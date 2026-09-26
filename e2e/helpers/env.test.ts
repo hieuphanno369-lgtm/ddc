@@ -63,6 +63,47 @@ describe('isExpectedDbUrl', () => {
     expect(isExpectedDbUrl('', '3003')).toBe(false);
     expect(isExpectedDbUrl('khong-phai-url', '3003')).toBe(false);
   });
+
+  // L-1 (danh-gia.md muc CAN SUA #1): query string truoc day bi bo qua, nen '?host=<may khac>'
+  // lot qua guard trong khi Prisma uu tien host trong query hon host trong URL. Chi cho phep
+  // key 'schema' voi gia tri 'public' (hoac khong co query).
+  it("co query la '?host=<may khac>' -> false (truoc day loi vi bo qua query string)", () => {
+    expect(isExpectedDbUrl('postgresql://postgres:pass@localhost:5433/ddc_control_tower_c?host=db.example.com', '3003')).toBe(
+      false,
+    );
+  });
+
+  it("co ca schema=public lan host=<may khac> -> false", () => {
+    expect(
+      isExpectedDbUrl(
+        'postgresql://postgres:pass@localhost:5433/ddc_control_tower_c?schema=public&host=db.example.com',
+        '3003',
+      ),
+    ).toBe(false);
+  });
+
+  it("co query 'options' (vd doi search_path) -> false", () => {
+    expect(
+      isExpectedDbUrl(
+        'postgresql://postgres:pass@localhost:5433/ddc_control_tower_c?options=-c%20search_path%3Dx',
+        '3003',
+      ),
+    ).toBe(false);
+  });
+
+  it("schema khac 'public' -> false", () => {
+    expect(isExpectedDbUrl('postgresql://postgres:pass@localhost:5433/ddc_control_tower_c?schema=khac', '3003')).toBe(
+      false,
+    );
+  });
+
+  it('khong co query string -> true', () => {
+    expect(isExpectedDbUrl('postgresql://postgres:pass@localhost:5433/ddc_control_tower_c', '3003')).toBe(true);
+  });
+
+  it("chi co '?schema=public' -> true", () => {
+    expect(isExpectedDbUrl(C, '3003')).toBe(true);
+  });
 });
 
 describe('parseE2eBaseUrl', () => {
