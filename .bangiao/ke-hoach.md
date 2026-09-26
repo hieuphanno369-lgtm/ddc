@@ -466,7 +466,7 @@ export async function TopPriorityCard({ month, filters, canViewFinance }: { mont
 
 ---
 
-### Bước 11: Nối T4 + T5 vào trang Chi tiết — **TREO**
+### Bước 11: Nối T4 + T5 vào trang Chi tiết — **CHUYỂN SANG A** (chủ dự án chốt 2026-09-26: A làm trong P3C-A; B chốt P3C-B không có bước này)
 
 **Điều kiện bắt đầu (đủ cả 3):** (a) A đã merge P3C-A vào `main` — `git log main` có commit merge P3C-A và `src/server/repo/types.ts` trên `main` có 4 kiểu hợp đồng; `repo` có `readEquipmentPlanSegments`, `readEquipmentQuotas`, `readManpowerPlanMonths`, `readShiftRatios` (cả Prisma lẫn mock); (b) Bước 9 đã xong; (c) A KHÔNG đang nâng Next (phien-A.md). Thiếu 1 điều → ghi "Bước 11 TREO: thiếu <điều kiện>" vào `phien-B.md` và chuyển sang Bước 12.
 

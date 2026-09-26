@@ -98,23 +98,35 @@ Commit `c3ff1fe`.
   markup (không có trình duyệt thật ở bước này vì trang Chi tiết TREO ở Bước 11) — khi lên trang
   thật (Bước 11) cần chụp ảnh 1440px và 390px để xác nhận không đè chữ.
 
-## Việc chờ / TREO
-- **Bước 9–10 (key i18n mới + thẻ "Top dự án trọng điểm" lên Tổng quan): CHƯA LÀM.** Kiểm
-  `D:\_project\DDC_dieu-phoi\phien-A.md` lúc coder làm xong Bước 8 (2026-09-25): mục "Đang giữ" của A
-  vẫn còn `vi.json`, `en.json` (khoá cho vòng sửa 1 P3A) — chưa có ghi chú nhả khoá. Theo đúng chỉ
-  thị nhiệm vụ, DỪNG ở đây, không sửa `vi.json`/`en.json`. Khi A nhả khoá: làm Bước 9 (3 nhóm key
-  `topPriority.*`, `equipmentPlanGantt.*`, `manpowerMonthChart.*` — nội dung đã có sẵn trong
-  `.bangiao/ke-hoach.md` mục Bước 9) rồi Bước 10 (nối `TopPriorityList` vào `OverviewWidgets.tsx` +
-  `overview/page.tsx`, xoá `Watchlist.tsx`/`Watchlist.test.ts`).
-- **Bước 11 (nối Gantt theo đợt + chart KH nhân lực tháng vào trang Chi tiết dự án, xoá chart cũ):
-  TREO** — chờ đủ 3 điều kiện: (a) A merge P3C-A vào `main` (đủ 4 kiểu hợp đồng trong
-  `src/server/repo/types.ts` + 4 hàm `readEquipmentPlanSegments`/`readEquipmentQuotas`/
-  `readManpowerPlanMonths`/`readShiftRatios` ở cả Prisma lẫn mock), (b) Bước 9 xong, (c) A không
-  đang nâng Next. Chưa động tới `equipment-gantt.ts`, `EquipmentGantt.tsx`, `ShiftManpowerChart.tsx`,
-  trang `projects/[id]/page.tsx` — chart cũ vẫn đang chạy, KHÔNG có rủi ro regression cho người dùng.
+## Bước 9-10 (làm 2026-09-26, sau khi A nhả `vi.json`/`en.json`)
+
+### Bước 9 - Key i18n mới (`bf7fbd9`)
+- 3 nhóm mới ở cuối `vi.json`/`en.json`: `topPriority.*`, `equipmentPlanGantt.*`, `manpowerMonthChart.*`, nội dung đúng bảng trong `ke-hoach.md`.
+- Lệch nhỏ có chủ ý: trong câu `equipmentPlanGantt.help` dùng gạch thường "-" thay cho gạch ngang "–" (luật chung của chủ dự án: không dùng en/em dash).
+- `messages.test.ts`: thêm `EquipmentPlanGantt`, `ManpowerMonthChart` vào `CHANGED_SOURCES`.
+- Đã giữ rồi nhả khoá i18n trong `phien-B.md` ngay sau commit.
+
+### Bước 10 - T2 thẻ "Top dự án trọng điểm" lên Tổng quan (`7526d53`)
+- `Watchlist.tsx` đổi tên thành `TopPriorityList.tsx` (git mv, giữ khung đo 5 dòng + cuộn); xoá `Watchlist.test.ts`.
+- Mỗi dòng: chấm `var(--danger)` nếu `isBehindSchedule`, ngược lại `var(--ok)`; badge "Trễ tiến độ"/"Đúng tiến độ"; `% Thực tế`/`% Kế hoạch` qua `formatPct` theo locale; không hiện số tiền.
+- `OverviewWidgets.tsx`: `WatchlistCard` thay bằng `TopPriorityCard` gọi `loadTopPriority` rồi **`maskProjectSummaries(items, canViewFinance)`** (N-3). `AlertBanner` giữ nguyên `loadWatchlist`.
+- `overview/page.tsx`: thay thẻ cùng chỗ, cùng `Suspense`.
+- Test: `TopPriorityList.test.ts` 7 ca (cuộn 7 dòng, không cuộn 3 dòng, trễ/đúng tiến độ, link + %, rỗng, không lộ số tiền); `overview-finance-gate.test.ts` đổi sang `TopPriorityCard`, viewer: `contractValue`/`eac`/`vac` = null, admin: giữ 123.4.
+- E2E trên cổng 3001, DB B: `02-overview` + `08-finance-gate` = 8/8 xanh.
+- Trình duyệt thật: ảnh `.bangiao/anh-test/p3cb-top-priority-{admin-1440,admin-390,viewer-1440}.png`. Seed có 3 dự án P0 đang triển khai (2 trễ xếp trước, 1 đúng tiến độ), không cuộn ngang ở 390px. Ca > 5 dòng chỉ kiểm bằng unit test vì seed không đủ dự án P0.
+
+### Mốc cuối (sau Bước 10)
+`npx tsc --noEmit` sạch. `npm test` = **152 file / 1702 test xanh** (mốc sau tester Bước 1-8: 152/1694).
+`npx eslint` không chạy được: repo chưa có cấu hình ESLint (có từ trước, không do P3C-B), ghi nợ.
+
+## Bước 11 - CHUYỂN SANG A (chủ dự án chốt 2026-09-26)
+- Chủ dự án quyết: B chốt và merge P3C-B **không có Bước 11**; A làm Bước 11 ngay trong P3C-A (sau khi có 4 hàm repo của hợp đồng).
+- Hệ quả trên `main` sau khi merge P3C-B: `EquipmentPlanGantt`, `ManpowerMonthChart`, `src/lib/p3c-contract.ts` đã có và đã test nhưng **chưa được trang nào dùng**; trang Chi tiết vẫn chạy chart cũ (`EquipmentGantt`, `ShiftManpowerChart`), không có rủi ro hồi quy cho người dùng.
+- Hướng dẫn cho A: `.bangiao/ke-hoach.md` mục Bước 11 (sẽ được lưu ở archive) và `D:\_project\DDC_dieu-phoi\lenh-cho-A-2026-09-27.md`.
 
 ## Lệch so với kế hoạch
-Không có — Bước 1-8 làm đúng theo `.bangiao/ke-hoach.md`, không đổi tên/kiểu hợp đồng, không đụng
+Bước 11 chuyển sang A (quyết định của chủ dự án, xem trên). Gạch ngang trong 1 câu i18n đổi thành gạch thường.
+Bước 1-8 làm đúng theo `.bangiao/ke-hoach.md`, không đổi tên/kiểu hợp đồng, không đụng
 file nóng nào ngoài phạm vi cho phép.
 
 ## Nợ để sau (ghi lại, không tự sửa)
