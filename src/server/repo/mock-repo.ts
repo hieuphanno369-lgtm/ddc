@@ -849,16 +849,16 @@ const coreRepo = {
 
   createProject(input: CreateProjectInput, changedBy = 'system'): Project {
     const d = getData();
-    if (input.currentAliasCode && isProjectCodeTakenIn(d, input.currentAliasCode, null)) {
-      throw new ProjectCodeTakenError(input.currentAliasCode);
-    }
     const id = d.projects.reduce((m, p) => Math.max(m, p.id), 0) + 1;
     const code = `M-${String(id).padStart(5, '0')}`;
+    // F-1 (vòng sửa 1, vòng 2): kiểm trùng cả mã tự sinh khi không nhập mã - đồng bộ prisma-repo.
+    const finalCode = input.currentAliasCode ?? code;
+    if (isProjectCodeTakenIn(d, finalCode, null)) throw new ProjectCodeTakenError(finalCode);
     const now = new Date().toISOString();
     const p: Project = {
       id,
       masterCode: code,
-      currentAliasCode: input.currentAliasCode ?? code,
+      currentAliasCode: finalCode,
       projectName: input.projectName,
       customerId: input.customerId,
       teamKdId: input.teamKdId,

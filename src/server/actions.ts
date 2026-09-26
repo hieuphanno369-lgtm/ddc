@@ -7,7 +7,7 @@ import { getCurrentUser, type CurrentUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
 import { hashPassword, verifyPassword } from '@/lib/password';
 import { calcChainPctActual, findCurrentStage, normPct, validateStageWeights } from '@/lib/stages';
-import { ProjectCodeTakenError } from '@/lib/project-code';
+import { isReservedProjectCode, ProjectCodeTakenError } from '@/lib/project-code';
 import { cellText, type CellValue } from '@/lib/daily-import';
 import { assertXlsxInflatedSize, readBoundedSheet } from './daily-import';
 import type { CreateProjectInput, CurrencyCode, KeyMilestoneInput, Market, Priority, Project, ProjectType, Role, StageCode, StageWeightInput } from './repo/types';
@@ -224,6 +224,12 @@ export async function createProjectAction(
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
   const { keyMilestones, stageWeights, currentAliasCode, ...rest } = parsed.data;
 
+  // F-1 (vòng sửa 1, vòng 2): chặn gõ tay mã theo mẫu masterCode tự sinh ('M-00001') ngay lúc TẠO
+  // dự án - trước đây chỉ chặn ở changeProjectCodeAction, cho phép người tạo "cướp trước" mã tự sinh
+  // của một dự án tương lai (chưa được tạo). Dự án mới chưa có masterCode nên không có ngoại lệ nào.
+  if (currentAliasCode && isReservedProjectCode(currentAliasCode, null)) {
+    return { ok: false, error: 'code_reserved' };
+  }
   if (currentAliasCode && (await repo.isProjectCodeTaken(currentAliasCode, null))) {
     return { ok: false, error: 'code_taken' };
   }

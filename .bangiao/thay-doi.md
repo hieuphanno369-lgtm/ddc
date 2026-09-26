@@ -308,3 +308,15 @@ này. Đã đổi sang đọc từ `parsed.data.patch` để ép hoa/validate th
 4. **`isReservedProjectCode`** chỉ chặn ở `changeProjectCodeAction`, KHÔNG áp cho `currentAliasCode` lúc
    TẠO mới dự án (`createProjectAction`) — nếu muốn chặn luôn ở tạo mới thì cần thêm ở `mục để sau`,
    ngoài phạm vi vòng sửa 1 (bản kế hoạch chỉ yêu cầu ở `changeProjectCodeAction`).
+
+## Vòng sửa 1, vòng 2 (vá F-1 + N-1 theo `danh-gia-bao-mat.md`) - 2026-09-26
+
+- **F-1 (a)** `src/server/actions.ts` `createProjectAction`: nhập `currentAliasCode` theo mẫu `M-\d+` (không phân biệt hoa thường, bỏ khoảng trắng 2 đầu) → trả `code_reserved`, không tạo dự án.
+- **F-1 (c)** `src/server/repo/prisma-repo.ts` `createProject`: nhánh không nhập mã (dùng mã tự sinh `M-<id>`) nay cũng khoá advisory + `isProjectCodeTakenWith(tx, ...)`, trùng thì ném `ProjectCodeTakenError`.
+  Mock-repo đồng bộ: kiểm trùng cả mã tự sinh.
+- **N-1** `src/server/repo/prisma-repo-form.ts`: thêm `isP2002On(e, targets)` so nguyên mảng `meta.target`.
+  Dạng thật đã xác nhận trên DB `ddc_control_tower` (transaction tự rollback): mã CT `['lower(currentAliasCode)']`, `['masterCode']`; 1 PIC `['projectId']`; khoá chính thành viên `['projectId','userEmail']`.
+  `createProject` và `changeProjectCode` chỉ map khi target là index mã CT; `setProjectMember` chỉ map `pic_exists` khi target là `['projectId']`, còn lại ném nguyên lỗi gốc.
+- Test mới: `actions-key-milestones.test.ts` (4 ca F-1), `prisma-repo-create-project-vong-sua-1-r2.test.ts` (7 ca F-1 (c) + N-1), `prisma-repo-form-p2002.test.ts` (3 ca), thêm 1 ca khoá chính trong `prisma-repo-form.test.ts`.
+  3 test cũ giả lập P2002 không có `meta.target` được thêm target thật; chú thích test ranh giới trong `form-vong-sua-1.qa.test.ts` cập nhật (repo vẫn không chặn, action chặn).
+- Cổng: `tsc` sạch, `npm test` 156 file / 1731 test xanh, `check:read` OK.

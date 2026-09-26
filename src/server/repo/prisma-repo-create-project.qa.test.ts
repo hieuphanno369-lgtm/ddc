@@ -117,7 +117,7 @@ describe('prisma-repo.createProject - muc 6 (S-2, vong sua 1): trung ma trong tx
   });
 
   it('P2002 tu Postgres (race hiem, 2 request gan nhu dong thoi) -> bat va nem lai ProjectCodeTakenError, khong phai loi tho', async () => {
-    projectAliasCreate.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError('trung', { code: 'P2002', clientVersion: '6.19.3' }));
+    projectAliasCreate.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError('trung', { code: 'P2002', clientVersion: '6.19.3', meta: { target: ['lower(currentAliasCode)'] } }));
 
     await expect(repo.createProject({ ...BASE_INPUT, currentAliasCode: 'CT-RACE' }, 'admin@x'))
       .rejects.toBeInstanceOf(ProjectCodeTakenError);

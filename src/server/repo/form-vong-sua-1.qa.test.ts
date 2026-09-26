@@ -80,11 +80,10 @@ describe('setProjectMember (mock-repo) - S-6: du an MOI TAO (chua co PIC tu seed
   });
 });
 
-describe('doi chieu: isReservedProjectCode KHONG duoc ap dung o createProject (chi doc ranh gioi da cong bo o thay-doi.md muc "de sau")', () => {
-  it('tao du an moi voi currentAliasCode dang M-00099 (mau tu sinh) VAN tao duoc (chua chan o tang tao moi)', () => {
-    // Ghi lai ranh gioi CO CHU DICH cua vong sua 1 (thay-doi.md, "Rui ro... muc 4"): isReservedProjectCode
-    // chi duoc goi trong changeProjectCodeAction, KHONG goi trong createProjectAction/repo.createProject.
-    // Neu hanh vi nay thay doi trong tuong lai (chan luon o tao moi), test nay se do va can cap nhat.
+describe('doi chieu: isReservedProjectCode KHONG ap dung o tang repo.createProject (chan o tang action)', () => {
+  it('repo.createProject voi currentAliasCode dang M-00099 (mau tu sinh) VAN tao duoc o tang repo', () => {
+    // Vong sua 1, vong 2 (F-1): createProjectAction da chan mau M-\d+ (tra 'code_reserved', xem
+    // actions-key-milestones.test.ts). Tang repo khong chan lai (createProjectAction la noi duy nhat goi repo.createProject).
     expect(isReservedProjectCode('M-00099')).toBe(true);
     const created = repo.createProject({ ...BASE_INPUT, currentAliasCode: 'M-00099' }, 'admin@x');
     expect(created.currentAliasCode).toBe('M-00099');

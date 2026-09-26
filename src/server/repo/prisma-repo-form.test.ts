@@ -131,7 +131,7 @@ describe('prisma-repo.changeProjectCode', () => {
   });
 
   it('S-2: P2002 gia lap khi update -> "taken"', async () => {
-    projectUpdate.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError('trung', { code: 'P2002', clientVersion: '6.19.3' }));
+    projectUpdate.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError('trung', { code: 'P2002', clientVersion: '6.19.3', meta: { target: ['lower(currentAliasCode)'] } }));
     const res = await repo.changeProjectCode(7, 'NEW-CODE-2', 'ly do', 'admin@x', '2026-09-16');
     expect(res).toBe('taken');
   });
@@ -191,9 +191,14 @@ describe('prisma-repo.setProjectMember', () => {
   });
 
   it('S-6: P2002 gia lap (partial unique index) -> "pic_exists"', async () => {
-    projectAssignmentCreate.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError('trung', { code: 'P2002', clientVersion: '6.19.3' }));
+    projectAssignmentCreate.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError('trung', { code: 'P2002', clientVersion: '6.19.3', meta: { target: ['projectId'] } }));
     const res = await repo.setProjectMember(7, 'pm@daidung.com.vn', 'PIC', 'admin@x');
     expect(res).toBe('pic_exists');
+  });
+
+  it('N-1: P2002 tren khoa chinh (projectId, userEmail) - 2 admin cung them 1 Backup -> nem nguyen loi, KHONG bao nham "pic_exists"', async () => {
+    projectAssignmentCreate.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError('trung', { code: 'P2002', clientVersion: '6.19.3', meta: { target: ['projectId', 'userEmail'] } }));
+    await expect(repo.setProjectMember(7, 'pm@daidung.com.vn', 'Backup', 'admin@x')).rejects.toBeInstanceOf(Prisma.PrismaClientKnownRequestError);
   });
 });
 

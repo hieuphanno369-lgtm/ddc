@@ -1,5 +1,4 @@
 import { prisma } from '@/server/db';
-import { Prisma } from '@prisma/client';
 import { DEFAULT_STAGE_WEIGHTS, type StageInput } from '@/lib/stages';
 import { calcCpi, calcDayVariance, calcDurationPctComplete, calcEv, calcPv, calcSpi } from '@/lib/evm';
 import { endOfMonth, todayIso } from '@/lib/clock';
@@ -7,7 +6,7 @@ import { keyMsAuditText } from '@/lib/key-milestones';
 import { sumManpowerShifts } from '@/lib/shifts';
 import { ProjectCodeTakenError } from '@/lib/project-code';
 import { entryPrismaRepo } from './prisma-repo-entry';
-import { formPrismaRepo, isProjectCodeTakenWith } from './prisma-repo-form';
+import { formPrismaRepo, isP2002On, isProjectCodeTakenWith, PROJECT_CODE_UNIQUE_TARGETS } from './prisma-repo-form';
 import type {
   ActivityLogEntry,
   AlertLog,
@@ -1065,15 +1064,15 @@ const coreRepo = {
         const code = `M-${String(created.id).padStart(5, '0')}`;
         // S-2 (vòng sửa 1): khoá advisory + kiểm lại trong `tx` trước khi gán currentAliasCode - chống
         // race giữa 2 request tạo dự án cùng mã (index chỉ bắt được P2002, không bắt được trùng masterCode/alias cũ).
-        if (input.currentAliasCode) {
-          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(lower(${input.currentAliasCode})))`;
-          if (await isProjectCodeTakenWith(tx, input.currentAliasCode, created.id)) {
-            throw new ProjectCodeTakenError(input.currentAliasCode);
-          }
+        // F-1 (vòng sửa 1, vòng 2): nhánh không nhập mã (dùng mã tự sinh) cũng khoá + kiểm trùng y như vậy.
+        const finalCode = input.currentAliasCode ?? code;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(lower(${finalCode})))`;
+        if (await isProjectCodeTakenWith(tx, finalCode, created.id)) {
+          throw new ProjectCodeTakenError(finalCode);
         }
         const p = await tx.project.update({
           where: { id: created.id },
-          data: { masterCode: code, currentAliasCode: input.currentAliasCode ?? code },
+          data: { masterCode: code, currentAliasCode: finalCode },
         });
         if (input.currentAliasCode) {
           await tx.projectAlias.create({
@@ -1093,7 +1092,8 @@ const coreRepo = {
       await this.logAudit('dim_project', String(p.id), 'create', '', p.projectName, changedBy);
       return mapProject(p);
     } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+      // N-1 (vòng sửa 1, vòng 2): chỉ map P2002 của index mã CT, ràng buộc khác ném nguyên lỗi gốc.
+      if (isP2002On(e, PROJECT_CODE_UNIQUE_TARGETS)) {
         throw new ProjectCodeTakenError(input.currentAliasCode ?? '');
       }
       throw e;

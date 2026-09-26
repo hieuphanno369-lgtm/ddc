@@ -15,6 +15,24 @@ const day = (d: Date | null | undefined): string | null => (d ? d.toISOString().
 type Tx = Prisma.TransactionClient | PrismaClient;
 
 /**
+ * N-1 (vòng sửa 1, vòng 2): `meta.target` của P2002 đúng bằng một trong các bộ cột cho trước (so
+ * nguyên mảng). Dạng thật đã xác nhận trên PostgreSQL qua transaction tự rollback: index biểu thức mã
+ * CT báo `['lower(currentAliasCode)']`, `masterCode` báo `['masterCode']`, partial index 1 PIC báo
+ * `['projectId']`, khoá chính thành viên báo `['projectId', 'userEmail']`.
+ */
+export function isP2002On(e: unknown, targets: readonly (readonly string[])[]): boolean {
+  if (!(e instanceof Prisma.PrismaClientKnownRequestError) || e.code !== 'P2002') return false;
+  const t = (e.meta as { target?: unknown } | undefined)?.target;
+  if (!Array.isArray(t)) return false;
+  return targets.some((want) => want.length === t.length && want.every((c, i) => c === t[i]));
+}
+
+/** Các index unique phủ mã CT: `dim_project_currentAliasCode_lower_key` và `masterCode`. */
+export const PROJECT_CODE_UNIQUE_TARGETS = [['lower(currentAliasCode)'], ['masterCode']] as const;
+/** Partial index `project_assignments_one_pic_key` (tối đa 1 PIC/dự án). */
+const ONE_PIC_UNIQUE_TARGETS = [['projectId']] as const;
+
+/**
  * S-2 (vòng sửa 1): thân `isProjectCodeTaken` tách nhận `client` để gọi lại bằng `tx` bên trong
  * transaction (chống race khi đổi mã / tạo dự án) - so `trim()` không phân biệt hoa thường với
  * masterCode/currentAliasCode của dự án khác, và alias của dự án khác. Dùng chung cho createProject
@@ -66,7 +84,7 @@ export const formPrismaRepo = {
    * S-2 (vòng sửa 1): khoá advisory theo mã mới trong transaction rồi kiểm lại trùng bằng chính
    * `tx` (chống race - index `dim_project_currentAliasCode_lower_key` chỉ phủ `currentAliasCode`,
    * không phủ `masterCode`/alias cũ) - trùng thì trả `'taken'`. `P2002` (race hiếm, 2 request cùng
-   * hashtext) cũng map về `'taken'`.
+   * hashtext) cũng map về `'taken'` - chỉ khi `meta.target` là index mã CT (N-1).
    */
   async changeProjectCode(projectId: number, newCode: string, reason: string, by: string, today: IsoDate): Promise<'changed' | 'unchanged' | 'not_found' | 'taken'> {
     try {
@@ -125,7 +143,7 @@ export const formPrismaRepo = {
         return 'changed';
       });
     } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return 'taken';
+      if (isP2002On(e, PROJECT_CODE_UNIQUE_TARGETS)) return 'taken';
       throw e;
     }
   },
@@ -180,7 +198,7 @@ export const formPrismaRepo = {
   /**
    * S-6 (vòng sửa 1, QĐ-11): thêm/đổi thành viên trong 1 `$transaction` cùng audit; gán PIC thì
    * kiểm lại trong `tx` đã có PIC khác chưa (partial unique index `project_assignments_one_pic_key`
-   * chặn ở tầng DB) - trùng trả `'pic_exists'`. `P2002` (race) cũng map về `'pic_exists'`.
+   * chặn ở tầng DB) - trùng trả `'pic_exists'`. `P2002` (race) cũng map về `'pic_exists'` - chỉ khi `meta.target` là index 1 PIC (N-1).
    */
   async setProjectMember(projectId: number, email: string, roleInProject: 'PIC' | 'Backup', by: string): Promise<'added' | 'changed' | 'unchanged' | 'pic_exists'> {
     try {
@@ -208,7 +226,7 @@ export const formPrismaRepo = {
         return 'added';
       });
     } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return 'pic_exists';
+      if (isP2002On(e, ONE_PIC_UNIQUE_TARGETS)) return 'pic_exists';
       throw e;
     }
   },
