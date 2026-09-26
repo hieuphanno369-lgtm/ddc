@@ -601,7 +601,8 @@
     "save_equipment_plans": "Save equipment plan",
     "set_can_view_finance": "Change finance view permission",
     "notify_channel_save": "Save notification channel",
-    "notify_test": "Send notification channel test"
+    "notify_test": "Send notification channel test",
+    "save_manpower_plan": "Save monthly manpower plan"
   },
   "dataGuard": {
     "import": {
@@ -868,7 +869,9 @@
         "project_stage_weight": "Weights",
         "project_contractor": "Contractors",
         "project_assignments": "Owners",
-        "project_equipment_plan": "Equipment plan"
+        "project_equipment_plan": "Equipment plan",
+        "project_manpower_plan_month": "Monthly manpower plan",
+        "project_shift_ratio": "Shift ratio"
       }
     },
     "nav": "Create / Edit project",

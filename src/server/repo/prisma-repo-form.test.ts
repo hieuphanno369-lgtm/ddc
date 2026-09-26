@@ -216,6 +216,62 @@ describe('prisma-repo.replaceEquipmentPlans (P3C-A)', () => {
   });
 });
 
+describe('prisma-repo.replaceManpowerPlan (P3C-A)', () => {
+  it('doi 1 thang -> xoa/tao lai dung thang do, ghi audit tung thang thay doi', async () => {
+    shiftFindMany.mockResolvedValueOnce([{ code: 'morning', sortOrder: 1 }, { code: 'evening', sortOrder: 2 }]);
+    projectManpowerPlanMonthFindMany.mockResolvedValueOnce([
+      { yearMonth: '2026-09', shiftCode: 'morning', planned: 540, isManual: false },
+      { yearMonth: '2026-09', shiftCode: 'evening', planned: 360, isManual: false },
+    ]);
+    projectShiftRatioFindMany.mockResolvedValueOnce([{ shiftCode: 'morning', pct: 0.6 }, { shiftCode: 'evening', pct: 0.4 }]);
+
+    const res = await repo.replaceManpowerPlan(7, {
+      ratios: [{ shiftCode: 'morning', pct: 0.6 }, { shiftCode: 'evening', pct: 0.4 }],
+      months: [{ yearMonth: '2026-09', cells: [
+        { shiftCode: 'morning', planned: 600, isManual: true }, { shiftCode: 'evening', planned: 300, isManual: false },
+      ] }],
+    }, 'admin@x');
+
+    expect(res).toEqual({ changedMonths: 1, ratioChanged: false });
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(projectManpowerPlanMonthDeleteMany).toHaveBeenCalledWith({ where: { projectId: 7, yearMonth: { in: ['2026-09'] } } });
+    expect(projectManpowerPlanMonthCreateMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({ projectId: 7, yearMonth: '2026-09', shiftCode: 'morning', planned: 600, isManual: true, updatedBy: 'admin@x' }),
+        expect.objectContaining({ projectId: 7, yearMonth: '2026-09', shiftCode: 'evening', planned: 300, isManual: false, updatedBy: 'admin@x' }),
+      ],
+    });
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        tableName: 'project_manpower_plan_month', recordId: '7/2026-09', field: 'planned',
+        oldValue: 'morning:540,evening:360', newValue: 'morning:600(m),evening:300', changedBy: 'admin@x',
+      }),
+    });
+    expect(projectShiftRatioDeleteMany).not.toHaveBeenCalled();
+  });
+
+  it('khong doi gi -> khong goi deleteMany/createMany, khong ghi audit', async () => {
+    shiftFindMany.mockResolvedValueOnce([{ code: 'morning', sortOrder: 1 }, { code: 'evening', sortOrder: 2 }]);
+    projectManpowerPlanMonthFindMany.mockResolvedValueOnce([
+      { yearMonth: '2026-09', shiftCode: 'morning', planned: 540, isManual: false },
+      { yearMonth: '2026-09', shiftCode: 'evening', planned: 360, isManual: false },
+    ]);
+    projectShiftRatioFindMany.mockResolvedValueOnce([{ shiftCode: 'morning', pct: 0.6 }, { shiftCode: 'evening', pct: 0.4 }]);
+
+    const res = await repo.replaceManpowerPlan(7, {
+      ratios: [{ shiftCode: 'morning', pct: 0.6 }, { shiftCode: 'evening', pct: 0.4 }],
+      months: [{ yearMonth: '2026-09', cells: [
+        { shiftCode: 'morning', planned: 540, isManual: false }, { shiftCode: 'evening', planned: 360, isManual: false },
+      ] }],
+    }, 'admin@x');
+
+    expect(res).toEqual({ changedMonths: 0, ratioChanged: false });
+    expect(projectManpowerPlanMonthDeleteMany).not.toHaveBeenCalled();
+    expect(projectManpowerPlanMonthCreateMany).not.toHaveBeenCalled();
+    expect(auditCreate).not.toHaveBeenCalled();
+  });
+});
+
 describe('prisma-repo.setProjectMember', () => {
   it('them moi -> "added", chay trong $transaction, ghi audit', async () => {
     const res = await repo.setProjectMember(7, 'pm@daidung.com.vn', 'Backup', 'admin@x');

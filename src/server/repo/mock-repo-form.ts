@@ -2,11 +2,11 @@ import type { RepoData } from '@/data/seed/history';
 import { DEFAULT_STAGE_WEIGHTS, STAGE_ORDER } from '@/lib/stages';
 import { planAliasChange } from '@/lib/project-code';
 import { equipGroupsAuditText } from '@/lib/equipment-plan';
-import { resolveShiftRatios } from '@/lib/manpower-plan';
+import { manpowerMonthAuditText, ratioAuditText, resolveShiftRatios } from '@/lib/manpower-plan';
 import { audit, type EntryMockDeps } from './mock-repo-entry';
 import type {
-  AuditLogEntry, EquipmentPlanGroupInput, EquipmentPlanSegment, EquipmentQuota, ManpowerPlanMonthRow, ProjectMember,
-  ShiftRatio, StageWeightInput,
+  AuditLogEntry, EquipmentPlanGroupInput, EquipmentPlanSegment, EquipmentQuota, ManpowerPlanInput,
+  ManpowerPlanMonthRow, ProjectMember, ShiftRatio, StageWeightInput,
 } from './types';
 
 /**
@@ -182,8 +182,8 @@ export function makeFormMockRepo({ getData, persist }: EntryMockDeps) {
 
     readProjectAuditTrail(projectId: number, limit: number): AuditLogEntry[] {
       const d = getData();
-      const exact = new Set(['dim_project', 'dim_project_alias', 'project_key_milestone', 'project_sap_codes', 'project_stage_weight', 'project_equipment_plan']);
-      const prefixed = new Set(['project_contractor', 'project_assignments']);
+      const exact = new Set(['dim_project', 'dim_project_alias', 'project_key_milestone', 'project_sap_codes', 'project_stage_weight', 'project_equipment_plan', 'project_shift_ratio']);
+      const prefixed = new Set(['project_contractor', 'project_assignments', 'project_manpower_plan_month']);
       const prefix = `${projectId}/`;
       return d.auditLog
         .filter((a) => (exact.has(a.tableName) && a.recordId === String(projectId)) || (prefixed.has(a.tableName) && a.recordId.startsWith(prefix)))
@@ -220,6 +220,72 @@ export function makeFormMockRepo({ getData, persist }: EntryMockDeps) {
         }))));
       audit(d, 'project_equipment_plan', String(projectId), 'replace', beforeText, afterText, by);
       persist();
+    },
+
+    /** P3C-A (T5): thay kế hoạch nhân lực theo tháng × ca + tỷ lệ chia ca; chỉ ghi lại tháng có đổi. */
+    replaceManpowerPlan(projectId: number, input: ManpowerPlanInput, by: string): { changedMonths: number; ratioChanged: boolean } {
+      const d = getData();
+      const activeShifts = d.shifts.filter((s) => s.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+      const activeCodes = activeShifts.map((s) => s.code);
+      const sortOrderByCode = new Map(activeShifts.map((s) => [s.code, s.sortOrder]));
+
+      const monthRows = d.manpowerPlanMonths.filter((m) => m.projectId === projectId);
+      const monthsByYm = new Map<string, typeof monthRows>();
+      for (const r of monthRows) {
+        const list = monthsByYm.get(r.yearMonth) ?? [];
+        list.push(r);
+        monthsByYm.set(r.yearMonth, list);
+      }
+      const beforeByMonth = new Map<string, string>();
+      for (const [ym, rows] of monthsByYm) {
+        const sorted = [...rows].sort((a, b) =>
+          (sortOrderByCode.get(a.shiftCode) ?? Infinity) - (sortOrderByCode.get(b.shiftCode) ?? Infinity)
+          || a.shiftCode.localeCompare(b.shiftCode));
+        beforeByMonth.set(ym, manpowerMonthAuditText(sorted));
+      }
+      const afterByMonth = new Map<string, string>();
+      for (const m of input.months) afterByMonth.set(m.yearMonth, manpowerMonthAuditText(m.cells));
+
+      const allYms = new Set([...beforeByMonth.keys(), ...afterByMonth.keys()]);
+      const changed: string[] = [];
+      for (const ym of allYms) {
+        if ((beforeByMonth.get(ym) ?? '') !== (afterByMonth.get(ym) ?? '')) changed.push(ym);
+      }
+
+      for (const ym of changed) {
+        audit(d, 'project_manpower_plan_month', `${projectId}/${ym}`, 'planned', beforeByMonth.get(ym) ?? '', afterByMonth.get(ym) ?? '', by);
+      }
+
+      if (changed.length) {
+        const now = new Date().toISOString();
+        const changedSet = new Set(changed);
+        d.manpowerPlanMonths = d.manpowerPlanMonths.filter((m) => !(m.projectId === projectId && changedSet.has(m.yearMonth)));
+        const toCreate = input.months.filter((m) => changedSet.has(m.yearMonth));
+        for (const m of toCreate) {
+          for (const c of m.cells) {
+            d.manpowerPlanMonths.push({
+              projectId, yearMonth: m.yearMonth, shiftCode: c.shiftCode, planned: c.planned, isManual: c.isManual,
+              updatedAt: now, updatedBy: by,
+            });
+          }
+        }
+      }
+
+      const ratioRows = d.shiftRatios.filter((r) => r.projectId === projectId);
+      const beforeRatios = resolveShiftRatios(activeCodes, ratioRows);
+      const beforeRatioText = ratioAuditText(beforeRatios);
+      const afterRatioText = ratioAuditText(input.ratios);
+      let ratioChanged = false;
+      if (beforeRatioText !== afterRatioText) {
+        ratioChanged = true;
+        audit(d, 'project_shift_ratio', String(projectId), 'pct', (ratioRows.length === 0 ? 'default ' : '') + beforeRatioText, afterRatioText, by);
+        d.shiftRatios = d.shiftRatios
+          .filter((r) => r.projectId !== projectId)
+          .concat(input.ratios.map((r) => ({ projectId, shiftCode: r.shiftCode, pct: r.pct })));
+      }
+
+      if (changed.length || ratioChanged) persist();
+      return { changedMonths: changed.length, ratioChanged };
     },
 
     // ---- P3C-A: 4 hàm đọc theo hợp đồng P3C (B chỉ import từ src/server/repo/types.ts) ----

@@ -3,12 +3,12 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import { DEFAULT_STAGE_WEIGHTS, STAGE_ORDER } from '@/lib/stages';
 import { planAliasChange } from '@/lib/project-code';
 import { equipGroupsAuditText } from '@/lib/equipment-plan';
-import { resolveShiftRatios } from '@/lib/manpower-plan';
+import { manpowerMonthAuditText, ratioAuditText, resolveShiftRatios } from '@/lib/manpower-plan';
 import type { IsoDate } from '@/lib/clock';
 import { audit } from './prisma-repo-entry';
 import type {
-  AuditLogEntry, EquipmentPlanGroupInput, EquipmentPlanSegment, EquipmentQuota, ManpowerPlanMonthRow, ProjectAlias,
-  ProjectMember, Role, ShiftRatio, StageWeightInput,
+  AuditLogEntry, EquipmentPlanGroupInput, EquipmentPlanSegment, EquipmentQuota, ManpowerPlanInput,
+  ManpowerPlanMonthRow, ProjectAlias, ProjectMember, Role, ShiftRatio, StageWeightInput,
 } from './types';
 
 /** '00:00:00Z' của ngày `s` ('YYYY-MM-DD') - khớp cách lưu ngày @db.Date ở prisma-repo.ts. */
@@ -263,8 +263,8 @@ export const formPrismaRepo = {
   },
 
   async readProjectAuditTrail(projectId: number, limit: number): Promise<AuditLogEntry[]> {
-    const exact = ['dim_project', 'dim_project_alias', 'project_key_milestone', 'project_sap_codes', 'project_stage_weight', 'project_equipment_plan'];
-    const prefixed = ['project_contractor', 'project_assignments'];
+    const exact = ['dim_project', 'dim_project_alias', 'project_key_milestone', 'project_sap_codes', 'project_stage_weight', 'project_equipment_plan', 'project_shift_ratio'];
+    const prefixed = ['project_contractor', 'project_assignments', 'project_manpower_plan_month'];
     const prefix = `${projectId}/`;
     const rows = await prisma.auditLog.findMany({
       where: {
@@ -319,6 +319,72 @@ export const formPrismaRepo = {
         });
       }
       await audit(tx, 'project_equipment_plan', String(projectId), 'replace', beforeText, afterText, by);
+    });
+  },
+
+  /** P3C-A (T5): thay kế hoạch nhân lực theo tháng × ca + tỷ lệ chia ca; chỉ ghi lại tháng có đổi. */
+  async replaceManpowerPlan(projectId: number, input: ManpowerPlanInput, by: string): Promise<{ changedMonths: number; ratioChanged: boolean }> {
+    return prisma.$transaction(async (tx) => {
+      const [monthRows, ratioRows, activeShifts] = await Promise.all([
+        tx.projectManpowerPlanMonth.findMany({ where: { projectId } }),
+        tx.projectShiftRatio.findMany({ where: { projectId } }),
+        tx.shift.findMany({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } }),
+      ]);
+      const activeCodes = activeShifts.map((s) => s.code);
+      const sortOrderByCode = new Map(activeShifts.map((s) => [s.code, s.sortOrder]));
+
+      const monthsByYm = new Map<string, typeof monthRows>();
+      for (const r of monthRows) {
+        const list = monthsByYm.get(r.yearMonth) ?? [];
+        list.push(r);
+        monthsByYm.set(r.yearMonth, list);
+      }
+      const beforeByMonth = new Map<string, string>();
+      for (const [ym, rows] of monthsByYm) {
+        const sorted = [...rows].sort((a, b) =>
+          (sortOrderByCode.get(a.shiftCode) ?? Infinity) - (sortOrderByCode.get(b.shiftCode) ?? Infinity)
+          || a.shiftCode.localeCompare(b.shiftCode));
+        beforeByMonth.set(ym, manpowerMonthAuditText(sorted));
+      }
+      const afterByMonth = new Map<string, string>();
+      for (const m of input.months) afterByMonth.set(m.yearMonth, manpowerMonthAuditText(m.cells));
+
+      const allYms = new Set([...beforeByMonth.keys(), ...afterByMonth.keys()]);
+      const changed: string[] = [];
+      for (const ym of allYms) {
+        if ((beforeByMonth.get(ym) ?? '') !== (afterByMonth.get(ym) ?? '')) changed.push(ym);
+      }
+
+      for (const ym of changed) {
+        await audit(tx, 'project_manpower_plan_month', `${projectId}/${ym}`, 'planned', beforeByMonth.get(ym) ?? '', afterByMonth.get(ym) ?? '', by);
+      }
+
+      if (changed.length) {
+        await tx.projectManpowerPlanMonth.deleteMany({ where: { projectId, yearMonth: { in: changed } } });
+        const toCreate = input.months.filter((m) => changed.includes(m.yearMonth));
+        if (toCreate.length) {
+          await tx.projectManpowerPlanMonth.createMany({
+            data: toCreate.flatMap((m) => m.cells.map((c) => ({
+              projectId, yearMonth: m.yearMonth, shiftCode: c.shiftCode, planned: c.planned, isManual: c.isManual, updatedBy: by,
+            }))),
+          });
+        }
+      }
+
+      const beforeRatios = resolveShiftRatios(activeCodes, ratioRows);
+      const beforeRatioText = ratioAuditText(beforeRatios);
+      const afterRatioText = ratioAuditText(input.ratios);
+      let ratioChanged = false;
+      if (beforeRatioText !== afterRatioText) {
+        ratioChanged = true;
+        await audit(tx, 'project_shift_ratio', String(projectId), 'pct', (ratioRows.length === 0 ? 'default ' : '') + beforeRatioText, afterRatioText, by);
+        await tx.projectShiftRatio.deleteMany({ where: { projectId } });
+        if (input.ratios.length) {
+          await tx.projectShiftRatio.createMany({ data: input.ratios.map((r) => ({ projectId, shiftCode: r.shiftCode, pct: r.pct })) });
+        }
+      }
+
+      return { changedMonths: changed.length, ratioChanged };
     });
   },
 

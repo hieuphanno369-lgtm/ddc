@@ -10,11 +10,12 @@ import {
 import { readDailyWorkbook } from './daily-import';
 import { requireWriteProject } from './action-guards';
 import { repo } from './repo';
-import type { EquipmentPlanGroupInput, Role } from './repo/types';
+import type { EquipmentPlanGroupInput, ManpowerPlanInput, Role } from './repo/types';
 import { validateEquipmentPlan, type EquipPlanCheck } from '@/lib/equipment-plan';
+import { validateManpowerPlan, type ManpowerPlanErrors } from '@/lib/manpower-plan';
 import {
   commitDailyImportSchema, createContractorSchema, dailyImportFileSchema, projectContractorSchema,
-  saveDailyResourcesSchema, saveEquipmentPlansSchema,
+  saveDailyResourcesSchema, saveEquipmentPlansSchema, saveManpowerPlanSchema,
 } from './validation';
 
 /** G-18: gán 1 nhà thầu (đã có trong danh mục) vào dự án. */
@@ -282,4 +283,30 @@ export async function saveEquipmentPlansAction(
   const segments = parsed.data.groups.reduce((s, g) => s + g.segments.length, 0);
   await logActivity(user, 'save_equipment_plans', `project ${projectId} · ${parsed.data.groups.length} loai · ${segments} dot`);
   return { ok: true, groups: parsed.data.groups.length, segments };
+}
+
+/** P3C-A (T5): thay kế hoạch nhân lực theo tháng × ca + tỷ lệ chia ca của 1 dự án. Chỉ ghi lại tháng có đổi. */
+export async function saveManpowerPlanAction(
+  projectId: number,
+  input: ManpowerPlanInput,
+): Promise<
+  | { ok: true; changedMonths: number; ratioChanged: boolean }
+  | { ok: false; error: 'Forbidden' | 'Not found' | 'Invalid input' | 'invalid_plan'; errors?: ManpowerPlanErrors }
+> {
+  const user = await requireWriteProject(projectId);
+  if (!user) return { ok: false, error: 'Forbidden' };
+  const parsed = saveManpowerPlanSchema.safeParse({ projectId, input });
+  if (!parsed.success) return { ok: false, error: 'Invalid input' };
+  const project = await repo.getProject(projectId);
+  if (!project) return { ok: false, error: 'Not found' };
+
+  const activeCodes = (await repo.getShifts()).map((s) => s.code);
+  const check = validateManpowerPlan(parsed.data.input, activeCodes);
+  if (!check.ok) return { ok: false, error: 'invalid_plan', errors: check.errors };
+
+  const result = await repo.replaceManpowerPlan(projectId, parsed.data.input, user.email);
+  if (result.changedMonths > 0 || result.ratioChanged) {
+    await logActivity(user, 'save_manpower_plan', `project ${projectId} · ${result.changedMonths} thang`);
+  }
+  return { ok: true, ...result };
 }

@@ -100,6 +100,8 @@ export default async function HoSoDuAnPage({
             project_contractor: t('projectForm.audit.tbl.project_contractor'),
             project_assignments: t('projectForm.audit.tbl.project_assignments'),
             project_equipment_plan: t('projectForm.audit.tbl.project_equipment_plan'),
+            project_manpower_plan_month: t('projectForm.audit.tbl.project_manpower_plan_month'),
+            project_shift_ratio: t('projectForm.audit.tbl.project_shift_ratio'),
           }}
         />
       )}

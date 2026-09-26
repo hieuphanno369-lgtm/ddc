@@ -10,6 +10,7 @@ import { IMPORT_MAX_BYTES } from '@/lib/import-limits';
 import { PROJECT_NAME_MAX } from '@/lib/project-form';
 import { isValidProjectCode, PROJECT_CODE_MAX } from '@/lib/project-code';
 import { EQUIP_GROUP_MAX, EQUIP_PLAN_MAX_ROWS, EQUIP_QTY_MAX } from '@/lib/equipment-plan';
+import { MANPOWER_PLAN_MAX_CELL, MANPOWER_PLAN_MAX_MONTHS } from '@/lib/manpower-plan';
 
 /**
  * Zod schema validate input mọi server action (spec §7.5 - không tin client).
@@ -378,4 +379,14 @@ export const saveEquipmentPlansSchema = z.object({
     )
     .max(EQUIP_GROUP_MAX)
     .refine((groups) => groups.reduce((s, g) => s + g.segments.length, 0) <= EQUIP_PLAN_MAX_ROWS, 'Qua nhieu dot'),
+});
+
+/** P3C-A (T5): kế hoạch nhân lực theo tháng × ca + tỷ lệ chia ca. */
+const manpowerCell = z.object({ shiftCode: z.string().trim().min(1).max(20), planned: z.number().int().min(0).max(MANPOWER_PLAN_MAX_CELL), isManual: z.boolean() });
+export const saveManpowerPlanSchema = z.object({
+  projectId: z.number().int().positive(),
+  input: z.object({
+    ratios: z.array(z.object({ shiftCode: z.string().trim().min(1).max(20), pct: z.number().finite().min(0).max(1) })).max(10),
+    months: z.array(z.object({ yearMonth, cells: z.array(manpowerCell).max(10) })).max(MANPOWER_PLAN_MAX_MONTHS),
+  }),
 });
