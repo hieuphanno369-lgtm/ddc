@@ -48,6 +48,7 @@ async function main(): Promise<void> {
     stdio: 'inherit',
     env: { ...process.env, E2E_DATABASE_URL: e2eDbUrl, E2E_NEXTAUTH_URL: `http://localhost:${PORT}` },
   });
+  if (res.error) fail(`Khong chay duoc Playwright: ${res.error.message}`);
   process.exit(res.status ?? 1);
 }
 

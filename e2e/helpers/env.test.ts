@@ -252,9 +252,8 @@ describe('resolveE2eTarget', () => {
 });
 
 /**
- * A chay e2e tren DB tam rieng (chu du an chot 2026-09-27): cap `ddc_control_tower_e2e_a` + 3000.
- * DB that cua A (`ddc_control_tower`) van bi chan voi moi cong; A khong duoc dung lai server dang
- * chay o 3000 (server dev thuong cua A tro DB that).
+ * A chay e2e tren DB tam rieng (chu du an chot 2026-09-27): cap `ddc_control_tower_e2e_a` + 3010 (E2E_A_PORT).
+ * DB that cua A (`ddc_control_tower`) van bi chan voi moi cong; A khong bam server co san (reuseServer false).
  */
 describe('A chay e2e tren DB tam', () => {
   const AE2E = 'postgresql://postgres:pass@localhost:5433/ddc_control_tower_e2e_a?schema=public';

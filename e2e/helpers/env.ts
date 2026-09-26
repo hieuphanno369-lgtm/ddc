@@ -154,7 +154,7 @@ export function resolveE2eTarget(env: Record<string, string | undefined>): {
   if (!isExpectedDbUrl(databaseUrl, parsed.port)) {
     const pairs = E2E_TARGETS.map((t) => `${t.dbName} + ${t.port}`).join(', ');
     throw new Error(
-      `DATABASE_URL + NEXTAUTH_URL khong khop cap da dang ky (${pairs}) - dung chay e2e (co the dinh DB cua A). Kiem tra .env.`,
+      `DATABASE_URL + NEXTAUTH_URL khong khop cap da dang ky (${pairs}) - dung chay e2e (co the dinh DB cua A). B/C: kiem tra .env; A: dung \`npm run test:e2e:a\` (DB tam), khong sua .env.`,
     );
   }
   const reuseServer = E2E_TARGETS.find((t) => t.port === parsed.port)?.reuseServer ?? false;
