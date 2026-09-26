@@ -31,6 +31,8 @@ export function isP2002On(e: unknown, targets: readonly (readonly string[])[]): 
 export const PROJECT_CODE_UNIQUE_TARGETS = [['lower(currentAliasCode)'], ['masterCode']] as const;
 /** Partial index `project_assignments_one_pic_key` (tối đa 1 PIC/dự án). */
 const ONE_PIC_UNIQUE_TARGETS = [['projectId']] as const;
+/** Khoá chính `project_assignments` (projectId, userEmail). */
+const MEMBER_PK_TARGETS = [['projectId', 'userEmail']] as const;
 
 /**
  * S-2 (vòng sửa 1): thân `isProjectCodeTaken` tách nhận `client` để gọi lại bằng `tx` bên trong
@@ -227,6 +229,8 @@ export const formPrismaRepo = {
       });
     } catch (e) {
       if (isP2002On(e, ONE_PIC_UNIQUE_TARGETS)) return 'pic_exists';
+      // I-1 (vòng sửa 1, vòng 2): 2 admin cùng thêm 1 người - bên kia đã ghi xong, coi như không đổi.
+      if (isP2002On(e, MEMBER_PK_TARGETS)) return 'unchanged';
       throw e;
     }
   },

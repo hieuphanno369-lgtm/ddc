@@ -320,3 +320,5 @@ này. Đã đổi sang đọc từ `parsed.data.patch` để ép hoa/validate th
 - Test mới: `actions-key-milestones.test.ts` (4 ca F-1), `prisma-repo-create-project-vong-sua-1-r2.test.ts` (7 ca F-1 (c) + N-1), `prisma-repo-form-p2002.test.ts` (3 ca), thêm 1 ca khoá chính trong `prisma-repo-form.test.ts`.
   3 test cũ giả lập P2002 không có `meta.target` được thêm target thật; chú thích test ranh giới trong `form-vong-sua-1.qa.test.ts` cập nhật (repo vẫn không chặn, action chặn).
 - Cổng: `tsc` sạch, `npm test` 156 file / 1731 test xanh, `check:read` OK.
+- Sau khi security xác nhận ĐẠT, vá thêm 2 điểm thông tin: **I-1** `setProjectMember` gặp P2002 trên khoá chính `['projectId','userEmail']` (2 admin cùng thêm 1 người) trả `'unchanged'` thay vì ném lỗi (UI không còn im lặng); **I-2** mã tạm lúc tạo dự án dùng `TMP-<randomUUID>` thay `TMP-<Date.now()>`.
+  Chưa làm: `handleSaveNew` chưa hiện thông báo cho lỗi khác mã CT (cần key i18n mới, để P3C-A).

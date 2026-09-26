@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { prisma } from '@/server/db';
 import { DEFAULT_STAGE_WEIGHTS, type StageInput } from '@/lib/stages';
 import { calcCpi, calcDayVariance, calcDurationPctComplete, calcEv, calcPv, calcSpi } from '@/lib/evm';
@@ -1033,7 +1034,8 @@ const coreRepo = {
   async createProject(input: CreateProjectInput, changedBy = 'system'): Promise<Project> {
     try {
       const p = await prisma.$transaction(async (tx) => {
-        const tmp = `TMP-${Date.now()}`;
+        // I-2 (vòng sửa 1, vòng 2): UUID thay Date.now() - 2 request cùng mili giây không còn va masterCode tạm.
+        const tmp = `TMP-${randomUUID()}`;
         const created = await tx.project.create({
           data: {
             masterCode: tmp,

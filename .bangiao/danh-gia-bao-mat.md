@@ -1,4 +1,4 @@
-KET LUAN BAO MAT: CAN SUA (vong sua 1: F-1)
+KET LUAN BAO MAT: DAT
 
 # Đánh giá bảo mật P3A (Form Tạo/Sửa dự án): `feature/p3a-form-tao-sua` so với `main`
 
@@ -167,3 +167,32 @@ PHAN QUYET BAO MAT VONG SUA 1: CAN SUA
 - **N-2 (Thấp):** nháp cũ trước bản vá còn 3 trường tài chính trong localStorage (không còn được đọc vào form). Sửa tuỳ chọn: tăng `PROJECT_DRAFT_VERSION` hoặc xoá nháp còn khoá tài chính lúc mount.
 
 Kết luận: mục 3, 4, 5, 7 đạt; mục 6 còn F-1. Vá F-1 là đủ chuyển ĐẠT, không cần rà lại toàn bộ.
+
+## Vòng sửa 1, vòng 2 (xác nhận F-1/N-1) - 2026-09-26
+
+> Security-reviewer (vai chỉ đọc) trả báo cáo; điều phối viên chép vào file này.
+> Skill: `ddc-tower:security-review`. Chỉ rà có trọng tâm commit `e1fcbd1`, có đối chiếu DB `ddc_control_tower` bằng `mcp__postgres` (chỉ đọc).
+
+### F-1 (Trung): ĐÃ ĐÓNG
+
+- **(a)** `src/server/actions.ts:230-232` gọi `isReservedProjectCode(currentAliasCode, null)` trước fast-path `code_taken` và trước mọi lần ghi DB.
+  zod `trim()` chạy trước, regex `/^M-\d+$/i` không phân biệt hoa thường, `PROJECT_CODE_RE` chỉ nhận ASCII nên chữ số Unicode không lách được; `M-025` vẫn bị chặn.
+  Key `projectForm.err.code_reserved` có ở vi/en nên form hiện đúng thông báo.
+- **(b)** Không còn cách đưa `M-\d+` vào dữ liệu: tạo bị chặn ở (a), đổi mã bị chặn ở `actions-project.ts:111`, `saveProjectProfile` dùng `.strict()` không có trường mã.
+  Lớp (c) `prisma-repo.ts:1067-1071` khoá advisory `hashtext(lower(finalCode))` (chung khoá với `changeProjectCode`) rồi `isProjectCodeTakenWith` kiểm cả `masterCode`, `currentAliasCode`, alias lịch sử; mock đồng bộ ở `mock-repo.ts:854-856`.
+- **Dữ liệu thật:** 0 dòng `currentAliasCode`/`aliasCode` khớp `^M-\d+$` mà khác `masterCode` của chính dự án.
+- **Đường khác:** `repo.createProject` chỉ được gọi ở `actions.ts:257`; import Excel không tạo `dim_project`; `projectAlias.create/update` chỉ có ở `createProject`, `changeProjectCode`; không có `INSERT` thô vào `dim_project`.
+
+### N-1 (Thấp): ĐÃ ĐÓNG
+
+- `isP2002On` (`prisma-repo-form.ts:23-28`) so nguyên mảng `meta.target`; unique index trên DB khớp mô tả bản vá.
+- Prisma đổi định dạng `meta.target` khi nâng cấp thì ném lỗi gốc thay vì báo nhầm: thất bại an toàn. Production Next.js che lỗi server action (chỉ còn digest).
+
+### Điểm còn lại (mức thông tin, không chặn)
+
+- **I-1:** 2 admin cùng thêm một người vào cùng dự án → P2002 pkey `['projectId','userEmail']` bị ném nguyên (`prisma-repo-form.ts:224`, `:229`); `ProjectLinksSection.tsx:62-71` `addMember` không có `try/catch` nên UI im lặng. Không lộ, không hỏng dữ liệu. Gợi ý: map P2002 pkey về `'unchanged'` + `try/catch` ở `addMember`.
+- **I-2 (có từ trước):** mã tạm `TMP-${Date.now()}` (`prisma-repo.ts:1035`), 2 request cùng mili giây va `masterCode` → `code_taken` dù không nhập mã, thử lại là được. `handleSaveNew` chỉ có `try/finally`, lỗi khác mã CT không có thông báo.
+
+### Phán quyết
+
+F-1 và N-1 đã đóng, không có lỗ hổng mới từ bản vá. **KẾT LUẬN BẢO MẬT: ĐẠT.**

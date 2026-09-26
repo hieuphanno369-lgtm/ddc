@@ -196,9 +196,9 @@ describe('prisma-repo.setProjectMember', () => {
     expect(res).toBe('pic_exists');
   });
 
-  it('N-1: P2002 tren khoa chinh (projectId, userEmail) - 2 admin cung them 1 Backup -> nem nguyen loi, KHONG bao nham "pic_exists"', async () => {
+  it('N-1 + I-1: P2002 tren khoa chinh (projectId, userEmail) - 2 admin cung them 1 Backup -> "unchanged", KHONG bao nham "pic_exists"', async () => {
     projectAssignmentCreate.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError('trung', { code: 'P2002', clientVersion: '6.19.3', meta: { target: ['projectId', 'userEmail'] } }));
-    await expect(repo.setProjectMember(7, 'pm@daidung.com.vn', 'Backup', 'admin@x')).rejects.toBeInstanceOf(Prisma.PrismaClientKnownRequestError);
+    await expect(repo.setProjectMember(7, 'pm@daidung.com.vn', 'Backup', 'admin@x')).resolves.toBe('unchanged');
   });
 });
 
