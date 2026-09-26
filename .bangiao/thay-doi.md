@@ -79,5 +79,29 @@ Kết luận Bước 1: đã tái hiện đỏ đúng yêu cầu (`/vi/overview`
 
 ---
 
-(Các mục còn lại - kết quả Bước 2 trở đi, bảng "Sau khi sửa", rà API/server action, việc không làm - sẽ điền
-tiếp trong các bước kế, xem lịch sử commit `test(p3d-b)/fix(p3d-b)`.)
+## Bước 2 - Middleware chặn khi không có phiên
+
+- `src/server/middleware-auth.test.ts` (23 ca mới): viết đỏ trước (15/23 đỏ đúng kỳ vọng kế hoạch), sau khi sửa
+  `middleware.ts` theo đúng "Hành vi mới" trong kế hoạch (tính `locale`/`subpath` trước khi kiểm phiên,
+  `hasSession = token !== null && token.invalid !== true`, mặc định `role = 'viewer'` khi token thiếu `role`,
+  redirect `/{locale}/login` khi không phiên và không phải `isPublicPath`) thì **23/23 xanh**.
+  `middleware-secret.test.ts` (test cũ, thiếu `NEXTAUTH_SECRET` -> 500) vẫn xanh.
+- `npx tsc --noEmit`: sạch.
+- `npm test`: **194 file / 2098 test xanh** (2075 + 23 test middleware mới).
+- `npx playwright test e2e/09-chan-chua-dang-nhap.spec.ts`: **42/42 xanh** (dev server sạch).
+- `npx playwright test` (toàn bộ): **60/60 xanh** (21 spec cũ + 39 ca spec 09, 3 ca `[setup]` dùng chung không đếm
+  lại theo từng spec).
+
+## Ghi chú kỹ thuật phát hiện khi làm Bước 1 (giải thích tại sao S-1 xảy ra)
+
+Ngay cả trước khi sửa middleware, layout `(app)` hiện tại đã có `getCurrentUser()` + `redirect()` nên yêu cầu
+tải trang đầy đủ (không header `RSC`) đã trả 307 về `/vi/login`. Nhưng do Next.js App Router render layout và
+page SONG SONG (streaming), phần page vẫn kịp phát dữ liệu dự án thật ra response TRƯỚC KHI layout hoàn tất
+redirect - nên response 307 đó vẫn có body chứa dữ liệu (xem bảng "Trước khi sửa"). Middleware chặn Ở TẦNG
+NETWORK (trước khi Next.js dựng cây layout/page) nên không còn kẽ hở này: response redirect không kèm bất kỳ
+phần nào của cây trang.
+
+---
+
+(Các mục còn lại - kết quả Bước 3 trở đi, bảng "Sau khi sửa" đầy đủ theo Bước 6.3, rà API/server action, việc
+không làm - sẽ điền tiếp trong các bước kế, xem lịch sử commit `test(p3d-b)/fix(p3d-b)`.)

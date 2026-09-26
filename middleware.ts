@@ -15,6 +15,13 @@ const DENIED: Record<Role, string[]> = {
   admin: [],
 };
 
+/** Trang không cần đăng nhập, tính theo subpath sau /{locale}. */
+const PUBLIC_PATHS = ['/login'];
+
+function isPublicPath(subpath: string): boolean {
+  return PUBLIC_PATHS.some((p) => subpath === p || subpath.startsWith(p + '/'));
+}
+
 export default async function middleware(request: NextRequest) {
   const intlResp = intlMiddleware(request);
 
@@ -24,6 +31,9 @@ export default async function middleware(request: NextRequest) {
   );
   if (!hasLocale) return intlResp;
 
+  const locale = pathname.split('/')[1];
+  const subpath = '/' + pathname.split('/').slice(2).join('/');
+
   let secret: string;
   try {
     secret = requireAuthSecret();
@@ -31,18 +41,21 @@ export default async function middleware(request: NextRequest) {
     return new NextResponse('Server misconfigured: NEXTAUTH_SECRET', { status: 500 });
   }
 
-  let role: Role | null = null;
+  let hasSession = false;
+  let role: Role = 'viewer';
   try {
     const token = await getToken({ req: request, secret });
-    role = (token?.role as Role) ?? null;
+    hasSession = token !== null && token.invalid !== true;
+    if (hasSession) role = (token?.role as Role | undefined) ?? 'viewer';
   } catch {
-    role = null;
+    hasSession = false;
   }
 
-  if (!role) return intlResp;
+  if (!hasSession) {
+    if (isPublicPath(subpath)) return intlResp;
+    return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
+  }
 
-  const locale = pathname.split('/')[1];
-  const subpath = '/' + pathname.split('/').slice(2).join('/');
   const denied = DENIED[role] ?? [];
   const isDenied = denied.some((p) => subpath === p || subpath.startsWith(p + '/'));
   if (isDenied) {
