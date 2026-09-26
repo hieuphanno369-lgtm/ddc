@@ -172,7 +172,7 @@
   "detail": {
     "title": "Project Detail",
     "timeline": "Plan vs Actual Timeline",
-    "valueChain": "Value Chain",
+    "valueChain": "Project Management Value Chain",
     "evmMetrics": "EVM Metrics",
     "spiCpi12": "SPI/CPI Trend (12 months)",
     "sCurve12": "S-Curve PV/EV/AC (12 months)",
@@ -273,7 +273,7 @@
       "first": "- first milestone -"
     },
     "stageMs": {
-      "title": "7-stage timeline",
+      "title": "Stage timeline",
       "plannedStart": "Planned start",
       "plannedFinish": "Planned finish",
       "actualStart": "Actual start",
@@ -666,7 +666,7 @@
     "total": "Total actual"
   },
   "valueChainCard": {
-    "allStages": "All 7 stages",
+    "allStages": "All stages",
     "footerWeight": "Σ weight",
     "footerFormula": "Actual % = Σ(weight × stage actual %)"
   },

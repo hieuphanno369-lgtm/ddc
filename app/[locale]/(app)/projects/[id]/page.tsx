@@ -8,15 +8,15 @@ import { getProjectSummary } from '@/server/queries';
 import { currentMonth, isValidYearMonth, todayIso } from '@/lib/clock';
 import { requireUser } from '@/lib/require-user';
 import { requireProjectRead } from '@/server/authz';
-import { stageKey } from '@/lib/labels';
-import type { FactFinancial, StageCode } from '@/server/repo/types';
+import type { FactFinancial } from '@/server/repo/types';
 import { maskAlertMessage } from '@/lib/finance-gate';
 import { THRESHOLDS } from '@/lib/thresholds';
 import { calcScheduleGap } from '@/lib/evm';
 import { calcScheduleGap as calcKpiScheduleGap } from '@/lib/schedule-gap';
 import { buildPlanActualTimeline } from '@/lib/timeline';
 import { buildStageTimelineRows } from '@/lib/stage-timeline';
-import { VALUE_CHAIN_COLUMNS, chainFooterSummary, chainWeightTotalLabel, stagePctLabel, stageTonnage, stageWeightLabel } from '@/lib/value-chain-view';
+import { stageNameMap, stageOrder } from '@/lib/stages';
+import { chainFooterSummary, chainWeightTotalLabel, stagePctLabel, stageTonnage, stageWeightLabel, valueChainColumns } from '@/lib/value-chain-view';
 import { formatDate, formatDateTime, formatDayMonth, formatPct, formatRatio, formatTon as formatQty, formatTyd } from '@/lib/format';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Rise } from '@/components/ui/Rise';
@@ -95,7 +95,7 @@ export default async function ProjectDetailPage({
   const [
     summaryOrNull, lastUpdate, facts, chain, financial, alerts, aliases, sapCodes, photos, dims,
     resources, breakdown, tracking, keyMilestones, stageWeights, stageMilestones, compare,
-    projectsList, monthChart, weekly, planGantt,
+    projectsList, monthChart, weekly, planGantt, stages,
   ] = await Promise.all([
     getProjectSummary(id, month),
     repo.readLastAuditAt(),
@@ -118,6 +118,7 @@ export default async function ProjectDetailPage({
     getManpowerMonthChartData(id, locale),
     getWeeklyChartData(id, project),
     getEquipmentPlanGantt(id, today),
+    repo.getStages(),
   ]);
   const summary = summaryOrNull!;
   const timeline = buildPlanActualTimeline({
@@ -143,7 +144,11 @@ export default async function ProjectDetailPage({
     : undefined;
   const latest = facts[facts.length - 1];
   const canEditMs = user?.role === 'admin' || user?.role === 'data-entry';
-  const stageRows = buildStageTimelineRows(stageMilestones, stageWeights);
+  // P7-C2: danh sách + tên giai đoạn giờ đọc từ dim_stage (repo.getStages()), không còn hằng cứng.
+  const order = stageOrder(stages);
+  const stageNames = stageNameMap(stages, locale);
+  const chainColumns = valueChainColumns(stages);
+  const stageRows = buildStageTimelineRows(stageMilestones, stageWeights, order);
   const customer = dims.customers.find((c) => c.id === project.customerId);
   const team = dims.teams.find((x) => x.id === project.teamKdId);
   const switcherProjects = projectsList.map((p) => ({ id: p.id, name: p.projectName, code: p.currentAliasCode }));
@@ -151,12 +156,10 @@ export default async function ProjectDetailPage({
   const sCurve = canViewFinance ? facts.map((f) => ({ month: f.yearMonth, pv: Math.round(f.pv), ev: Math.round(f.ev), ac: Math.round(f.ac) })) : [];
   const trend = facts.map((f) => ({ month: f.yearMonth, spi: f.spi, cpi: f.cpi }));
   const bottleneck = chain.find((c) => c.stageCode === latest?.bottleneckStage);
-  const chainFooter = chainFooterSummary(chain, stageWeights);
-  // Dich san ten 7 giai doan cho ValueChainModeChip (client component, muc 4d) - tranh goi
+  const chainFooter = chainFooterSummary(chain, stageWeights, order);
+  // Dich san ten cac giai doan cho ValueChainModeChip (client component, muc 4d) - tranh goi
   // useTranslations phia client khi khong co NextIntlClientProvider (renderToStaticMarkup trong test).
-  const stageLabels = Object.fromEntries(
-    [...VALUE_CHAIN_COLUMNS[0], ...VALUE_CHAIN_COLUMNS[1]].map((s) => [s, t(stageKey[s])]),
-  ) as Record<StageCode, string>;
+  const stageLabels = stageNames;
 
   return (
     <>
@@ -306,7 +309,7 @@ export default async function ProjectDetailPage({
                 <ValueChainModeChip allStagesLabel={t('valueChainCard.allStages')} stageLabels={stageLabels} />
                 {bottleneck && (
                   <Badge tone="danger">
-                    {t('detail.bottleneck')}: {t(stageKey[bottleneck.stageCode])}
+                    {t('detail.bottleneck')}: {stageNames[bottleneck.stageCode] ?? bottleneck.stageCode}
                   </Badge>
                 )}
               </div>
@@ -314,9 +317,10 @@ export default async function ProjectDetailPage({
           />
           <CardBody>
             <div className="stagegrid">
-              {VALUE_CHAIN_COLUMNS.map((column, i) => (
+              {chainColumns.map((column, i) => (
                 <div key={i} className="stagecol">
-                  {column.map((stage) => {
+                  {column.map((s) => {
+                    const stage = s.code;
                     const v = chain.find((c) => c.stageCode === stage);
                     if (v && !v.applicable) return null;
                     const pct = v?.pctComplete ?? 0;
@@ -324,7 +328,7 @@ export default async function ProjectDetailPage({
                     return (
                       <StageRow
                         key={stage}
-                        name={t(stageKey[stage])}
+                        name={stageNames[stage]}
                         weightLabel={stageWeightLabel(stageWeights, stage, locale)}
                         pct={pct}
                         pctLabel={stagePctLabel(pct, locale)}
@@ -347,7 +351,7 @@ export default async function ProjectDetailPage({
           </CardBody>
         </Card>
 
-        <StageExplorer rows={stageRows} compare={compare} today={today} locale={locale} />
+        <StageExplorer rows={stageRows} compare={compare} today={today} locale={locale} stages={stages} />
       </StageSelectionProvider>
 
       {/* Tang 4 - Huy dong nguon luc (mock-up dong 759-767) */}

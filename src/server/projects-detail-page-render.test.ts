@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CurrentUser } from '@/lib/session';
+import type { Stage } from '@/server/repo/types';
 
 /**
  * Dot 2 - render THAT trang app/[locale]/(app)/projects/[id]/page.tsx cho tung Task khop
@@ -37,6 +38,7 @@ vi.mock('@/components/project/WhatIf', () => ({ WhatIf: () => null }));
 vi.mock('@/components/project/ProjectSwitcher', () => ({ ProjectSwitcher: () => null }));
 
 import { getCurrentUser } from '@/lib/session';
+import { repo } from '@/server/repo/mock-repo';
 import ProjectDetailPage from '../../app/[locale]/(app)/projects/[id]/page';
 
 (globalThis as unknown as { React: typeof React }).React = React;
@@ -165,7 +167,7 @@ describe('Vong sua 1 muc 4 - the "Chuoi gia tri" rong het hang, bo the EVM (danh
     expect(out).not.toContain('metric.eac');
   });
 
-  it('chip "Toan bo 7 giai doan" luon hien canh chip khau nghen (neu co)', async () => {
+  it('chip "Toan bo giai doan" luon hien canh chip khau nghen (neu co)', async () => {
     const out = await render();
     expect(out).toContain('valueChainCard.allStages');
   });
@@ -177,17 +179,37 @@ describe('Vong sua 1 muc 4 - the "Chuoi gia tri" rong het hang, bo the EVM (danh
     expect(out).toContain('valueChainCard.footerFormula');
   });
 
-  it('2 cot rieng (stagecol): trai design/procurement/transport/handover, phai shop/fabrication/erection dung thu tu', async () => {
+  it("tieu de the = detail.valueChain; 2 cot rieng (stagecol): trai Thiet ke/Shop Drawing/Vat tu/Gia cong, phai Van chuyen/Lap dung/Nghiem thu/Thanh quyet toan dung thu tu (P7-C2: ten tu dim_stage, khong con key stage.xxx)", async () => {
     const out = await render();
+    expect(out).toContain('detail.valueChain');
     expect([...out.matchAll(/class="stagecol"/g)]).toHaveLength(2);
-    const left = ['stage.design', 'stage.procurement', 'stage.transport', 'stage.handover'].map((k) => out.indexOf(`>${k}<`));
-    const right = ['stage.shop', 'stage.fabrication', 'stage.erection'].map((k) => out.indexOf(`>${k}<`));
+    const left = ['Thiết kế', 'Shop Drawing', 'Vật tư', 'Gia công'].map((name) => out.indexOf(`>${name}<`));
+    const right = ['Vận chuyển', 'Lắp dựng', 'Nghiệm thu', 'Thanh quyết toán'].map((name) => out.indexOf(`>${name}<`));
     expect(left.every((p) => p >= 0)).toBe(true);
     expect(right.every((p) => p >= 0)).toBe(true);
     expect([...left].sort((a, b) => a - b)).toEqual(left);
     expect([...right].sort((a, b) => a - b)).toEqual(right);
     // Cot phai bat dau ngay sau khi cot trai da liet ke xong (khong xen ke nhu STAGE_ORDER goc).
     expect(Math.min(...right)).toBeGreaterThan(Math.max(...left));
+  });
+
+  it('P7-C2: giai doan isActive=false khong xuat hien; custom_1 ben trai xuat hien ngay sau "Gia cong"', async () => {
+    const stages: Stage[] = [
+      ...repo.getStages(),
+      { code: 'old', nameVi: 'Giai doan cu ngung dung', nameEn: 'Old', sortOrder: 99, calcMode: 'manual', side: 'left', isActive: false },
+      { code: 'custom_1', nameVi: 'Bao hanh', nameEn: 'Warranty', sortOrder: 5, calcMode: 'manual', side: 'left', isActive: true },
+    ];
+    const spy = vi.spyOn(repo, 'getStages').mockReturnValue(stages);
+    try {
+      const out = await render();
+      expect(out).not.toContain('Giai doan cu ngung dung');
+      const gaCong = out.indexOf('>Gia công<');
+      const baoHanh = out.indexOf('>Bao hanh<');
+      expect(gaCong).toBeGreaterThan(-1);
+      expect(baoHanh).toBeGreaterThan(gaCong);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('thanh tien do (.stage .fill) phai la the block hoac co display ro rang trong CSS, khong duoc la the inline-mac-dinh (vd <i>) khi rule CSS khong khai bao display - neu khong thanh se luon rong 0x0 va khong bao gio hien mau/rong theo %, ke ca hang "khau nghen" (.stage.bt .fill) khong tô cam duoc nhu mock-up doi (danh-gia.md muc 4(a)/(d)). Xac nhan bang Playwright that tren http://localhost:3001/vi/projects/1: moi hang .bar chi thay nen xam var(--fill-2), khong co gradient --accent/--accent-2 hay cam #ffb340, bat ke pct = 33% hay 100%. Mock-up mockup-apple-glass.html dong 1364 dung <div class="fill">, khong phai <i>.', async () => {

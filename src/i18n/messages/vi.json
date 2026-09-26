@@ -172,7 +172,7 @@
   "detail": {
     "title": "Chi tiết dự án",
     "timeline": "Timeline kế hoạch vs thực tế",
-    "valueChain": "Chuỗi giá trị",
+    "valueChain": "Chuỗi giá trị quản lý dự án",
     "evmMetrics": "Chỉ số EVM",
     "spiCpi12": "SPI/CPI trend (12 tháng)",
     "sCurve12": "S-curve PV/EV/AC (12 tháng)",
@@ -273,7 +273,7 @@
       "first": "- đây là mốc đầu -"
     },
     "stageMs": {
-      "title": "Timeline của 7 giai đoạn",
+      "title": "Timeline các giai đoạn",
       "plannedStart": "Ngày BĐ KH",
       "plannedFinish": "Ngày HT KH",
       "actualStart": "Ngày TT BĐ",
@@ -666,7 +666,7 @@
     "total": "Tổng TT"
   },
   "valueChainCard": {
-    "allStages": "Toàn bộ 7 giai đoạn",
+    "allStages": "Toàn bộ giai đoạn",
     "footerWeight": "Σ trọng số",
     "footerFormula": "%TT = Σ(trọng số × %HT giai đoạn)"
   },
