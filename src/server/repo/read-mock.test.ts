@@ -17,17 +17,6 @@ data.activityLog.push(
 );
 
 describe('read-mock', () => {
-  it('readManpowerByShiftMonth: co dung cac shiftCode cua seed, tong actual khop tong actualHeadcount', async () => {
-    const rows = await mock.readManpowerByShiftMonth(1);
-    const seedRows = data.dailyManpowerShifts.filter((r) => r.projectId === 1);
-    const seedShiftCodes = new Set(seedRows.map((r) => r.shiftCode));
-    const rowShiftCodes = new Set(rows.map((r) => r.shiftCode));
-    expect(rowShiftCodes).toEqual(seedShiftCodes);
-    const totalActual = rows.reduce((s, r) => s + r.actual, 0);
-    const seedActual = seedRows.reduce((s, r) => s + r.actualHeadcount, 0);
-    expect(totalActual).toBe(seedActual);
-  });
-
   it('readManpowerWeekly: moi weekStart la Thu 2', async () => {
     const rows = await mock.readManpowerWeekly(1);
     expect(rows.length).toBeGreaterThan(0);
@@ -38,7 +27,6 @@ describe('read-mock', () => {
   });
 
   it('du an 17 (khong ton tai) -> rong/null', async () => {
-    expect(await mock.readManpowerByShiftMonth(17)).toEqual([]);
     expect(await mock.readManpowerWeekly(17)).toEqual([]);
     expect(await mock.readManpowerRange(17)).toBeNull();
     expect(await mock.readManpowerActualByMonth(17)).toEqual([]);

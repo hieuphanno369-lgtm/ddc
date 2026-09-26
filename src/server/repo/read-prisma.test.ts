@@ -48,13 +48,6 @@ describe('read-prisma', () => {
     expect(shiftFindMany).toHaveBeenCalledWith({ orderBy: { sortOrder: 'asc' } });
   });
 
-  it('readManpowerByShiftMonth goi $queryRaw 1 lan voi projectId trong values', async () => {
-    await readRepoPrisma.readManpowerByShiftMonth(7);
-    expect(queryRaw).toHaveBeenCalledTimes(1);
-    const sql = queryRaw.mock.calls[0][0] as Prisma.Sql;
-    expect(sql.values).toContain(7);
-  });
-
   it('readManpowerWeekly goi $queryRaw 1 lan voi projectId trong values', async () => {
     await readRepoPrisma.readManpowerWeekly(9);
     expect(queryRaw).toHaveBeenCalledTimes(1);

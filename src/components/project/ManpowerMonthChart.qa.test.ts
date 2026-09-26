@@ -149,3 +149,29 @@ describe('ManpowerMonthChart - svg giu kich thuoc pixel that o man hep', () => {
     expect(style).toContain('max-width:none');
   });
 });
+
+describe('ManpowerMonthChart - du an 1 ca: nhan cot trung nhan Tong KH', () => {
+  it('chi 1 ca -> khong ve nhan so tren cot (Tong KH da hien cung so), so do chi xuat hien 1 lan', () => {
+    const plan: ManpowerPlanMonthRow[] = [{ yearMonth: '2026-06', shiftCode: 'morning', planned: 270, isManual: false }];
+    const model = buildManpowerMonthModel({ plan, ratios: [], shifts: [SHIFTS[0]], actual: [] })!;
+    const out = render(model);
+    expect(out.match(/>270</g) ?? []).toHaveLength(1);
+  });
+});
+
+describe('ManpowerMonthChart - nhan TT khi khong con cho trong: chon vi tri de it nhat', () => {
+  it('TT = 0 (sat truc) -> nhan khong roi xuong hang ten ca o truc duoi', () => {
+    const plan: ManpowerPlanMonthRow[] = [
+      { yearMonth: '2026-06', shiftCode: 'morning', planned: 300, isManual: false },
+      { yearMonth: '2026-06', shiftCode: 'evening', planned: 200, isManual: false },
+    ];
+    const actual: ManpowerActualMonthRow[] = [{ yearMonth: '2026-06', actualSum: 0, days: 5 }];
+    const model = buildManpowerMonthModel({ plan, ratios: RATIOS, shifts: SHIFTS, actual })!;
+    expect(model.months[0].actualAvg).toBe(0);
+    const out = render(model);
+    const yTt = Number(out.match(/<text[^>]*\sy="([\d.]+)"[^>]*style="fill:var\(--s-third\)">0</)![1]);
+    const yAxisName = Number(out.match(/<text[^>]*\sy="([\d.]+)"[^>]*>Ca sáng</)![1]);
+    // Hang ten ca o truc: y = MT + PLOT_H + 14; nhan TT phai nam tren vach 0 (MT + PLOT_H), cach hang ten ca.
+    expect(yTt).toBeLessThanOrEqual(yAxisName - 14);
+  });
+});

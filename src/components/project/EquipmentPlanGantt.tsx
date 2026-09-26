@@ -8,13 +8,13 @@ import { xOf } from '@/lib/stage-timeline';
 import { ChartTip, useChartTip } from './ChartTip';
 
 /** T4 - Gantt thiết bị theo đợt: 1 hàng/loại thiết bị, thanh = đợt sử dụng, cột "SL nay/tổng". */
-const W = 1000, NAME_W = 190, QTY_W = 96, ML = NAME_W + QTY_W, MR = 16, MT = 40, LANE_H = 24, ROW_PAD = 10, BH = 16, ROW_MIN_H = 46;
+// QTY_W 140: header cột SL (en "Qty now/total" ~80px) căn giữa cột vẫn cách nhãn tick đầu (căn giữa tại ML) >= 6px.
+const W = 1000, NAME_W = 190, QTY_W = 140, ML = NAME_W + QTY_W, MR = 16, MT = 40, LANE_H = 24, ROW_PAD = 10, BH = 16, ROW_MIN_H = 46;
 // Màn hẹp: svg không co dưới W (viewBox 1:1) để chữ giữ đúng cỡ (720 làm chữ 10px còn ~7px), khung cuộn ngang.
 const MIN_SVG_W = W, LABEL_MIN_W = 44;
 const IW = W - ML - MR;
 // Hàng nhãn đầu bảng (tên cột + tick trục): nằm dưới nhãn "Hôm nay" (y 2..18), trên điểm bắt đầu lưới (MT - 8).
 const HEAD_Y = MT - 10;
-const FIRST_TICK_PAD = 4;
 const NAME_MAX_LEN = 24;
 
 function rowHeight(lanes: number): number {
@@ -63,15 +63,7 @@ export function EquipmentPlanGantt({ model }: { model: PlanGanttModel }) {
           <g key={tk.date}>
             <line x1={X(tk.date)} x2={X(tk.date)} y1={MT - 8} y2={gridBottom} style={{ stroke: 'var(--grid)' }} />
             {i % step === 0 && (
-              // Tick đầu luôn trùng mép trái vùng vẽ (ML): neo trái để không lấn sang cột "SL nay/tổng".
-              <text
-                x={i === 0 ? X(tk.date) + FIRST_TICK_PAD : X(tk.date)}
-                y={HEAD_Y}
-                textAnchor={i === 0 ? 'start' : 'middle'}
-                fontSize={10.5}
-                fontWeight={700}
-                style={{ fill: 'var(--axis)' }}
-              >
+              <text x={X(tk.date)} y={HEAD_Y} textAnchor="middle" fontSize={10.5} fontWeight={700} style={{ fill: 'var(--axis)' }}>
                 {tk.label}
               </text>
             )}

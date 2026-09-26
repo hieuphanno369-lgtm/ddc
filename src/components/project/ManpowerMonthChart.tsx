@@ -101,16 +101,19 @@ export function ManpowerMonthChart({ model }: { model: ManpowerMonthModel }) {
       const v = m.planned[sh.code] ?? 0;
       const bx = barXOf(cx, j);
       taken.push({ x0: bx, x1: bx + BAR_W, y0: y(v), y1: MT + PLOT_H });
-      if (v > 0) taken.push(textBox(bx + BAR_W / 2, y(v) - 4, String(v), 10, LABEL_GAP));
+      if (v > 0 && shifts.length > 1) taken.push(textBox(bx + BAR_W / 2, y(v) - 4, String(v), 10, LABEL_GAP));
     });
     const pp = planPoints[i];
     if (pp) taken.push(textBox(pp.x, pp.y - 8, String(pp.v), 10.5, LABEL_GAP), { x0: pp.x - 4, x1: pp.x + 4, y0: pp.y - 4, y1: pp.y + 4 });
     const label = String(p.v);
-    const fits = (dy: number) => {
+    // Điểm phạt: ra ngoài vùng vẽ tính nặng, mỗi khung bị đè tính 1; lấy vị trí phạt ít nhất (hoà thì theo thứ tự thử).
+    const penalty = (dy: number) => {
       const b = textBox(p.x, p.y + dy, label, 10.5);
-      return b.y0 >= MT - 14 && b.y1 <= MT + PLOT_H && !taken.some((tb) => overlaps(b, tb));
+      const outside = b.y0 < MT - 14 || b.y1 > MT + PLOT_H ? 100 : 0;
+      return outside + taken.filter((tb) => overlaps(b, tb)).length;
     };
-    actualLabelY.set(i, p.y + (ACTUAL_LABEL_OFFSETS.find(fits) ?? ACTUAL_LABEL_OFFSETS[0]));
+    const best = ACTUAL_LABEL_OFFSETS.reduce((a, dy) => (penalty(dy) < penalty(a) ? dy : a));
+    actualLabelY.set(i, p.y + best);
   });
 
   return (
@@ -150,7 +153,8 @@ export function ManpowerMonthChart({ model }: { model: ManpowerMonthModel }) {
                   return (
                     <g key={s.code}>
                       <rect x={barX} y={barY} width={BAR_W} height={barH} rx={3} style={{ fill: SHIFT_COLORS[j % SHIFT_COLORS.length] }} />
-                      {v > 0 && (
+                      {/* 1 ca: số trên cột trùng hẳn nhãn Tổng KH cùng chỗ, chỉ giữ nhãn Tổng KH. */}
+                      {v > 0 && shifts.length > 1 && (
                         <text x={barX + BAR_W / 2} y={barY - 4} textAnchor="middle" fontSize={10} style={{ fill: 'var(--label2)' }}>
                           {v}
                         </text>

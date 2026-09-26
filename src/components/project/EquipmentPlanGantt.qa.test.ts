@@ -108,3 +108,35 @@ describe('EquipmentPlanGantt - truong hop bien: 390px van co du lieu cuon ngang 
     expect(out).toContain('overflow-x:auto');
   });
 });
+
+describe('EquipmentPlanGantt - CS-1 reviewer: moi cap nhan tick lien ke dang hien khong de nhau', () => {
+  // Do theo MEP chu (co tinh textAnchor), uoc luong 0.62 em nhu test header. Truoc khi sua, tick dau
+  // neo trai (x = ML + 4, anchor start) de len tick 2 (anchor middle) voi ke hoach 12 thang / truc tuan.
+  function visibleTickGaps(model: NonNullable<ReturnType<typeof buildPlanGantt>>): number[] {
+    const out = render(model);
+    const step = model.axis.labelStep;
+    const shown = model.axis.ticks.filter((_, i) => i % step === 0);
+    const boxes = shown.map((tk) => {
+      const a = textAttrs(out, tk.label);
+      return extent(a.x, a.anchor, tk.label.length * 10.5 * 0.62);
+    });
+    return boxes.slice(1).map((b, i) => b.left - boxes[i].right);
+  }
+
+  it.each([
+    ['truc thang 12 thang', '2026-01-05', '2026-12-20'],
+    ['truc thang 24 thang (step 2)', '2026-01-05', '2027-12-20'],
+    ['truc tuan 92 ngay', '2026-03-02', '2026-06-01'],
+  ])('%s: moi khoang ho >= 4px', (_name, from, to) => {
+    const model = buildPlanGantt([seg({ id: 1, from, to, qty: 1 })], [], from)!;
+    const gaps = visibleTickGaps(model);
+    expect(gaps.length).toBeGreaterThan(3);
+    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(4);
+  });
+
+  it('moi nhan tick deu can giua vach luoi (dong nhat, khong neo trai rieng tick dau)', () => {
+    const model = buildPlanGantt([seg({ id: 1, from: '2026-01-05', to: '2026-12-20', qty: 1 })], [], '2026-01-05')!;
+    const out = render(model);
+    expect(textAttrs(out, model.axis.ticks[0].label).anchor).toBe('middle');
+  });
+});

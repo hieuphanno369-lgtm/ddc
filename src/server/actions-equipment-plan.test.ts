@@ -5,7 +5,7 @@ import type { EquipmentPlanGroupInput } from '@/server/repo/types';
 import type { ReadRepo } from '@/server/repo/read-types';
 
 // `mock-repo.ts` gắn các hàm đọc (read-mock.ts) qua Object.assign SAU khi `repo` đã có kiểu tĩnh,
-// nên TS không thấy `readEquipmentPlans` trên `repo` - ép kiểu để gọi được (khuôn read-mock.test.ts).
+// nên TS không thấy `readEquipmentPlanSegments` trên `repo` - ép kiểu để gọi được (khuôn read-mock.test.ts).
 const repo = mockRepo as typeof mockRepo & ReadRepo;
 
 vi.mock('next/cache', () => ({ revalidateTag: vi.fn(), revalidatePath: vi.fn() }));

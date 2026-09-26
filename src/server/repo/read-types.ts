@@ -1,7 +1,6 @@
 import type { ActivityLogEntry, AuditLogEntry, FactProgressMonthly, Shift } from './types';
 
 /** Nhân lực theo tháng × nhà thầu × ca (đã cộng các ngày). days = số ngày có dòng của ca đó. */
-export interface ShiftMonthRow { yearMonth: string; contractorId: number; shiftCode: string; planned: number; actual: number; days: number }
 /** Nhân lực theo tuần ISO (Thứ 2) × nhà thầu, đã cộng mọi ca + mọi ngày trong tuần. */
 export interface WeekContractorRow { weekStart: string; contractorId: number; planned: number; actual: number }
 export interface DateRange { from: string; to: string } // 'YYYY-MM-DD', from <= to
@@ -19,7 +18,6 @@ export interface ManpowerActualMonthRow { yearMonth: string; actualSum: number; 
 
 export interface ReadRepo {
   readShifts(): Promise<Shift[]>;                                                   // mọi ca, sortOrder tăng
-  readManpowerByShiftMonth(projectId: number): Promise<ShiftMonthRow[]>;            // sort yearMonth, contractorId, shiftCode
   readManpowerWeekly(projectId: number): Promise<WeekContractorRow[]>;              // sort weekStart, contractorId
   readManpowerRange(projectId: number): Promise<DateRange | null>;                  // min/max workDate; không có dòng → null
   // Bước 5

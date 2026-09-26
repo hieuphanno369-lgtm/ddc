@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/server/db';
 import type {
   AuditLogPageResult, DateRange, FactSnapshot, FinancialSnapshot, ManpowerActualMonthRow,
-  MonthlyEvmRow, ReadRepo, ShiftMonthRow, VolumeSnapshot, WeekContractorRow,
+  MonthlyEvmRow, ReadRepo, VolumeSnapshot, WeekContractorRow,
 } from './read-types';
 
 /**
@@ -13,15 +13,6 @@ import type {
 export const readRepoPrisma = {
   async readShifts() {
     return prisma.shift.findMany({ orderBy: { sortOrder: 'asc' } });
-  },
-
-  async readManpowerByShiftMonth(projectId: number): Promise<ShiftMonthRow[]> {
-    return prisma.$queryRaw<ShiftMonthRow[]>(Prisma.sql`
-      SELECT to_char(m."workDate",'YYYY-MM') AS "yearMonth", m."contractorId", m."shiftCode",
-             SUM(m."plannedHeadcount")::int AS planned, SUM(m."actualHeadcount")::int AS actual, COUNT(*)::int AS days
-      FROM "fact_daily_manpower" m WHERE m."projectId" = ${projectId}
-      GROUP BY 1, 2, 3 ORDER BY 1, 2, 3
-    `);
   },
 
   async readManpowerWeekly(projectId: number): Promise<WeekContractorRow[]> {

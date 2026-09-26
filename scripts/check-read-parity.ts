@@ -68,7 +68,6 @@ async function main() {
   const projectIds = [1, 17];
 
   for (const id of projectIds) {
-    check(`readManpowerByShiftMonth(${id})`, await readRepoPrisma.readManpowerByShiftMonth(id), await mock.readManpowerByShiftMonth(id));
     check(`readManpowerWeekly(${id})`, await readRepoPrisma.readManpowerWeekly(id), await mock.readManpowerWeekly(id));
     check(`readManpowerRange(${id})`, await readRepoPrisma.readManpowerRange(id), await mock.readManpowerRange(id));
     // P3C-A: 4 ham doc hop dong P3C.

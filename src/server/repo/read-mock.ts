@@ -2,7 +2,7 @@ import type { RepoData } from '@/data/seed/history';
 import { bucketOf } from '@/lib/daily-series';
 import type {
   AuditLogPageResult, DateRange, FactSnapshot, FinancialSnapshot, ManpowerActualMonthRow,
-  MonthlyEvmRow, ReadRepo, ShiftMonthRow, VolumeSnapshot, WeekContractorRow,
+  MonthlyEvmRow, ReadRepo, VolumeSnapshot, WeekContractorRow,
 } from './read-types';
 import type { FactProgressMonthly } from './types';
 
@@ -19,22 +19,6 @@ export function createReadMock(getData: () => RepoData): ReadRepo {
   return {
     async readShifts() {
       return [...getData().shifts].sort((a, b) => a.sortOrder - b.sortOrder);
-    },
-
-    async readManpowerByShiftMonth(projectId: number): Promise<ShiftMonthRow[]> {
-      const map = new Map<string, ShiftMonthRow>();
-      for (const r of getData().dailyManpowerShifts) {
-        if (r.projectId !== projectId) continue;
-        const yearMonth = r.workDate.slice(0, 7);
-        const key = `${yearMonth}|${r.contractorId}|${r.shiftCode}`;
-        const cur = map.get(key) ?? { yearMonth, contractorId: r.contractorId, shiftCode: r.shiftCode, planned: 0, actual: 0, days: 0 };
-        cur.planned += r.plannedHeadcount;
-        cur.actual += r.actualHeadcount;
-        cur.days += 1;
-        map.set(key, cur);
-      }
-      return [...map.values()].sort((a, b) =>
-        a.yearMonth.localeCompare(b.yearMonth) || a.contractorId - b.contractorId || a.shiftCode.localeCompare(b.shiftCode));
     },
 
     async readManpowerWeekly(projectId: number): Promise<WeekContractorRow[]> {
