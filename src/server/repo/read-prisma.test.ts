@@ -2,12 +2,11 @@ import type { Prisma } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
-  queryRaw, shiftFindMany, planFindMany, factFindMany, financialFindMany, volumeFindMany,
+  queryRaw, shiftFindMany, factFindMany, financialFindMany, volumeFindMany,
   auditAggregate, activityFindMany, auditLogCount, auditLogFindMany,
 } = vi.hoisted(() => ({
   queryRaw: vi.fn(async (_sql: unknown): Promise<unknown[]> => []),
   shiftFindMany: vi.fn(async (): Promise<unknown[]> => []),
-  planFindMany: vi.fn(async (_args: unknown): Promise<unknown[]> => []),
   factFindMany: vi.fn(async (_args: unknown): Promise<unknown[]> => []),
   financialFindMany: vi.fn(async (_args: unknown): Promise<unknown[]> => []),
   volumeFindMany: vi.fn(async (_args: unknown): Promise<unknown[]> => []),
@@ -20,7 +19,6 @@ vi.mock('@/server/db', () => ({
   prisma: {
     $queryRaw: queryRaw,
     shift: { findMany: shiftFindMany },
-    projectEquipmentPlan: { findMany: planFindMany },
     factProgressMonthly: { findMany: factFindMany },
     factFinancial: { findMany: financialFindMany },
     factVolume: { findMany: volumeFindMany },
@@ -34,7 +32,6 @@ import { repo as prismaRepo } from './prisma-repo';
 beforeEach(() => {
   queryRaw.mockClear();
   shiftFindMany.mockClear();
-  planFindMany.mockClear();
   factFindMany.mockClear();
   financialFindMany.mockClear();
   volumeFindMany.mockClear();
@@ -82,35 +79,6 @@ describe('read-prisma', () => {
     queryRaw.mockResolvedValueOnce([{ from: '2026-08-03', to: '2026-10-25' }]);
     const r = await readRepoPrisma.readManpowerRange(1);
     expect(r).toEqual({ from: '2026-08-03', to: '2026-10-25' });
-  });
-
-  it('readEquipmentPlans goi findMany dung orderBy, map Date -> YYYY-MM-DD', async () => {
-    planFindMany.mockResolvedValueOnce([
-      {
-        id: 1, projectId: 1, equipmentId: 1, unitNo: 1, qty: 3, workItemId: null,
-        plannedStart: new Date('2026-08-03T00:00:00Z'), plannedFinish: new Date('2026-08-30T00:00:00Z'),
-        note: '', updatedAt: new Date('2026-09-02T00:00:00Z'), updatedBy: 'system',
-      },
-    ]);
-    const rows = await readRepoPrisma.readEquipmentPlans(1);
-    expect(planFindMany).toHaveBeenCalledTimes(1);
-    expect(planFindMany).toHaveBeenCalledWith({
-      where: { projectId: 1 },
-      orderBy: [{ equipmentId: 'asc' }, { unitNo: 'asc' }, { plannedStart: 'asc' }, { id: 'asc' }],
-    });
-    expect(rows[0].plannedStart).toBe('2026-08-03');
-    expect(rows[0].plannedFinish).toBe('2026-08-30');
-    expect(rows[0].updatedAt).toBe('2026-09-02T00:00:00.000Z');
-    expect(rows[0].qty).toBe(3);
-  });
-
-  it('readEquipmentUsageDays goi $queryRaw 1 lan voi projectId, from, to trong values', async () => {
-    await readRepoPrisma.readEquipmentUsageDays(3, '2026-08-01', '2026-08-31');
-    expect(queryRaw).toHaveBeenCalledTimes(1);
-    const sql = queryRaw.mock.calls[0][0] as Prisma.Sql;
-    expect(sql.values).toContain(3);
-    expect(sql.values).toContain('2026-08-01');
-    expect(sql.values).toContain('2026-08-31');
   });
 
   it('readFactSnapshots("all") goi $queryRaw, khong goi findMany', async () => {

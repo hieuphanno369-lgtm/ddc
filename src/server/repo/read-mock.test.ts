@@ -37,45 +37,10 @@ describe('read-mock', () => {
     }
   });
 
-  it('readEquipmentPlans(1) dai 7 (P3C-A: dot khong danh so), sort dung', async () => {
-    const rows = await mock.readEquipmentPlans(1);
-    expect(rows).toHaveLength(7);
-    const nullLast = (a: number | null, b: number | null) => (a === b ? 0 : a == null ? 1 : b == null ? -1 : a - b);
-    const sorted = [...rows].sort((a, b) =>
-      a.equipmentId - b.equipmentId || nullLast(a.unitNo, b.unitNo)
-      || a.plannedStart.localeCompare(b.plannedStart) || a.id - b.id);
-    expect(rows).toEqual(sorted);
-  });
-
-  it('readEquipmentPlans: dot unitNo null (P3C-A) nam sau dong unitNo 1 cung thiet bi', async () => {
-    data.equipmentPlans.push({
-      id: 998, projectId: 1, equipmentId: 1, unitNo: 1, qty: 1, workItemId: null,
-      plannedStart: '2020-01-01', plannedFinish: '2020-01-10', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system',
-    });
-    data.equipmentPlans.push({
-      id: 999, projectId: 1, equipmentId: 1, unitNo: null, qty: 5, workItemId: null,
-      plannedStart: '2026-11-01', plannedFinish: '2026-11-30', note: '', updatedAt: '2026-09-02T00:00:00Z', updatedBy: 'system',
-    });
-    const rows = await mock.readEquipmentPlans(1);
-    const eq1 = rows.filter((r) => r.equipmentId === 1);
-    expect(eq1[0].unitNo).toBe(1);
-    expect(eq1[eq1.length - 1].unitNo).toBeNull();
-    data.equipmentPlans = data.equipmentPlans.filter((r) => r.id !== 998 && r.id !== 999);
-  });
-
-  it('readEquipmentUsageDays: khong co dong qtyActual = 0', async () => {
-    const range = await mock.readManpowerRange(1);
-    expect(range).not.toBeNull();
-    const rows = await mock.readEquipmentUsageDays(1, range!.from, range!.to);
-    for (const r of rows) expect(r.qtyActual).toBeGreaterThan(0);
-  });
-
   it('du an 17 (khong ton tai) -> rong/null', async () => {
     expect(await mock.readManpowerByShiftMonth(17)).toEqual([]);
     expect(await mock.readManpowerWeekly(17)).toEqual([]);
     expect(await mock.readManpowerRange(17)).toBeNull();
-    expect(await mock.readEquipmentPlans(17)).toEqual([]);
-    expect(await mock.readEquipmentUsageDays(17, '2020-01-01', '2035-12-31')).toEqual([]);
     expect(await mock.readManpowerActualByMonth(17)).toEqual([]);
   });
 

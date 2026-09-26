@@ -66,20 +66,11 @@ async function main() {
   check('readShifts', await readRepoPrisma.readShifts(), await mock.readShifts());
 
   const projectIds = [1, 17];
-  const planRows = await readRepoPrisma.readEquipmentPlans(1);
-  const from = planRows.length ? planRows.reduce((m, p) => (p.plannedStart < m ? p.plannedStart : m), planRows[0].plannedStart) : '2026-01-01';
-  const to = planRows.length ? planRows.reduce((m, p) => (p.plannedFinish > m ? p.plannedFinish : m), planRows[0].plannedFinish) : '2026-12-31';
 
   for (const id of projectIds) {
     check(`readManpowerByShiftMonth(${id})`, await readRepoPrisma.readManpowerByShiftMonth(id), await mock.readManpowerByShiftMonth(id));
     check(`readManpowerWeekly(${id})`, await readRepoPrisma.readManpowerWeekly(id), await mock.readManpowerWeekly(id));
     check(`readManpowerRange(${id})`, await readRepoPrisma.readManpowerRange(id), await mock.readManpowerRange(id));
-    check(`readEquipmentPlans(${id})`, await readRepoPrisma.readEquipmentPlans(id), await mock.readEquipmentPlans(id));
-    check(
-      `readEquipmentUsageDays(${id})`,
-      await readRepoPrisma.readEquipmentUsageDays(id, from, to),
-      await mock.readEquipmentUsageDays(id, from, to),
-    );
     // P3C-A: 4 ham doc hop dong P3C.
     check(`readEquipmentPlanSegments(${id})`, await formPrismaRepo.readEquipmentPlanSegments(id), await formMock.readEquipmentPlanSegments(id));
     check(`readEquipmentQuotas(${id})`, await formPrismaRepo.readEquipmentQuotas(id), await formMock.readEquipmentQuotas(id));

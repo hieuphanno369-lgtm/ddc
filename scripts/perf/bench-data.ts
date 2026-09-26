@@ -4,11 +4,11 @@
  * /projects/[id] (xem app/[locale]/(app)/overview/page.tsx va projects/[id]/page.tsx).
  * Usage: npx tsx scripts/perf/bench-data.ts
  */
-import { currentMonth } from '@/lib/clock';
+import { currentMonth, todayIso } from '@/lib/clock';
 import { PERF_PREFIX } from '@/lib/perf-guard';
 import { prisma } from '@/server/db';
-import { getEquipmentGantt } from '@/server/equipment-gantt-queries';
-import { getShiftChartData, getWeeklyChartData } from '@/server/manpower-queries';
+import { getEquipmentPlanGantt } from '@/server/equipment-plan-gantt-queries';
+import { getManpowerMonthChartData, getWeeklyChartData } from '@/server/manpower-queries';
 import { getOverdueScorecard } from '@/server/overdue-scorecard';
 import {
   getCapacityData, getMissingMonth, getPortfolioKpis, getPortfolioSCurve, getProjectSummary,
@@ -72,9 +72,9 @@ async function benchDetail(projectId: number, month: string): Promise<number> {
       repo.getStageMilestones(projectId),
       getWorkItemComparison(projectId, month),
       repo.listProjects(),
-      getShiftChartData(projectId, 'vi'),
+      getManpowerMonthChartData(projectId, 'vi'),
       getWeeklyChartData(projectId, project),
-      getEquipmentGantt(projectId, 'Chưa gán hạng mục'),
+      getEquipmentPlanGantt(projectId, todayIso()),
     ]));
 }
 

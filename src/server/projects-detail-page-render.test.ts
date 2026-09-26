@@ -122,10 +122,11 @@ describe('T13b - so tuyet doi (tan) canh % o chuoi gia tri (P1B Task 3, nhanh T)
 });
 
 describe('P2B Buoc 2 - T12b(a) chart nhan luc theo ca x nha thau', () => {
-  it('co the id="res-shift" + tieu de manpowerCharts.shiftTitle, van con anchor res-manpower', async () => {
+  it('co the id="res-shift" + tieu de manpowerMonthChart.title (thay ShiftManpowerChart), van con anchor res-manpower', async () => {
     const out = await render();
     expect(out).toContain('id="res-shift"');
-    expect(out).toContain('manpowerCharts.shiftTitle');
+    expect(out).toContain('manpowerMonthChart.title');
+    expect(out).not.toContain('manpowerCharts.shiftTitle');
     expect(out).toContain('href="#res-manpower"');
     expect(out).toContain('id="res-manpower"');
   });
@@ -140,16 +141,17 @@ describe('P2B Buoc 3 - T12b(b) chart cot chong nhan luc theo tuan', () => {
   });
 });
 
-describe('P2B Buoc 4 - T14 Gantt thiet bi', () => {
-  it('co the id="eq-gantt" + tieu de equipmentGantt.title', async () => {
+describe('P2B Buoc 4 - T14 Gantt thiet bi (P3C: Gantt theo dot, thay EquipmentGantt tung chiec)', () => {
+  it('co the id="eq-gantt" + tieu de equipmentPlanGantt.title, khong con equipmentGantt.legendUsed', async () => {
     const out = await render();
     expect(out).toContain('id="eq-gantt"');
-    expect(out).toContain('equipmentGantt.title');
+    expect(out).toContain('equipmentPlanGantt.title');
+    expect(out).not.toContain('equipmentGantt.legendUsed');
   });
 
-  it('du an 17 (chua co ke hoach thiet bi) -> equipmentGantt.noPlan', async () => {
+  it('du an 17 (chua co ke hoach thiet bi) -> equipmentPlanGantt.noPlan', async () => {
     const out = await render({}, '17');
-    expect(out).toContain('equipmentGantt.noPlan');
+    expect(out).toContain('equipmentPlanGantt.noPlan');
   });
 });
 

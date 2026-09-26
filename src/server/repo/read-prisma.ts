@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/server/db';
 import type {
-  AuditLogPageResult, DateRange, EquipmentUsageDay, FactSnapshot, FinancialSnapshot, ManpowerActualMonthRow,
+  AuditLogPageResult, DateRange, FactSnapshot, FinancialSnapshot, ManpowerActualMonthRow,
   MonthlyEvmRow, ReadRepo, ShiftMonthRow, VolumeSnapshot, WeekContractorRow,
 } from './read-types';
 
@@ -9,9 +9,6 @@ import type {
  * Read repo Prisma (Postgres) - truy vấn tổng hợp cho T12b/T14/T1, tách khỏi `prisma-repo.ts`
  * (file nóng A đang dùng). Tên hàm luôn bắt đầu bằng `read` để không trùng hàm nào của prisma-repo.
  */
-
-/** Date → 'YYYY-MM-DD' (cột @db.Date). */
-const day = (d: Date | null | undefined): string | null => (d ? d.toISOString().slice(0, 10) : null);
 
 export const readRepoPrisma = {
   async readShifts() {
@@ -45,35 +42,6 @@ export const readRepoPrisma = {
     const row = rows[0];
     if (!row || row.from == null || row.to == null) return null;
     return { from: row.from, to: row.to };
-  },
-
-  async readEquipmentPlans(projectId: number) {
-    const rows = await prisma.projectEquipmentPlan.findMany({
-      where: { projectId },
-      orderBy: [{ equipmentId: 'asc' }, { unitNo: 'asc' }, { plannedStart: 'asc' }, { id: 'asc' }],
-    });
-    return rows.map((r) => ({
-      id: r.id,
-      projectId: r.projectId,
-      equipmentId: r.equipmentId,
-      unitNo: r.unitNo,
-      qty: r.qty,
-      workItemId: r.workItemId,
-      plannedStart: day(r.plannedStart)!,
-      plannedFinish: day(r.plannedFinish)!,
-      note: r.note,
-      updatedAt: r.updatedAt.toISOString(),
-      updatedBy: r.updatedBy,
-    }));
-  },
-
-  async readEquipmentUsageDays(projectId: number, from: string, to: string): Promise<EquipmentUsageDay[]> {
-    return prisma.$queryRaw<EquipmentUsageDay[]>(Prisma.sql`
-      SELECT "equipmentId", to_char("workDate",'YYYY-MM-DD') AS "workDate", SUM("qtyActual")::int AS "qtyActual"
-      FROM "fact_daily_equipment_usage"
-      WHERE "projectId" = ${projectId} AND "workDate" BETWEEN ${from}::date AND ${to}::date
-      GROUP BY 1, 2 HAVING SUM("qtyActual") > 0 ORDER BY 1, 2
-    `);
   },
 
   async readFactSnapshots(yearMonth: string): Promise<FactSnapshot[]> {

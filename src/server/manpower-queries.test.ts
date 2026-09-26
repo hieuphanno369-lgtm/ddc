@@ -6,31 +6,7 @@ vi.mock('@/server/repo', async () => {
 });
 
 import { repo } from '@/server/repo';
-import { getShiftChartData, getWeeklyChartData } from './manpower-queries';
-
-describe('getShiftChartData', () => {
-  it('du an 1: shifts ten theo locale vi, contractors chi gom nha thau co dong', async () => {
-    const data = await getShiftChartData(1, 'vi');
-    const morning = data.shifts.find((s) => s.code === 'morning');
-    expect(morning?.name).toBe('Ca sáng');
-
-    const rows = await repo.readManpowerByShiftMonth(1);
-    const rowContractorIds = new Set(rows.map((r) => r.contractorId));
-    expect(new Set(data.contractors.map((c) => c.id))).toEqual(rowContractorIds);
-  });
-
-  it('du an 1: shifts ten theo locale en', async () => {
-    const data = await getShiftChartData(1, 'en');
-    const morning = data.shifts.find((s) => s.code === 'morning');
-    expect(morning?.name).toBe('Morning');
-  });
-
-  it('du an 17 (khong ton tai): rows rong, contractors rong', async () => {
-    const data = await getShiftChartData(17, 'vi');
-    expect(data.rows).toEqual([]);
-    expect(data.contractors).toEqual([]);
-  });
-});
+import { getManpowerMonthChartData, getWeeklyChartData } from './manpower-queries';
 
 describe('getWeeklyChartData', () => {
   it('du an 1: co >=1 tuan, tuan cuoi co so lieu khop tong actual tho (sai so lam tron <= days)', async () => {
@@ -65,5 +41,20 @@ describe('getWeeklyChartData', () => {
     expect(data).not.toBeNull();
     expect(new Set(data!.contractors.map((c) => c.id))).toEqual(new Set(contractorIds));
     expect(data!.contractors.find((c) => c.id === missingId)?.name).toBe(`#${missingId}`);
+  });
+});
+
+describe('getManpowerMonthChartData', () => {
+  it('du an 1: >= 7 thang, ten ca lay tu dim_shift theo locale vi', async () => {
+    const model = await getManpowerMonthChartData(1, 'vi');
+    expect(model).not.toBeNull();
+    expect(model!.months.length).toBeGreaterThanOrEqual(7);
+    const morning = model!.shifts.find((s) => s.code === 'morning');
+    expect(morning?.name).toBe('Ca sáng');
+  });
+
+  it('du an 17 (khong ton tai): khong co KH lan TT -> null', async () => {
+    const model = await getManpowerMonthChartData(17, 'vi');
+    expect(model).toBeNull();
   });
 });

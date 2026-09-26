@@ -1,13 +1,10 @@
 import type { RepoData } from '@/data/seed/history';
 import { bucketOf } from '@/lib/daily-series';
 import type {
-  AuditLogPageResult, DateRange, EquipmentUsageDay, FactSnapshot, FinancialSnapshot, ManpowerActualMonthRow,
+  AuditLogPageResult, DateRange, FactSnapshot, FinancialSnapshot, ManpowerActualMonthRow,
   MonthlyEvmRow, ReadRepo, ShiftMonthRow, VolumeSnapshot, WeekContractorRow,
 } from './read-types';
 import type { FactProgressMonthly } from './types';
-
-/** P3C-A: unitNo null (đợt nhập theo SL) xếp cuối - khớp PostgreSQL ASC NULLS LAST. */
-const nullLastNum = (a: number | null, b: number | null) => (a === b ? 0 : a == null ? 1 : b == null ? -1 : a - b);
 
 const pickFactSnapshot = (f: FactProgressMonthly): FactSnapshot => ({
   projectId: f.projectId, yearMonth: f.yearMonth, pctActual: f.pctActual, bac: f.bac,
@@ -58,31 +55,6 @@ export function createReadMock(getData: () => RepoData): ReadRepo {
       const dates = getData().dailyManpowerShifts.filter((r) => r.projectId === projectId).map((r) => r.workDate);
       if (!dates.length) return null;
       return { from: dates.reduce((a, b) => (a < b ? a : b)), to: dates.reduce((a, b) => (a > b ? a : b)) };
-    },
-
-    async readEquipmentPlans(projectId: number) {
-      return getData()
-        .equipmentPlans.filter((p) => p.projectId === projectId)
-        .map((p) => ({ ...p }))
-        .sort((a, b) =>
-          a.equipmentId - b.equipmentId
-          || nullLastNum(a.unitNo, b.unitNo)
-          || a.plannedStart.localeCompare(b.plannedStart)
-          || a.id - b.id);
-    },
-
-    async readEquipmentUsageDays(projectId: number, from: string, to: string): Promise<EquipmentUsageDay[]> {
-      const map = new Map<string, EquipmentUsageDay>();
-      for (const r of getData().dailyEquipment) {
-        if (r.projectId !== projectId || r.workDate < from || r.workDate > to) continue;
-        const key = `${r.equipmentId}|${r.workDate}`;
-        const cur = map.get(key) ?? { equipmentId: r.equipmentId, workDate: r.workDate, qtyActual: 0 };
-        cur.qtyActual += r.qtyActual;
-        map.set(key, cur);
-      }
-      return [...map.values()]
-        .filter((r) => r.qtyActual > 0)
-        .sort((a, b) => a.equipmentId - b.equipmentId || a.workDate.localeCompare(b.workDate));
     },
 
     async readFactSnapshots(yearMonth: string): Promise<FactSnapshot[]> {

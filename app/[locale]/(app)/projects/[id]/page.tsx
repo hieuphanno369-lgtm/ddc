@@ -34,21 +34,21 @@ const WeeklyTrackingCard = dynamic(() => import('@/components/project/WeeklyTrac
 const KeyMilestoneChart = dynamic(() => import('@/components/project/KeyMilestoneChart').then((m) => m.KeyMilestoneChart), { ssr: false, loading: () => <div className="sk h-60" /> });
 const StageExplorer = dynamic(() => import('@/components/project/StageExplorer').then((m) => m.StageExplorer), { ssr: false, loading: () => <div className="sk h-60" /> });
 const SpiCpiLine = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SpiCpiLine), { ssr: false, loading: () => <div className="sk h-60" /> });
-const ShiftManpowerChart = dynamic(
-  () => import('@/components/project/ShiftManpowerChart').then((m) => m.ShiftManpowerChart),
+const ManpowerMonthChart = dynamic(
+  () => import('@/components/project/ManpowerMonthChart').then((m) => m.ManpowerMonthChart),
   { ssr: false, loading: () => <div className="sk h-60" /> },
 );
 const WeeklyManpowerStackChart = dynamic(
   () => import('@/components/project/WeeklyManpowerStackChart').then((m) => m.WeeklyManpowerStackChart),
   { ssr: false, loading: () => <div className="sk h-60" /> },
 );
-const EquipmentGantt = dynamic(
-  () => import('@/components/project/EquipmentGantt').then((m) => m.EquipmentGantt),
+const EquipmentPlanGantt = dynamic(
+  () => import('@/components/project/EquipmentPlanGantt').then((m) => m.EquipmentPlanGantt),
   { ssr: false, loading: () => <div className="sk h-60" /> },
 );
 import { getResourceBreakdown, getResourceSnapshot, getWeeklyTracking, getWorkItemComparison } from '@/server/project-queries';
-import { getShiftChartData, getWeeklyChartData } from '@/server/manpower-queries';
-import { getEquipmentGantt } from '@/server/equipment-gantt-queries';
+import { getManpowerMonthChartData, getWeeklyChartData } from '@/server/manpower-queries';
+import { getEquipmentPlanGantt } from '@/server/equipment-plan-gantt-queries';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { WhatIf } from '@/components/project/WhatIf';
 import { ProjectSwitcher } from '@/components/project/ProjectSwitcher';
@@ -88,12 +88,14 @@ export default async function ProjectDetailPage({
   const project = await repo.getProject(id);
   if (!project) notFound();
 
+  const today = todayIso();
+
   // T1 Bước 6: gom mọi lệnh đọc ĐỘC LẬP (không phụ thuộc kết quả của nhau) vào 1 Promise.all -
   // trang Chi tiết trước đây await tuần tự từng dòng (>20 round-trip nối tiếp).
   const [
     summaryOrNull, lastUpdate, facts, chain, financial, alerts, aliases, sapCodes, photos, dims,
     resources, breakdown, tracking, keyMilestones, stageWeights, stageMilestones, compare,
-    projectsList, shiftChart, weekly, gantt,
+    projectsList, monthChart, weekly, planGantt,
   ] = await Promise.all([
     getProjectSummary(id, month),
     repo.readLastAuditAt(),
@@ -113,12 +115,11 @@ export default async function ProjectDetailPage({
     repo.getStageMilestones(id),
     getWorkItemComparison(id, month),
     repo.listProjects(),
-    getShiftChartData(id, locale),
+    getManpowerMonthChartData(id, locale),
     getWeeklyChartData(id, project),
-    getEquipmentGantt(id, t('equipmentGantt.noWorkItem')),
+    getEquipmentPlanGantt(id, today),
   ]);
   const summary = summaryOrNull!;
-  const today = todayIso();
   const timeline = buildPlanActualTimeline({
     plannedStart: project.plannedStartDate, plannedFinish: project.plannedFinishDate,
     actualStart: project.actualStartDate, pctActual: summary.pctActual, today,
@@ -378,13 +379,13 @@ export default async function ProjectDetailPage({
         </Card>
       )}
 
-      {/* T12b(a) - chart nhan luc theo ca x nha thau */}
+      {/* T5 - chart KH nhan luc theo thang x ca (thay ShiftManpowerChart) */}
       <Card id="res-shift" style={{ scrollMarginTop: 72 }}>
         <CardHeader
-          title={t('manpowerCharts.shiftTitle')}
-          titleExtra={<HelpTip text={t('manpowerCharts.shiftHelp')} label={t('common.explain')} />}
+          title={t('manpowerMonthChart.title')}
+          titleExtra={<HelpTip text={t('manpowerMonthChart.help')} label={t('common.explain')} />}
         />
-        <CardBody><ShiftManpowerChart data={shiftChart} initialMonth={month} /></CardBody>
+        <CardBody>{monthChart ? <ManpowerMonthChart model={monthChart} /> : <p className="empty">{t('manpowerMonthChart.noData')}</p>}</CardBody>
       </Card>
 
       {/* T12b(b) - chart cot chong nhan luc theo tuan x nha thau, dat cuoi trang theo yeu cau */}
@@ -398,20 +399,14 @@ export default async function ProjectDetailPage({
         </CardBody>
       </Card>
 
-      {/* T14 - Gantt thiet bi theo tung chiec */}
+      {/* T4 - Gantt thiet bi theo dot (thay EquipmentGantt tung chiec) */}
       <Card id="eq-gantt" style={{ scrollMarginTop: 72 }} className="overflow-visible">
         <CardHeader
-          title={t('equipmentGantt.title')}
-          subtitle={gantt ? `${formatDate(gantt.planFrom, locale)} - ${formatDate(gantt.planTo, locale)}` : undefined}
-          titleExtra={<HelpTip text={t('equipmentGantt.help')} label={t('common.explain')} />}
-          action={gantt ? (
-            <Legend items={[
-              ...gantt.legend.map((l) => ({ label: l.name, color: l.color })),
-              { label: t('equipmentGantt.legendUsed'), color: 'var(--label2)' },
-            ]} />
-          ) : undefined}
+          title={t('equipmentPlanGantt.title')}
+          subtitle={planGantt ? `${formatDate(planGantt.planFrom, locale)} - ${formatDate(planGantt.planTo, locale)}` : undefined}
+          titleExtra={<HelpTip text={t('equipmentPlanGantt.help')} label={t('common.explain')} />}
         />
-        <CardBody>{gantt ? <EquipmentGantt model={gantt} /> : <p className="empty">{t('equipmentGantt.noPlan')}</p>}</CardBody>
+        <CardBody>{planGantt ? <EquipmentPlanGantt model={planGantt} /> : <p className="empty">{t('equipmentPlanGantt.noPlan')}</p>}</CardBody>
       </Card>
 
       {/* Cum xu huong + ho so dat cuoi trang theo yeu cau chu du an 2026-09-24 */}
