@@ -96,3 +96,68 @@ p3c-contract "phải thất bại") đều đúng như hợp đồng `hop-dong-d
   không tự sửa.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+
+---
+
+# Vòng Bước 9-10 — XANH
+
+Kiểm thử độc lập P3C-B **Bước 9** (key i18n `topPriority.*`/`equipmentPlanGantt.*`/`manpowerMonthChart.*`,
+commit `bf7fbd9`) và **Bước 10** (thẻ "Top dự án trọng điểm" thay "Dự án cần lưu ý", commit `7526d53`).
+Bước 1-8 đã XANH ở vòng trước (mục phía trên, commit `e7bc3f0`), không làm lại. Bước 11 đã chuyển
+sang A theo quyết định chủ dự án (`8eb1471`), không thuộc phạm vi.
+
+## Skill đã dùng
+`ddc-tower:test-driven-development`, `ddc-tower:verification-before-completion`. Không cần
+`systematic-debugging` — không phát hiện lỗi trong code sản phẩm, tất cả test (của tôi lẫn của
+coder) đều xanh ở lần chạy cuối.
+
+## Cổng kiểm (PowerShell/Bash, `D:\_project\DDC_Control_Tower-B`)
+- `npx tsc --noEmit` → sạch, 0 lỗi.
+- `npm test` (trước khi thêm test QA) → **152 file / 1702 test xanh**, đúng mốc "sau Bước 10" ghi
+  trong `thay-doi.md`.
+- `npm test` (sau khi thêm 3 file test QA của tôi) → **155 file / 1719 test xanh** (+3 file / +17
+  test), exit code 0.
+- `npm run test:e2e -- e2e/02-overview.spec.ts e2e/08-finance-gate.spec.ts` → **8/8 xanh** (cổng
+  3001, DB `ddc_control_tower_b`, seed lại tự động qua Playwright setup).
+
+## Test QA độc lập đã viết (3 file mới, 17 test — không sửa test/code của coder)
+
+| File | Số test | Phủ (đường thuận / biên kế hoạch / phải thất bại) |
+|---|---|---|
+| `src/components/dashboard/TopPriorityList.qa.test.ts` | 6 | Đường thuận: giữ nguyên thứ tự `items` truyền vào (component không tự sắp xếp lại, việc sort đã làm ở `selectTopPriority` tầng query). Biên kế hoạch: badge/dot đúng theo `isBehindSchedule` khi `status` khác `'Dang_trien_khai'` (`Hoan_thanh`, `Tam_dung` + `onTrack:false` vẫn phải ra chấm xanh "Đúng tiến độ", không phải "Trễ tiến độ" — đúng định nghĩa KPI); `pctActual=0` → hiện "0%"; `pctPlan=null` → hiện "-"; locale `en` → % vẫn đúng, không crash. **Phải thất bại nếu rò rỉ:** số tiền lớn cố tình gán vào `contractValue`/`eac`/`vac` không được xuất hiện dưới bất kỳ dạng nào trong markup (kể cả `JSON.stringify`-style match). |
+| `src/server/top-priority-mask.qa.test.ts` | 3 | Đường thuận: admin (`canViewFinance=true`) giữ nguyên cả 3 trường tiền, kể cả `vac` âm. Biên: `loadTopPriority` được gọi đúng `month`/`filters` truyền xuống. **Phải thất bại nếu rò rỉ:** viewer (`canViewFinance=false`) không được thấy `contractValue`/`eac`/`vac` (kể cả `vac` âm) qua props lẫn qua `JSON.stringify` (chặn rò rỉ gián tiếp). |
+| `src/i18n/messages-p3cb-9-10.qa.test.ts` | 8 | Đường thuận: đủ 21 key của 3 nhóm mới (`topPriority` 5, `equipmentPlanGantt` 10, `manpowerMonthChart` 6) ở cả `vi.json`/`en.json`, không rỗng. Biên: quét bằng regex độc lập (không dùng lại `CHANGED_SOURCES` của coder) mọi `t('...')` mà `TopPriorityList.tsx`/`EquipmentPlanGantt.tsx`/`ManpowerMonthChart.tsx` dùng đều tồn tại ở cả 2 file. **Phải thất bại nếu lệch:** quét toàn bộ chuỗi (đệ quy, kể cả lồng nhau) trong 3 nhóm mới, không được chứa ký tự en dash (U+2013) hoặc em dash (U+2014) — đúng luật chung "không dùng gạch dài" của chủ dự án; xác nhận câu `equipmentPlanGantt.help` đã cố ý đổi "–"→"-" như `thay-doi.md` ghi. |
+
+## Không phát hiện lỗi trong code sản phẩm Bước 9-10
+Đối chiếu tĩnh với `.bangiao/ke-hoach.md` mục Bước 9/10 (kiểu, thuật toán, bố cục) và
+`.bangiao/thay-doi.md` mục "Bước 9-10": `TopPriorityCard` gọi đúng
+`maskProjectSummaries(await loadTopPriority(...), canViewFinance)` (N-3); `AlertBanner` không đổi,
+vẫn `loadWatchlist`; `overview/page.tsx` thay đúng 1 chỗ (`WatchlistCard`→`TopPriorityCard`, cùng
+`Suspense`); `Badge` có sẵn tone `ok`; 21 key i18n đúng nội dung bảng kế hoạch, chỉ lệch có chủ ý
+1 chỗ (gạch thường thay gạch ngang trong `equipmentPlanGantt.help`, đã ghi rõ trong `thay-doi.md`).
+
+## Smoke test trình duyệt (Playwright, MCP), `/vi/overview` + `/en/overview`, admin + viewer, 1440px + 390px
+Dùng `storageState` có sẵn (`e2e/.auth/admin.json`, `e2e/.auth/viewer.json`) mở 8 tổ hợp, dev
+server cổng 3001. Ảnh lưu `.bangiao/anh-test/qa910-<locale>-<role>-<w>.png` (8 ảnh:
+`vi-admin-1440`, `vi-admin-390`, `vi-viewer-1440`, `vi-viewer-390`, `en-admin-1440`,
+`en-admin-390`, `en-viewer-1440`, `en-viewer-390`).
+
+- Cả 8 tổ hợp: `document.documentElement.scrollWidth <= clientWidth` (đo bằng `page.evaluate`,
+  không chỉ nhìn mắt) → **không cuộn ngang** ở 390px lẫn 1440px.
+- Thẻ "Top dự án trọng điểm" / "Key priority projects" đứng đúng vị trí cũ của "Dự án cần lưu ý"
+  (giữa card S-curve/Backlog và bảng "Danh sách dự án"); `AlertBanner` đầu trang giữ nguyên y hệt
+  ("Dự án cần lưu ý" / "Projects Requiring Attention", nội dung SVĐ PVF không đổi).
+- Dữ liệu seed thật: 3 dự án P0 đang triển khai → 2 dự án trễ (chấm đỏ, badge "Trễ tiến độ"/"Behind
+  schedule") xếp trước 1 dự án đúng tiến độ (chấm xanh, "Đúng tiến độ"/"On track") — đúng thứ tự
+  sort của `selectTopPriority`. Chữ không tràn, không đè nhau ở cả 2 kích thước.
+- Viewer (cả 2 locale, cả 2 kích thước): không có KPI "Backlog"/thẻ S-curve/cột "Giá trị"/tuỳ chọn
+  sort theo giá trị — và thẻ Top dự án trọng điểm vẫn không hiện số tiền (đúng thiết kế, thẻ này
+  vốn không hiện tiền cho ai).
+- Console: 3 lỗi/cảnh báo mỗi trang, cả 8 tổ hợp — đều là cảnh báo `defaultProps` cũ của Recharts
+  (`XAxis`/`YAxis`/`ReferenceLine`, xuất hiện ở `SpiCpiLine`/S-curve), không thuộc component nào
+  của P3C-B, không phải regression của đợt này.
+
+## Câu hỏi còn mở
+Không có.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
