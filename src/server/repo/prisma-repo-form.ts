@@ -229,8 +229,12 @@ export const formPrismaRepo = {
       });
     } catch (e) {
       if (isP2002On(e, ONE_PIC_UNIQUE_TARGETS)) return 'pic_exists';
-      // I-1 (vòng sửa 1, vòng 2): 2 admin cùng thêm 1 người - bên kia đã ghi xong, coi như không đổi.
-      if (isP2002On(e, MEMBER_PK_TARGETS)) return 'unchanged';
+      // I-1 (vòng sửa 1, vòng 2): 2 admin cùng thêm 1 người - bên kia đã ghi xong. Cùng vai thì coi như
+      // không đổi; khác vai thì ném lỗi gốc (không báo 'unchanged' sai sự thật).
+      if (isP2002On(e, MEMBER_PK_TARGETS)) {
+        const now = await prisma.projectAssignment.findUnique({ where: { projectId_userEmail: { projectId, userEmail: email } } });
+        if (now?.roleInProject === roleInProject) return 'unchanged';
+      }
       throw e;
     }
   },

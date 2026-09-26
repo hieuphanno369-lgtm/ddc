@@ -1,4 +1,4 @@
-PHAN QUYET: CAN SUA
+PHAN QUYET: CHOT
 
 # Đánh giá cuối P3A: Form Tạo/Sửa dự án (`feature/p3a-form-tao-sua`, so với `main`) — vòng 1
 
@@ -178,3 +178,23 @@ Hai câu ở bản trước đã được chủ dự án trả lời (QĐ-10, Q�
 
 ---
 Kết luận: mục 1–5 nhỏ, gọn trong file P3A; mục 6–7 (QĐ-11) có migration mới, cần security-reviewer rà lại. Cổng xanh + security ĐẠT thì CHỐT được.
+
+## Vòng 2 (sau vòng sửa 1) - 2026-09-26
+
+> Reviewer chỉ đọc, 2026-09-26, skill `ddc-tower:code-review`; điều phối viên chép vào file này.
+> Phạm vi: `git diff 4e00517..HEAD` (vòng sửa 1 `e1f747a`..`a2cc2ea`, vá bảo mật `e1fcbd1`, `5a13fc3`).
+
+**Kết luận: CHỐT**
+
+- Cổng reviewer tự chạy: `tsc` exit 0; `npm test` 156 file / 1731 test; `check:read` 18/18 OK; `migrate status` up to date (8 migration); `pg_indexes` có đủ `dim_project_currentAliasCode_lower_key` và `project_assignments_one_pic_key`.
+- Đọc code cả 7 mục CẦN SỬA: 1 alias `todayIso()`, 2 `validateAliasChange`, 3 nháp bỏ số tài chính, 4 VIẾT HOA + `invalid_customer/invalid_team`, 5 `saveMonthlyData` đọc `parsed.data.patch` (vá thêm lỗi thật: trước đây destructure từ input thô), 6 mã CT không trùng (khoá advisory chung, kiểm lại bằng `tx`, `code_reserved` ở cả tạo và đổi), 7 tối đa 1 PIC (partial index, transaction + audit): **cả 7 ĐÓNG**.
+- F-1, N-1, I-1, I-2 đúng. Test có giá trị thật; còn yếu: chưa có test tích hợp race thật 2 kết nối Postgres (không chặn).
+- Bắt buộc ở bước merge: `main` = `2034548` (P3B); `git merge-tree` báo xung đột ở `vi.json`, `en.json`, `mock-repo.ts`; `main` không có migration mới. Sau merge chạy lại `tsc`, `npm test`, `check:read`. Báo B `migrate deploy` migration `20260925110000_p3a_unique_code_pic`.
+
+### Để sau (không chặn)
+
+- **I-1 ngữ nghĩa:** 2 admin cùng thêm 1 người với vai khác nhau thì bên thua nhận `'unchanged'` sai. → **ĐÃ SỬA** sau vòng 2: đọc lại dòng, chỉ `'unchanged'` khi cùng vai, khác vai ném lỗi gốc.
+- **N-2:** nháp cũ v1 còn 3 trường tài chính. → **ĐÃ SỬA** sau vòng 2: `PROJECT_DRAFT_VERSION` = 2, nháp v1 bị bỏ.
+- `handleSaveNew` (`ProjectForm.tsx:215-241`) chỉ có `try/finally`, lỗi khác mã CT không có thông báo; tạo mới với mã `M-\d+` chỉ báo lỗi chung, không tô đỏ ô Mã CT: để P3C-A.
+- Nâng Prisma: chạy lại `migrate diff` để chắc không có đề xuất `DROP INDEX` cho 2 index tạo tay.
+- Các mục "Để sau" của vòng 1 giữ nguyên, **S-1 bắt buộc ở P6**, cùng S-5, S-8, S-9, dữ liệu dev I-2/I-3.

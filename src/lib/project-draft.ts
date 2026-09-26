@@ -2,13 +2,14 @@ import type { ProjectFormState } from '@/lib/project-form';
 import type { KeyMilestoneDraft } from '@/lib/key-milestones';
 import type { Project, StageWeightInput } from '@/server/repo/types';
 
-export const PROJECT_DRAFT_VERSION = 1;
+/** N-2 (vòng sửa 1, vòng 2): lên 2 để bỏ nháp v1 cũ còn 3 trường tài chính trong localStorage. */
+export const PROJECT_DRAFT_VERSION = 2;
 
 /** F6 (S-3): nháp KHÔNG BAO GIỜ chứa số tài chính - máy dùng chung đọc được qua DevTools/localStorage. */
 export type ProjectDraftForm = Omit<ProjectFormState, 'contractValue' | 'contractValueOriginal' | 'penaltyValue'>;
 
 export interface ProjectDraft {
-  v: 1;
+  v: typeof PROJECT_DRAFT_VERSION;
   savedAt: string;
   projectCreatedAt: string | null;
   projectUpdatedAt: string | null;

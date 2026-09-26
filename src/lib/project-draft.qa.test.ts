@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkProjectDraft, restoreProjectDraft, type ProjectDraft } from './project-draft';
+import { checkProjectDraft, PROJECT_DRAFT_VERSION, restoreProjectDraft, type ProjectDraft } from './project-draft';
 import { emptyProjectForm, type ProjectFormState } from '@/lib/project-form';
 
 /**
@@ -11,7 +11,7 @@ const FORM: ProjectFormState = { ...emptyProjectForm(), projectName: 'DU AN QA N
 
 function draft(over: Partial<ProjectDraft> = {}): ProjectDraft {
   return {
-    v: 1, savedAt: '2026-09-16T00:00:00.000Z', projectCreatedAt: null, projectUpdatedAt: null,
+    v: PROJECT_DRAFT_VERSION, savedAt: '2026-09-16T00:00:00.000Z', projectCreatedAt: null, projectUpdatedAt: null,
     form: FORM, keyMilestones: [], stageWeights: [],
     ...over,
   };
@@ -23,12 +23,12 @@ describe('checkProjectDraft - du lieu hong/thieu', () => {
   });
 
   it('thieu truong form -> none', () => {
-    const raw = JSON.stringify({ v: 1, savedAt: '', projectCreatedAt: null, projectUpdatedAt: null });
+    const raw = JSON.stringify({ v: PROJECT_DRAFT_VERSION, savedAt: '', projectCreatedAt: null, projectUpdatedAt: null });
     expect(checkProjectDraft(raw, null)).toEqual({ kind: 'none' });
   });
 
-  it('version khac 1 (vi du v=2 tuong lai) -> none', () => {
-    const raw = JSON.stringify({ ...draft(), v: 2 });
+  it('version khac PROJECT_DRAFT_VERSION (nhap v1 cu con so tien, hoac ban tuong lai) -> none', () => {
+    const raw = JSON.stringify({ ...draft(), v: 1 });
     expect(checkProjectDraft(raw, null)).toEqual({ kind: 'none' });
   });
 

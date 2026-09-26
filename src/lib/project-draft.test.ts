@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { checkProjectDraft, projectDraftKey, restoreProjectDraft, toProjectDraftForm, type ProjectDraft } from './project-draft';
+import { checkProjectDraft, PROJECT_DRAFT_VERSION, projectDraftKey, restoreProjectDraft, toProjectDraftForm, type ProjectDraft } from './project-draft';
 import { emptyProjectForm, type ProjectFormState } from '@/lib/project-form';
 
 const FORM: ProjectFormState = { ...emptyProjectForm(), projectName: 'DU AN NHAP' };
 
 function draft(over: Partial<ProjectDraft> = {}): ProjectDraft {
   return {
-    v: 1,
+    v: PROJECT_DRAFT_VERSION,
     savedAt: '2026-09-16T00:00:00.000Z',
     projectCreatedAt: null,
     projectUpdatedAt: null,

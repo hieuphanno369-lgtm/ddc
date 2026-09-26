@@ -21,7 +21,7 @@ import {
   normalizeKeyMilestones, toKeyMilestoneDraft, validateKeyMilestones, type KeyMilestoneDraft, type KeyMsErrors,
 } from '@/lib/key-milestones';
 import { draftOwnerTag, purgeForeignDrafts } from '@/lib/drafts';
-import { checkProjectDraft, projectDraftKey, restoreProjectDraft, toProjectDraftForm, type ProjectDraft } from '@/lib/project-draft';
+import { checkProjectDraft, PROJECT_DRAFT_VERSION, projectDraftKey, restoreProjectDraft, toProjectDraftForm, type ProjectDraft } from '@/lib/project-draft';
 import { createDimValueAction, saveKeyMilestonesAction } from '@/server/actions';
 import { changeProjectCodeAction, updateProjectAction, saveStageWeightsAction, type UpdateProjectPatch } from '@/server/actions-project';
 import { createProjectAction } from '@/server/actions';
@@ -117,7 +117,7 @@ export function ProjectForm(p: ProjectFormProps) {
 
   function saveDraftNow() {
     const payload: ProjectDraft = {
-      v: 1,
+      v: PROJECT_DRAFT_VERSION,
       savedAt: new Date().toISOString(),
       projectCreatedAt: project?.createdAt ?? null,
       projectUpdatedAt: project?.updatedAt ?? null,
@@ -159,7 +159,7 @@ export function ProjectForm(p: ProjectFormProps) {
         localStorage.removeItem(draftStorageKey);
       } else {
         const payload: ProjectDraft = {
-          v: 1,
+          v: PROJECT_DRAFT_VERSION,
           savedAt: new Date().toISOString(),
           projectCreatedAt: project?.createdAt ?? null,
           projectUpdatedAt: project?.updatedAt ?? null,

@@ -198,7 +198,14 @@ describe('prisma-repo.setProjectMember', () => {
 
   it('N-1 + I-1: P2002 tren khoa chinh (projectId, userEmail) - 2 admin cung them 1 Backup -> "unchanged", KHONG bao nham "pic_exists"', async () => {
     projectAssignmentCreate.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError('trung', { code: 'P2002', clientVersion: '6.19.3', meta: { target: ['projectId', 'userEmail'] } }));
+    projectAssignmentFindUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({ projectId: 7, userEmail: 'pm@daidung.com.vn', roleInProject: 'Backup' });
     await expect(repo.setProjectMember(7, 'pm@daidung.com.vn', 'Backup', 'admin@x')).resolves.toBe('unchanged');
+  });
+
+  it('I-1: P2002 khoa chinh nhung ben kia luu KHAC vai (PIC) -> nem nguyen loi, khong bao "unchanged" sai', async () => {
+    projectAssignmentCreate.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError('trung', { code: 'P2002', clientVersion: '6.19.3', meta: { target: ['projectId', 'userEmail'] } }));
+    projectAssignmentFindUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({ projectId: 7, userEmail: 'pm@daidung.com.vn', roleInProject: 'PIC' });
+    await expect(repo.setProjectMember(7, 'pm@daidung.com.vn', 'Backup', 'admin@x')).rejects.toBeInstanceOf(Prisma.PrismaClientKnownRequestError);
   });
 });
 
