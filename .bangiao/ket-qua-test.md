@@ -1,4 +1,4 @@
-KET QUA TEST: DO
+KET QUA TEST: XANH
 
 # Kiem thu doc lap P3C-A (Tester) - 2026-09-26
 
@@ -172,3 +172,88 @@ rollback, cong kiem tu dong) deu DAT voi bang chung that. De nghi Reviewer/debug
 CHOT phase.
 
 Khong tu sua code san pham. Dung lai tai day theo dung quy trinh.
+
+## Vong 2 (Tester, kiem lai sau Debugger vong 1) - 2026-09-26
+
+Nhanh `feature/p3c-a-form-ke-hoach`, commit dang kiem `66c8983` (fix BUG-01: doi `.inline`
+sang `.inline-row` o `app/globals.css`, `ProjectForm.tsx`, `DataEntryForm.tsx`,
+`EquipmentPlanEditor.tsx`). Skill da dung: `test-driven-development`, `verification-before-completion`.
+Dev server that cong 3000, DB `ddc_control_tower`, dang nhap that `admin@daidung.com.vn`/`Admin@123`,
+kiem trinh duyet bang Playwright MCP (co san lan nay).
+
+### 1. BUG-01 - xac nhan DA DONG tren trinh duyet that
+
+O "Gia tri nguyen te" (`data-field="contractValueOriginal"` o `/vi/ho-so-du-an?mode=new`),
+do bang `getBoundingClientRect()`:
+
+- **1440px, tien te VND (mac dinh, o so `disabled`):** `wrap.display = "flex"`, `select.top = 548`,
+  `input.top = 548` -> lech **0px**.
+- **1440px, doi tien te sang USD (o so active):** `select.top = 548`, `input.top = 548`,
+  `input.height = 38` -> lech **0px**. Anh: `.bangiao/anh-test/tester-v2-bug01-usd-1440.png`.
+- **390px, doi tien te sang USD:** `select.top = 1118`, `input.top = 1118` -> lech **0px**.
+  Anh: `.bangiao/anh-test/tester-v2-bug01-usd-390.png`.
+- Ca tao moi (`?mode=new`) va kiem lai o cung file `ProjectForm.tsx` dung chung cho ca che do sua
+  (cung component, cung markup) - khong can lap lai rieng `?project=1`.
+
+**Ket luan: BUG-01 DA DONG**, dung nhu Debugger bao cao.
+
+### 2. Khong vo cho khac dung class cu `.inline` -> `.inline-row` (khat khe pixel, 1440px + 390px)
+
+Do `getComputedStyle(...).display` va `getBoundingClientRect()` cho tat ca phan tu `.inline-row`
+tren 3 trang, ca 2 kich thuoc man hinh:
+
+| Noi | 1440px | 390px |
+|---|---|---|
+| `ProjectForm.tsx` - khung "Gia tri nguyen te" | `display:flex`, top select=input=548, lech 0px | top=1118, lech 0px |
+| `ProjectForm.tsx` - Switch "Da bi phat" | `display:flex`, top switch/text = 1984/1986 (lech 2px, do can giua doc trong hang cao hon element - khong phai loi BUG-01) | top = 1984/1986 tuong tu |
+| `ProjectForm.tsx` - dong dem "* Bat buoc · N/19 truong da dien" o thanh sticky duoi | `display:flex`, height 18, 1 dong | tuong tu |
+| `DataEntryForm.tsx` - `<label>` checkbox "Ap dung" tung giai doan (`/vi/nhap-lieu?project=1`, buoc Tien do) | 7/7 nhan deu `display:flex`, checkbox va o % cung hang (lech 1-2px do can giua, khong tach dong) | 7/7 nhan tuong tu, lech 1-2px |
+| `EquipmentPlanEditor.tsx` - hang chon thiet bi trong nhom (`/vi/nhap-lieu?project=1&step=resources`) | 3/3 nhom `display:flex`, height 84 (co `flexWrap:'wrap'` theo dung code, khong bi sap sang dong don) | 3/3 nhom tuong tu, `display:flex` |
+
+Anh: `.bangiao/anh-test/tester-v2-equip-390.png` (EquipmentPlanEditor 390px),
+`.bangiao/anh-test/tester-v2-projectform-fullpage-1440.png` (toan trang ProjectForm 1440px, xem bang
+mat thuong: hang "Gia tri nguyen te" va hang "Da bi phat hop dong?" deu 1 dong).
+
+Khong con cho nao trong `src/`/`app/` dung `className="inline"` tran (da grep xac nhan, xem muc 4).
+
+Khong phat sinh loi console moi (`browser_console_messages` level error: 0 loi).
+
+### 3. Cong kiem tu dong (chay lai toan bo, lan nay)
+
+- `npx tsc --noEmit`: **sach**.
+- `npm test`: **186 file / 2153 test xanh** (moc Debugger 186/2151 + 2 test guard moi cua Tester,
+  khong test nao rot).
+- `npm run check:read`: **OK toan bo** (18 ham doc, du an 1 va 17).
+- `npx prisma migrate status`: **up to date**.
+- Khong luu du lieu qua UI lan nay (chi doi tien te de do vi tri, khong bam Luu) nen KHONG can chay
+  lai `npx prisma db seed`.
+
+### 4. Test moi them - chan tai phat BUG-01 (TDD, da xac nhan RED truoc khi GREEN)
+
+Them 2 test vao `src/ui/legacy-style-guard.test.ts` (file guard co san tu truoc, dung de canh style
+cu toan `.tsx` trong `src/` + `app/`):
+
+1. `BANNED chan className="inline" tran (P3C-A BUG-01), khong chan inline-row/inline-flex`: kiem
+   rule regex moi (`/className=(["'])inline\1/`) khop `className="inline"`/`className='inline'`
+   nhung KHONG khop `inline-row`/`inline-flex`/`inline-block`.
+2. `khong con file nao trong src/ va app/ dung className="inline" tran`: quet toan bo `FILES`
+   (danh sach `.tsx` co san trong file guard) bang chinh regex tren.
+
+**Da lam dung TDD (RED truoc khi GREEN, khong doan):**
+- Viet test 1 TRUOC khi them rule vao mang `BANNED` -> chay `npx vitest run src/ui/legacy-style-guard.test.ts`
+  -> **THAT BAI dung ly do mong doi**: `chua co rule chan class "inline" tran trong BANNED: expected undefined to be truthy`
+  (88 test khac van xanh, dung 1 test moi do rot).
+- Them rule vao `BANNED` -> chay lai -> **89/89 test xanh**.
+- Day chinh la "1 truong hop phai that bai" theo yeu cau (nhom 3): rule regex duoc chung minh la
+  BAT DUOC dung mau loi BUG-01 truoc khi duoc chap nhan xanh, khong phai chi doan.
+
+File test duy nhat bi sua: `src/ui/legacy-style-guard.test.ts` (them 2 `it`, them 1 phan tu vao
+mang `BANNED` co san trong chinh file test - khong dung code san pham).
+
+### 5. Ket luan vong 2
+
+BUG-01 **DA DONG**, khong phat sinh regression o cac cho dung chung class `.inline-row` (Switch
+"Da bi phat", dong dem thanh duoi, DataEntryForm, EquipmentPlanEditor), o ca 1440px va 390px. Cong
+kiem tu dong xanh toan bo, khong tut so test. Da them test chan tai phat, xac nhan RED-GREEN that
+(khong chi doan). **Du dieu kien de Reviewer CHOT phase.**
+
