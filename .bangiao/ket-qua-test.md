@@ -1,4 +1,4 @@
-KET QUA TEST: DO
+KET QUA TEST: XANH
 
 # P7-C1 - ket qua kiem thu doc lap (tester)
 
@@ -235,3 +235,95 @@ gop vao dot vong 2 cua `danh-gia.md`), kem huong sua goi y (chi de tham khao, KH
   CHU DONG dua vao mot `DATABASE_URL` bat thuong (khong phai tu `.env` binh thuong cua worktree).
 - 7.1, 7.3, 7.6: khong doi tuong kiem trong vong 2 nay (chi tap trung L-1 theo yeu cau), da duoc
   vong 1 (danh-gia.md) CHOT dat yeu cau; khong phat hien gi moi.
+
+## Vong 3 - kiem doc lap `isExpectedDbUrl` sau ban va cua debugger vong 1 (commit `743f841`)
+
+> Skill da dung: `test-driven-development`, `verification-before-completion` (goi truoc khi bat
+> dau, dung ten). Chi sua 1 file test: `e2e/helpers/env.test.ts` (them 7 case bien vao
+> `describe('isExpectedDbUrl')`). Khong dung, khong sua bat ky file san pham nao
+> (`e2e/helpers/env.ts` giu nguyen y het nhu debugger vong 1 de lai).
+
+### Ket luan: KET QUA TEST XANH - khong phat hien lo hong moi sau ban va cua debugger.
+
+### 1. Doc lai ban va cua debugger (`thay-doi.md` muc "Debugger vong 1")
+
+Ham `isExpectedDbUrl` hien tai (da doc lai toan bo, khong doan):
+
+```ts
+export function isExpectedDbUrl(dbUrl: string, port: string): boolean {
+  let u: URL;
+  try { u = new URL(dbUrl); } catch { return false; }
+  if (u.hostname !== 'localhost' || u.port !== '5433') return false;
+  if (u.hash !== '') return false;
+  const entries = [...u.searchParams.entries()];
+  if (entries.length > 1) return false;
+  if (entries.length === 1 && (entries[0][0] !== 'schema' || entries[0][1] !== 'public')) return false;
+  return E2E_TARGETS.some((t) => t.port === port && u.pathname === '/' + t.dbName);
+}
+```
+
+Ban va nay dem TONG SO CAP query (khong chi ten key) va them dieu kien chan `hash` - dung nhu
+mo ta trong `thay-doi.md`, da sua dung 2 lo ho ma vong 2 tim ra (`?schema=public&schema=evil`,
+fragment `#x`).
+
+### 2. Kiem doc lap bang script Node truc tiep (khong doan, truoc khi viet test)
+
+Chay `node -e` doc lap voi `new URL(...)` that de xem chinh xac WHATWG URL xu ly cac chuoi bien
+truoc khi ket luan ket qua ky vong (giong cach lam cua debugger vong 1 va tester vong 2):
+
+- `?schema=public&` (thua `&` cuoi) -> `URLSearchParams` chuan hoa con dung 1 cap `['schema','public']`.
+- `?&schema=public` (thua `&` dau) -> tuong tu, con dung 1 cap.
+- `?schema=Public` (gia tri hoa chu dau) -> entry la `['schema','Public']`, khac `'public'` (phan
+  biet hoa/thuong) -> guard da tu chan dung (khong can sua).
+- Userinfo la (`admin_evil:` thay `postgres:pass`, hoac mat khau rong): `u.username`/`u.password`
+  hoan toan KHONG duoc `isExpectedDbUrl` kiem tra o ca phien ban cu lan moi - day la **thiet ke,
+  khong phai lo hong**: muc dich guard la chan sai HOST/CONG/TEN DB (noi du lieu thuc su nam),
+  danh tinh dang nhap khong lam thay doi may chu/DB dich. Da thu them cac chieu "lua host qua
+  userinfo" (nhieu `@` lien tiep, ky tu dac biet, IPv6, homoglyph Unicode) - tat ca deu bi
+  `u.hostname !== 'localhost'` chan dung vi WHATWG URL luon phan giai hostname That Su dang sau
+  ky tu `@` cuoi cung, khong the "danh lua" qua userinfo.
+- Khoang trang: khoang trang dau/cuoi CA CHUOI `DATABASE_URL` bi WHATWG URL tu dong loai bo (dung
+  chuan). Ky tu tab NAM GIUA hostname (`loca\tlhost`) cung bi loai bo hoan toan theo chuan URL nen
+  chuan hoa dung thanh `localhost` - khong phai loi bypass, la hanh vi chuan cua trinh phan giai
+  URL (tester da kiem chung bang `node -e`, khong doan). Khoang trang lam URL KHONG parse duoc
+  (vd nam giua so cong `localhost: 5433`) -> `catch` tra `false`, khong throw.
+
+Ket luan: cac bien tester duoc giao kiem (userinfo la, `?schema=public&`, `?schema=Public`,
+`?&schema=public`, khoang trang) DEU da duoc guard xu ly dung (either bi tu choi dung, hoac duoc
+chap nhan dung theo thiet ke) - khong phat hien lo hong moi.
+
+### 3. Them 7 case bien vao `e2e/helpers/env.test.ts` (describe `isExpectedDbUrl`)
+
+| Case | Ky vong | Ghi chu |
+|---|---|---|
+| userinfo la (`admin_evil:` rong mat khau) | `true` | dung thiet ke, guard khong kiem danh tinh dang nhap |
+| `?schema=public&` (thua `&` cuoi) | `true` | chuan hoa con 1 cap |
+| `?&schema=public` (thua `&` dau) | `true` | chuan hoa con 1 cap |
+| `?schema=Public` (hoa chu dau) | `false` | phan biet hoa/thuong, day la case PHAI THAT BAI |
+| khoang trang dau/cuoi ca chuoi | `true` | WHATWG URL tu trim |
+| tab giua hostname (`loca\tlhost`) | `true` | bi loai bo hoan toan, chuan hoa dung thanh localhost |
+| khoang trang lam khong parse duoc (`localhost: 5433`) | `false`, khong throw | fail-closed dung |
+
+### 4. Cong kiem (chay that, `D:\_project\DDC_Control_Tower-C`)
+
+- `npx vitest run e2e/helpers/env.test.ts` -> **38 passed (38)** (tang tu 31 passed truoc do,
+  dung 7 case moi).
+- `npx tsc --noEmit` -> sach, exit 0, khong output.
+- `npm test` -> **203 file passed | 2212 test passed** (0 fail; tang dung 7 test so voi 2205
+  truoc do, khop 7 case moi, khong file nao khac bi anh huong).
+- `npx playwright test` (cong 3003, DB `ddc_control_tower_c`, `.env` THAT cua worktree C,
+  globalSetup seed lai 17 du an) -> **70 passed (1.5 phut)**, KHONG gap lai loi
+  `Timed out waiting 180000ms from config.webServer` ma debugger vong 1 gap 2 lan (kiem cong 3003
+  truoc khi chay: khong co tien trinh nao dang LISTENING; chay 1 lan duy nhat, xanh ngay, khong
+  can retry). Da kiem cong 3003 khong con LISTENING sau khi chay xong.
+- `mcp__postgres` (read-only, sau khi e2e chay xong): `select current_database()` ->
+  `ddc_control_tower_c` (dung DB cua worktree C, khong dung nham DB A); `select count(*) from
+  dim_project` -> `17` (dung so du an globalSetup da seed, khop log `Seed xong: 17 du an...`
+  trong output playwright).
+
+### 5. Ket luan
+
+Ban va cua debugger vong 1 (`743f841`) dat yeu cau, khong phat hien lo hong moi qua 7 case bien
+them vao. Toan bo cong kiem (`tsc`, `npm test`, `playwright test` trong bo) deu xanh. Khong gap
+lai van de timeout webServer lan nay - phu hop voi ket luan cua debugger la do tai may thoi diem
+do, khong phai loi cau hinh (khong can sua them gi ve `webServer`/timeout).

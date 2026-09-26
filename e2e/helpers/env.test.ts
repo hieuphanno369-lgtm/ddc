@@ -144,6 +144,54 @@ describe('isExpectedDbUrl', () => {
       isExpectedDbUrl('postgresql://postgres:pass@localhost:5433/ddc_control_tower_c?schema=public#x', '3003'),
     ).toBe(false);
   });
+
+  // Vong 3 (tester doc lap): kiem them bien tester duoc giao ro ten - userinfo la,
+  // '?schema=public&', '?schema=Public', '?&schema=public', khoang trang. Da doi chieu
+  // hanh vi that cua WHATWG URL bang script Node doc lap truoc khi viet test (khong doan).
+  it("userinfo la (ten dang nhap khac 'postgres', mat khau rong) van -> true (dung thiet ke: guard chi kiem host/port/ten DB/schema, khong kiem danh tinh nguoi dung ket noi)", () => {
+    expect(
+      isExpectedDbUrl('postgresql://admin_evil:@localhost:5433/ddc_control_tower_c?schema=public', '3003'),
+    ).toBe(true);
+  });
+
+  it("query co dau '&' du o cuoi ('?schema=public&') -> true (URLSearchParams chuan hoa ve dung 1 cap schema=public)", () => {
+    expect(
+      isExpectedDbUrl('postgresql://postgres:pass@localhost:5433/ddc_control_tower_c?schema=public&', '3003'),
+    ).toBe(true);
+  });
+
+  it("query co dau '&' du o dau ('?&schema=public') -> true (tuong tu, chuan hoa ve dung 1 cap)", () => {
+    expect(
+      isExpectedDbUrl('postgresql://postgres:pass@localhost:5433/ddc_control_tower_c?&schema=public', '3003'),
+    ).toBe(true);
+  });
+
+  it("gia tri schema viet hoa chu dau ('?schema=Public') -> false (phan biet hoa/thuong, khac 'public')", () => {
+    expect(
+      isExpectedDbUrl('postgresql://postgres:pass@localhost:5433/ddc_control_tower_c?schema=Public', '3003'),
+    ).toBe(false);
+  });
+
+  it('khoang trang dau/cuoi ca chuoi DATABASE_URL -> true (WHATWG URL tu dong bo khoang trang dau/cuoi)', () => {
+    expect(
+      isExpectedDbUrl('  postgresql://postgres:pass@localhost:5433/ddc_control_tower_c?schema=public  ', '3003'),
+    ).toBe(true);
+  });
+
+  it('ky tu tab nam giua ten host bi WHATWG URL loai bo hoan toan nen chuan hoa dung thanh localhost -> true (khong phai loi bypass, la hanh vi chuan cua URL, ten DB van phai khop dung)', () => {
+    expect(
+      isExpectedDbUrl('postgresql://postgres:pass@loca\tlhost:5433/ddc_control_tower_c?schema=public', '3003'),
+    ).toBe(true);
+  });
+
+  it('khoang trang lam URL khong parse duoc (vd nam giua cong) -> false, khong throw', () => {
+    expect(() =>
+      isExpectedDbUrl('postgresql://postgres:pass@localhost: 5433/ddc_control_tower_c?schema=public', '3003'),
+    ).not.toThrow();
+    expect(
+      isExpectedDbUrl('postgresql://postgres:pass@localhost: 5433/ddc_control_tower_c?schema=public', '3003'),
+    ).toBe(false);
+  });
 });
 
 describe('parseE2eBaseUrl', () => {
