@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import { revalidateTag } from 'next/cache';
 import { historyMonths, todayIso } from '@/lib/clock';
-import { validateStageWeights } from '@/lib/stages';
+import { isSameStageSet, stageOrder, validateStageWeights } from '@/lib/stages';
 import { isReservedProjectCode, normalizeProjectCode } from '@/lib/project-code';
 import { logActivity } from '@/lib/activity';
 import { requireRoleUser, requireWriteProject } from './action-guards';
@@ -124,13 +124,17 @@ export async function changeProjectCodeAction(
 export async function saveStageWeightsAction(
   projectId: number,
   rows: StageWeightInput[],
-): Promise<{ ok: true } | { ok: false; error: 'Forbidden' | 'Not found' | 'Invalid input' | 'weights_invalid' }> {
+): Promise<{ ok: true } | { ok: false; error: 'Forbidden' | 'Not found' | 'Invalid input' | 'weights_invalid' | 'stages_changed' }> {
   const user = await requireWriteProject(projectId);
   if (!user) return { ok: false, error: 'Forbidden' };
   const parsed = stageWeightRowsSchema.safeParse(rows);
   if (!parsed.success) return { ok: false, error: 'Invalid input' };
   const project = await repo.getProject(projectId);
   if (!project) return { ok: false, error: 'Not found' };
+
+  // P7-C2 (K8): danh sách mã gửi lên PHẢI đúng bằng tập giai đoạn đang dùng.
+  const order = stageOrder(await repo.getStages());
+  if (!isSameStageSet(parsed.data.map((w) => w.stageCode), order)) return { ok: false, error: 'stages_changed' };
 
   if (!validateStageWeights(parsed.data).ok) return { ok: false, error: 'weights_invalid' };
 

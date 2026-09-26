@@ -282,8 +282,7 @@ describe('saveMonthlyData - T11 (Task 8, P2A): engine canh bao', () => {
     const before = repo.getAlerts().filter((a) => a.projectId === 3 && a.ruleCode === 'spi_low' && !a.closedAt);
     expect(before).toHaveLength(0);
 
-    // P7-C2: getStageWeights gio co them "settlement" (chua duoc zod chap nhan toi Task 3) - loc lai 7 ma cu.
-    const weights = repo.getStageWeights(3).filter((w) => w.stageCode !== 'settlement');
+    const weights = repo.getStageWeights(3);
     const chain = weights.map((w) => ({ stageCode: w.stageCode, pctComplete: 0.1, applicable: w.applicable }));
     const res = await saveMonthlyData(3, YM, { chain });
 

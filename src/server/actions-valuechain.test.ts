@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { repo } from '@/server/repo/mock-repo';
-import { STAGE_ORDER } from '@/lib/stages';
+import { SEED_STAGE_CODES, STAGE_ORDER } from '@/lib/stages';
 import type { CurrentUser } from '@/lib/session';
 import type { StageCode } from '@/server/repo/types';
 
@@ -22,12 +22,16 @@ import { commitImportAction, saveMonthlyData } from '@/server/actions';
 const YM = '2026-09';
 const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.com.vn', role: 'admin', canViewFinance: true };
 
-/** Dựng chain đủ 7 giai đoạn theo STAGE_ORDER. */
+/** Dựng chain đủ giai đoạn theo SEED_STAGE_CODES (P7-C2: 8 mã, gồm settlement).
+ * `pcts`/`applicable` truyền 7 phần tử (7 giai đoạn cũ) vẫn dùng được - settlement mặc định
+ * pctComplete=0/applicable=true (trọng số 0 nên không ảnh hưởng %TT của các test cũ). */
 function chain(
   pcts: number[],
-  applicable: boolean[] = STAGE_ORDER.map(() => true),
+  applicable: boolean[] = SEED_STAGE_CODES.map(() => true),
 ): { stageCode: StageCode; pctComplete: number; applicable: boolean }[] {
-  return STAGE_ORDER.map((stageCode, i) => ({ stageCode, pctComplete: pcts[i], applicable: applicable[i] }));
+  return SEED_STAGE_CODES.map((stageCode, i) => ({
+    stageCode, pctComplete: pcts[i] ?? 0, applicable: applicable[i] ?? true,
+  }));
 }
 
 const pid = () => repo.listProjects()[0].id;
@@ -89,15 +93,17 @@ describe('saveMonthlyData - % tổng & khâu nghẽn tự suy từ chain', () =>
     expect(fact.bottleneckStage).toBeNull();
   });
 
-  it('lưu chain ghi đè đúng 7 dòng của tháng - lưu lại lần 2 vẫn 7 dòng, giá trị mới nhất', async () => {
+  it('luu chain ghi de dung 8 dong cua thang (P7-C2: gom settlement) - luu lai lan 2 van 8 dong, gia tri moi nhat', async () => {
     const id = pid();
 
     await saveMonthlyData(id, YM, { chain: chain([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]) });
     await saveMonthlyData(id, YM, { chain: chain([0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9]) });
 
     const vc = repo.getValueChain(id, YM);
-    expect(vc).toHaveLength(7);
-    expect(vc.every((v) => v.pctComplete === 0.9)).toBe(true);
+    expect(vc).toHaveLength(8);
+    // settlement khong duoc truyen trong pcts (7 phan tu) -> mac dinh 0, cac giai doan con lai = 0.9.
+    expect(vc.filter((v) => v.stageCode !== 'settlement').every((v) => v.pctComplete === 0.9)).toBe(true);
+    expect(vc.find((v) => v.stageCode === 'settlement')?.pctComplete).toBe(0);
   });
 
   it('chain có pct vượt 1.5 → server từ chối, KHÔNG ghi fact mới', async () => {
@@ -110,10 +116,25 @@ describe('saveMonthlyData - % tổng & khâu nghẽn tự suy từ chain', () =>
     expect(repo.getLatestFact(id, YM)!.version).toBe(beforeVersion);
   });
 
-  it('chain thiếu phần tử (6 giai đoạn) → server từ chối, không crash', async () => {
+  it('chain thieu phan tu (6 giai doan) -> server tu choi, khong crash', async () => {
     const id = pid();
     const res = await saveMonthlyData(id, YM, { chain: chain([0, 0, 0, 0, 0, 0, 0]).slice(0, 6) });
     expect(res.ok).toBe(false);
+  });
+
+  it("P7-C2 (K8): chain 7 ma (thieu settlement) -> { ok:false, error:'stages_changed' }, KHONG ghi gi", async () => {
+    const id = pid();
+    const beforeVersion = repo.getLatestFact(id, YM)!.version;
+    const beforeChain = repo.getValueChain(id, YM).map((v) => ({ ...v }));
+    const beforeProfile = { ...repo.getProject(id)! };
+
+    const chain7 = chain([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]).filter((c) => c.stageCode !== 'settlement');
+    const res = await saveMonthlyData(id, YM, { chain: chain7 });
+
+    expect(res).toEqual({ ok: false, error: 'stages_changed' });
+    expect(repo.getLatestFact(id, YM)!.version).toBe(beforeVersion);
+    expect(repo.getValueChain(id, YM)).toEqual(beforeChain);
+    expect(repo.getProject(id)).toEqual(beforeProfile);
   });
 
   it('không phải PIC và không phải admin → Forbidden, không ghi gì', async () => {
@@ -143,6 +164,19 @@ describe('saveMonthlyData - % tổng & khâu nghẽn tự suy từ chain', () =>
 
     expect(chiThietKe).toBeCloseTo(0.05, 10);
     expect(chiGiaCong).toBeCloseTo(0.40, 10);
+  });
+});
+
+describe('P7-C2 (K8): chain du 8 ma (gom settlement)', () => {
+  it("chain 8 ma -> ok, pctActual bang tinh 7 ma cu voi LEGACY_STAGE_WEIGHTS (settlement trong so 0)", async () => {
+    const id = pid();
+    const res = await saveMonthlyData(id, YM, { chain: chain([1, 0.8, 0.6, 0.4, 0.2, 0.1, 0]) });
+    expect(res).toEqual({ ok: true });
+    const fact = repo.getLatestFact(id, YM)!;
+    expect(fact.pctActual).toBeCloseTo(
+      (5 * 1 + 10 * 0.8 + 10 * 0.6 + 40 * 0.4 + 5 * 0.2 + 27 * 0.1 + 3 * 0) / 100,
+      10,
+    );
   });
 });
 

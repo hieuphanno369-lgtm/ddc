@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { repo } from '@/server/repo/mock-repo';
 import type { CurrentUser } from '@/lib/session';
-import { DEFAULT_STAGE_WEIGHTS } from '@/lib/stages';
+import { DEFAULT_STAGE_WEIGHTS, LEGACY_STAGE_WEIGHTS } from '@/lib/stages';
 
 vi.mock('next/cache', () => ({ revalidateTag: vi.fn(), revalidatePath: vi.fn() }));
 vi.mock('@/server/repo', async () => {
@@ -150,30 +150,49 @@ describe('changeProjectCodeAction', () => {
 describe('saveStageWeightsAction', () => {
   it('quyen: admin ok, pm PIC du an 1 ok, pm du an 16 Forbidden, viewer/bod Forbidden', async () => {
     login(ADMIN);
-    expect((await saveStageWeightsAction(1, DEFAULT_STAGE_WEIGHTS)).ok).toBe(true);
+    expect((await saveStageWeightsAction(1, LEGACY_STAGE_WEIGHTS)).ok).toBe(true);
 
     login(PM);
-    expect((await saveStageWeightsAction(1, DEFAULT_STAGE_WEIGHTS)).ok).toBe(true);
-    expect(await saveStageWeightsAction(16, DEFAULT_STAGE_WEIGHTS)).toEqual({ ok: false, error: 'Forbidden' });
+    expect((await saveStageWeightsAction(1, LEGACY_STAGE_WEIGHTS)).ok).toBe(true);
+    expect(await saveStageWeightsAction(16, LEGACY_STAGE_WEIGHTS)).toEqual({ ok: false, error: 'Forbidden' });
 
     login(VIEWER);
-    expect(await saveStageWeightsAction(1, DEFAULT_STAGE_WEIGHTS)).toEqual({ ok: false, error: 'Forbidden' });
+    expect(await saveStageWeightsAction(1, LEGACY_STAGE_WEIGHTS)).toEqual({ ok: false, error: 'Forbidden' });
     login(BOD);
-    expect(await saveStageWeightsAction(1, DEFAULT_STAGE_WEIGHTS)).toEqual({ ok: false, error: 'Forbidden' });
+    expect(await saveStageWeightsAction(1, LEGACY_STAGE_WEIGHTS)).toEqual({ ok: false, error: 'Forbidden' });
   });
 
   it('tong 99 -> weights_invalid', async () => {
     login(ADMIN);
-    const rows = DEFAULT_STAGE_WEIGHTS.map((r, i) => (i === 0 ? { ...r, weightPct: r.weightPct - 1 } : r));
+    const rows = LEGACY_STAGE_WEIGHTS.map((r, i) => (i === 0 ? { ...r, weightPct: r.weightPct - 1 } : r));
     expect(await saveStageWeightsAction(1, rows)).toEqual({ ok: false, error: 'weights_invalid' });
   });
 
   it('tong 100 -> getStageWeights(1) dung so vua gui', async () => {
     login(ADMIN);
-    const rows = DEFAULT_STAGE_WEIGHTS.map((r) => (r.stageCode === 'fabrication' ? { ...r, weightPct: 41 } : r.stageCode === 'transport' ? { ...r, weightPct: 4 } : r));
+    const rows = LEGACY_STAGE_WEIGHTS.map((r) => (r.stageCode === 'fabrication' ? { ...r, weightPct: 41 } : r.stageCode === 'transport' ? { ...r, weightPct: 4 } : r));
     const res = await saveStageWeightsAction(1, rows);
     expect(res).toEqual({ ok: true });
     expect(repo.getStageWeights(1).find((w) => w.stageCode === 'fabrication')?.weightPct).toBe(41);
+  });
+
+  it("P7-C2 (K8): 7 dong (DEFAULT_STAGE_WEIGHTS, thieu settlement) -> 'stages_changed'", async () => {
+    login(ADMIN);
+    expect(await saveStageWeightsAction(1, DEFAULT_STAGE_WEIGHTS)).toEqual({ ok: false, error: 'stages_changed' });
+  });
+
+  it('P7-C2: 8 dong LEGACY -> ok; them Thanh quyet toan 2 bot Lap dung 2 -> ok', async () => {
+    login(ADMIN);
+    expect((await saveStageWeightsAction(1, LEGACY_STAGE_WEIGHTS)).ok).toBe(true);
+
+    const rows = LEGACY_STAGE_WEIGHTS.map((r) => {
+      if (r.stageCode === 'erection') return { ...r, weightPct: 25 };
+      if (r.stageCode === 'settlement') return { ...r, weightPct: 2 };
+      return r;
+    });
+    const res = await saveStageWeightsAction(1, rows);
+    expect(res).toEqual({ ok: true });
+    expect(repo.getStageWeights(1).find((w) => w.stageCode === 'settlement')?.weightPct).toBe(2);
   });
 });
 

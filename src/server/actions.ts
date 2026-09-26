@@ -6,7 +6,7 @@ import ExcelJS from 'exceljs';
 import { getCurrentUser, type CurrentUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
 import { hashPassword, verifyPassword } from '@/lib/password';
-import { calcChainPctActual, findCurrentStage, normPct, validateStageWeights } from '@/lib/stages';
+import { calcChainPctActual, findCurrentStage, isSameStageSet, normPct, stageOrder, validateStageWeights } from '@/lib/stages';
 import { isReservedProjectCode, ProjectCodeTakenError } from '@/lib/project-code';
 import { cellText, type CellValue } from '@/lib/daily-import';
 import { assertXlsxInflatedSize, readBoundedSheet } from './daily-import';
@@ -125,6 +125,14 @@ export async function saveMonthlyData(
   const volumeTarget = factoryId !== undefined ? factoryId : project.factoryId;
   if (volumeTonnage != null && volumeTarget == null) return { ok: false, error: 'no_factory' };
 
+  // P7-C2 (K8): danh sách mã gửi lên PHẢI đúng bằng tập giai đoạn đang dùng - kiểm TRƯỚC mọi ghi
+  // (form mở từ trước khi admin thêm/ngừng giai đoạn không được lưu thiếu giai đoạn).
+  let stagesOrder: StageCode[] | undefined;
+  if (chain) {
+    stagesOrder = stageOrder(await repo.getStages());
+    if (!isSameStageSet(chain.map((c) => c.stageCode), stagesOrder)) return { ok: false, error: 'stages_changed' };
+  }
+
   const profilePatch: Partial<Project> = {};
   if (projectName) profilePatch.projectName = projectName;
   if (customerId != null) profilePatch.customerId = customerId;
@@ -160,7 +168,7 @@ export async function saveMonthlyData(
     // Trọng số theo dự án, không dùng mặc định cứng - dự án có thể bỏ giai đoạn.
     const weights = await repo.getStageWeights(projectId);
     derivedPctActual = calcChainPctActual(chain, weights);
-    bottleneckStage = findCurrentStage(chain);
+    bottleneckStage = findCurrentStage(chain, stagesOrder, weights);
   }
   if (pctPlan != null || derivedPctActual != null || ac != null || equipmentActual != null || bottleneckStage !== undefined) {
     const r = await repo.saveMonthlyFact(
@@ -232,6 +240,10 @@ export async function createProjectAction(
   }
   if (currentAliasCode && (await repo.isProjectCodeTaken(currentAliasCode, null))) {
     return { ok: false, error: 'code_taken' };
+  }
+  if (stageWeights) {
+    const order = stageOrder(await repo.getStages());
+    if (!isSameStageSet(stageWeights.map((w) => w.stageCode), order)) return { ok: false, error: 'stages_changed' };
   }
   if (stageWeights && !validateStageWeights(stageWeights).ok) {
     return { ok: false, error: 'weights_invalid' };

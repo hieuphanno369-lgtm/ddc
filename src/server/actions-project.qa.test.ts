@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { repo } from '@/server/repo/mock-repo';
-import { STAGE_ORDER } from '@/lib/stages';
+import { SEED_STAGE_CODES } from '@/lib/stages';
 import type { CurrentUser } from '@/lib/session';
 import type { StageCode } from '@/server/repo/types';
 
@@ -26,8 +26,14 @@ function login(user: CurrentUser | null) {
   (getCurrentUser as Mock).mockResolvedValue(user);
 }
 
-function chain(pcts: number[], applicable: boolean[] = STAGE_ORDER.map(() => true)): { stageCode: StageCode; pctComplete: number; applicable: boolean }[] {
-  return STAGE_ORDER.map((stageCode, i) => ({ stageCode, pctComplete: pcts[i], applicable: applicable[i] }));
+/** P7-C2: dung du SEED_STAGE_CODES (8 ma, gom settlement) - phan tu thieu (settlement) mac dinh 0/true. */
+function chain(pcts: number[], applicable: boolean[] = SEED_STAGE_CODES.map(() => true)): { stageCode: StageCode; pctComplete: number; applicable: boolean }[] {
+  return SEED_STAGE_CODES.map((stageCode, i) => ({ stageCode, pctComplete: pcts[i] ?? 0, applicable: applicable[i] ?? true }));
+}
+
+/** P7-C2: bo trong so du 8 ma - chi `onlyCode` co trong so 100%, con lai (gom settlement) = 0. */
+function weightsOnly(onlyCode: string) {
+  return SEED_STAGE_CODES.map((code) => ({ stageCode: code, weightPct: code === onlyCode ? 100 : 0, applicable: code === onlyCode }));
 }
 
 beforeEach(() => {
@@ -39,7 +45,7 @@ beforeEach(() => {
 describe('Q8 - doi trong so KHONG tinh lai %TT cua thang da luu', () => {
   it('sau khi doi trong so, %TT thang da luu truoc do GIU NGUYEN; thang moi luu sau dung trong so moi', async () => {
     // 1) Chot trong so ban dau W1: chi 'design' co trong so, cac giai doan khac = 0.
-    const w1 = STAGE_ORDER.map((code) => ({ stageCode: code, weightPct: code === 'design' ? 100 : 0, applicable: code === 'design' }));
+    const w1 = weightsOnly('design');
     expect((await saveStageWeightsAction(1, w1)).ok).toBe(true);
 
     // 2) Luu chain thang 2031-02 (thang chua tung dung, chac chan khong bi khoa):
@@ -50,7 +56,7 @@ describe('Q8 - doi trong so KHONG tinh lai %TT cua thang da luu', () => {
     expect(pctActualThang1TruocDoi).toBeCloseTo(0.5, 10); // 100% trong so vao design, design=50%
 
     // 3) Doi trong so sang W2: chi 'shop' co trong so.
-    const w2 = STAGE_ORDER.map((code) => ({ stageCode: code, weightPct: code === 'shop' ? 100 : 0, applicable: code === 'shop' }));
+    const w2 = weightsOnly('shop');
     expect((await saveStageWeightsAction(1, w2)).ok).toBe(true);
 
     // 4) %TT thang 2031-02 (da luu truoc khi doi trong so) PHAI GIU NGUYEN 0.5, khong tu tinh lai thanh 1.

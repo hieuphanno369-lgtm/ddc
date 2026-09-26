@@ -11,6 +11,7 @@ import { PROJECT_NAME_MAX } from '@/lib/project-form';
 import { isValidProjectCode, PROJECT_CODE_MAX } from '@/lib/project-code';
 import { EQUIP_GROUP_MAX, EQUIP_PLAN_MAX_ROWS, EQUIP_QTY_MAX } from '@/lib/equipment-plan';
 import { MANPOWER_PLAN_MAX_CELL, MANPOWER_PLAN_MAX_MONTHS } from '@/lib/manpower-plan';
+import { STAGE_MAX_COUNT } from '@/lib/stages';
 
 /**
  * Zod schema validate input mọi server action (spec §7.5 - không tin client).
@@ -51,7 +52,9 @@ const PROJECT_TYPE = [
 ] as const;
 const PRIORITY = ['P0', 'P1', 'P2', 'P3'] as const;
 const CURRENCY = ['VND', 'USD', 'EUR'] as const;
-const STAGE_CODES = ['design', 'shop', 'procurement', 'fabrication', 'transport', 'erection', 'handover'] as const;
+
+/** Mã giai đoạn - khoá dim_stage, do admin thêm được (không còn danh sách cố định, P7-C2). */
+export const stageCodeSchema = z.string().regex(/^[a-z][a-z0-9_]{1,31}$/);
 
 export const saveMonthlyDataSchema = z.object({
   projectId: z.number().int().positive(),
@@ -59,11 +62,11 @@ export const saveMonthlyDataSchema = z.object({
   patch: z.object({
     pctPlan: pct.optional(),
     chain: z.array(z.object({
-      stageCode: z.enum(STAGE_CODES),
+      stageCode: stageCodeSchema,
       pctComplete: pct,
       applicable: z.boolean(),
-    })).length(7)
-      .refine((arr) => new Set(arr.map((s) => s.stageCode)).size === 7, { message: 'stageCode phải đủ 7 giai đoạn khác nhau' })
+    })).min(1).max(STAGE_MAX_COUNT)
+      .refine((arr) => new Set(arr.map((s) => s.stageCode)).size === arr.length, { message: 'stageCode bi trung' })
       .optional(),
     ac: nonNegative.optional(),
     equipmentActual: nonNegative.optional(),
@@ -94,17 +97,17 @@ export const saveMonthlyDataSchema = z.object({
   }),
 });
 
-/** P3A (Task 5): bảng trọng số 7 giai đoạn gửi từ form - đủ 7 mã khác nhau. */
+/** P3A (Task 5) / P7-C2: bảng trọng số các giai đoạn gửi từ form - mã không trùng nhau. */
 export const stageWeightRowsSchema = z
   .array(
     z.object({
-      stageCode: z.enum(STAGE_CODES),
+      stageCode: stageCodeSchema,
       weightPct: z.number().min(0).max(100),
       applicable: z.boolean(),
     }),
   )
-  .length(7)
-  .refine((arr) => new Set(arr.map((s) => s.stageCode)).size === 7, { message: 'stageCode phải đủ 7 giai đoạn khác nhau' });
+  .min(1).max(STAGE_MAX_COUNT)
+  .refine((arr) => new Set(arr.map((s) => s.stageCode)).size === arr.length, { message: 'stageCode bi trung' });
 
 /** P3A (Task 5): các trường hồ sơ dùng chung cho tạo mới VÀ sửa (G-4/7/8/11/12). */
 const PROFILE_SHAPE = {

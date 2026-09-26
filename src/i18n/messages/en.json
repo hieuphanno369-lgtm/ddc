@@ -627,7 +627,8 @@
       "locked": "Month {month} is locked — cannot save.",
       "notFound": "Project not found.",
       "generic": "Save failed: {msg}",
-      "financeReadonly": "Only Admin/BOD can edit financials — fields below are read-only."
+      "financeReadonly": "Only Admin/BOD can edit financials — fields below are read-only.",
+      "stagesChanged": "The stage list was just changed by an admin - reload the page and re-enter progress."
     },
     "photo": {
       "dropTitle": "Drag photos here or click to choose",
@@ -1017,7 +1018,8 @@
       "forbidden": "You cannot edit this project.",
       "notFound": "Project not found.",
       "generic": "Save failed: {msg}",
-      "unexpected": "Save failed due to a system or connection error. Try again, and contact an administrator if it persists."
+      "unexpected": "Save failed due to a system or connection error. Try again, and contact an administrator if it persists.",
+      "stages_changed": "The stage list was just changed by an admin - reload the page and re-enter the weights."
     },
     "tip": {
       "plannedFinish": "Internal target used to run the schedule. % Plan = days elapsed since Planned start ÷ total days from Planned start to Planned finish. The countdown on Project detail counts to 17:00 on this date. Not the same as Committed handover.",

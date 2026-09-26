@@ -1,7 +1,7 @@
 import { addDaysIso, currentMonth, endOfMonth, isValidYearMonth, todayIso, type IsoDate } from '@/lib/clock';
 import { sumByDate, type DailyPoint } from '@/lib/daily-series';
 import type { ResourceRow } from '@/lib/resources';
-import { STAGE_CALC_MODE, STAGE_ORDER } from '@/lib/stages';
+import { activeStages } from '@/lib/stages';
 import type { WorkItemCompare, WorkItemCompareRow } from '@/lib/stage-timeline';
 import { TRACKING_DAYS, type WeeklyTracking } from '@/lib/tracking';
 import { repo } from './repo';
@@ -151,9 +151,9 @@ export async function getWorkItemComparison(projectId: number, yearMonth: string
   const ym = isValidYearMonth(yearMonth) ? yearMonth : currentMonth();
   const items = await repo.getWorkItems(projectId);
   const facts = await repo.getWorkItemFacts(projectId, ym);
+  const stages = activeStages(await repo.getStages()).filter((s) => s.calcMode === 'volume');
   const out: WorkItemCompare = {};
-  for (const stage of STAGE_ORDER) {
-    if (STAGE_CALC_MODE[stage] !== 'volume') continue;
+  for (const { code: stage } of stages) {
     const rows: WorkItemCompareRow[] = items.flatMap((wi) => {
       const fs = facts.filter((f) => f.stageCode === stage && f.workItemId === wi.id);
       if (!fs.length) return [];
