@@ -104,6 +104,46 @@ describe('isExpectedDbUrl', () => {
   it("chi co '?schema=public' -> true", () => {
     expect(isExpectedDbUrl(C, '3003')).toBe(true);
   });
+
+  // Vong 2 (danh-gia.md CAN SUA #1 da vao, kiem doc lap them bien): cac truong hop
+  // key/value lap, rong, chi dau '?', va fragment '#x' ma vong 1 chua co test rieng.
+  it("key viet hoa '?SCHEMA=public' -> false (khong duoc coi la 'schema' vi phan biet hoa/thuong)", () => {
+    expect(
+      isExpectedDbUrl('postgresql://postgres:pass@localhost:5433/ddc_control_tower_c?SCHEMA=public', '3003'),
+    ).toBe(false);
+  });
+
+  it("key 'schema' lap lai 2 lan (dung gia tri 'public' ca 2) -> false (chinh sach dung dung 1 lan key)", () => {
+    expect(
+      isExpectedDbUrl(
+        'postgresql://postgres:pass@localhost:5433/ddc_control_tower_c?schema=public&schema=public',
+        '3003',
+      ),
+    ).toBe(false);
+  });
+
+  it("key 'schema' lap lai voi gia tri thu 2 khac (vd 'evil') -> false (guard chi doc gia tri dau qua .get(), gia tri thu 2 co the bi mot bo doc URL khac su dung)", () => {
+    expect(
+      isExpectedDbUrl(
+        'postgresql://postgres:pass@localhost:5433/ddc_control_tower_c?schema=public&schema=evil',
+        '3003',
+      ),
+    ).toBe(false);
+  });
+
+  it("query chi co dau '?' khong co cap key=value nao -> true (tuong duong khong co query)", () => {
+    expect(isExpectedDbUrl('postgresql://postgres:pass@localhost:5433/ddc_control_tower_c?', '3003')).toBe(true);
+  });
+
+  it("co fragment '#x' (khong query) -> false (doi xung voi parseE2eBaseUrl da chan hash cho NEXTAUTH_URL)", () => {
+    expect(isExpectedDbUrl('postgresql://postgres:pass@localhost:5433/ddc_control_tower_c#x', '3003')).toBe(false);
+  });
+
+  it("co fragment '#x' cung voi query hop le '?schema=public' -> false", () => {
+    expect(
+      isExpectedDbUrl('postgresql://postgres:pass@localhost:5433/ddc_control_tower_c?schema=public#x', '3003'),
+    ).toBe(false);
+  });
 });
 
 describe('parseE2eBaseUrl', () => {

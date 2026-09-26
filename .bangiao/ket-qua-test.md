@@ -1,4 +1,4 @@
-KET QUA TEST: XANH
+KET QUA TEST: DO
 
 # P7-C1 - ket qua kiem thu doc lap (tester)
 
@@ -147,3 +147,91 @@ Da tu mo dev server tam tren cong 3003 (KHONG dung lai anh coder chup san), dang
 6. Kiem guard C-0 bang mot phep thu tich hop that (import `playwright.config.ts` voi bien shell
    gia lap tro DB A), khong dung DB A that, khong sua `.env`.
 7. Tat het server tam da mo, xac nhan cong 3003 dong truoc khi ket thuc.
+
+## Vong 2 - kiem doc lap ban va L-1 (`danh-gia.md` CAN SUA #1, commit `a29d2db` + `4e528a1`)
+
+> Skill da dung: `ddc-tower:test-driven-development`, `ddc-tower:verification-before-completion`
+> (goi truoc khi bat dau, theo dung ten). Chi sua 1 file test: `e2e/helpers/env.test.ts`
+> (them 7 case bien vao `describe('isExpectedDbUrl')`). Khong dung, khong sua bat ky file
+> san pham nao (`e2e/helpers/env.ts` giu nguyen).
+
+### Ket luan: KET QUA TEST DO - phat hien 4 test moi RED, day la loi that, khong phai test sai.
+
+Bang chung (chay that, PowerShell/Git Bash tai `D:\_project\DDC_Control_Tower-C`):
+
+- `npx tsc --noEmit` -> sach, exit 0, khong output.
+- `npx vitest run e2e/helpers/env.test.ts` -> **4 failed | 27 passed (31)**.
+- `npm test` -> **1 file failed (202 passed) | 4 test failed, 2201 passed (2205)**.
+- `npx playwright test` (cong 3003, DB `ddc_control_tower_c`, `.env` that cua worktree C,
+  seed lai 17 du an) -> **70 passed (2.8 phut)**, khong lien quan toi 4 test do o tren (Playwright
+  chi chay `*.spec.ts`, khong dam vao `env.test.ts`). Da kiem cong 3003 khong con LISTENING sau khi
+  chay xong (khong con dev server treo).
+
+### Phat hien: guard `isExpectedDbUrl` sau ban va L-1 van con 2 lo ho residual
+
+Ban va L-1 (vong 1) dung dung doan code reviewer de xuat trong `danh-gia.md` dong 101
+(`![...u.searchParams.keys()].every((k) => k === 'schema') || (u.searchParams.get('schema') ?? 'public') !== 'public'`).
+Doan nay chan dung yeu cau cua L-1 (query la `?host=...`), nhung khi tu kiem doc lap bang cac
+truong hop bien duoc giao (`?SCHEMA=public`, `?schema=public&schema=public`, `?schema=`, `?`,
+fragment `#x`), da doc chinh xac hanh vi that cua `URL`/`URLSearchParams` (chay `node -e` truc tiep,
+khong doan) va phat hien:
+
+1. **Khoa `schema` lap lai (duplicate key) khong bi chan.**
+   `URLSearchParams.get('schema')` chi doc GIA TRI DAU TIEN khi key xuat hien nhieu lan.
+   Doan kiem tra `.every((k) => k === 'schema')` chi dam bao MOI key co ten la `'schema'`,
+   khong dam bao key do CHI xuat hien 1 LAN. Vi vay:
+   - `?schema=public&schema=public` (2 gia tri giong nhau) -> guard tra `true` (chua chac la loi,
+     nhung vi pham chinh sach "dung dung 1 lan key" ma test moi de ra).
+   - `?schema=public&schema=evil` (2 gia tri KHAC nhau) -> guard van tra `true` (guard "nhin thay"
+     `public` qua `.get()`, nhung gia tri thu 2 `evil` van nam nguyen trong chuoi `DATABASE_URL`
+     that duoc truyen thang cho Prisma/pg). Day dung mo hinh loi giong het L-1 goc (bo doc dung de
+     kiem tra khac voi bo doc thuc su dung ket noi) - chi khac o cho L-1 goc nham vao key `host`
+     (co the doi ca server), con o day nham vao gia tri thu 2 cua `schema` (chi doi duoc schema
+     trong CUNG mot DB `ddc_control_tower_c`, khong doi duoc DB/host). Rui ro thap hon L-1 goc vi
+     ten DB van bi khoa cung, nhung van la mot bien khong duoc kiem het nhu ke hoach yeu cau
+     ("fail-closed").
+2. **`hash`/fragment (`#...`) hoan toan khong duoc kiem trong `isExpectedDbUrl`.**
+   Ham chi hoc `u.hostname`, `u.port`, `u.pathname`, `u.searchParams` - khong dong gi den `u.hash`.
+   Trong khi do `parseE2eBaseUrl` (dung cho `NEXTAUTH_URL`, cung file) co kiem `u.hash !== '' -> null`
+   ngay tu vong 1 truoc. Su bat doi xung nay nghia la:
+   - `...ddc_control_tower_c#x` (khong co query) -> guard tra `true`.
+   - `...ddc_control_tower_c?schema=public#x` (query hop le + fragment) -> guard van tra `true`.
+   Chua chung minh duoc day co bi khai thac that (con tuy bo doc chuoi ket noi thuc te cua
+   Prisma/pg co xu ly `#` giong WHATWG `URL` hay khong), nhung day la mot thanh phan URL guard
+   KHONG kiem trong khi ke hoach doi hoi "fail-closed" va chinh file nay da tu kiem hash cho
+   truong hop tuong tu (`NEXTAUTH_URL`). Nen coi day la mot gap can review quyet dinh co va hay
+   khong, khong tu y bo qua.
+
+### 4 test RED cu the (da them vao `e2e/helpers/env.test.ts`, describe `isExpectedDbUrl`)
+
+| Input | Ky vong (fail-closed) | Thuc te | Ket qua |
+|---|---|---|---|
+| `?SCHEMA=public` (key viet hoa) | `false` | `false` | PASS (da dung, khong phai loi) |
+| `?schema=public&schema=public` | `false` (dung 1 lan key) | `true` | **FAIL** |
+| `?schema=public&schema=evil` | `false` | `true` | **FAIL** |
+| `?` (chi dau hoi, khong cap key=value) | `true` (tuong duong khong co query) | `true` | PASS |
+| `#x` (fragment, khong query) | `false` (doi xung voi `parseE2eBaseUrl`) | `true` | **FAIL** |
+| `?schema=public#x` (query hop le + fragment) | `false` | `true` | **FAIL** |
+
+Ghi chu: 2 case dau va case `?` la case DA DUNG cua ban va vong 1 (khong phai loi, chi la them
+bien de phu day), duoc giu lai trong file test lam tai lieu hanh vi. 4 case con lai la loi that.
+
+### Da DUNG LAI dung nhu quy trinh - khong tu sua `e2e/helpers/env.ts`
+
+Day la code san pham, ngoai pham vi cho phep cua tester. Bao lai reviewer/coder xu ly (co the
+gop vao dot vong 2 cua `danh-gia.md`), kem huong sua goi y (chi de tham khao, KHONG tu ap dung):
+- Doi `.every((k) => k === 'schema')` + `.get()` thanh dem so lan xuat hien that su cua key
+  `schema` (vd `[...u.searchParams.entries()].filter(([k]) => k === 'schema').length <= 1`,
+  hoac dung `URLSearchParams` roi kiem `u.searchParams.getAll('schema').length <= 1`), VA/HOAC
+  kiem tong so cap key=value bang `[...u.searchParams.entries()].length <= 1`.
+- Them dieu kien `u.hash !== ''` -> `false`, giong het cach `parseE2eBaseUrl` da lam cho
+  `NEXTAUTH_URL`, de doi xung va fail-closed toan bo cac thanh phan cua URL.
+
+### Cac phan con lai van xanh (khong bi anh huong boi phat hien tren)
+
+- C-0 (guard chan DB A, cap dung): van dung trong thuc te qua `npx playwright test`
+  (spec 09, 70/70 pass) - nghia la voi `.env` THAT (chi co `?schema=public`, khong co key lap,
+  khong co fragment), guard van hoat dong dung nhu thiet ke; 2 lo ho tren chi lo ra khi co ke
+  CHU DONG dua vao mot `DATABASE_URL` bat thuong (khong phai tu `.env` binh thuong cua worktree).
+- 7.1, 7.3, 7.6: khong doi tuong kiem trong vong 2 nay (chi tap trung L-1 theo yeu cau), da duoc
+  vong 1 (danh-gia.md) CHOT dat yeu cau; khong phat hien gi moi.
