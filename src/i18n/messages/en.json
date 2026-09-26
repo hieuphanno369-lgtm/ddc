@@ -198,7 +198,7 @@
       "running": "in progress",
       "notStarted": "Not started",
       "startDelay": "Start delay",
-      "gap": "Plan - actual gap",
+      "gap": "Plan vs Actual variance",
       "days": "{n} days"
     },
     "cd": {

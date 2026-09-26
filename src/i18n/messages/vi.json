@@ -198,7 +198,7 @@
       "running": "đang chạy",
       "notStarted": "Chưa khởi công",
       "startDelay": "Trễ khởi công",
-      "gap": "Khoảng cách KH - TT",
+      "gap": "Chênh lệch KH vs TT",
       "days": "{n} ngày"
     },
     "cd": {

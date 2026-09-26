@@ -11,8 +11,8 @@ import { join } from 'node:path';
 const ROOT = process.cwd();
 const read = (p: string) => JSON.parse(readFileSync(join(ROOT, p), 'utf-8')) as Record<string, unknown>;
 const readSrc = (p: string) => readFileSync(join(ROOT, p), 'utf-8');
-const vi = read('src/i18n/messages/vi.json') as { app: Record<string, string> };
-const en = read('src/i18n/messages/en.json') as { app: Record<string, string> };
+const vi = read('src/i18n/messages/vi.json') as { app: Record<string, string>; detail: { tl: Record<string, string> } };
+const en = read('src/i18n/messages/en.json') as { app: Record<string, string>; detail: { tl: Record<string, string> } };
 
 describe('7.3 - doi ten app hien thi', () => {
   it('vi.json: app.headerTitle / app.name dung gia tri moi', () => {
@@ -48,5 +48,14 @@ describe('7.3 - doi ten app hien thi', () => {
     for (const f of ['src/i18n/messages/vi.json', 'src/i18n/messages/en.json']) {
       expect(readSrc(f)).not.toContain('Performance Hub');
     }
+  });
+});
+
+describe('7.6 - detail.tl.gap doi chu', () => {
+  it('vi.json', () => {
+    expect(vi.detail.tl.gap).toBe('Chênh lệch KH vs TT');
+  });
+  it('en.json', () => {
+    expect(en.detail.tl.gap).toBe('Plan vs Actual variance');
   });
 });

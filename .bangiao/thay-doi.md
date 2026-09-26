@@ -78,4 +78,21 @@ Sau commit: nhả khoá `src/server/actions.ts`, `src/server/repo/prisma-repo.ts
 - `npx tsc --noEmit` → sạch.
 - `npm test` → `202 passed (files) | 2188 passed (tests)`.
 
-**3.10 - Commit:** `feat(p7-c1): doi ten app thanh BAO CAO QUAN TRI / Danh Muc Du An, tieu de tab theo locale (7.3)`.
+**3.10 - Commit:** `feat(p7-c1): doi ten app thanh BAO CAO QUAN TRI / Danh Muc Du An, tieu de tab theo locale (7.3)` (`f24a804`).
+
+## Bước 4 - 7.6: đổi chữ `detail.tl.gap`
+
+**File đổi:**
+- `src/i18n/messages/vi.json` dòng 201: `"gap": "Khoảng cách KH - TT"` → `"Chênh lệch KH vs TT"`.
+- `src/i18n/messages/en.json` dòng 201: `"gap": "Plan - actual gap"` → `"Plan vs Actual variance"`.
+- `src/i18n/messages-p7-c1.test.ts`: thêm `describe('7.6 - detail.tl.gap doi chu')` (2 case).
+- KHÔNG sửa `app/[locale]/(app)/projects/[id]/page.tsx`, KHÔNG sửa `src/server/projects-detail-page-render.test.ts` (kiểm theo key, vẫn đúng).
+
+**4.1 - Test đỏ:** `npx vitest run src/i18n/messages-p7-c1.test.ts` → `2 failed | 4 passed (6)` trước khi sửa giá trị (đúng kỳ vọng).
+
+**4.2 - Sau khi sửa:** chạy lại → `6 passed (6)`.
+
+**4.3 - Cổng kiểm:** `npx tsc --noEmit` → sạch; `npm test` → `202 passed (files) | 2190 passed (tests)`.
+
+**4.4 - Commit:** `feat(p7-c1): doi nhan timeline thanh Chenh lech KH vs TT (7.6)`.
+Sau commit: nhả khoá `vi.json`, `en.json` trong `phien-C.md`.
