@@ -1,6 +1,6 @@
 import { calcDurationPctComplete, calcSpi, findBottleneck, penaltyState } from '@/lib/evm';
 import { THRESHOLDS } from '@/lib/thresholds';
-import { DEFAULT_STAGE_WEIGHTS, STAGE_CALC_MODE, STAGE_ORDER } from '@/lib/stages';
+import { LEGACY_STAGE_WEIGHTS, SEED_STAGE_CODES } from '@/lib/stages';
 import { endOfMonth } from '@/lib/clock';
 import { handoverKey, monthKey } from '@/lib/alert-keys';
 import { hashSync } from 'bcryptjs';
@@ -66,8 +66,9 @@ export const SEED_HISTORY_MONTHS = [
   '2026-09',
 ];
 
-/** buildValueChain dùng phân số, còn DEFAULT_STAGE_WEIGHTS là điểm phần trăm → chia 100. */
-const STAGE_WEIGHT_FRACTIONS = DEFAULT_STAGE_WEIGHTS.map((w) => ({
+/** buildValueChain dùng phân số, còn LEGACY_STAGE_WEIGHTS là điểm phần trăm → chia 100.
+ * Bỏ settlement (weightPct 0) - dữ liệu demo mô phỏng "dự án cũ", không sinh dòng chuỗi cho nó. */
+const STAGE_WEIGHT_FRACTIONS = LEGACY_STAGE_WEIGHTS.filter((w) => w.weightPct > 0).map((w) => ({
   stage: w.stageCode,
   weight: w.weightPct / 100,
 }));
@@ -331,10 +332,11 @@ function buildAssignments(projects: Project[]): ProjectAssignment[] {
   return out;
 }
 
-/** Mọi dự án nhận trọng số mặc định (5/10/10/40/5/27/3). */
+/** Mọi dự án nhận trọng số "dự án cũ" (5/10/10/40/5/27/3 + Thanh quyết toán 0) - đúng tình trạng
+ * DB thật sau migration P7-C2 (K6, K7). */
 function buildStageWeights(projects: Project[]): ProjectStageWeight[] {
   return projects.flatMap((p) =>
-    DEFAULT_STAGE_WEIGHTS.map((w) => ({
+    LEGACY_STAGE_WEIGHTS.map((w) => ({
       projectId: p.id,
       stageCode: w.stageCode,
       weightPct: w.weightPct,
@@ -343,15 +345,17 @@ function buildStageWeights(projects: Project[]): ProjectStageWeight[] {
   );
 }
 
-/** 7 mốc giai đoạn cho mọi dự án: chia đều khoảng KH bắt đầu → KH kết thúc theo trọng số lũy kế. */
+/** 7 mốc giai đoạn cho mọi dự án (không sinh mốc cho Thanh quyết toán): chia đều khoảng KH bắt
+ * đầu → KH kết thúc theo trọng số lũy kế. */
 function buildStageMilestones(projects: Project[]): FactStageMilestone[] {
   const out: FactStageMilestone[] = [];
+  const milestoneStages = LEGACY_STAGE_WEIGHTS.filter((w) => w.weightPct > 0);
   for (const p of projects) {
     if (!p.plannedStartDate || !p.plannedFinishDate) continue;
     const t0 = new Date(p.plannedStartDate).getTime();
     const span = new Date(p.plannedFinishDate).getTime() - t0;
     let cum = 0;
-    for (const w of DEFAULT_STAGE_WEIGHTS) {
+    for (const w of milestoneStages) {
       const from = cum / 100;
       cum += w.weightPct;
       const to = cum / 100;
@@ -391,16 +395,14 @@ function buildWorkItems(projects: Project[]): {
 
   // Chia tấn của dự án cho 10 hạng mục theo tỷ trọng giảm dần, tổng = p.tonnage.
   const shares = [0.18, 0.15, 0.13, 0.12, 0.1, 0.09, 0.07, 0.06, 0.055, 0.045];
-  const volumeStages = DEFAULT_STAGE_WEIGHTS
-    .filter((w) => STAGE_CALC_MODE[w.stageCode] === 'volume')
-    .map((w) => w.stageCode);
+  const volumeStages = stages.filter((s) => s.calcMode === 'volume').map((s) => s.code);
 
   const facts: FactStageWorkItem[] = [];
   for (const wi of workItems) {
     const itemTon = Math.round(p.tonnage * shares[wi.sortOrder - 1]);
     for (const stageCode of volumeStages) {
       // %TT giai đoạn giảm dần theo thứ tự chuỗi giá trị (Shop xong nhiều hơn Lắp dựng).
-      const idx = STAGE_ORDER.indexOf(stageCode);
+      const idx = SEED_STAGE_CODES.indexOf(stageCode as (typeof SEED_STAGE_CODES)[number]);
       const ratio = Math.max(0, Math.min(1, 1.15 - idx * 0.12));
       facts.push({
         projectId: p.id,
@@ -635,7 +637,7 @@ export function buildRepoData(): RepoData {
     // Chuỗi giá trị + khâu nghẽn cho tháng hiện tại
     const chain = buildValueChain(p.finalPctActual, p.id, SEED_CURRENT_MONTH);
     valueChain.push(...chain);
-    const bottleneck = findBottleneck(chain);
+    const bottleneck = findBottleneck(chain, SEED_STAGE_CODES, LEGACY_STAGE_WEIGHTS);
     const latest = facts.filter((f) => f.projectId === p.id && f.yearMonth === SEED_CURRENT_MONTH);
     if (latest.length) latest[latest.length - 1].bottleneckStage = bottleneck;
   }

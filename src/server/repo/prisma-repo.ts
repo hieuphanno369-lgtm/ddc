@@ -48,6 +48,7 @@ import type {
   StageCalcMode,
   StageCode,
   StageMilestoneView,
+  StageSide,
   TeamKd,
   UserAccount,
   ValueChainProgress,
@@ -227,11 +228,13 @@ const coreRepo = {
   },
 
   // ---- ERP v2 ----
+  /** Trả CẢ giai đoạn ngừng dùng - lọc theo isActive ở hàm thuần (activeStages/stageOrder). */
   async getStages(): Promise<Stage[]> {
     const rows = await prisma.stage.findMany({ orderBy: { sortOrder: 'asc' } });
     return rows.map((s) => ({
       code: s.code as StageCode, nameVi: s.nameVi, nameEn: s.nameEn,
       sortOrder: s.sortOrder, calcMode: s.calcMode as StageCalcMode,
+      side: s.side as StageSide, isActive: s.isActive,
     }));
   },
 

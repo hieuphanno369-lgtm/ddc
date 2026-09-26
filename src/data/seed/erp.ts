@@ -2,17 +2,19 @@ import type {
   Contractor, Equipment, ProjectEquipmentPlan, ProjectEquipmentQuota, ProjectManpowerPlanMonth, ProjectShiftRatio,
   Shift, Stage,
 } from '@/server/repo/types';
-import { DEFAULT_STAGE_WEIGHTS, STAGE_CALC_MODE, STAGE_ORDER } from '@/lib/stages';
+import { DEFAULT_STAGE_WEIGHTS, STAGE_ORDER } from '@/lib/stages';
 
-/** 7 giai đoạn thành dimension thật. Tên song ngữ khớp i18n key stage.* trong src/lib/labels.ts. */
+/** Các giai đoạn chuỗi giá trị thành dimension thật (P7-C2: thêm Thanh quyết toán, side, isActive).
+ * Tên song ngữ khớp i18n key stage.* trong src/lib/labels.ts (đã gỡ ở Task 7). */
 export const stages: Stage[] = [
-  { code: 'design', nameVi: 'Thiết kế', nameEn: 'Design', sortOrder: 1, calcMode: STAGE_CALC_MODE.design },
-  { code: 'shop', nameVi: 'Shop Drawing', nameEn: 'Shop Drawing', sortOrder: 2, calcMode: STAGE_CALC_MODE.shop },
-  { code: 'procurement', nameVi: 'Vật tư', nameEn: 'Materials', sortOrder: 3, calcMode: STAGE_CALC_MODE.procurement },
-  { code: 'fabrication', nameVi: 'Gia công', nameEn: 'Fabrication', sortOrder: 4, calcMode: STAGE_CALC_MODE.fabrication },
-  { code: 'transport', nameVi: 'Vận chuyển', nameEn: 'Transport', sortOrder: 5, calcMode: STAGE_CALC_MODE.transport },
-  { code: 'erection', nameVi: 'Lắp dựng', nameEn: 'Erection', sortOrder: 6, calcMode: STAGE_CALC_MODE.erection },
-  { code: 'handover', nameVi: 'Nghiệm thu & Bàn giao', nameEn: 'Handover', sortOrder: 7, calcMode: STAGE_CALC_MODE.handover },
+  { code: 'design', nameVi: 'Thiết kế', nameEn: 'Design', sortOrder: 1, calcMode: 'manual', side: 'left', isActive: true },
+  { code: 'shop', nameVi: 'Shop Drawing', nameEn: 'Shop Drawing', sortOrder: 2, calcMode: 'volume', side: 'left', isActive: true },
+  { code: 'procurement', nameVi: 'Vật tư', nameEn: 'Procurement', sortOrder: 3, calcMode: 'volume', side: 'left', isActive: true },
+  { code: 'fabrication', nameVi: 'Gia công', nameEn: 'Fabrication', sortOrder: 4, calcMode: 'volume', side: 'left', isActive: true },
+  { code: 'transport', nameVi: 'Vận chuyển', nameEn: 'Transport', sortOrder: 5, calcMode: 'volume', side: 'right', isActive: true },
+  { code: 'erection', nameVi: 'Lắp dựng', nameEn: 'Erection', sortOrder: 6, calcMode: 'volume', side: 'right', isActive: true },
+  { code: 'handover', nameVi: 'Nghiệm thu', nameEn: 'Handover', sortOrder: 7, calcMode: 'manual', side: 'right', isActive: true },
+  { code: 'settlement', nameVi: 'Thanh quyết toán', nameEn: 'Settlement', sortOrder: 8, calcMode: 'manual', side: 'right', isActive: true },
 ];
 
 /** 6 nhà thầu phụ đã chốt (Q8). */

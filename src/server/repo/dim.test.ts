@@ -118,3 +118,16 @@ describe('dim chuẩn hóa (customer/team)', () => {
     expect(repo.suggestDim('customer', 'VinGroup').some((x) => x.id === 1)).toBe(true);
   });
 });
+
+describe('getStages (P7-C2: them side/isActive)', () => {
+  it('tra du 8 giai doan, moi giai doan co side va isActive', () => {
+    const stages = repo.getStages();
+    expect(stages).toHaveLength(8);
+    for (const s of stages) {
+      expect(['left', 'right']).toContain(s.side);
+      expect(typeof s.isActive).toBe('boolean');
+    }
+    const settlement = stages.find((s) => s.code === 'settlement')!;
+    expect(settlement).toMatchObject({ side: 'right', isActive: true, sortOrder: 8 });
+  });
+});

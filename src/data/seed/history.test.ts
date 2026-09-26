@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildRepoData, SEED_CURRENT_MONTH, SEED_HISTORY_MONTHS, seedPctPlanDuration } from './history';
 import { seedProjects } from './projects';
 import { DEFAULT_STAGE_WEIGHTS, validateStageWeights } from '@/lib/stages';
+import { valueChainColumns } from '@/lib/value-chain-view';
 import { ERP_DETAIL_PROJECT_ID } from './erp';
 import { sumManpowerShifts } from '@/lib/shifts';
 import { findOverloads } from '@/lib/equipment-plan';
@@ -54,17 +55,29 @@ describe('Seed ERP v2', () => {
   const data = buildRepoData();
   const lastDay = [...new Set(data.dailyManpowerShifts.map((m) => m.workDate))].sort().at(-1)!;
 
-  it('7 giai đoạn dimension, sortOrder 1..7 không trùng', () => {
-    expect(data.stages).toHaveLength(7);
-    expect(data.stages.map((s) => s.sortOrder).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  it('8 giai đoạn dimension (P7-C2: them Thanh quyet toan), sortOrder 1..8 không trùng', () => {
+    expect(data.stages).toHaveLength(8);
+    expect(data.stages.map((s) => s.sortOrder).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
   });
 
-  it('mọi dự án có đủ 7 trọng số và tổng applicable = 100', () => {
+  it('valueChainColumns: cot trai/phai dung 4 ma moi cot', () => {
+    const [left, right] = valueChainColumns(data.stages);
+    expect(left.map((s) => s.code)).toEqual(['design', 'shop', 'procurement', 'fabrication']);
+    expect(right.map((s) => s.code)).toEqual(['transport', 'erection', 'handover', 'settlement']);
+  });
+
+  it('mọi dự án có đủ 8 trọng số (7 cu + Thanh quyet toan 0), tổng applicable = 100', () => {
     for (const p of data.projects) {
       const ws = data.stageWeights.filter((w) => w.projectId === p.id);
-      expect(ws).toHaveLength(7);
+      expect(ws).toHaveLength(8);
       expect(validateStageWeights(ws).ok).toBe(true);
+      const settlement = ws.find((w) => w.stageCode === 'settlement')!;
+      expect(settlement).toMatchObject({ weightPct: 0, applicable: true });
     }
+  });
+
+  it('data.valueChain khong co dong settlement (khong sinh chuoi cho giai doan trong so 0)', () => {
+    expect(data.valueChain.some((v) => v.stageCode === 'settlement')).toBe(false);
   });
 
   it('trọng số đúng bộ đã duyệt 5/10/10/40/5/27/3 (KHÁC bộ cũ 6/12/10/34/5/28/5)', () => {

@@ -58,6 +58,11 @@ enum StageCalcMode {
   volume
 }
 
+enum StageSide {
+  left
+  right
+}
+
 enum NotifyKind {
   webhook
   email
@@ -460,7 +465,7 @@ model ActivityLog {
 // ---- ERP: giai đoạn, trọng số, sản lượng, mốc ----
 
 /**
- * 7 giai đoạn chuỗi giá trị thành dimension thật (trước đây là hằng số trong code).
+ * Giai đoạn chuỗi giá trị (admin thêm được ở /admin).
  */
 model Stage {
   code      String        @id
@@ -468,6 +473,8 @@ model Stage {
   nameEn    String
   sortOrder Int
   calcMode  StageCalcMode @default(manual)
+  side      StageSide     @default(left)
+  isActive  Boolean       @default(true)
 
   weights         ProjectStageWeight[]
   valueChain      ValueChainProgress[]
