@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import { PrismaClient } from '@prisma/client';
-import { loadDotEnv, resolveE2eTarget } from './helpers/env';
+import { loadE2eEnv, resolveE2eTarget } from './helpers/env';
 
 /**
  * Task 9 (P3B) - chạy 1 lần trước mọi spec: nạp `.env`, khẳng định chắc chắn đang trỏ vào
@@ -8,8 +8,7 @@ import { loadDotEnv, resolveE2eTarget } from './helpers/env';
  * (dữ liệu lặp lại được), dọn kênh thông báo `E2E ...` còn sót từ lần chạy trước.
  */
 export default async function globalSetup(): Promise<void> {
-  const env = loadDotEnv();
-  Object.assign(process.env, env);
+  Object.assign(process.env, loadE2eEnv());
 
   const { databaseUrl } = resolveE2eTarget(process.env);
   if (!process.env.NOTIFY_SECRET_KEY) {

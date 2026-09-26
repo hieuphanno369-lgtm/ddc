@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { loadDotEnv, resolveE2eTarget } from './e2e/helpers/env';
+import { loadE2eEnv, resolveE2eTarget } from './e2e/helpers/env';
 
 /**
  * Task 9 (P3B) - e2e luong chinh. Chay tuan tu (1 worker) tren cong + DB lay tu .env, chi cap
@@ -9,8 +9,8 @@ import { loadDotEnv, resolveE2eTarget } from './e2e/helpers/env';
  * chay cac spec (.spec.ts), khong dam vao .test.ts cua vitest (2 test runner khac nhau, khong
  * chung file). `auth.setup.ts`/`global-setup.ts` khong khop ca 2 pattern nen khong bi anh huong.
  */
-// .env thang bien shell (giong global-setup.ts). Sai cap DB + cong -> throw ngay, webServer khong khoi dong.
-const target = resolveE2eTarget({ ...process.env, ...loadDotEnv() });
+// .env thang bien shell, tru E2E_DATABASE_URL/E2E_NEXTAUTH_URL (script test:e2e:a). Sai cap DB + cong -> throw ngay.
+const target = resolveE2eTarget(loadE2eEnv());
 
 export default defineConfig({
   testDir: 'e2e',
@@ -29,7 +29,8 @@ export default defineConfig({
   webServer: {
     command: `npx next dev -p ${target.port}`,
     url: `${target.baseURL}/vi/login`,
-    reuseExistingServer: true,
+    // A (3000) khong bam server co san: server dev thuong cua A tro DB that (N-P7-1). Cong ban -> Playwright bao loi.
+    reuseExistingServer: target.reuseServer,
     timeout: 180_000,
     env: { NEXTAUTH_URL: target.baseURL, DATABASE_URL: target.databaseUrl },
   },

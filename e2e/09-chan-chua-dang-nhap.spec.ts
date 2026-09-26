@@ -1,11 +1,11 @@
 import { test, expect, request as pwRequest, type APIRequestContext } from '@playwright/test';
-import { loadDotEnv, resolveE2eTarget } from './helpers/env';
+import { loadE2eEnv, resolveE2eTarget } from './helpers/env';
 
 /**
  * P3D-B (S-1, bao-mat.md P3C-B): nguoi CHUA dang nhap khong duoc doc du lieu du an.
  * Dung APIRequestContext moi (khong cookie) de chac chan khong dinh storageState cua spec khac.
  */
-const BASE = resolveE2eTarget({ ...process.env, ...loadDotEnv() }).baseURL;
+const BASE = resolveE2eTarget(loadE2eEnv()).baseURL;
 
 // Moi page thuc co trong app/[locale]/(app) (khop test tinh src/server/app-pages-require-user.test.ts).
 const APP_PATHS = [
