@@ -91,10 +91,13 @@ export function setCell(s: PlanState, row: number, shift: number, input: string)
   return { ...s, rows };
 }
 
-/** Rời ô ca: trả chuỗi nháp về số đang lưu của ô (bỏ phần gõ dở không hợp lệ). */
-export function revertCell(s: PlanState, row: number, shift: number): PlanState {
+/** Rời ô ca. Nháp hợp lệ → giữ nguyên. Nháp rỗng/sai: có `before` (dòng chụp lúc focus) → trả CẢ dòng về như
+ *  lúc focus (bỏ các số trung gian đã ghi tạm khi xoá dần, vd 270 → 27 → 2 → ""); không có → chỉ trả chuỗi
+ *  về số đang lưu của ô. */
+export function revertCell(s: PlanState, row: number, shift: number, before?: PlanRowState): PlanState {
   const rows = s.rows.map((r, i) => {
-    if (i !== row) return r;
+    if (i !== row || isCellInputValid(r, shift)) return r;
+    if (before && before.yearMonth === r.yearMonth) return before;
     return { ...r, cellInputs: r.cellInputs.map((v, k) => (k === shift ? String(r.cells[k].planned) : v)) };
   });
   return { ...s, rows };

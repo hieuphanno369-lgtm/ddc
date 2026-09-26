@@ -37,4 +37,4 @@ PHAN QUYET: CHOT
 - L-2: khoá lạc quan theo `updatedAt` và rate limit cho các action ghi (tầng chung).
 - L-3: xoá ngầm tháng là chủ đích kế hoạch; khi có nghiệp vụ tắt ca thì quyết giữ hay xoá dòng của ca đã tắt.
 - Các mục "Để sau" khác của vòng 1 còn nguyên (xem `danh-gia-vong1.md`), trừ `pctSum`, class ô tổng %, ô Tổng không tô đỏ đã làm.
-- Ghi nhận thêm (điều phối viên): khi xoá dần một ô, các giá trị trung gian hợp lệ ("27", "2") được ghi ngay vào ô; xoá trắng rồi rời ô sẽ trả về giá trị trung gian cuối (vd "3") chứ không về giá trị trước khi sửa. Không mất dữ liệu (phải bấm Lưu), có thể cải tiến bằng chụp dòng lúc focus.
+- ĐÃ SỬA (chủ dự án yêu cầu, sau vòng 2): xoá dần một ô rồi rời ô khi ô đang trống/sai thì trả CẢ dòng về trạng thái lúc bấm vào ô (số, cờ sửa tay, Tổng), không giữ số trung gian. `revertCell(s,row,shift,before)` + `focusRow` ở Editor; 2 test mới; kiểm trình duyệt: xoá "270" rồi Tab → 270, không sửa tay, Tổng 450; gõ 300 rồi Tab → giữ 300.

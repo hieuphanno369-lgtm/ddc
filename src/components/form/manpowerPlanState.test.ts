@@ -89,6 +89,29 @@ describe('setTotal / setCell', () => {
     expect(toPlanInput(s)).not.toBeNull();
   });
 
+  it('revertCell co anh chup luc focus: xoa dan 270 -> 27 -> 2 -> rong roi roi o -> ca dong ve nhu luc focus', () => {
+    let s = initPlanState(SHIFTS, seedMonths(), RATIOS);
+    const before = s.rows[0];
+    s = setCell(s, 0, 0, '27');
+    s = setCell(s, 0, 0, '2');
+    s = setCell(s, 0, 0, '');
+    expect(s.rows[0].cells[0].planned).toBe(2); // so giua chung da ghi tam
+    s = revertCell(s, 0, 0, before);
+    expect(s.rows[0]).toEqual(before); // 270 khong sua tay, tong 450
+    expect(s.rows[0].cells[0]).toEqual({ planned: 270, isManual: false });
+    expect(s.rows[0].totalInput).toBe('450');
+    expect(toPlanInput(s)).not.toBeNull();
+  });
+
+  it('revertCell co anh chup nhung o dang hop le -> giu so moi (khong hoan tac)', () => {
+    let s = initPlanState(SHIFTS, seedMonths(), RATIOS);
+    const before = s.rows[0];
+    s = setCell(s, 0, 0, '300');
+    s = revertCell(s, 0, 0, before);
+    expect(s.rows[0].cells[0]).toEqual({ planned: 300, isManual: true });
+    expect(s.rows[0].totalInput).toBe('480');
+  });
+
   it('revertCell: roi o dang rong -> tra ve so dang luu, cho luu lai', () => {
     let s = initPlanState(SHIFTS, seedMonths(), RATIOS);
     s = setCell(s, 0, 0, '');

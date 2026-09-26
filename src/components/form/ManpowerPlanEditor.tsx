@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { addMonths, type IsoDate } from '@/lib/clock';
 import type { ManpowerPlanMonthRow, Shift, ShiftRatio } from '@/server/repo/types';
 import {
   addMonth, initPlanState, isCellInputValid, parsePcts, removeMonth, resetRow, revertCell, setCell, setPct, setTotal, toPlanInput,
+  type PlanRowState,
 } from './manpowerPlanState';
 import { saveManpowerPlanAction } from '@/server/actions-entry';
 
@@ -24,6 +25,8 @@ export function ManpowerPlanEditor(p: {
   const router = useRouter();
 
   const [state, setState] = useState(() => initPlanState(shifts, months, ratios));
+  // Dòng chụp lúc focus ô ca: rời ô khi đang gõ dở thì trả cả dòng về trạng thái này.
+  const focusRow = useRef<PlanRowState | null>(null);
   const [newMonth, setNewMonth] = useState(() => {
     const last = [...state.rows].map((r) => r.yearMonth).sort().pop();
     return last ? addMonths(last, 1) : today.slice(0, 7);
@@ -133,7 +136,8 @@ export function ManpowerPlanEditor(p: {
                           type="number" min={0}
                           value={r.cellInputs[ci]}
                           onChange={(e) => setState(setCell(state, ri, ci, e.target.value))}
-                          onBlur={() => setState((s) => revertCell(s, ri, ci))}
+                          onFocus={() => { focusRow.current = r; }}
+                          onBlur={() => { const before = focusRow.current ?? undefined; focusRow.current = null; setState((s) => revertCell(s, ri, ci, before)); }}
                           className={`inp${cellOk ? '' : ' bad'}`}
                           data-manual={c.isManual ? '1' : undefined}
                           title={c.isManual ? t('manpowerPlan.manualHint') : undefined}
