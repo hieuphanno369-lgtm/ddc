@@ -56,6 +56,7 @@ const CHANGED_SOURCES: Record<string, string> = {
   'ActivityViewer': 'src/components/admin/ActivityViewer.tsx',
   'EquipmentPlanGantt': 'src/components/project/EquipmentPlanGantt.tsx',
   'ManpowerMonthChart': 'src/components/project/ManpowerMonthChart.tsx',
+  'TopPriorityList': 'src/components/dashboard/TopPriorityList.tsx',
 };
 
 describe('i18n: vi/en phủ key như nhau', () => {
