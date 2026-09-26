@@ -16,7 +16,7 @@ KET QUA TEST: XANH
   - Lan 2 (xoa `.next` lai, cold start lan nua): **70 passed, 0 failed** (1.9 phut).
   - Lan 3 (khong xoa `.next`, warm): **70 passed, 0 failed** (2.8 phut).
   - Rieng `e2e/02-overview.spec.ts --repeat-each=6` (cold `.next`): **9/9 passed** (3 setup + 6 lap lai).
-  - Tong cong: **0/79 lan chay `02-overview.spec.ts` bi do** trong dot kiem nay (khong tinh cac spec khac).
+  - Tong cong: **0/9 lan chay `02-overview.spec.ts` bi do** trong dot kiem nay (khong tinh cac spec khac).
 - Lint: repo nay **khong co script/cau hinh eslint** (`package.json` khong co "lint", khong tim thay
   `.eslintrc*` o goc repo) -> khong co gi de kiem, bo qua muc nay, ghi ro thay vi gia vo da kiem.
 - Da tat dev server tam (PID 3948) va xac nhan cong 3003 khong con lang nghe truoc khi ket thuc.
@@ -109,7 +109,7 @@ Da tu mo dev server tam tren cong 3003 (KHONG dung lai anh coder chup san), dang
   san pham du da doc va nghi ra huong).
 
 **Ket luan va de xuat (bao lai chu du an, khong tu quyet):**
-- Voi ty le tai hien 0/9 trong dot kiem nay + 3/64 (~4.7%) trong lan chay dau cua coder (1 do trong
+- Voi ty le tai hien 0/9 trong dot kiem nay + 1/62 (~1.6%) trong lan chay dau cua coder (1 do trong
   Buoc 1, roi tat ca cac lan sau deu xanh), day la flaky RAT HIEM, nhieu kha nang lien quan toi tai
   may/thoi diem chay (vd may dang chay nhieu tien trinh nang khac cung luc - dung luc do co the co ca
   phien tester nay dang mo nhieu cong cu khac) hon la loi logic trong code. Chua co bang chung du
