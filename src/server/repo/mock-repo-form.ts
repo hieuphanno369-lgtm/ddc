@@ -30,6 +30,31 @@ function stageWeightAuditText(rows: { stageCode: string; weightPct: number; appl
 }
 
 /**
+ * Vong sua reviewer (tao du an nguyen tu): kiem tap giai doan + ghi trong so, tach nhan `d: RepoData`
+ * de dung CHUNG cho `replaceStageWeights` (ben duoi) VA `createProject` (mock-repo.ts) - ban mock
+ * don luong (khong that su co race) nen chi can kiem + ghi cung 1 lan goi ham nay, khong nhan doi
+ * logic. Khong tu goi `persist()` - noi goi tu quyet dinh khi nao ghi dia (createProject ghi 1 lan
+ * sau khi tao xong ca du an lan trong so).
+ */
+export function replaceStageWeightsIn(d: RepoData, projectId: number, rows: StageWeightInput[], by: string): 'ok' | 'stages_changed' {
+  const activeCodes = d.stages.filter((s) => s.isActive).map((s) => s.code);
+  if (!isSameStageSet(rows.map((r) => r.stageCode), activeCodes)) return 'stages_changed';
+
+  const own = d.stageWeights.filter((w) => w.projectId === projectId);
+  const beforeRows = own.length ? own : DEFAULT_STAGE_WEIGHTS;
+  const beforeText = (own.length ? '' : 'default ') + stageWeightAuditText(beforeRows);
+  const afterText = stageWeightAuditText(rows);
+  // T-4 (chu du an chot): CHI thay dong cua nhung ma co trong `rows` - KHONG xoa dong cua giai
+  // doan da ngung dung (khong nam trong `rows` vi form khong hien thi no).
+  const codes = new Set(rows.map((r) => r.stageCode));
+  d.stageWeights = d.stageWeights
+    .filter((w) => !(w.projectId === projectId && codes.has(w.stageCode)))
+    .concat(rows.map((r) => ({ projectId, ...r })));
+  audit(d, 'project_stage_weight', String(projectId), 'replace', beforeText, afterText, by);
+  return 'ok';
+}
+
+/**
  * Hàm repo P3A (Task 4) cho mock-repo - hợp nhất qua spread ở mock-repo.ts, cùng khuôn
  * `mock-repo-entry.ts` (giảm xung đột với B khi cùng sửa file nóng).
  */
@@ -86,22 +111,9 @@ export function makeFormMockRepo({ getData, persist }: EntryMockDeps) {
      * doan xen giua luc `actions-project.ts` kiem `isSameStageSet` va luc goi ham nay. */
     replaceStageWeights(projectId: number, rows: StageWeightInput[], by: string): 'ok' | 'stages_changed' {
       const d = getData();
-      const activeCodes = d.stages.filter((s) => s.isActive).map((s) => s.code);
-      if (!isSameStageSet(rows.map((r) => r.stageCode), activeCodes)) return 'stages_changed';
-
-      const own = d.stageWeights.filter((w) => w.projectId === projectId);
-      const beforeRows = own.length ? own : DEFAULT_STAGE_WEIGHTS;
-      const beforeText = (own.length ? '' : 'default ') + stageWeightAuditText(beforeRows);
-      const afterText = stageWeightAuditText(rows);
-      // T-4 (chu du an chot): CHI thay dong cua nhung ma co trong `rows` - KHONG xoa dong cua giai
-      // doan da ngung dung (khong nam trong `rows` vi form khong hien thi no).
-      const codes = new Set(rows.map((r) => r.stageCode));
-      d.stageWeights = d.stageWeights
-        .filter((w) => !(w.projectId === projectId && codes.has(w.stageCode)))
-        .concat(rows.map((r) => ({ projectId, ...r })));
-      audit(d, 'project_stage_weight', String(projectId), 'replace', beforeText, afterText, by);
-      persist();
-      return 'ok';
+      const result = replaceStageWeightsIn(d, projectId, rows, by);
+      if (result === 'ok') persist();
+      return result;
     },
 
     removeSapCode(projectId: number, sapCodeId: number, by: string): 'removed' | 'not_found' {

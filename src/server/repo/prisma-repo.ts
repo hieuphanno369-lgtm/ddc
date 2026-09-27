@@ -6,8 +6,9 @@ import { endOfMonth, todayIso } from '@/lib/clock';
 import { keyMsAuditText } from '@/lib/key-milestones';
 import { sumManpowerShifts } from '@/lib/shifts';
 import { ProjectCodeTakenError } from '@/lib/project-code';
+import { StagesChangedError } from '@/lib/stages';
 import { entryPrismaRepo } from './prisma-repo-entry';
-import { formPrismaRepo, isP2002On, isProjectCodeTakenWith, PROJECT_CODE_UNIQUE_TARGETS } from './prisma-repo-form';
+import { formPrismaRepo, isP2002On, isProjectCodeTakenWith, PROJECT_CODE_UNIQUE_TARGETS, replaceStageWeightsInTx } from './prisma-repo-form';
 import type {
   ActivityLogEntry,
   AlertLog,
@@ -1043,6 +1044,14 @@ const coreRepo = {
     await this.logAudit('dim_project', String(projectId), fields.join(','), '', note, changedBy);
   },
 
+  /**
+   * Vong sua reviewer (tao du an nguyen tu): `stageWeights` (neu co) duoc ghi TRONG CUNG
+   * transaction voi viec tao du an - truoc day repo.createProject commit xong roi actions.ts moi
+   * goi repo.replaceStageWeights rieng, `stages_changed` (admin ngung/dung lai giai doan xen giua)
+   * lam du an da tao nhung khong co trong so, nua voi. Khoa `dim_stage` (qua replaceStageWeightsInTx)
+   * la khoa THU HAI trong transaction nay, sau khoa ma du an - xem ghi chu thu tu khoa o
+   * `replaceStageWeightsInTx` (prisma-repo-form.ts).
+   */
   async createProject(input: CreateProjectInput, changedBy = 'system'): Promise<Project> {
     try {
       const p = await prisma.$transaction(async (tx) => {
@@ -1100,6 +1109,10 @@ const coreRepo = {
               approvedBy: changedBy,
             },
           });
+        }
+        if (input.stageWeights) {
+          const weightsResult = await replaceStageWeightsInTx(tx, p.id, input.stageWeights, changedBy);
+          if (weightsResult === 'stages_changed') throw new StagesChangedError();
         }
         return p;
       });

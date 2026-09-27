@@ -6,7 +6,7 @@ import ExcelJS from 'exceljs';
 import { getCurrentUser, type CurrentUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
 import { hashPassword, verifyPassword } from '@/lib/password';
-import { calcChainPctActual, findCurrentStage, isSameStageSet, normPct, stageOrder, validateStageWeights } from '@/lib/stages';
+import { calcChainPctActual, findCurrentStage, isSameStageSet, normPct, StagesChangedError, stageOrder, validateStageWeights } from '@/lib/stages';
 import { isReservedProjectCode, ProjectCodeTakenError } from '@/lib/project-code';
 import { cellText, type CellValue } from '@/lib/daily-import';
 import { assertXlsxInflatedSize, readBoundedSheet } from './daily-import';
@@ -265,20 +265,21 @@ export async function createProjectAction(
 
   let p: Project;
   try {
-    p = await repo.createProject({ ...rest, ...rules.patch, currentAliasCode }, user.email);
+    // Vong sua reviewer (tao du an nguyen tu): stageWeights duoc ghi TRONG CUNG transaction voi
+    // viec tao du an (repo.createProject) - truoc day tao du an xong roi moi goi rieng
+    // repo.replaceStageWeights, 'stages_changed' (admin ngung/dung lai giai doan xen giua) lam du
+    // an da tao nhung thieu trong so, nua voi. Kiem `isSameStageSet` o tren van giu lam fast-path
+    // (bao loi ngay khong can cham DB tao du an), kiem that trong transaction chan not khe ho TOCTOU.
+    p = await repo.createProject({ ...rest, ...rules.patch, currentAliasCode, stageWeights }, user.email);
   } catch (e) {
     // S-2 (vòng sửa 1): kiểm nhanh `isProjectCodeTaken` ở trên là fast-path; bắt lại ở đây để
     // chống race (2 request tạo dự án cùng mã CT gần như đồng thời) - mock/prisma cùng ném lỗi này.
     if (e instanceof ProjectCodeTakenError) return { ok: false, error: 'code_taken' };
+    // Vong sua reviewer: transaction cua createProject da rollback het (khong co du an nao duoc tao).
+    if (e instanceof StagesChangedError) return { ok: false, error: 'stages_changed' };
     throw e;
   }
   if (user.role === 'data-entry') await repo.addAssignment(p.id, user.email, 'PIC');
-  // Vong sua reviewer (muc 2a, T-3): repo.replaceStageWeights kiem lai tap giai doan dang dung NGAY
-  // TRONG transaction (khoa cung dim_stage) - phong khi admin ngung dung 1 giai doan dung luc xen
-  // giua kiem o tren va luc ghi that. Rat hiem xay ra (can dung luc tao du an) nhung du an da tao
-  // (p.id) van giu nguyen - chi con thieu dong trong so, admin luu lai o /ho-so-du-an la xong.
-  const weightsResult = await repo.replaceStageWeights(p.id, stageWeights, user.email);
-  if (weightsResult === 'stages_changed') return { ok: false, error: 'stages_changed' };
   if (keyMilestones?.length) await repo.replaceKeyMilestones(p.id, keyMilestones, user.email);
   await runAlertEngineSafe(p.id).catch(() => {});
   await logActivity(user, 'create_project', p.projectName);

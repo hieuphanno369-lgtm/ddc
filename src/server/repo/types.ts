@@ -143,6 +143,9 @@ export interface CreateProjectInput {
   factoryId?: number | null;
   contractValueOriginal?: number | null;
   currentAliasCode?: string;
+  /** Vòng sửa reviewer (tạo dự án nguyên tử): ghi CÙNG transaction với việc tạo dự án - xem
+   * `createProject` (prisma-repo.ts/mock-repo.ts). */
+  stageWeights?: StageWeightInput[];
 }
 
 export interface FactProgressMonthly {

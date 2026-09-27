@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '@prisma/client';
 
 const {
-  projectFindUnique, projectFindFirst, projectUpdate, projectAliasFindMany, projectAliasFindFirst,
+  projectFindUnique, projectFindFirst, projectCreate, projectUpdate, projectAliasFindMany, projectAliasFindFirst,
   projectAliasCreate, projectAliasUpdate, projectHistoryCreate, projectStageWeightFindMany,
   projectStageWeightDeleteMany, projectStageWeightCreateMany, projectEquipmentPlanFindMany,
   projectEquipmentPlanDeleteMany, projectEquipmentPlanCreateMany, projectAssignmentFindUnique,
@@ -13,11 +13,25 @@ const {
   projectShiftRatioFindMany, projectShiftRatioDeleteMany, projectShiftRatioCreateMany, shiftFindMany,
   stageFindMany,
 } = vi.hoisted(() => {
+  // Vong sua reviewer (tao du an nguyen tu): du lieu mac dinh du de `mapProject` (prisma-repo.ts)
+  // chay duoc sau khi createProject tra ve (createdAt/updatedAt phai la Date that de goi .toISOString()).
+  const PROJECT_ROW_DEFAULTS = {
+    createdAt: new Date('2026-01-01T00:00:00Z'), updatedAt: new Date('2026-01-01T00:00:00Z'),
+    isActive: true, contractDate: null, plannedStartDate: null, plannedFinishDate: null,
+    committedHandoverDate: null, actualStartDate: null, actualFinishDate: null, penaltyValue: null,
+    penalized: false, factoryId: null, contractValueOriginal: null,
+  };
+  let nextProjectId = 501;
   const projectFindUnique = vi.fn(async () => ({
     id: 7, currentAliasCode: 'OLD-CODE', createdAt: new Date('2026-01-01T00:00:00Z'),
   }));
   const projectFindFirst = vi.fn(async () => null as unknown);
-  const projectUpdate = vi.fn(async (args: { where: { id: number }; data: Record<string, unknown> }) => ({ id: args.where.id, ...args.data }));
+  const projectCreate = vi.fn(async (args: { data: Record<string, unknown> }) => ({
+    id: nextProjectId++, ...PROJECT_ROW_DEFAULTS, ...args.data,
+  }));
+  const projectUpdate = vi.fn(async (args: { where: { id: number }; data: Record<string, unknown> }) => ({
+    id: args.where.id, ...PROJECT_ROW_DEFAULTS, ...args.data,
+  }));
   const projectAliasFindMany = vi.fn(async () => [] as unknown[]);
   const projectAliasFindFirst = vi.fn(async () => null as unknown);
   const projectAliasCreate = vi.fn(async () => ({}));
@@ -48,7 +62,7 @@ const {
   const shiftFindMany = vi.fn(async () => [] as unknown[]);
   const stageFindMany = vi.fn(async () => [] as unknown[]);
   const client = {
-    project: { findUnique: projectFindUnique, findFirst: projectFindFirst, update: projectUpdate },
+    project: { create: projectCreate, findUnique: projectFindUnique, findFirst: projectFindFirst, update: projectUpdate },
     projectAlias: { findMany: projectAliasFindMany, findFirst: projectAliasFindFirst, create: projectAliasCreate, update: projectAliasUpdate },
     projectHistory: { create: projectHistoryCreate },
     projectStageWeight: { findMany: projectStageWeightFindMany, deleteMany: projectStageWeightDeleteMany, createMany: projectStageWeightCreateMany },
@@ -67,7 +81,7 @@ const {
   };
   const transactionMock = vi.fn(async (fn: (tx: typeof client) => unknown) => fn(client));
   return {
-    projectFindUnique, projectFindFirst, projectUpdate, projectAliasFindMany, projectAliasFindFirst,
+    projectFindUnique, projectFindFirst, projectCreate, projectUpdate, projectAliasFindMany, projectAliasFindFirst,
     projectAliasCreate, projectAliasUpdate, projectHistoryCreate, projectStageWeightFindMany,
     projectStageWeightDeleteMany, projectStageWeightCreateMany, projectEquipmentPlanFindMany,
     projectEquipmentPlanDeleteMany, projectEquipmentPlanCreateMany, projectAssignmentFindUnique,
@@ -82,7 +96,7 @@ const {
 
 vi.mock('@/server/db', () => ({
   prisma: {
-    project: { findUnique: projectFindUnique, findFirst: projectFindFirst, update: projectUpdate },
+    project: { create: projectCreate, findUnique: projectFindUnique, findFirst: projectFindFirst, update: projectUpdate },
     projectAlias: { findMany: projectAliasFindMany, findFirst: projectAliasFindFirst, create: projectAliasCreate, update: projectAliasUpdate },
     projectHistory: { create: projectHistoryCreate },
     projectStageWeight: { findMany: projectStageWeightFindMany, deleteMany: projectStageWeightDeleteMany, createMany: projectStageWeightCreateMany },
@@ -102,6 +116,7 @@ vi.mock('@/server/db', () => ({
   },
 }));
 
+import { StagesChangedError } from '@/lib/stages';
 import { repo } from './prisma-repo';
 
 beforeEach(() => {
@@ -114,6 +129,7 @@ beforeEach(() => {
   projectAliasFindFirst.mockResolvedValue(null);
   projectFindFirst.mockClear();
   projectFindFirst.mockResolvedValue(null);
+  projectCreate.mockClear();
   projectHistoryCreate.mockClear();
   projectStageWeightDeleteMany.mockClear();
   projectStageWeightCreateMany.mockClear();
@@ -226,6 +242,71 @@ describe('prisma-repo.replaceStageWeights', () => {
     expect(projectStageWeightDeleteMany).not.toHaveBeenCalled();
     expect(projectStageWeightCreateMany).not.toHaveBeenCalled();
     expect(auditCreate).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Vong sua reviewer (tao du an nguyen tu): TDD - test do TRUOC khi sua (xem prisma-repo.ts). Bug cua
+ * vong sua truoc: `repo.createProject` commit xong ROI `actions.ts` moi goi RIENG `repo.replaceStageWeights`
+ * - neu ham do tra 'stages_changed' (admin ngung/dung lai giai doan xen giua) thi du an DA duoc tao
+ * nhung thieu trong so, nua voi. Gio `stageWeights` duoc ghi TRONG CUNG 1 `$transaction` voi viec tao
+ * du an (goi `replaceStageWeightsInTx` dung chung voi `replaceStageWeights` o tren).
+ */
+describe('prisma-repo.createProject + stageWeights (vong sua reviewer: tao du an nguyen tu)', () => {
+  const rows = [
+    { stageCode: 'design' as const, weightPct: 100, applicable: true },
+    { stageCode: 'shop' as const, weightPct: 0, applicable: false },
+    { stageCode: 'procurement' as const, weightPct: 0, applicable: false },
+    { stageCode: 'fabrication' as const, weightPct: 0, applicable: false },
+    { stageCode: 'transport' as const, weightPct: 0, applicable: false },
+    { stageCode: 'erection' as const, weightPct: 0, applicable: false },
+    { stageCode: 'handover' as const, weightPct: 0, applicable: false },
+  ];
+  const BASE_INPUT = {
+    projectName: 'DU AN NGUYEN TU', customerId: 1, teamKdId: 1, marketCode: 'TN' as const,
+    projectType: 'EPC' as const, priority: 'P1' as const, contractValue: 10, tonnage: 100,
+  };
+
+  beforeEach(() => {
+    // Mac dinh: tap giai doan dang dung (dim_stage) dung bang cac ma trong `rows` - khong lech.
+    stageFindMany.mockResolvedValue(rows.map((r) => ({ code: r.stageCode })));
+  });
+
+  it('stageWeights khop tap dang dung -> tao du an xong, khoa+ghi trong so TRONG CUNG 1 $transaction (khong tach lam 2 lan goi repo)', async () => {
+    const res = await repo.createProject({ ...BASE_INPUT, stageWeights: rows }, 'admin@x');
+
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    // Thu tu khoa: khoa ma du an TRUOC (mock.calls[0]), khoa dim_stage SAU (mock.calls[1]) - xem ghi
+    // chu thu tu khoa o `replaceStageWeightsInTx` (prisma-repo-form.ts).
+    expect(executeRaw).toHaveBeenCalledTimes(2);
+    const secondLockCall = executeRaw.mock.calls[1] as unknown as [string[]];
+    expect(secondLockCall[0][0]).toContain('dim_stage');
+    expect(projectStageWeightDeleteMany).toHaveBeenCalledWith({
+      where: { projectId: res.id, stageCode: { in: rows.map((r) => r.stageCode) } },
+    });
+    expect(projectStageWeightCreateMany).toHaveBeenCalled();
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ tableName: 'project_stage_weight', recordId: String(res.id), field: 'replace', changedBy: 'admin@x' }),
+    });
+  });
+
+  it("tap giai doan dang dung doc lai TRONG transaction KHAC voi stageWeights gui len -> nem StagesChangedError, KHONG ghi dong trong so nao (du an that se duoc Postgres tu rollback het, khong con dong nao)", async () => {
+    stageFindMany.mockResolvedValueOnce(rows.filter((r) => r.stageCode !== 'handover').map((r) => ({ code: r.stageCode })));
+
+    await expect(repo.createProject({ ...BASE_INPUT, stageWeights: rows }, 'admin@x')).rejects.toBeInstanceOf(StagesChangedError);
+
+    expect(projectStageWeightDeleteMany).not.toHaveBeenCalled();
+    expect(projectStageWeightCreateMany).not.toHaveBeenCalled();
+    expect(auditCreate).not.toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ tableName: 'project_stage_weight' }),
+    }));
+  });
+
+  it('khong gui stageWeights -> tao du an nhu cu, khong khoa/doc dim_stage, khong ghi trong so', async () => {
+    const res = await repo.createProject({ ...BASE_INPUT }, 'admin@x');
+    expect(res.id).toBeGreaterThan(0);
+    expect(executeRaw).toHaveBeenCalledTimes(1);
+    expect(projectStageWeightCreateMany).not.toHaveBeenCalled();
   });
 });
 

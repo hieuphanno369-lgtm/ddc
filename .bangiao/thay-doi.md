@@ -134,3 +134,95 @@ Chủ dự án chốt làm cả 4 mục trước khi merge main. Không migratio
 - `createProjectAction`: khi `repo.replaceStageWeights` trả `'stages_changed'` (cực hiếm - cần admin ngừng dùng đúng 1 giai đoạn xen giữa lúc kiểm nhanh và lúc ghi thật lúc TẠO dự án), dự án ĐÃ được tạo (`repo.createProject` đã chạy xong) nhưng action trả lỗi cho người dùng - dự án tồn tại với 0 dòng trọng số riêng (rơi về mặc định `DEFAULT_STAGE_WEIGHTS` có Thanh quyết toán 2%). Admin cần vào `/ho-so-du-an` lưu lại trọng số là xong; không có cách tự động dọn/rollback dự án đã tạo trong action này (giống các bước phụ khác của `createProjectAction` như `replaceKeyMilestones` cũng không có rollback nếu lỗi).
 - `actions-p7c2-tester.qa.test.ts`, `actions-key-milestones.test.ts`, `actions-project.qa.test.ts`, `actions-vong-sua-1.qa.test.ts`: mọi lời gọi `createProjectAction` trong test đều phải có `stageWeights` khớp đúng tập giai đoạn đang dùng - nếu Tester viết thêm test mới gọi `createProjectAction` mà quên `stageWeights`, sẽ luôn nhận `weights_required` (đây là hành vi ĐÚNG, không phải lỗi).
 - 3 test đổi trong `form.test.ts` (mock) gọi `repo.setStageActive('settlement', false, ...)` trước khi gửi 7 dòng trọng số - nếu sau này có PR khác đổi lại "Thanh quyết toán" không được ngừng dùng được nữa (ví dụ do rule nghiệp vụ mới), các test này sẽ đỏ và cần điều chỉnh lại theo giai đoạn khác.
+
+> **Lưu ý (vòng sửa tiếp theo, xem mục ngay dưới đây):** đoạn "không có cách tự động dọn/rollback dự án đã tạo" ở gạch đầu dòng đầu tiên phía trên KHÔNG CÒN ĐÚNG - đã sửa thành nguyên tử thật (transaction), xem mục "Vòng sửa theo reviewer - tạo dự án nguyên tử" bên dưới.
+
+## Vòng sửa theo reviewer - tạo dự án nguyên tử (dự án + trọng số giai đoạn)
+
+Chủ dự án chốt: dây chuyền vòng sửa "4 mục Nên làm" ở trên để lại 1 lỗ hổng chưa chấp nhận được -
+`createProjectAction` gọi `repo.createProject` (commit xong) rồi MỚI gọi RIÊNG `repo.replaceStageWeights`;
+nếu hàm sau trả `'stages_changed'` (admin ngừng/dùng lại giai đoạn xen giữa 2 lệnh gọi), dự án đã tồn
+tại nửa vời (không trọng số riêng, không mốc chính, không assignment, không activity, không
+revalidate) nhưng action báo lỗi cho người dùng như thể không có gì được tạo. Bấm lại thì gặp
+`code_taken`. Không migration (`prisma/schema.prisma` không đổi).
+
+**Cách sửa: tạo dự án + ghi trọng số giai đoạn trong CÙNG 1 transaction.**
+
+- `CreateProjectInput` (`src/server/repo/types.ts`) thêm `stageWeights?: StageWeightInput[]`.
+- `StagesChangedError` (`src/lib/stages.ts`, cùng khuôn `ProjectCodeTakenError` ở `@/lib/project-code`):
+  ném trong transaction của `createProject` để `$transaction` tự rollback khi tập giai đoạn đang dùng
+  đã đổi - không có dự án nào được tạo.
+- Tách hàm dùng chung `replaceStageWeightsInTx(tx, projectId, rows, by)` (`src/server/repo/prisma-repo-form.ts`,
+  export mới) từ đúng thân `replaceStageWeights` cũ (khoá `dim_stage`, đọc lại tập giai đoạn đang dùng
+  TRONG `tx`, xoá/ghi dòng, audit) - `replaceStageWeights` (API cũ, vẫn dùng ở `/ho-so-du-an`) nay chỉ
+  còn `prisma.$transaction((tx) => replaceStageWeightsInTx(tx, projectId, rows, by))`, không nhân bản
+  logic. Mock tương đương: `replaceStageWeightsIn(d, projectId, rows, by)` (`src/server/repo/mock-repo-form.ts`).
+- `createProject` (`src/server/repo/prisma-repo.ts`): trong CÙNG `$transaction` đang có (đã khoá advisory
+  mã dự án `hashtext(lower(finalCode))`), nếu `input.stageWeights` có giá trị thì gọi
+  `replaceStageWeightsInTx(tx, p.id, input.stageWeights, changedBy)` NGAY SAU khi gán mã/alias xong,
+  TRƯỚC khi `return p`. Trả `'stages_changed'` thì ném `StagesChangedError` - transaction rollback hết
+  (không còn dòng `dim_project` nào cho dự án này), lỗi gốc được ném nguyên lên trên (nhánh `throw e`
+  có sẵn, chỉ bắt riêng P2002).
+- **Thứ tự khoá trong transaction của `createProject`:** khoá mã dự án TRƯỚC (đã có từ trước), khoá
+  `dim_stage` SAU (bên trong `replaceStageWeightsInTx`, chỉ chạy khi có `stageWeights`). Không tạo vòng
+  chờ khoá (deadlock) với `saveStage`/`setStageActive`/`replaceStageWeights` độc lập: 3 hàm đó CHỈ giữ
+  khoá `dim_stage` tại một thời điểm, không bao giờ giữ khoá mã dự án rồi chờ khoá `dim_stage` (hoặc
+  ngược lại) - nên không có 2 giao dịch nào giữ khoá A chờ khoá B trong khi giao dịch kia giữ khoá B
+  chờ khoá A. Ghi rõ trong comment tại cả 2 nơi (`prisma-repo.ts`, `prisma-repo-form.ts`).
+- Mock (`createProject`, `src/server/repo/mock-repo.ts`): mock đơn luồng nên "nguyên tử" chỉ cần kiểm
+  tập giai đoạn TRƯỚC khi ghi bất cứ gì (ném `StagesChangedError` trước `d.projects.push(p)`), rồi gọi
+  `replaceStageWeightsIn(d, id, input.stageWeights, changedBy)` SAU khi đã push dự án.
+- `createProjectAction` (`src/server/actions.ts`): truyền `stageWeights` thẳng vào `repo.createProject(...)`
+  thay vì gọi `repo.replaceStageWeights` riêng sau đó; bắt thêm `e instanceof StagesChangedError` trong
+  `catch` hiện có (cạnh `ProjectCodeTakenError`) để trả `{ ok:false, error:'stages_changed' }`. Kiểm
+  `isSameStageSet` bằng `repo.getStages()` ở đầu action VẪN GIỮ NGUYÊN làm fast-path (báo lỗi sớm, không
+  cần chạm DB) - kiểm TRONG transaction là lớp phòng thủ thật, chặn đúng khe hở TOCTOU giữa 2 lần đọc.
+- **Không đưa `addAssignment`/`replaceKeyMilestones` vào cùng transaction** (dù kế hoạch có gợi ý cân
+  nhắc): 2 hàm này không có điều kiện nào có thể trả lỗi nghiệp vụ dựa trên trạng thái đọc lại (`addAssignment`
+  là `upsert` luôn thành công; `replaceKeyMilestones` không có kiểm tra dữ liệu đồng thời) - nên không
+  tái hiện được kiểu lỗi "nửa vời do đọc lại lệch" như `stageWeights`. Gộp vào sẽ cần thêm biến thể nhận
+  `tx` cho cả `logAudit`/`getKeyMilestones` (đang dùng `prisma` trực tiếp, không nhận `tx`), mở rộng phạm
+  vi sửa ra ngoài đúng lỗi reviewer nêu mà không đóng thêm lỗ hổng thật nào.
+
+**TDD:**
+- `src/server/repo/prisma-repo-form.test.ts`: thêm mock `project.create` (trước đây file này chỉ mock
+  `findUnique/findFirst/update`, chưa test `createProject`) + describe mới "prisma-repo.createProject +
+  stageWeights" - test khớp tập (ghi trong CÙNG `$transaction`, `executeRaw` gọi đúng 2 lần theo thứ tự
+  khoá mã dự án rồi `dim_stage`), test lệch tập (`stage.findMany` trong `tx` trả tập khác -> nem
+  `StagesChangedError`, KHÔNG gọi `projectStageWeight.deleteMany`/`createMany`), test không gửi
+  `stageWeights` (hành vi cũ y nguyên, chỉ 1 lần khoá).
+- `src/server/actions-create-project-atomic.test.ts` (mới): mô phỏng ĐÚNG khe hở TOCTOU của bug cũ bằng
+  `vi.spyOn(repo, 'getStages')` trả về snapshot CŨ (sao chép sâu từng phần tử - `getStages()` bản mock
+  trả về đối tượng Stage THẬT, sao chép nông vẫn bị `setStageActive` đổi `isActive` ngay vì cùng tham
+  chiếu) cho fast-path, trong khi dữ liệu THẬT đã bị đổi bằng `repo.setStageActive('settlement', false, ...)`
+  ngay sau đó - xác nhận `repo.listProjects()` không tăng lên (không có dự án nửa vời) sau khi action trả
+  `stages_changed`.
+- Xác nhận ĐỎ trước khi sửa: tạo commit WIP tạm, dùng `git checkout <commit-cu> -- <7 file nguồn>` đưa
+  đúng các file nguồn (không đụng 2 file test mới) về bản TRƯỚC vòng sửa này, chạy lại 2 file test trên -
+  2 test Prisma đỏ đúng mô tả (thiếu lần khoá thứ 2; promise resolve thay vì reject `StagesChangedError`),
+  test action đỏ đúng NGUYÊN VĂN kiểu lỗi của bug (`stages_changed` nhưng `repo.listProjects()` tăng từ
+  17 lên 18 - dự án nửa vời được tạo thật). Sau đó khôi phục lại bản sửa (`git checkout <commit-wip> --
+  <7 file>`), chạy lại XANH cả 2 file.
+
+**Cổng kiểm:**
+- `npx tsc --noEmit` sạch.
+- `npm test` **216 file / 2510 test XANH** (mốc trước vòng sửa này 215/2506; +1 file mới
+  (`actions-create-project-atomic.test.ts`, 1 test) + 3 test mới trong `prisma-repo-form.test.ts`).
+- `npm run check:read` OK trên DB `_c`.
+- `npx playwright test` toàn bộ trên 3003: **83/83 XANH**.
+- DB `_c` sau khi chạy Playwright: 17 dự án, 8 giai đoạn ĐANG DÙNG (`design,shop,procurement,fabrication,
+  transport,erection,handover,settlement`) - tổng số dòng `dim_stage` là 9 vì `e2e/12-chuoi-gia-tri.spec.ts`
+  kịch bản 2 luôn để lại 1 giai đoạn tuỳ chỉnh đã ngừng dùng (hành vi biết trước từ vòng sửa trước, không
+  liên quan tới thay đổi lần này, không xoá được theo luật Q1a).
+
+**Chỗ Tester nên soi kỹ:**
+- Kịch bản chính xác của bug cũ: đang tạo dự án (đã qua hết các bước kiểm hợp lệ, sắp bấm ghi) thì admin
+  KHÁC ngừng dùng hoặc dùng lại đúng 1 giai đoạn ở tab quản trị - phải nhận `stages_changed` VÀ xác nhận
+  dự án ĐÓ không xuất hiện ở đâu cả (danh sách dự án, `/ho-so-du-an`, mã CT không bị chiếm) để bấm lại
+  tạo mới bằng đúng mã đó không còn gặp `code_taken`.
+- `replaceStageWeights` gọi từ `/ho-so-du-an` (sửa trọng số dự án đã có, KHÔNG phải lúc tạo mới) hành vi
+  không đổi - vẫn là API cũ, chỉ đổi cách triển khai nội bộ (dùng chung `replaceStageWeightsInTx`).
+- `keyMilestones`/`addAssignment` (PIC tự gán khi data-entry tạo dự án) KHÔNG nằm trong transaction mới -
+  nếu 2 bước đó lỗi (rất hiếm, ví dụ mất kết nối DB giữa 2 lệnh gọi) dự án vẫn tồn tại nhưng thiếu mốc
+  chính/PIC; đây là rủi ro đã có từ trước (không phải hồi quy do vòng sửa này), xem lý do không gộp ở
+  mục "Cách sửa" phía trên.

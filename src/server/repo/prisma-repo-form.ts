@@ -72,6 +72,38 @@ function stageWeightAuditText(rows: { stageCode: string; weightPct: number; appl
 }
 
 /**
+ * Vong sua reviewer (tao du an nguyen tu): logic khoa + kiem tap giai doan + ghi trong so, tach
+ * nhan `tx` de dung CHUNG cho `replaceStageWeights` (transaction rieng, ben duoi) VA `createProject`
+ * (prisma-repo.ts - cung transaction voi viec tao du an, khong nhan doi code). Khoa `dim_stage`
+ * o day la KHOA THU HAI trong transaction cua createProject (khoa dau la ma du an, xem
+ * prisma-repo.ts) - thu tu nay khong tao vong doi khoa: khong ham nao khac dang giu khoa ma du an
+ * roi cho khoa dim_stage (saveStage/setStageActive/replaceStageWeights doc lap chi giu 1 khoa
+ * dim_stage tai 1 thoi diem).
+ */
+export async function replaceStageWeightsInTx(tx: Tx, projectId: number, rows: StageWeightInput[], by: string): Promise<'ok' | 'stages_changed'> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('dim_stage'))`;
+  const activeStages = await tx.stage.findMany({ where: { isActive: true }, select: { code: true } });
+  const activeCodes = activeStages.map((s) => s.code as StageCode);
+  if (!isSameStageSet(rows.map((r) => r.stageCode), activeCodes)) return 'stages_changed';
+
+  const ownRows = await tx.projectStageWeight.findMany({ where: { projectId } });
+  const beforeRows = ownRows.length ? ownRows : DEFAULT_STAGE_WEIGHTS;
+  const beforeText = (ownRows.length ? '' : 'default ') + stageWeightAuditText(beforeRows);
+  const afterText = stageWeightAuditText(rows);
+  // T-4 (chu du an chot): CHI xoa dong cua nhung ma co trong `rows` (giai doan dang dung, form
+  // gui len) - KHONG duoc xoa dong cua giai doan da ngung dung (khong nam trong `rows` vi form
+  // khong hien thi no). Khi admin dung lai giai doan do, du an co lai dung dong cu.
+  await tx.projectStageWeight.deleteMany({ where: { projectId, stageCode: { in: rows.map((r) => r.stageCode) } } });
+  if (rows.length) {
+    await tx.projectStageWeight.createMany({
+      data: rows.map((r) => ({ projectId, stageCode: r.stageCode, weightPct: r.weightPct, applicable: r.applicable })),
+    });
+  }
+  await audit(tx, 'project_stage_weight', String(projectId), 'replace', beforeText, afterText, by);
+  return 'ok';
+}
+
+/**
  * Hàm repo P3A (Task 4) - hợp nhất vào `repo` ở prisma-repo.ts qua spread, cùng khuôn
  * `prisma-repo-entry.ts` (giảm xung đột với B khi cùng sửa file nóng).
  */
@@ -158,28 +190,7 @@ export const formPrismaRepo = {
    * giong ket qua actions da tra cho nguoi dung, KHONG ghi gi.
    */
   async replaceStageWeights(projectId: number, rows: StageWeightInput[], by: string): Promise<'ok' | 'stages_changed'> {
-    return prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('dim_stage'))`;
-      const activeStages = await tx.stage.findMany({ where: { isActive: true }, select: { code: true } });
-      const activeCodes = activeStages.map((s) => s.code as StageCode);
-      if (!isSameStageSet(rows.map((r) => r.stageCode), activeCodes)) return 'stages_changed';
-
-      const ownRows = await tx.projectStageWeight.findMany({ where: { projectId } });
-      const beforeRows = ownRows.length ? ownRows : DEFAULT_STAGE_WEIGHTS;
-      const beforeText = (ownRows.length ? '' : 'default ') + stageWeightAuditText(beforeRows);
-      const afterText = stageWeightAuditText(rows);
-      // T-4 (chu du an chot): CHI xoa dong cua nhung ma co trong `rows` (giai doan dang dung, form
-      // gui len) - KHONG duoc xoa dong cua giai doan da ngung dung (khong nam trong `rows` vi form
-      // khong hien thi no). Khi admin dung lai giai doan do, du an co lai dung dong cu.
-      await tx.projectStageWeight.deleteMany({ where: { projectId, stageCode: { in: rows.map((r) => r.stageCode) } } });
-      if (rows.length) {
-        await tx.projectStageWeight.createMany({
-          data: rows.map((r) => ({ projectId, stageCode: r.stageCode, weightPct: r.weightPct, applicable: r.applicable })),
-        });
-      }
-      await audit(tx, 'project_stage_weight', String(projectId), 'replace', beforeText, afterText, by);
-      return 'ok';
-    });
+    return prisma.$transaction((tx) => replaceStageWeightsInTx(tx, projectId, rows, by));
   },
 
   async removeSapCode(projectId: number, sapCodeId: number, by: string): Promise<'removed' | 'not_found'> {

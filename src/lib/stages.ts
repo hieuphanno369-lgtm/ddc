@@ -186,6 +186,18 @@ export function isSameStageSet(codes: readonly string[], order: readonly StageCo
   return order.every((code) => set.has(code));
 }
 
+/**
+ * Vòng sửa reviewer (tạo dự án nguyên tử): ném trong transaction của `createProject` khi tập giai
+ * đoạn đang dùng đã đổi (admin ngừng/dùng lại giai đoạn xen giữa) - để `$transaction` tự rollback,
+ * không có dự án nào được tạo. Cùng khuôn `ProjectCodeTakenError` (`@/lib/project-code`).
+ */
+export class StagesChangedError extends Error {
+  constructor() {
+    super('Tập giai đoạn đang dùng đã thay đổi');
+    this.name = 'StagesChangedError';
+  }
+}
+
 /** Mã giai đoạn admin thêm: 'custom_' + (số lớn nhất trong các mã 'custom_<n>' hiện có + 1). */
 export function nextCustomStageCode(existing: readonly string[]): StageCode {
   const nums = existing
