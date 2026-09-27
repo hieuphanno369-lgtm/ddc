@@ -200,7 +200,8 @@ export const createAccountSchema = z.object({
   email: z.string().email(),
   name: z.string().trim().min(1),
   role: z.enum(['admin', 'bod', 'data-entry', 'viewer']),
-  password: z.string().min(8),
+  // '' = tài khoản chỉ đăng nhập Google (passwordHash rỗng); có nhập thì tối thiểu 8 ký tự.
+  password: z.union([z.literal(''), z.string().min(8)]),
 });
 
 export const resetPasswordSchema = z.object({

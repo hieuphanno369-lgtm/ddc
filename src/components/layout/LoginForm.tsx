@@ -7,14 +7,22 @@ import { useRouter } from '@/i18n/navigation';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { usePressable } from '@/components/ui/motion';
 
-export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
+export function LoginForm({
+  googleEnabled,
+  initialError,
+}: {
+  googleEnabled: boolean;
+  initialError?: 'googleDenied' | null;
+}) {
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    initialError === 'googleDenied' ? t('authSecurity.googleDenied') : null,
+  );
   // CS-3: nut dang nhap chinh - "nut quan trong" duoc gan usePressable (co
   // lai khi bam roi bat ve bang spring, dung engine motion.ts, Q4=(a)).
   const submitRef = useRef<HTMLButtonElement>(null);

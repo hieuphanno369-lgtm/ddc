@@ -31,14 +31,26 @@ export function UserEditor({ users }: { users: UserAccount[] }) {
   const [resetPw, setResetPw] = useState('');
   const [resetConfirm, setResetConfirm] = useState('');
   const [resetErr, setResetErr] = useState<string | null>(null);
+  const [addErr, setAddErr] = useState<string | null>(null);
 
   const roleLabel = (r: Role) => t(r === 'data-entry' ? 'role.dataEntry' : `role.${r}`);
   const inputCls = 'inp';
 
+  // D1: mật khẩu để trống = tài khoản chỉ đăng nhập Google (passwordHash rỗng); có nhập thì
+  // phải đủ 8 ký tự như trước.
   async function add() {
-    if (!email.trim() || !name.trim() || password.length < 8) return;
+    if (!email.trim() || !name.trim()) return;
+    if (password.length > 0 && password.length < 8) {
+      setAddErr(t('auth.passwordTooShort'));
+      return;
+    }
+    setAddErr(null);
     window.dispatchEvent(new Event('ddc:sync'));
-    await createAccountAction(email.trim(), name.trim(), role, password);
+    const res = await createAccountAction(email.trim(), name.trim(), role, password);
+    if (!res.ok) {
+      setAddErr(res.error === 'duplicate' ? t('authSecurity.duplicateAccount') : (res.error ?? 'Invalid input'));
+      return;
+    }
     setEmail('');
     setName('');
     setPassword('');
@@ -82,6 +94,7 @@ export function UserEditor({ users }: { users: UserAccount[] }) {
         <div className="field">
           <span className="lb">{t('admin.initialPassword')}</span>
           <PasswordInput value={password} onChange={setPassword} className={`${inputCls} w-44`} />
+          <p className="hintline">{t('authSecurity.googleOnlyHint')}</p>
         </div>
         <select value={role} onChange={(e) => setRole(e.target.value as Role)} className={inputCls} style={{ width: 'auto' }}>
           {ROLES.map((r) => (
@@ -92,6 +105,7 @@ export function UserEditor({ users }: { users: UserAccount[] }) {
           {t('common.add')}
         </button>
       </div>
+      {addErr && <p className="sumbar bad">{addErr}</p>}
 
       <div className="scroll">
         <table className="tbl">

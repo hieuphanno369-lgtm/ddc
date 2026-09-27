@@ -40,13 +40,14 @@ npx prisma migrate deploy   # Production (chỉ sau khi confirm Staging)
 Thêm cột: có default/NULL hợp lý; xóa cột: đổi `_deprecated_` giữ ≥1 chu kỳ.
 
 ## 5. Google OAuth (production)
-1. Google Cloud Console → OAuth consent → tạo OAuth Client (Web).
-2. Redirect URI: `https://<vercel-domain>/api/auth/callback/google`.
-3. Set env: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `ALLOWED_EMAIL_DOMAINS=daidung.com.vn`.
+Theo `docs/HUONG_DAN_GOOGLE_OAUTH.md` (Google Cloud Console → OAuth consent → tạo OAuth Client Web).
+Redirect URI: `https://<vercel-domain>/api/auth/callback/google`.
+Set env: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`.
+Ai vào được do admin thêm email ở trang Quản trị (không còn giới hạn theo domain).
 
 ## 6. Deploy Vercel
 1. `git init` + push GitHub.
-2. Vercel → Import repo → set env (mục 5 + `DATABASE_URL`, `DIRECT_URL`, `ROLE_SEED`).
+2. Vercel → Import repo → set env (mục 5 + `DATABASE_URL`, `DIRECT_URL`).
 3. Deploy. (Production không còn dev-login — Google OAuth là cổng vào duy nhất.)
 
 ## 7. Test RBAC (spec §8.7)

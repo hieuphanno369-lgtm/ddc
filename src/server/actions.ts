@@ -3,6 +3,7 @@
 import { revalidateTag } from 'next/cache';
 import { Readable } from 'node:stream';
 import ExcelJS from 'exceljs';
+import { Prisma } from '@prisma/client';
 import { getCurrentUser, type CurrentUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
 import { hashPassword, verifyPassword } from '@/lib/password';
@@ -329,7 +330,8 @@ export async function changePasswordAction(currentPassword: string, newPassword:
   const parsed = changePasswordSchema.safeParse({ currentPassword, newPassword });
   if (!parsed.success) return { ok: false, error: 'invalid' };
   const account = await repo.findAccount(user.email);
-  if (!account || !verifyPassword(currentPassword, account.passwordHash)) {
+  // Tài khoản chỉ Google (passwordHash rỗng) - tránh gọi verifyPassword với hash rỗng (bcrypt ném lỗi).
+  if (!account || account.passwordHash === '' || !verifyPassword(currentPassword, account.passwordHash)) {
     return { ok: false, error: 'current' };
   }
   await repo.changePassword(user.email, hashPassword(parsed.data.newPassword));
@@ -337,24 +339,38 @@ export async function changePasswordAction(currentPassword: string, newPassword:
   return { ok: true };
 }
 
-/** Tạo tài khoản mới (chỉ Admin). Finance suy từ role (viewer = không xem). */
+/**
+ * Tạo tài khoản mới (chỉ Admin). Finance suy từ role (viewer = không xem).
+ * D1: `password === ''` nghĩa là tài khoản chỉ đăng nhập Google (`passwordHash` rỗng).
+ */
 export async function createAccountAction(email: string, name: string, role: Role, password: string) {
   const user = await requireRole(['admin']);
   if (!user) return { ok: false, error: 'Forbidden' };
   const parsed = createAccountSchema.safeParse({ email, name, role, password });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
+  const normEmail = parsed.data.email.toLowerCase();
+  if (await repo.findAccount(normEmail)) return { ok: false, error: 'duplicate' };
   const now = new Date().toISOString();
-  await repo.createAccount({
-    email: parsed.data.email.toLowerCase(),
-    name: parsed.data.name,
-    passwordHash: hashPassword(parsed.data.password),
-    role: parsed.data.role,
-    canViewFinance: parsed.data.role !== 'viewer',
-    isActive: true,
-    createdAt: now,
-    lastLoginAt: null,
-  });
-  await logActivity(user, 'create_account', parsed.data.email);
+  try {
+    await repo.createAccount({
+      email: normEmail,
+      name: parsed.data.name,
+      passwordHash: parsed.data.password === '' ? '' : hashPassword(parsed.data.password),
+      role: parsed.data.role,
+      canViewFinance: parsed.data.role !== 'viewer',
+      isActive: true,
+      createdAt: now,
+      lastLoginAt: null,
+    });
+  } catch (e) {
+    // Đua 2 request cùng tạo 1 email (findAccount ở trên không khoá) - email là khoá chính
+    // (`user_roles.email @id`), Prisma ném P2002; kho mock không đụng nhánh này.
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+      return { ok: false, error: 'duplicate' };
+    }
+    throw e;
+  }
+  await logActivity(user, 'create_account', normEmail);
   revalidateTag(profileTag);
   return { ok: true };
 }

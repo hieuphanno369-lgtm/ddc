@@ -4,12 +4,20 @@ import { getTranslations } from 'next-intl/server';
 import { getCurrentUser, homeForRole } from '@/lib/session';
 import { LoginForm } from '@/components/layout/LoginForm';
 
-export default async function LoginPage({ params }: { params: Promise<{ locale: string }> }) {
+export default async function LoginPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
   const { locale } = await params;
+  const sp = await searchParams;
   const user = await getCurrentUser();
   if (user) redirect(`/${locale}${homeForRole(user.role)}`);
 
   const googleEnabled = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+  const initialError = sp.error === 'AccessDenied' ? 'googleDenied' : null;
   const t = await getTranslations();
 
   return (
@@ -23,7 +31,7 @@ export default async function LoginPage({ params }: { params: Promise<{ locale: 
           <h1>{t('app.headerTitle')}</h1>
           <p>{t('app.subtitle')}</p>
         </div>
-        <LoginForm googleEnabled={googleEnabled} />
+        <LoginForm googleEnabled={googleEnabled} initialError={initialError} />
         <p className="hintline" style={{ textAlign: 'center', marginTop: 22 }}>
           Built by Buffalo Tech
         </p>

@@ -44,12 +44,10 @@ NEXTAUTH_SECRET=<random>
 NEXTAUTH_URL=http://localhost:3000
 GOOGLE_CLIENT_ID=<id>
 GOOGLE_CLIENT_SECRET=<secret>
-ALLOWED_EMAIL_DOMAINS=daidung.com.vn
-ROLE_SEED=admin@daidung.com.vn:admin,pm@daidung.com.vn:data-entry
 ```
 
-- Google OAuth redirect URI: `http://localhost:3000/api/auth/callback/google` (local) hoặc domain Vercel.
-- Role map theo email (mock) trong `ROLE_SEED`. Email ngoài danh sách → `viewer`.
+- Tạo OAuth Client theo `docs/HUONG_DAN_GOOGLE_OAUTH.md`. Redirect URI: `http://localhost:3000/api/auth/callback/google` (local) hoặc domain Vercel.
+- Ai vào được do admin quyết: chỉ email đã được thêm ở trang Quản trị (bất kỳ domain nào, kể cả Gmail cá nhân) mới đăng nhập Google được; email lạ bị từ chối.
 - Session tối đa 8 giờ.
 
 ## Cấu trúc

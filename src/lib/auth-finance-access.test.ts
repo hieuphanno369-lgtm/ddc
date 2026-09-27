@@ -39,13 +39,13 @@ describe('resolveAccess - Q6 doc canViewFinance tung nguoi tu cot DB', () => {
     expect(await resolveAccess('viewer@daidung.com.vn')).toEqual({ role: 'viewer', canViewFinance: true });
   });
 
-  it('khong tim thay tai khoan -> fallback ROLE_SEED (mac dinh viewer, false)', async () => {
+  it('khong tim thay tai khoan -> null (K14/L-11: fail-closed, khong con fallback ROLE_SEED)', async () => {
     findUniqueMock.mockResolvedValue(null);
-    expect(await resolveAccess('unknown@daidung.com.vn')).toEqual({ role: 'viewer', canViewFinance: false });
+    expect(await resolveAccess('unknown@daidung.com.vn')).toBeNull();
   });
 
-  it('prisma nem loi -> fallback, khong vo', async () => {
+  it('prisma nem loi -> null, khong vo (fail-closed)', async () => {
     findUniqueMock.mockRejectedValue(new Error('db down'));
-    expect(await resolveAccess('unknown@daidung.com.vn')).toEqual({ role: 'viewer', canViewFinance: false });
+    expect(await resolveAccess('unknown@daidung.com.vn')).toBeNull();
   });
 });

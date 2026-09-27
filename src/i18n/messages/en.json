@@ -1171,5 +1171,10 @@
     "actualAvg": "Actual avg/day",
     "actualDays": "Days with data",
     "noData": "No monthly manpower plan yet"
+  },
+  "authSecurity": {
+    "googleDenied": "This Google account has not been granted access or is locked. Contact an administrator.",
+    "googleOnlyHint": "Leave blank if this person signs in with Google only",
+    "duplicateAccount": "An account with this email already exists"
   }
 }

@@ -17,13 +17,15 @@ const session = authOptions.callbacks!.session!;
 beforeEach(() => {
   findUniqueMock.mockReset();
   vi.stubEnv('DATABASE_URL', 'postgres://x');
-  vi.stubEnv('ROLE_SEED', '');
 });
 afterEach(() => vi.unstubAllEnvs());
 
 describe('authOptions.callbacks.jwt - T-5 doc lai quyen dinh ky', () => {
-  it('dang nhap (co user) -> resolveAccess + ghi accessCheckedAt = now', async () => {
-    findUniqueMock.mockResolvedValue({ role: 'bod', canViewFinance: true });
+  it('dang nhap (co user) -> doc tai khoan 1 lan (findAccount) + ghi accessCheckedAt = now', async () => {
+    findUniqueMock.mockResolvedValue({
+      role: 'bod', canViewFinance: true, isActive: true,
+      email: 'bod@daidung.com.vn', name: 'BOD', passwordHash: 'x', createdAt: new Date(), lastLoginAt: null,
+    });
     const before = Date.now();
 
     const token = await jwt({ token: {}, user: { email: 'bod@daidung.com.vn' } } as never);

@@ -1171,5 +1171,10 @@
     "actualAvg": "TT TB/ngày",
     "actualDays": "Số ngày có số liệu",
     "noData": "Chưa có kế hoạch nhân lực theo tháng"
+  },
+  "authSecurity": {
+    "googleDenied": "Tài khoản Google này chưa được quản trị cấp quyền hoặc đang bị khoá. Liên hệ quản trị.",
+    "googleOnlyHint": "Để trống nếu người này chỉ đăng nhập bằng Google",
+    "duplicateAccount": "Email này đã có tài khoản"
   }
 }

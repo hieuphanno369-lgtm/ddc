@@ -1,4 +1,5 @@
 import type { NextAuthOptions } from 'next-auth';
+import type { JWT } from 'next-auth/jwt';
 import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import type { Role, UserAccount } from '@/server/repo/types';
@@ -7,51 +8,41 @@ import { repo } from '@/server/repo/mock-repo';
 import { logActivity } from '@/lib/activity';
 import { verifyPassword } from '@/lib/password';
 import { requireAuthSecret } from '@/lib/env';
+import { googleAccessDecision, type GoogleProfileLite } from '@/server/google-access';
 
-const allowedDomains = (process.env.ALLOWED_EMAIL_DOMAINS ?? '')
-  .split(',')
-  .map((s) => s.trim().toLowerCase())
-  .filter(Boolean);
+export type Access = { role: Role; canViewFinance: boolean };
 
-/** Seed role mapping (mock) - email:role, phân tách bằng dấu phẩy. */
-const roleSeed: Record<string, Role> = (process.env.ROLE_SEED ?? '')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean)
-  .reduce<Record<string, Role>>((acc, pair) => {
-    const [email, role] = pair.split(':').map((x) => x.trim());
-    if (email && (role === 'admin' || role === 'bod' || role === 'data-entry' || role === 'viewer')) {
-      acc[email.toLowerCase()] = role;
-    }
-    return acc;
-  }, {});
+// T-1 (danh-gia-bao-mat.md, phương án b; nay là quyết định lâu dài QĐ-10): data-entry
+// luôn canViewFinance=true, giống admin - tránh "cảm giác an toàn giả" khi Quản trị tắt được nút
+// nhưng /nhap-lieu vẫn lộ số tiền cho role này.
+const alwaysOnFinance = (r: Role) => r === 'admin' || r === 'data-entry';
 
 /**
- * Quyền: đọc từ user_roles (DB) hoặc mock store, fallback ROLE_SEED env.
  * Q6 (2026-09-25, chủ dự án chốt): canViewFinance đọc theo TỪNG người từ cột DB `user_roles.canViewFinance`
  * (Quản trị bật/tắt được - xem `setUserCanViewFinanceAction`), KHÔNG còn suy từ role. Admin luôn xem được
- * bất kể cột DB. Có hiệu lực ngay lúc đăng nhập, và trong vòng `ACCESS_RECHECK_INTERVAL_MS` cho session
- * đang mở (T-5, danh-gia-bao-mat.md - callback `jwt` đọc lại định kỳ, không chỉ lúc đăng nhập).
+ * bất kể cột DB.
  */
-export async function resolveAccess(email: string): Promise<{ role: Role; canViewFinance: boolean }> {
-  const seedRole = roleSeed[email.toLowerCase()] ?? 'viewer';
-  // T-1 (danh-gia-bao-mat.md, phương án b; nay là quyết định lâu dài QĐ-10): data-entry
-  // luôn canViewFinance=true, giống admin - tránh "cảm giác an toàn giả" khi Quản trị tắt được nút
-  // nhưng /nhap-lieu vẫn lộ số tiền cho role này.
-  const alwaysOn = (r: Role) => r === 'admin' || r === 'data-entry';
-  const fallback: { role: Role; canViewFinance: boolean } = { role: seedRole, canViewFinance: alwaysOn(seedRole) };
+export function accessFromAccount(a: Pick<UserAccount, 'role' | 'canViewFinance'>): Access {
+  return { role: a.role, canViewFinance: alwaysOnFinance(a.role) ? true : a.canViewFinance };
+}
+
+/**
+ * K14 (đóng L-11): fail-closed - không có tài khoản hoặc DB lỗi trả `null` (không còn fallback
+ * ROLE_SEED/viewer). Quyền dựng thẳng từ 1 lần đọc tài khoản (không đọc thêm lần thứ 2).
+ */
+export async function resolveAccess(email: string): Promise<Access | null> {
   if (process.env.DATABASE_URL) {
     try {
       const row = await prisma.userRole.findUnique({ where: { email: email.toLowerCase() } });
-      if (row) return { role: row.role as Role, canViewFinance: alwaysOn(row.role as Role) ? true : row.canViewFinance };
+      if (!row) return null;
+      return accessFromAccount({ role: row.role as Role, canViewFinance: row.canViewFinance });
     } catch {
-      /* ignore */
+      return null;
     }
-    return fallback;
   }
   const u = repo.getUserRoles().find((x) => x.email === email.toLowerCase());
-  if (!u) return fallback;
-  return { role: u.role, canViewFinance: alwaysOn(u.role) ? true : u.canViewFinance };
+  if (!u) return null;
+  return accessFromAccount(u);
 }
 
 async function findAccount(email: string): Promise<UserAccount | null> {
@@ -96,10 +87,21 @@ async function touchLastLogin(email: string) {
  */
 export const ACCESS_RECHECK_INTERVAL_MS = 5 * 60 * 1000;
 
-export function isAllowedDomain(email: string): boolean {
-  if (!allowedDomains.length) return true; // chưa cấu hình → cho phép (dev)
-  const domain = email.split('@')[1]?.toLowerCase() ?? '';
-  return allowedDomains.includes(domain);
+/**
+ * Dùng chung cho nhánh đăng nhập lẫn nhánh kiểm lại định kỳ trong callback `jwt`: tài khoản null
+ * hoặc bị tắt (`isActive=false`) -> `token.invalid = true`; ngược lại gán quyền qua `accessFromAccount`.
+ */
+function applyAccountToToken(token: JWT, account: UserAccount | null): void {
+  if (!account || !account.isActive) {
+    // Tài khoản bị khoá/tắt hoặc đã bị xoá khỏi DB - vô hiệu session ở callback session().
+    token.invalid = true;
+  } else {
+    const access = accessFromAccount(account);
+    token.role = access.role;
+    token.canViewFinance = access.canViewFinance;
+    token.invalid = false;
+  }
+  token.accessCheckedAt = Date.now();
 }
 
 export const authOptions: NextAuthOptions = {
@@ -128,32 +130,40 @@ export const authOptions: NextAuthOptions = {
       },
     }),
     GoogleProvider({
-      // TODO: bật Google OAuth - set GOOGLE_CLIENT_ID/SECRET thật (đang rỗng = provider không dùng được).
       clientId: process.env.GOOGLE_CLIENT_ID ?? '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
     }),
   ],
   session: { strategy: 'jwt', maxAge: 8 * 60 * 60 }, // session tối đa 8 giờ
-  pages: { signIn: '/login' },
+  pages: { signIn: '/login', error: '/login' },
   callbacks: {
-    async signIn({ user }) {
+    async signIn({ user, account, profile }) {
       const email = user.email?.toLowerCase() ?? '';
-      const allowed = isAllowedDomain(email);
-      if (allowed) {
-        try {
-          await logActivity({ name: user.name ?? email, email }, 'login');
-        } catch {
-          /* ignore */
-        }
+      if (account?.provider === 'google') {
+        // S9: chỉ vào khi email đã xác minh, có trong danh sách admin thêm, đang hoạt động,
+        // chưa bị khoá (lockedAt thật sẽ nối vào ở Task 6, sau khi có cột DB - Task 5).
+        const found = email ? await findAccount(email) : null;
+        const decision = googleAccessDecision(
+          profile as GoogleProfileLite,
+          found ? { isActive: found.isActive, lockedAt: null } : null,
+        );
+        if (decision !== 'allow') return false;
       }
-      return allowed;
+      try {
+        await logActivity({ name: user.name ?? email, email }, 'login');
+      } catch {
+        /* ignore */
+      }
+      return true;
     },
     async jwt({ token, user }) {
       if (user?.email) {
-        const access = await resolveAccess(user.email);
-        token.role = access.role;
-        token.canViewFinance = access.canViewFinance;
-        token.accessCheckedAt = Date.now();
+        // K14 (đóng L-11): 1 lần đọc tài khoản (findAccount), quyền dựng thẳng từ đó - không gọi
+        // resolveAccess() thêm lần nữa (trước đây đọc DB 2 lần: findAccount() ở authorize/signIn
+        // rồi resolveAccess() ở đây).
+        const account = await findAccount(user.email);
+        applyAccountToToken(token, account);
+        if (account) token.name = account.name || token.name;
         return token;
       }
       // T-5: token đã có (không phải lần đăng nhập) - đọc lại quyền định kỳ mỗi
@@ -163,16 +173,7 @@ export const authOptions: NextAuthOptions = {
         const last = typeof token.accessCheckedAt === 'number' ? token.accessCheckedAt : 0;
         if (Date.now() - last > ACCESS_RECHECK_INTERVAL_MS) {
           const account = await findAccount(email);
-          if (!account || !account.isActive) {
-            // Tài khoản bị khoá hoặc đã bị xoá khỏi DB - vô hiệu session ở callback session().
-            token.invalid = true;
-          } else {
-            const access = await resolveAccess(email);
-            token.role = access.role;
-            token.canViewFinance = access.canViewFinance;
-            token.invalid = false;
-          }
-          token.accessCheckedAt = Date.now();
+          applyAccountToToken(token, account);
         }
       }
       return token;
