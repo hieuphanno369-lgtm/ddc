@@ -15,7 +15,7 @@ vi.mock('@/server/notify/webhook', () => ({ sendWebhook: (...args: unknown[]) =>
 
 import { repo } from '@/server/repo/mock-repo';
 import {
-  dispatchAlertNotifications, retryPendingNotifications, sendToChannel, queueAlertNotifications, __notifyQueueIdleForTest,
+  dispatchAlertNotifications, retryPendingNotifications, sendToChannel, smtpConfigFromChannel, queueAlertNotifications, __notifyQueueIdleForTest,
 } from './dispatch';
 import { runAlertEngine, runAlertEngineSafe } from '@/server/alert-engine';
 
@@ -171,6 +171,41 @@ describe('retryPendingNotifications - toi da 3 lan thu', () => {
     sendWebhookFake.mockClear();
     await retryPendingNotifications({ sendWebhook: sendWebhookFake });
     expect(sendWebhookFake).not.toHaveBeenCalled();
+  });
+});
+
+describe('smtpConfigFromChannel', () => {
+  const baseChannel = (over: Partial<NotifyChannelForSend> = {}): NotifyChannelForSend => ({
+    id: 1, kind: 'email', name: 'E', isEnabled: true, minSeverity: 'Red',
+    settings: { smtpHost: 'smtp.x.com', fromAddress: 'a@daidung.com.vn' },
+    secretHint: '', hasSecret: false, updatedAt: '', updatedBy: '', secretEnc: null, recipients: [],
+    ...over,
+  });
+
+  it('thieu smtpHost hoac fromAddress -> bad_config', () => {
+    expect(smtpConfigFromChannel(baseChannel({ settings: { fromAddress: 'a@daidung.com.vn' } }))).toEqual({ ok: false, error: 'bad_config' });
+    expect(smtpConfigFromChannel(baseChannel({ settings: { smtpHost: 'smtp.x.com' } }))).toEqual({ ok: false, error: 'bad_config' });
+  });
+
+  it('secretEnc thieu khoa giai ma -> secret_key_missing', () => {
+    const ch = baseChannel({ secretEnc: sealSecret('mat-khau-smtp') });
+    delete process.env[SECRET_KEY_ENV];
+    expect(smtpConfigFromChannel(ch)).toEqual({ ok: false, error: 'secret_key_missing' });
+  });
+
+  it('secretEnc hong (doi khoa) -> secret_decrypt_failed', () => {
+    const ch = baseChannel({ secretEnc: sealSecret('mat-khau-smtp') });
+    process.env[SECRET_KEY_ENV] = KEY_32_OTHER;
+    expect(smtpConfigFromChannel(ch)).toEqual({ ok: false, error: 'secret_decrypt_failed' });
+  });
+
+  it('du cau hinh -> cfg dung, port mac dinh 587, secure mac dinh false', () => {
+    const ch = baseChannel();
+    const res = smtpConfigFromChannel(ch);
+    expect(res).toEqual({
+      ok: true,
+      cfg: { host: 'smtp.x.com', port: 587, secure: false, user: null, pass: null, from: 'a@daidung.com.vn' },
+    });
   });
 });
 

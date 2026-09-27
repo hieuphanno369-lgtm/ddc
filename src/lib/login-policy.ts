@@ -1,0 +1,36 @@
+/**
+ * K5 - hằng số chính sách khoá đăng nhập + giới hạn xin link đặt lại mật khẩu. Dùng chung cho
+ * `src/server/login-guard.ts`, `src/server/password-reset.ts`, `src/server/repo/*-auth.ts`.
+ */
+
+/** Khoá tài khoản ở lần sai liên tiếp thứ 5. */
+export const LOGIN_LOCK_THRESHOLD = 5;
+
+/** IP bị chặn khi có 20 lần đăng nhập sai trong 15 phút (cửa sổ trượt). */
+export const IP_FAIL_LIMIT = 20;
+export const IP_FAIL_WINDOW_MS = 15 * 60_000;
+
+/** Email không tồn tại: sai 5 lần trong 24 giờ cũng hiện "đã bị khoá" như tài khoản thật (K6). */
+export const UNKNOWN_EMAIL_WINDOW_MS = 24 * 3_600_000;
+
+/** Xin link đặt lại tối đa 3 lần/giờ/email và 10 lần/giờ/IP. */
+export const RESET_EMAIL_LIMIT = 3;
+export const RESET_IP_LIMIT = 10;
+export const RESET_WINDOW_MS = 3_600_000;
+
+/** Token đặt lại mật khẩu hết hạn sau 30 phút. */
+export const RESET_TOKEN_TTL_MS = 30 * 60_000;
+
+/** Dọn dữ liệu tạm (auth_throttle, token đặt lại đã dùng/hết hạn) cũ hơn 24 giờ. */
+export const AUTH_DATA_RETENTION_MS = 24 * 3_600_000;
+
+export const EMAIL_MAX_LENGTH = 254;
+
+/** trim + hạ chữ thường; rỗng, dài hơn 254, không có đúng 1 '@' -> null. */
+export function normalizeEmail(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const email = raw.trim().toLowerCase();
+  if (!email || email.length > EMAIL_MAX_LENGTH) return null;
+  if (email.split('@').length !== 2) return null;
+  return email;
+}

@@ -2,7 +2,7 @@ import { repo } from '@/server/repo';
 import { openSecret } from '@/lib/secret-box';
 import { noticeFromAlert, noticeSubject, noticeText, severityPasses, webhookPayload, type AlertNotice } from '@/lib/notify-message';
 import type { AlertLog, NotifyChannelForSend } from '@/server/repo/types';
-import { sendEmail } from './email';
+import { sendEmail, type SmtpConfig } from './email';
 import { sendWebhook } from './webhook';
 import type { SendResult } from './types';
 
@@ -61,6 +61,35 @@ function tryOpenSecret(secretEnc: string): { ok: true; value: string } | { ok: f
 }
 
 /**
+ * Dựng `SmtpConfig` từ 1 kênh thông báo email - tách khỏi `sendToChannel` để `src/server/auth-mail.ts`
+ * (P3E, quên mật khẩu) dùng lại, không phải chép lại logic mở secret/mặc định port/secure.
+ */
+export function smtpConfigFromChannel(
+  ch: NotifyChannelForSend,
+): { ok: true; cfg: SmtpConfig } | { ok: false; error: 'bad_config' | 'secret_key_missing' | 'secret_decrypt_failed' } {
+  if (!ch.settings.smtpHost || !ch.settings.fromAddress) return { ok: false, error: 'bad_config' };
+
+  let pass: string | null = null;
+  if (ch.secretEnc) {
+    const opened = tryOpenSecret(ch.secretEnc);
+    if (!opened.ok) return opened;
+    pass = opened.value;
+  }
+
+  return {
+    ok: true,
+    cfg: {
+      host: ch.settings.smtpHost,
+      port: ch.settings.smtpPort ?? 587,
+      secure: ch.settings.smtpSecure ?? false,
+      user: ch.settings.smtpUser || null,
+      pass,
+      from: ch.settings.fromAddress,
+    },
+  };
+}
+
+/**
  * Gửi 1 kênh (dùng cho cả gửi thật lẫn "Gửi thử"). `severityFilter=false`: bỏ lọc mức độ người
  * nhận (Gửi thử coi mọi người nhận đang bật là hợp lệ, bất kể mức độ tối thiểu của họ).
  */
@@ -83,28 +112,11 @@ export async function sendToChannel(
   const recipients = ch.recipients.filter((r) => r.isEnabled && (!severityFilter || severityPasses(n.severity, r.minSeverity)));
   const emails = recipients.map((r) => r.email);
   if (emails.length === 0) return { ok: false, error: 'no_recipients' };
-  if (!ch.settings.smtpHost || !ch.settings.fromAddress) return { ok: false, error: 'bad_config' };
 
-  let pass: string | null = null;
-  if (ch.secretEnc) {
-    const opened = tryOpenSecret(ch.secretEnc);
-    if (!opened.ok) return opened;
-    pass = opened.value;
-  }
+  const smtp = smtpConfigFromChannel(ch);
+  if (!smtp.ok) return smtp;
 
-  return sendEmailFn(
-    {
-      host: ch.settings.smtpHost,
-      port: ch.settings.smtpPort ?? 587,
-      secure: ch.settings.smtpSecure ?? false,
-      user: ch.settings.smtpUser || null,
-      pass,
-      from: ch.settings.fromAddress,
-    },
-    emails,
-    noticeSubject(n),
-    noticeText(n),
-  );
+  return sendEmailFn(smtp.cfg, emails, noticeSubject(n), noticeText(n));
 }
 
 /** Xử lý 1 alert: chọn kênh đích, giành quyền gửi (K5), gửi lần lượt, ghi kết quả. KHÔNG throw. */

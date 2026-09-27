@@ -573,3 +573,47 @@ export interface SapQueueItem {
   projectId: number | null;
   detectedAt: string;
 }
+
+// ---- P3E: khoá đăng nhập sai + giới hạn theo IP/email + token đặt lại mật khẩu ----
+
+export type ThrottleKind = 'login_fail_ip' | 'login_fail_unknown_email' | 'reset_req_email' | 'reset_req_ip';
+
+export interface AuthAccountState {
+  email: string;
+  name: string;
+  passwordHash: string;
+  role: Role;
+  canViewFinance: boolean;
+  isActive: boolean;
+  failedLoginCount: number;
+  lockedAt: string | null;
+  passwordChangedAt: string | null;
+}
+
+export interface AuthStore {
+  getAccountState(email: string): Promise<AuthAccountState | null>;
+  /** +1 bộ đếm sai; đạt threshold và chưa khoá thì khoá; null nếu không có tài khoản. */
+  registerFailedLogin(
+    email: string,
+    threshold: number,
+    nowIso: string,
+  ): Promise<{ count: number; locked: boolean; justLocked: boolean } | null>;
+  resetFailedLogin(email: string): Promise<void>;
+  /** Xoá khoá + bộ đếm; false nếu không có tài khoản. */
+  unlockAccount(email: string): Promise<boolean>;
+  /** Đổi mật khẩu; bumpChangedAt = true thì passwordChangedAt = now. */
+  setPassword(email: string, passwordHash: string, bumpChangedAt: boolean, nowIso: string): Promise<boolean>;
+  recordThrottle(kind: ThrottleKind, key: string, nowIso: string): Promise<void>;
+  countThrottle(kind: ThrottleKind, key: string, sinceIso: string): Promise<number>;
+  /** Xoá mọi token cũ của email rồi tạo token mới (1 transaction). */
+  replaceResetToken(email: string, tokenHash: string, expiresAtIso: string, requestIp: string): Promise<void>;
+  /** Token còn dùng được (chưa dùng, chưa hết hạn, tài khoản còn, có mật khẩu, isActive)? */
+  peekResetToken(tokenHash: string, nowIso: string): Promise<boolean>;
+  /** Nguyên tử: đánh dấu token đã dùng + đặt mật khẩu + passwordChangedAt = now + bộ đếm về 0 nếu chưa khoá + vô hiệu token khác của email. */
+  consumeResetToken(
+    tokenHash: string,
+    passwordHash: string,
+    nowIso: string,
+  ): Promise<{ ok: true; email: string; name: string; locked: boolean } | { ok: false }>;
+  pruneAuthData(beforeIso: string): Promise<void>;
+}
