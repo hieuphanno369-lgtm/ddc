@@ -156,7 +156,7 @@ function riseIn(scope: ParentNode, baseDelay: number): () => void {
 }
 
 /** Chay riseIn cho moi phan tu .rise trong pham vi ref khi mount. Chi dung trong Client Component. */
-export function useRise(ref: RefObject<HTMLElement>, baseDelay = 0): void {
+export function useRise(ref: RefObject<HTMLElement | null>, baseDelay = 0): void {
   useEffect(() => {
     const scope = ref.current;
     if (!scope) return;
@@ -170,7 +170,7 @@ export function useRise(ref: RefObject<HTMLElement>, baseDelay = 0): void {
  * Huy spring dang chay truoc khi tao spring moi tren cung phan tu (bam/tha
  * nhanh lien tiep se khong con 2 vong rAF cung ghi el.style.transform).
  */
-export function usePressable(ref: RefObject<HTMLElement>, scaleTo = 0.972): void {
+export function usePressable(ref: RefObject<HTMLElement | null>, scaleTo = 0.972): void {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -221,7 +221,7 @@ export function usePressable(ref: RefObject<HTMLElement>, scaleTo = 0.972): void
  * Huy spring dang chay truoc khi tao spring moi tren cung phan tu (re chuot
  * ra/vao nhanh lien tiep se khong con 2 vong rAF cung ghi el.style.transform).
  */
-export function useHoverLift(ref: RefObject<HTMLElement>, dy = 3): void {
+export function useHoverLift(ref: RefObject<HTMLElement | null>, dy = 3): void {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;

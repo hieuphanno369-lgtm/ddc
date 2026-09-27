@@ -4,7 +4,8 @@ import { getTranslations } from 'next-intl/server';
 import { getCurrentUser, homeForRole } from '@/lib/session';
 import { LoginForm } from '@/components/layout/LoginForm';
 
-export default async function LoginPage({ params: { locale } }: { params: { locale: string } }) {
+export default async function LoginPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
   const user = await getCurrentUser();
   if (user) redirect(`/${locale}${homeForRole(user.role)}`);
 

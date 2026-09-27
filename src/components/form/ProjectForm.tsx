@@ -244,7 +244,7 @@ export function ProjectForm(p: ProjectFormProps) {
           formRef.current?.querySelector<HTMLElement>('[data-field="currentAliasCode"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } else {
           const key = `projectForm.err.${res.error}`;
-          setMsg({ tone: 'bad', text: t.has(key) ? t(key) : t('projectForm.err.generic', { msg: res.error }) });
+          setMsg({ tone: 'bad', text: t.has(key) ? t(key) : t('projectForm.err.generic', { msg: res.error ?? '' }) });
         }
       }
     } catch {

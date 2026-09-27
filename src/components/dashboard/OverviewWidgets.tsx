@@ -1,4 +1,3 @@
-import dynamic from 'next/dynamic';
 import { getLocale, getTranslations } from 'next-intl/server';
 import {
   loadCapacity,
@@ -21,14 +20,8 @@ import { TopPriorityList } from './TopPriorityList';
 import { ProjectTable } from './ProjectTable';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Rise } from '@/components/ui/Rise';
-import { CardSkeleton } from '@/components/ui/Skeleton';
 import { IconAlert, IconFlag, IconMoney, IconProject, IconFactory, IconTrend } from '@/components/icons';
-
-const CapacityBar = dynamic(() => import('./charts').then((m) => m.CapacityBar), { ssr: false, loading: () => <CardSkeleton h={220} /> });
-const SCurve = dynamic(() => import('./charts').then((m) => m.SCurve), { ssr: false, loading: () => <CardSkeleton h={240} /> });
-const SpiCpiLine = dynamic(() => import('./charts').then((m) => m.SpiCpiLine), { ssr: false, loading: () => <CardSkeleton h={200} /> });
-const DrillDonut = dynamic(() => import('./DrillCharts').then((m) => m.DrillDonut), { ssr: false, loading: () => <CardSkeleton h={200} /> });
-const GroupByCard = dynamic(() => import('./DrillCharts').then((m) => m.GroupByCard), { ssr: false, loading: () => <CardSkeleton h={260} /> });
+import { CapacityBar, DrillDonut, GroupByCard, SCurve, SpiCpiLine } from './OverviewChartsLazy';
 
 export async function KpiGrid({ month, filters, canViewFinance }: { month: string; filters: DashboardFilters; canViewFinance: boolean }) {
   const t = await getTranslations();

@@ -249,7 +249,7 @@ describe('/audit - render nội dung', () => {
   it('range=all: nút "14 ngày gần nhất" trỏ về /audit (bỏ tham số mặc định)', async () => {
     (getCurrentUser as Mock).mockResolvedValue(ADMIN);
 
-    const out = await render(() => AuditPage({ searchParams: { range: 'all' } }));
+    const out = await render(() => AuditPage({ searchParams: Promise.resolve({ range: 'all' }) }));
 
     expect(out).toContain('href="/audit"');
   });
@@ -262,7 +262,7 @@ describe('/audit - render nội dung', () => {
     }
     (getCurrentUser as Mock).mockResolvedValue(ADMIN);
 
-    const out = await render(() => AuditPage({ searchParams: { page: 'rac' } }));
+    const out = await render(() => AuditPage({ searchParams: Promise.resolve({ page: 'rac' }) }));
     const rowCount = (out.match(/<tr>/g) ?? []).length - 1;
 
     expect(rowCount).toBe(20);
@@ -276,7 +276,7 @@ describe('/audit - render nội dung', () => {
     }
     (getCurrentUser as Mock).mockResolvedValue(ADMIN);
 
-    const out = await render(() => AuditPage({ searchParams: { page: ['2', '3'] } }));
+    const out = await render(() => AuditPage({ searchParams: Promise.resolve({ page: ['2', '3'] }) }));
     const rowCount = (out.match(/<tr>/g) ?? []).length - 1;
 
     expect(rowCount).toBe(20);

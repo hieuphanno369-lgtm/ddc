@@ -28,11 +28,58 @@ export function need(key: string): string {
   return value;
 }
 
-/** Cặp DB + cổng dev đã đăng ký cho e2e. KHÔNG BAO GIỜ thêm 'ddc_control_tower' (DB của A, dữ liệu thật). */
-export const E2E_TARGETS: ReadonlyArray<{ dbName: string; port: string }> = [
-  { dbName: 'ddc_control_tower_b', port: '3001' },
-  { dbName: 'ddc_control_tower_c', port: '3003' },
+/** DB tạm riêng cho e2e của A (chủ dự án chốt 2026-09-27). Seed xoá/nạp lại mỗi lần chạy, không phải DB thật. */
+export const E2E_A_DB_NAME = 'ddc_control_tower_e2e_a';
+/**
+ * Cổng e2e riêng của A: không trùng cổng dev của ai (A 3000, B 3001, xem 3002, C 3003). Nhờ vậy (1) không có khe
+ * để server dev thường của A (DB thật) chiếm cổng giữa lúc Playwright kiểm và lúc Next e2e bind, (2) e2e của A
+ * không giữ 3000, nên `npm run dev` của A không bị đẩy sang 3001 rồi bị e2e của B bám nhầm (bảo mật TR-1, T-2).
+ */
+export const E2E_A_PORT = '3010';
+
+/**
+ * Cặp DB + cổng dev đã đăng ký cho e2e. KHÔNG BAO GIỜ thêm 'ddc_control_tower' (DB của A, dữ liệu thật).
+ * `reuseServer`: có được bám vào server đang chạy sẵn ở cổng đó không. A = false vì server dev thường
+ * của A trỏ DB thật; bám nhầm server đó thì spec ghi dữ liệu thử vào DB thật (N-P7-1).
+ */
+export const E2E_TARGETS: ReadonlyArray<{ dbName: string; port: string; reuseServer: boolean }> = [
+  { dbName: 'ddc_control_tower_b', port: '3001', reuseServer: true },
+  { dbName: 'ddc_control_tower_c', port: '3003', reuseServer: true },
+  { dbName: E2E_A_DB_NAME, port: E2E_A_PORT, reuseServer: false },
 ];
+
+/**
+ * Gộp biến môi trường cho e2e: `.env` thắng biến shell thường (tránh lỡ tay `DATABASE_URL` ở shell),
+ * riêng `E2E_DATABASE_URL` / `E2E_NEXTAUTH_URL` đặt ở shell (script `test:e2e:a`) được đè `.env`.
+ * Kết quả vẫn phải qua `resolveE2eTarget`, nên đè sang DB chưa đăng ký (vd DB thật của A) vẫn bị chặn.
+ */
+export function mergeE2eEnv(
+  processEnv: Record<string, string | undefined>,
+  dotEnv: Record<string, string>,
+): Record<string, string | undefined> {
+  const out: Record<string, string | undefined> = { ...processEnv, ...dotEnv };
+  if (processEnv.E2E_DATABASE_URL) out.DATABASE_URL = processEnv.E2E_DATABASE_URL;
+  if (processEnv.E2E_NEXTAUTH_URL) out.NEXTAUTH_URL = processEnv.E2E_NEXTAUTH_URL;
+  return out;
+}
+
+/** `mergeE2eEnv(process.env, .env)` - điểm vào duy nhất cho config, global-setup và spec. */
+export function loadE2eEnv(): Record<string, string | undefined> {
+  return mergeE2eEnv(process.env, loadDotEnv());
+}
+
+/** Từ DATABASE_URL của A (localhost:5433) dựng URL DB tạm e2e cùng host/port/user/query. Nguồn lạ -> null. */
+export function e2eADbUrlFrom(sourceDbUrl: string): string | null {
+  let u: URL;
+  try {
+    u = new URL(sourceDbUrl);
+  } catch {
+    return null;
+  }
+  if (u.hostname !== 'localhost' || u.port !== '5433') return null;
+  u.pathname = '/' + E2E_A_DB_NAME;
+  return u.toString();
+}
 
 /** NEXTAUTH_URL phải đúng dạng http://localhost:<cổng> (pathname '/', không query/hash/user). Sai -> null. */
 export function parseE2eBaseUrl(nextAuthUrl: string): { baseURL: string; port: string } | null {
@@ -96,6 +143,7 @@ export function resolveE2eTarget(env: Record<string, string | undefined>): {
   baseURL: string;
   port: string;
   databaseUrl: string;
+  reuseServer: boolean;
 } {
   const nextAuthUrl = env.NEXTAUTH_URL ?? '';
   const databaseUrl = env.DATABASE_URL ?? '';
@@ -106,8 +154,9 @@ export function resolveE2eTarget(env: Record<string, string | undefined>): {
   if (!isExpectedDbUrl(databaseUrl, parsed.port)) {
     const pairs = E2E_TARGETS.map((t) => `${t.dbName} + ${t.port}`).join(', ');
     throw new Error(
-      `DATABASE_URL + NEXTAUTH_URL khong khop cap da dang ky (${pairs}) - dung chay e2e (co the dinh DB cua A). Kiem tra .env.`,
+      `DATABASE_URL + NEXTAUTH_URL khong khop cap da dang ky (${pairs}) - dung chay e2e (co the dinh DB cua A). B/C: kiem tra .env; A: dung \`npm run test:e2e:a\` (DB tam), khong sua .env.`,
     );
   }
-  return { baseURL: parsed.baseURL, port: parsed.port, databaseUrl };
+  const reuseServer = E2E_TARGETS.find((t) => t.port === parsed.port)?.reuseServer ?? false;
+  return { baseURL: parsed.baseURL, port: parsed.port, databaseUrl, reuseServer };
 }

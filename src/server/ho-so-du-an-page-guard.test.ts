@@ -59,7 +59,7 @@ function login(u: CurrentUser | null) {
 async function visit(searchParams: Record<string, string> = {}): Promise<string | null> {
   redirectCalls.length = 0;
   try {
-    const el = await HoSoDuAnPage({ searchParams });
+    const el = await HoSoDuAnPage({ searchParams: Promise.resolve(searchParams) });
     renderToStaticMarkup(el as React.ReactElement);
     return null;
   } catch (e) {

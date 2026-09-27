@@ -39,8 +39,9 @@ function KpiSkeleton() {
 export default async function OverviewPage({
   searchParams,
 }: {
-  searchParams: Record<string, string | string[] | undefined>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const sp = await searchParams;
   const locale = await getLocale();
   const user = await requireUser(locale, ['admin', 'bod', 'viewer']);
   const t = await getTranslations();
@@ -50,26 +51,26 @@ export default async function OverviewPage({
   // N-2 (danh-gia-bao-mat.md): month rác (khác 'all'/'YYYY-MM' hợp lệ) từng lọt thẳng vào khoá
   // unstable_cache (src/server/cache.ts) - mỗi giá trị rác khác nhau phình thêm 1 khoá cache mới.
   // Validate như trang Chi tiết, sai format thì rơi về tháng hiện tại.
-  const rawMonth = p(searchParams, 'month');
+  const rawMonth = p(sp, 'month');
   const month = rawMonth === 'all' ? 'all' : isValidYearMonth(rawMonth) ? rawMonth : currentMonth();
-  const groupBy = (p(searchParams, 'groupBy') as GroupBy) || 'team';
+  const groupBy = (p(sp, 'groupBy') as GroupBy) || 'team';
 
   const filters: DashboardFilters = {
-    status: (p(searchParams, 'status') as Status) || 'all',
-    teamKdId: p(searchParams, 'team') ? Number(p(searchParams, 'team')) : 'all',
-    customerId: p(searchParams, 'customer') ? Number(p(searchParams, 'customer')) : 'all',
-    priority: (p(searchParams, 'priority') as Priority) || 'all',
-    market: (p(searchParams, 'market') as Market) || 'all',
-    projectType: (p(searchParams, 'type') as ProjectType) || 'all',
-    groupBy: p(searchParams, 'groupBy') ? groupBy : undefined,
-    groupKey: p(searchParams, 'groupKey') || undefined,
+    status: (p(sp, 'status') as Status) || 'all',
+    teamKdId: p(sp, 'team') ? Number(p(sp, 'team')) : 'all',
+    customerId: p(sp, 'customer') ? Number(p(sp, 'customer')) : 'all',
+    priority: (p(sp, 'priority') as Priority) || 'all',
+    market: (p(sp, 'market') as Market) || 'all',
+    projectType: (p(sp, 'type') as ProjectType) || 'all',
+    groupBy: p(sp, 'groupBy') ? groupBy : undefined,
+    groupKey: p(sp, 'groupKey') || undefined,
   };
 
   const canViewFinance = user?.canViewFinance ?? false;
-  const search = p(searchParams, 'search');
-  const rawSort = (p(searchParams, 'sort') as 'priority' | 'name' | 'value' | 'spi' | 'pctActual') || 'priority';
+  const search = p(sp, 'search');
+  const rawSort = (p(sp, 'sort') as 'priority' | 'name' | 'value' | 'spi' | 'pctActual') || 'priority';
   const sort = safeListSort(rawSort, canViewFinance);
-  const page = Number(p(searchParams, 'page')) || 1;
+  const page = Number(p(sp, 'page')) || 1;
 
   return (
     <>

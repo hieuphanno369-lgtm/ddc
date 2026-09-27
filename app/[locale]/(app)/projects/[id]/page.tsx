@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation';
 import { SidebarProjectBrand } from '@/components/layout/SidebarBrand';
-import dynamic from 'next/dynamic';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { repo } from '@/server/repo';
@@ -27,25 +26,18 @@ import { HelpTip } from '@/components/ui/HelpTip';
 import { PlanActualTimeline } from '@/components/project/PlanActualTimeline';
 import { StageSelectionProvider } from '@/components/project/StageSelectionContext';
 import { ValueChainModeChip } from '@/components/project/ValueChainModeChip';
-const SCurve = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SCurve), { ssr: false, loading: () => <div className="sk h-60" /> });
-const CountdownPanel = dynamic(() => import('@/components/project/CountdownPanel').then((m) => m.CountdownPanel), { ssr: false, loading: () => <div className="sk" style={{ width: 240, height: 88 }} /> });
-const ResourceBreakdownChart = dynamic(() => import('@/components/project/ResourceBreakdownChart').then((m) => m.ResourceBreakdownChart), { ssr: false, loading: () => <div className="sk h-60" /> });
-const WeeklyTrackingCard = dynamic(() => import('@/components/project/WeeklyTrackingCard').then((m) => m.WeeklyTrackingCard), { ssr: false, loading: () => <div className="sk h-60" /> });
-const KeyMilestoneChart = dynamic(() => import('@/components/project/KeyMilestoneChart').then((m) => m.KeyMilestoneChart), { ssr: false, loading: () => <div className="sk h-60" /> });
-const StageExplorer = dynamic(() => import('@/components/project/StageExplorer').then((m) => m.StageExplorer), { ssr: false, loading: () => <div className="sk h-60" /> });
-const SpiCpiLine = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SpiCpiLine), { ssr: false, loading: () => <div className="sk h-60" /> });
-const ManpowerMonthChart = dynamic(
-  () => import('@/components/project/ManpowerMonthChart').then((m) => m.ManpowerMonthChart),
-  { ssr: false, loading: () => <div className="sk h-60" /> },
-);
-const WeeklyManpowerStackChart = dynamic(
-  () => import('@/components/project/WeeklyManpowerStackChart').then((m) => m.WeeklyManpowerStackChart),
-  { ssr: false, loading: () => <div className="sk h-60" /> },
-);
-const EquipmentPlanGantt = dynamic(
-  () => import('@/components/project/EquipmentPlanGantt').then((m) => m.EquipmentPlanGantt),
-  { ssr: false, loading: () => <div className="sk h-60" /> },
-);
+import {
+  CountdownPanel,
+  EquipmentPlanGantt,
+  KeyMilestoneChart,
+  ManpowerMonthChart,
+  ResourceBreakdownChart,
+  SCurve,
+  SpiCpiLine,
+  StageExplorer,
+  WeeklyManpowerStackChart,
+  WeeklyTrackingCard,
+} from '@/components/project/ProjectDetailChartsLazy';
 import { getResourceBreakdown, getResourceSnapshot, getWeeklyTracking, getWorkItemComparison } from '@/server/project-queries';
 import { getManpowerMonthChartData, getWeeklyChartData } from '@/server/manpower-queries';
 import { getEquipmentPlanGantt } from '@/server/equipment-plan-gantt-queries';
@@ -66,18 +58,24 @@ export default async function ProjectDetailPage({
   params,
   searchParams,
 }: {
-  params: { id: string; locale: string };
-  searchParams: Record<string, string | string[] | undefined>;
+  params: Promise<{ id: string; locale: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  // Khong dung Promise.all([params, searchParams]) o day: app-pages-require-user.test.ts khoi bat ky
+  // loi goi ham nao dung truoc requireUser, va Promise.all(...) la mot loi goi ham nhu vay. Doi thanh
+  // 2 lenh await rieng khong co dau ngoac ngay sau ten bien nen khong bi tinh la loi goi, van giu dung
+  // thu tu getLocale roi moi toi requireUser.
+  const { id: rawId } = await params;
+  const sp = await searchParams;
   // month rác (vd ?month=abc) từng lọt qua thẳng vào endOfMonth() và ném RangeError (500) -
   // validate đúng format 'YYYY-MM' trước khi dùng, sai thì rơi về tháng hiện tại.
-  const month = typeof searchParams.month === 'string' && isValidYearMonth(searchParams.month) ? searchParams.month : currentMonth();
+  const month = typeof sp.month === 'string' && isValidYearMonth(sp.month) ? sp.month : currentMonth();
   const locale = await getLocale();
   const user = await requireUser(locale);
   // L-1 (security P3D-B): matcher middleware bỏ qua đường dẫn có dấu chấm ('/vi/projects/1.0'),
   // mà Number() lại nhận '1.0', '1e0', '0x1' -> chỉ nhận số nguyên dương viết chuẩn.
-  if (!/^[1-9]\d*$/.test(params.id)) notFound();
-  const id = Number(params.id);
+  if (!/^[1-9]\d*$/.test(rawId)) notFound();
+  const id = Number(rawId);
   const t = await getTranslations();
   const canViewFinance = user.canViewFinance ?? false;
   // B-4 (danh-gia.md, vòng 2 - BOLA/IDOR): data-entry/viewer chỉ được xem dự án mình có trong

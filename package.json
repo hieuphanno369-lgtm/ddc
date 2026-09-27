@@ -9,6 +9,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:a": "tsx scripts/e2e-a.ts",
     "check:read": "tsx scripts/check-read-parity.ts",
     "perf:seed": "tsx scripts/perf/seed-perf.ts",
     "perf:clean": "tsx scripts/perf/seed-perf.ts --clean-only",
@@ -21,13 +22,14 @@
     "bcryptjs": "^3.0.3",
     "exceljs": "^4.4.0",
     "jszip": "^3.10.2",
-    "next": "14.2.35",
-    "next-auth": "4.24.7",
-    "next-intl": "3.26.3",
+    "next": "15.5.26",
+    "next-auth": "4.24.15",
+    "next-intl": "4.14.7",
     "nodemailer": "^10.0.10",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "recharts": "2.12.7",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-is": "19.3.0",
+    "recharts": "2.15.4",
     "xlsx": "^0.18.5",
     "zod": "^4.6.5"
   },
@@ -36,8 +38,8 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "20.14.15",
     "@types/nodemailer": "^8.0.2",
-    "@types/react": "18.3.5",
-    "@types/react-dom": "18.3.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "autoprefixer": "10.4.20",
     "postcss": "8.4.45",
     "prisma": "^6.19.3",
@@ -52,6 +54,9 @@
   "overrides": {
     "next-auth": {
       "nodemailer": "$nodemailer"
+    },
+    "recharts": {
+      "react-is": "$react-is"
     }
   }
 }

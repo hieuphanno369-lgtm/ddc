@@ -9,8 +9,9 @@ import { ProjectAuditCard } from '@/components/project/ProjectAuditCard';
 export default async function HoSoDuAnPage({
   searchParams,
 }: {
-  searchParams: Record<string, string | string[] | undefined>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const sp = await searchParams;
   const locale = await getLocale();
   const user = await requireUser(locale, ['admin', 'data-entry']);
   const t = await getTranslations();
@@ -23,7 +24,7 @@ export default async function HoSoDuAnPage({
   }
   const writable = all.map((p) => ({ id: p.id, name: p.projectName, code: p.currentAliasCode }));
 
-  const projectParam = typeof searchParams.project === 'string' ? Number(searchParams.project) : NaN;
+  const projectParam = typeof sp.project === 'string' ? Number(sp.project) : NaN;
   const requestedEdit = Number.isFinite(projectParam);
   if (requestedEdit && !writable.some((p) => p.id === projectParam)) notFound();
   const mode: 'new' | 'edit' = requestedEdit ? 'edit' : 'new';

@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * Nhanh memo cua `requestMemo` (queries.ts) - Vitest/tsx khong co `React.cache` that nen cac test
- * khac chi chay nhanh fallback. O day gia lap `cache` cua React (memo theo tung tham so, so bang
- * Object.is - dung nhu React.cache trong 1 request) de khoa hanh vi: cung tham so -> chi 1 lan doc
- * repo; tham so khac -> doc lai, ket qua dung theo tham so moi (khong tra nham ban cu).
+ * Nhanh memo cua `requestMemo` (queries.ts) - tu React 19, Vitest/tsx CO export `React.cache` that,
+ * nhung ngoai Server Component no khong memo gi (goi thang ham goc) nen cac test khac chi chay
+ * nhanh fallback. O day gia lap `cache` cua React (memo theo tung tham so, so bang Object.is -
+ * dung nhu React.cache trong 1 request Server Component that) de khoa hanh vi: cung tham so -> chi
+ * 1 lan doc repo; tham so khac -> doc lai, ket qua dung theo tham so moi (khong tra nham ban cu).
  */
 vi.mock('react', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react')>();

@@ -8,11 +8,12 @@ export const dynamic = 'force-dynamic';
  * Stream ảnh hiện trường đã ghi vào `data/uploads` (ngoài public/).
  * `ProjectPhoto.url` lưu path tương đối → client gọi `/api/photos/<url>`.
  */
-export async function GET(_req: NextRequest, { params }: { params: { path: string[] } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const photo = await readPhotoFile((params.path ?? []).join('/'));
+  const { path } = await params;
+  const photo = await readPhotoFile((path ?? []).join('/'));
   if (!photo) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   return new Response(new Uint8Array(photo.bytes), {

@@ -3,6 +3,24 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ Nâng Next 15.5.26 (Tài khoản A) - CHỐT + ĐÃ MERGE vào `main` (2026-09-27)
+Nhánh `feature/nang-next15`; hồ sơ `.bangiao/archive/nang-next15-2026-09-27/`. 210 file / 2409 test; e2e 79/79 trên cổng 3010 + DB tạm; không có migration.
+next 14.2.35 -> 15.5.26, react/react-dom 18.3.1 -> 19.3.0, next-intl 3.26.3 -> 4.14.7, next-auth 4.24.7 -> 4.24.15, recharts 2.12.7 -> 2.15.4 (+ override `react-is` 19.3.0); phiên bản ghim chính xác.
+coder -> tester DAT -> security DAT -> reviewer CAN SUA (e2e khoá nhầm L-1, trùng số file 12 với nhánh C) -> sửa -> tester/security/reviewer vòng 2 -> CHỐT.
+- `params`/`searchParams`/`headers()` async ở mọi page/route; thứ tự `await params` -> `getLocale` -> `requireUser` giữ nguyên. `dynamic(..., { ssr: false })` chuyển vào client component `*ChartsLazy.tsx`.
+- Cookie locale giữ 1 năm (`src/i18n/routing.ts`); e2e mới `e2e/13-locale-redirect-cookie.spec.ts` (cookie 1 năm, chặn open redirect). Hết advisory của `next`, `next-intl`, `cookie`.
+- Quyết định chủ dự án: đo T1 10 triệu dòng gộp vào load test P5 mục 7; bên merge `main` sau tự giải xung đột (C cần chuyển các `dynamic(ssr:false)` mới ở `projects/[id]/page.tsx` vào `ProjectDetailChartsLazy`, rồi `git grep "ssr: false" -- app src` + tsc + build).
+- B/C sau khi merge `main`: `npm install` (với `NODE_EXTRA_CA_CERTS`) và xoá `.next` trước khi chạy dev.
+- Nợ bảo mật phase sau (không chặn): L-1 matcher middleware bỏ qua đường dẫn có dấu chấm (kèm T-2), L-2 header bảo mật + `poweredByHeader: false`, rate-limit đăng nhập, gỡ `xlsx` không dùng, L-3 `secure` cho cookie locale.
+
+### ✅ e2e cho A trên DB tạm (Tài khoản A) - CHỐT + ĐÃ MERGE vào `main` (2026-09-27)
+Nhánh `feature/e2e-a-db-tam`; hồ sơ `.bangiao/archive/e2e-a-db-tam-2026-09-27/`. 210 file / 2407 test; e2e 74/74 trên cổng 3010 + DB tạm `ddc_control_tower_e2e_a`.
+Chủ dự án cho A chạy e2e trên DB tạm (DB thật `ddc_control_tower` tuyệt đối không bị e2e/seed chạm). Security ĐẠT (sửa 1 trung + 3 thấp) → reviewer CHỐT.
+- A chạy `npm run test:e2e:a` (`scripts/e2e-a.ts`): dựng URL DB tạm từ `.env`, kiểm guard, từ chối khi cổng 3010 bận, `migrate deploy` (cả `DIRECT_URL`), gọi playwright không qua shell. Cổng riêng 3010 không trùng cổng dev của ai.
+- `e2e/helpers/env.ts`: cặp `ddc_control_tower_e2e_a` + 3010, cờ `reuseServer` theo cặp (A false, B/C giữ true), `mergeE2eEnv`/`loadE2eEnv` dùng chung (chỉ `E2E_DATABASE_URL`/`E2E_NEXTAUTH_URL` ở shell được đè `.env`, vẫn qua guard). `DIRECT_URL` trỏ DB e2e ở seed và webServer.
+- A lỡ chạy `npm run test:e2e` thường vẫn bị chặn, thông báo hướng dùng `test:e2e:a`. B/C không đổi cách chạy.
+- Để sau: đóng hẳn N-P7-1 (e2e hỏi server "đang nối DB nào" trước khi chạy; hoặc `dev` có `-p` cố định từng bên); không chạy `npm run dev` của A cùng lúc với e2e (chung `.next`); chạy `test:e2e:a` từ worktree B/C sẽ đẩy migration nhánh đó lên DB tạm của A.
+
 ### ✅ P3C-A - Form đều ô, kế hoạch thiết bị theo đợt, kế hoạch nhân lực theo tháng + Bước 11 chart trang Chi tiết (Tài khoản A) - CHỐT + ĐÃ MERGE vào `main` (2026-09-27)
 Nhánh `feature/p3c-a-form-ke-hoach`; hồ sơ `.bangiao/archive/p3c-a-form-ke-hoach-2026-09-27/`. 210 file / 2397 test; có migration `20260926100000_p3c_a_plan_tables` (bên khác chạy `npx prisma migrate deploy`).
 Task 0-10: coder → tester XANH (vá BUG-01 `.inline` trùng utility Tailwind → `.inline-row`) → security ĐẠT → reviewer CAN SUA → sửa → CHỐT. Bước 11: coder → tester ĐỎ (chữ đè) → sửa → reviewer CAN SUA (CS-1) → sửa → tester độc lập XANH → reviewer CHỐT; security ĐẠT.

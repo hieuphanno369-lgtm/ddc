@@ -1,8 +1,8 @@
 import { test as setup } from '@playwright/test';
-import { loadDotEnv, need } from './helpers/env';
+import { loadE2eEnv, need } from './helpers/env';
 import { vi } from './helpers/i18n';
 
-Object.assign(process.env, loadDotEnv());
+Object.assign(process.env, loadE2eEnv());
 
 /**
  * Task 9 (P3B) - đăng nhập sẵn 3 vai (admin/pm/viewer) 1 lần, lưu storageState để mọi spec khác

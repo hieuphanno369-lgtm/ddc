@@ -18,7 +18,7 @@ const YM = '2026-09';
 const png = (name = 'a.png') => new File([Buffer.from([0x89, 0x50, 0x4e, 0x47])], name, { type: 'image/png' });
 
 const req = () => new NextRequest(`http://localhost/api/photos/x`);
-const ctx = (segments: string[]) => ({ params: { path: segments } });
+const ctx = (segments: string[]) => ({ params: Promise.resolve({ path: segments }) });
 const login = (u: unknown) => (getCurrentUser as Mock).mockResolvedValue(u);
 const USER = { name: 'Dev', email: 'dev@localhost', role: 'data-entry', canViewFinance: false };
 

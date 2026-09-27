@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { need, loadDotEnv } from './helpers/env';
+import { need, loadE2eEnv } from './helpers/env';
 import { vi } from './helpers/i18n';
 
-Object.assign(process.env, loadDotEnv());
+Object.assign(process.env, loadE2eEnv());
 
 async function login(page: import('@playwright/test').Page, email: string, password: string) {
   await page.goto('/vi/login');

@@ -4,7 +4,7 @@
  * XAC host/port/ten DB, khong dung includes()/startsWith() (khop nham ten gan giong nhu '..._b2').
  */
 import { describe, expect, it } from 'vitest';
-import { E2E_TARGETS, isExpectedDbUrl, parseE2eBaseUrl, resolveE2eTarget } from './env';
+import { E2E_TARGETS, E2E_A_DB_NAME, E2E_A_PORT, e2eADbUrlFrom, isExpectedDbUrl, mergeE2eEnv, parseE2eBaseUrl, resolveE2eTarget } from './env';
 
 const A = 'postgresql://postgres:pass@localhost:5433/ddc_control_tower?schema=public';
 const B = 'postgresql://postgres:pass@localhost:5433/ddc_control_tower_b?schema=public';
@@ -221,6 +221,7 @@ describe('resolveE2eTarget', () => {
       baseURL: 'http://localhost:3003',
       port: '3003',
       databaseUrl: C,
+      reuseServer: true,
     });
   });
 
@@ -247,5 +248,80 @@ describe('resolveE2eTarget', () => {
 
   it('E2E_TARGETS khong co phan tu nao dbName la ddc_control_tower', () => {
     expect(E2E_TARGETS.some((t) => t.dbName === 'ddc_control_tower')).toBe(false);
+  });
+});
+
+/**
+ * A chay e2e tren DB tam rieng (chu du an chot 2026-09-27): cap `ddc_control_tower_e2e_a` + 3010 (E2E_A_PORT).
+ * DB that cua A (`ddc_control_tower`) van bi chan voi moi cong; A khong bam server co san (reuseServer false).
+ */
+describe('A chay e2e tren DB tam', () => {
+  const AE2E = 'postgresql://postgres:pass@localhost:5433/ddc_control_tower_e2e_a?schema=public';
+
+  it('cap DB tam cua A + 3010 -> true; voi 3000 (cong dev thuong cua A) -> false', () => {
+    expect(E2E_A_DB_NAME).toBe('ddc_control_tower_e2e_a');
+    expect(isExpectedDbUrl(AE2E, '3010')).toBe(true);
+    expect(isExpectedDbUrl(AE2E, '3000')).toBe(false);
+  });
+
+  it('DB that cua A voi 3000 va 3010 van -> false', () => {
+    expect(isExpectedDbUrl(A, '3000')).toBe(false);
+    expect(isExpectedDbUrl(A, '3010')).toBe(false);
+  });
+
+  it('DB tam cua A voi cong cua B/C -> false; DB B/C voi 3000 -> false', () => {
+    expect(isExpectedDbUrl(AE2E, '3001')).toBe(false);
+    expect(isExpectedDbUrl(AE2E, '3003')).toBe(false);
+    expect(isExpectedDbUrl(B, '3010')).toBe(false);
+    expect(isExpectedDbUrl(C, '3010')).toBe(false);
+  });
+
+  it("ten gan giong ('..._e2e_a2', '..._e2e') -> false", () => {
+    expect(isExpectedDbUrl(AE2E.replace('_e2e_a?', '_e2e_a2?'), '3010')).toBe(false);
+    expect(isExpectedDbUrl(AE2E.replace('_e2e_a?', '_e2e?'), '3010')).toBe(false);
+  });
+
+  it('cap cua A khong duoc dung lai server co san (reuseServer false); B/C giu nhu cu (true)', () => {
+    const a = resolveE2eTarget({ NEXTAUTH_URL: 'http://localhost:3010', DATABASE_URL: AE2E });
+    expect(a.reuseServer).toBe(false);
+    const b = resolveE2eTarget({ NEXTAUTH_URL: 'http://localhost:3001', DATABASE_URL: B });
+    expect(b.reuseServer).toBe(true);
+  });
+
+  it('e2eADbUrlFrom: doi dung ten DB, giu host/port/user/schema; nguon khong phai localhost:5433 -> null', () => {
+    expect(e2eADbUrlFrom(A)).toBe(AE2E);
+    expect(e2eADbUrlFrom('postgresql://postgres:pass@db.example.com:5433/ddc_control_tower?schema=public')).toBeNull();
+    expect(e2eADbUrlFrom('postgresql://postgres:pass@localhost:5432/ddc_control_tower?schema=public')).toBeNull();
+    expect(e2eADbUrlFrom('khong-phai-url')).toBeNull();
+  });
+});
+
+describe('mergeE2eEnv', () => {
+  it('.env thang bien shell thuong (DATABASE_URL shell khong de duoc .env)', () => {
+    const out = mergeE2eEnv({ DATABASE_URL: 'shell-db' }, { DATABASE_URL: 'dotenv-db' });
+    expect(out.DATABASE_URL).toBe('dotenv-db');
+  });
+
+  it('chi E2E_DATABASE_URL / E2E_NEXTAUTH_URL o shell moi de duoc .env', () => {
+    const out = mergeE2eEnv(
+      { E2E_DATABASE_URL: 'e2e-db', E2E_NEXTAUTH_URL: 'http://localhost:3010' },
+      { DATABASE_URL: 'dotenv-db', NEXTAUTH_URL: 'http://localhost:3000', E2E_ADMIN_EMAIL: 'a@x' },
+    );
+    expect(out.DATABASE_URL).toBe('e2e-db');
+    expect(out.NEXTAUTH_URL).toBe('http://localhost:3010');
+    expect(out.E2E_ADMIN_EMAIL).toBe('a@x');
+  });
+
+  it('de roi van qua guard: E2E_DATABASE_URL tro DB that cua A -> resolveE2eTarget throw', () => {
+    const env = mergeE2eEnv({ E2E_DATABASE_URL: A, E2E_NEXTAUTH_URL: 'http://localhost:3010' }, { NEXTAUTH_URL: 'http://localhost:3000', DATABASE_URL: A });
+    expect(() => resolveE2eTarget(env)).toThrow();
+  });
+});
+
+describe('E2E_A_PORT', () => {
+  it('cong e2e cua A la 3010, khong trung cong dev cua A/B/xem/C (3000-3003)', () => {
+    expect(E2E_A_PORT).toBe('3010');
+    expect(['3000', '3001', '3002', '3003']).not.toContain(E2E_A_PORT);
+    expect(E2E_TARGETS.find((t) => t.dbName === E2E_A_DB_NAME)?.port).toBe(E2E_A_PORT);
   });
 });

@@ -95,20 +95,20 @@ describe('overview/page.tsx - chua tu kiem dang nhap (S-1)', () => {
     login(null);
     const readLastAuditAt = vi.spyOn(repo, 'readLastAuditAt');
     const getDims = vi.spyOn(repo, 'getDims');
-    expect(await visit(() => OverviewPage({ searchParams: {} }))).toBe('/vi/login');
+    expect(await visit(() => OverviewPage({ searchParams: Promise.resolve({}) }))).toBe('/vi/login');
     expect(readLastAuditAt).not.toHaveBeenCalled();
     expect(getDims).not.toHaveBeenCalled();
   });
 
   it('data-entry -> REDIRECT:/vi/nhap-lieu', async () => {
     login(user('data-entry'));
-    expect(await visit(() => OverviewPage({ searchParams: {} }))).toBe('/vi/nhap-lieu');
+    expect(await visit(() => OverviewPage({ searchParams: Promise.resolve({}) }))).toBe('/vi/nhap-lieu');
   });
 
   it('admin/viewer/bod -> khong redirect', async () => {
     for (const r of ['admin', 'viewer', 'bod'] as const) {
       login(user(r));
-      expect(await visit(() => OverviewPage({ searchParams: {} }))).toBeNull();
+      expect(await visit(() => OverviewPage({ searchParams: Promise.resolve({}) }))).toBeNull();
     }
   });
 });
@@ -117,18 +117,18 @@ describe('projects/page.tsx - chua tu kiem dang nhap (S-1)', () => {
   it('chua dang nhap -> REDIRECT:/vi/login; khong doc listProjects', async () => {
     login(null);
     const listProjects = vi.spyOn(repo, 'listProjects');
-    expect(await visit(() => ProjectsPage({ params: { locale: 'vi' } }))).toBe('/vi/login');
+    expect(await visit(() => ProjectsPage({ params: Promise.resolve({ locale: 'vi' }) }))).toBe('/vi/login');
     expect(listProjects).not.toHaveBeenCalled();
   });
 
   it('chua dang nhap, locale en -> REDIRECT:/en/login', async () => {
     login(null);
-    expect(await visit(() => ProjectsPage({ params: { locale: 'en' } }))).toBe('/en/login');
+    expect(await visit(() => ProjectsPage({ params: Promise.resolve({ locale: 'en' }) }))).toBe('/en/login');
   });
 
   it('viewer -> redirect bat dau bang /vi/projects/ (hanh vi cu giu nguyen)', async () => {
     login(user('viewer'));
-    const url = await visit(() => ProjectsPage({ params: { locale: 'vi' } }));
+    const url = await visit(() => ProjectsPage({ params: Promise.resolve({ locale: 'vi' }) }));
     expect(url).toMatch(/^\/vi\/projects\//);
   });
 });
@@ -137,7 +137,7 @@ describe('projects/[id]/page.tsx - chua tu kiem dang nhap (S-1)', () => {
   it('chua dang nhap -> REDIRECT:/vi/login (truoc day la NOT_FOUND); khong doc getProject', async () => {
     login(null);
     const getProject = vi.spyOn(repo, 'getProject');
-    const url = await visit(() => ProjectDetailPage({ params: { id: '1', locale: 'vi' }, searchParams: {} }));
+    const url = await visit(() => ProjectDetailPage({ params: Promise.resolve({ id: '1', locale: 'vi' }), searchParams: Promise.resolve({}) }));
     expect(url).toBe('/vi/login');
     expect(getProject).not.toHaveBeenCalled();
   });
@@ -147,7 +147,7 @@ describe('projects/[id]/page.tsx - chua tu kiem dang nhap (S-1)', () => {
   it.each(['1.0', '1.x', '1e0', '0x1', '01', '0', '-1', ' 1', 'abc'])('admin, id "%s" -> NOT_FOUND, khong doc getProject', async (id) => {
     login(user('admin'));
     const getProject = vi.spyOn(repo, 'getProject');
-    await expect(ProjectDetailPage({ params: { id, locale: 'vi' }, searchParams: {} })).rejects.toThrow('NOT_FOUND');
+    await expect(ProjectDetailPage({ params: Promise.resolve({ id, locale: 'vi' }), searchParams: Promise.resolve({}) })).rejects.toThrow('NOT_FOUND');
     expect(getProject).not.toHaveBeenCalled();
   });
 });
