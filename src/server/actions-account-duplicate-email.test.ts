@@ -4,8 +4,8 @@ import type { CurrentUser } from '@/lib/session';
 
 /**
  * P3E Task 3 - kiểm ĐỘC LẬP (file mới, không dùng lại test của coder) việc chặn trùng email khi
- * tạo tài khoản: khác hoa/thường phải bị chặn trùng; email có khoảng trắng thừa phải bị từ chối
- * ngay ở bước kiểm dữ liệu (không lách qua được để tạo trùng bằng một biến thể khác).
+ * tạo tài khoản: khác hoa/thường phải bị chặn trùng; email có khoảng trắng thừa được TRIM tự động
+ * (vòng sửa bảo mật 1, ghi chú tester) nhưng vẫn không lách được qua kiểm trùng bằng biến thể đó.
  */
 vi.mock('next/cache', () => ({ revalidateTag: vi.fn(), revalidatePath: vi.fn() }));
 vi.mock('@/server/repo', async () => {
@@ -52,10 +52,12 @@ describe('createAccountAction - chan trung email khac hoa/thuong', () => {
     expect(res).toEqual({ ok: false, error: 'duplicate' });
   });
 
-  it('phai that bai: email co khoang trang dau/cuoi bi tu choi ngay (khong tao duoc tai khoan, khong lach duoc qua kiem trung)', async () => {
-    const res = await createAccountAction(' trunghoa@daidung.com.vn', 'Nguoi Khoang Trang', 'viewer', 'MatKhauDu8');
+  it('email co khoang trang dau/cuoi duoc TRIM tu dong (khong con bi tu choi vi khoang trang) - van chan trung duoc', async () => {
+    await createAccountAction('trunghoa@daidung.com.vn', 'Nguoi Cu', 'viewer', 'MatKhauDu8');
 
-    expect(res.ok).toBe(false);
-    expect(repo.findAccount('trunghoa@daidung.com.vn')).toBeUndefined();
+    const res = await createAccountAction('  trunghoa@daidung.com.vn  ', 'Nguoi Khoang Trang', 'viewer', 'MatKhauDu8');
+
+    expect(res).toEqual({ ok: false, error: 'duplicate' });
+    expect(repo.getUserRoles().filter((u) => u.email === 'trunghoa@daidung.com.vn')).toHaveLength(1);
   });
 });

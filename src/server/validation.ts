@@ -197,7 +197,9 @@ export const changePasswordSchema = z.object({
 });
 
 export const createAccountSchema = z.object({
-  email: z.string().email(),
+  // Ghi chú tester (ket-qua-test.md): trim + hạ chữ thường trước khi kiểm định dạng, thông báo lỗi
+  // tiếng Việt thay vì message mặc định tiếng Anh của zod.
+  email: z.string().trim().toLowerCase().email({ message: 'Email không hợp lệ' }),
   name: z.string().trim().min(1),
   role: z.enum(['admin', 'bod', 'data-entry', 'viewer']),
   // '' = tài khoản chỉ đăng nhập Google (passwordHash rỗng); có nhập thì tối thiểu 8 ký tự.

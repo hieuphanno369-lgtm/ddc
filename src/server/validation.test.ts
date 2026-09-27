@@ -1,10 +1,36 @@
 import { describe, expect, it } from 'vitest';
 import {
+  createAccountSchema,
   createProjectSchema,
   saveKeyMilestonesSchema,
   saveMonthlyDataSchema,
 } from './validation';
 import { STAGE_ORDER } from '@/lib/stages';
+
+/** Ghi chú tester (ket-qua-test.md, khong phai loi bao mat) - trim + thong bao tieng Viet cho email. */
+describe('createAccountSchema - email trim + thong bao tieng Viet', () => {
+  it('email co khoang trang dau/cuoi + hoa/thuong lan lon duoc trim + ha chu thuong', () => {
+    const r = createAccountSchema.safeParse({
+      email: '  Nguoi@DaiDung.Com.Vn  ',
+      name: 'Nguoi',
+      role: 'viewer',
+      password: 'MatKhauDu8',
+    });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.email).toBe('nguoi@daidung.com.vn');
+  });
+
+  it('email sai dinh dang -> thong bao loi tieng Viet, khong phai message mac dinh cua zod', () => {
+    const r = createAccountSchema.safeParse({
+      email: 'khong-phai-email',
+      name: 'Nguoi',
+      role: 'viewer',
+      password: '',
+    });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error.issues[0]?.message).toBe('Email không hợp lệ');
+  });
+});
 
 describe('Mục 5 - 4 trường ngày: chỉ còn gửi từ step "Hồ sơ dự án"', () => {
   const required = {
