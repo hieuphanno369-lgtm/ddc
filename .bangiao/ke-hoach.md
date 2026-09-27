@@ -25,6 +25,8 @@ Thay đổi schema gom vào đúng 1 Task (Task 5) vì `schema.prisma` đang do 
 - Q5 = (a) tài khoản bị tắt: "Ngưng sử dụng"; khoá do sai mật khẩu: "Bị khoá (sai mật khẩu)".
 - Q6 = (a) kênh email đầu tiên có đủ cấu hình SMTP, kể cả khi đang tắt gửi cảnh báo.
 - Q7 = dùng nguyên văn chữ đề xuất (VI và EN).
+- L7 (bảo mật, lượt rà trước Task 1-4) = tài khoản chỉ Google không tăng bộ đếm sai, không bị khoá vì sai ở form mật khẩu.
+- L2 (bảo mật) = thay K13: IP lấy theo `TRUSTED_PROXY_HOPS` (mặc định 1) tính từ phải của `X-Forwarded-For`, không có IP thì gom khoá `unknown`; dùng chung cho `activity.ts`, `export`, `health`. Chi tiết `.bangiao/bao-mat.md`.
 
 Coder KHÔNG tự chọn các câu dưới đây; bước nào bị chặn thì bỏ qua, làm phần còn lại, ghi vào `thay-doi.md` là đang chờ.
 
