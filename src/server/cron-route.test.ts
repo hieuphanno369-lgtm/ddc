@@ -41,10 +41,16 @@ describe('POST /api/cron/[job]', () => {
     expect(res.status).toBe(404);
   });
 
-  it("dung token, job dung -> 200, runJob goi voi 'cron'", async () => {
+  it("dung token, job la 'rates_monthly' -> 404 (da bo tinh nang tu lay VCB)", async () => {
     process.env.CRON_SECRET = 'dung-secret';
     const res = await POST(req('Bearer dung-secret'), ctx('rates_monthly'));
+    expect(res.status).toBe(404);
+  });
+
+  it("dung token, job dung -> 200, runJob goi voi 'cron'", async () => {
+    process.env.CRON_SECRET = 'dung-secret';
+    const res = await POST(req('Bearer dung-secret'), ctx('alerts_daily'));
     expect(res.status).toBe(200);
-    expect(runJobMock).toHaveBeenCalledWith('rates_monthly', 'cron');
+    expect(runJobMock).toHaveBeenCalledWith('alerts_daily', 'cron');
   });
 });

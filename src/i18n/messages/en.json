@@ -777,26 +777,16 @@
   },
   "fxRates": {
     "title": "Monthly exchange rates",
-    "hint": "Vietcombank transfer-buy rate is fetched monthly; edit manually only on failure. Manual values are never overwritten.",
+    "hint": "Enter the Vietcombank transfer buying rate manually for each month.",
     "month": "Month",
     "source": {
       "vcb": "VCB",
       "manual": "Manual"
     },
-    "fetchNow": "Fetch from Vietcombank now",
-    "lastRun": "Last fetch: {time} · {status}",
-    "never": "Never fetched",
-    "status": {
-      "ok": "success",
-      "error": "failed",
-      "running": "running"
-    },
     "edit": "Edit",
     "save": "Save",
     "delete": "Delete",
     "confirmDelete": "Delete {cur} rate for {month}?",
-    "fetchOk": "Fetched: {detail}",
-    "fetchErr": "Could not fetch rates: {detail}",
     "missing": "Missing {currencies} rate for {month}.",
     "missingLink": "Update",
     "err": {

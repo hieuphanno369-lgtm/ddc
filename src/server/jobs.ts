@@ -1,9 +1,7 @@
-import { currentMonth, todayIso } from '@/lib/clock';
-import { missingRateCurrencies } from '@/lib/fx';
-import { isAlertsDailyDue, isRatesDue } from '@/lib/job-schedule';
+import { todayIso } from '@/lib/clock';
+import { isAlertsDailyDue } from '@/lib/job-schedule';
 import type { JobName, JobTrigger } from './repo/types';
 import { repo } from './repo';
-import { refreshMonthRates } from './fx-rates';
 import { runAlertEngine } from './alert-engine';
 import { retryPendingNotifications } from './notify/dispatch';
 
@@ -12,21 +10,12 @@ export async function runJob(
   name: JobName,
   trigger: JobTrigger,
   by = 'system',
-  deps?: { fetchImpl?: typeof fetch },
 ): Promise<{ status: 'ok' | 'error'; detail: string }> {
   const id = await repo.startJobRun(name, trigger, by);
   try {
-    let result: { status: 'ok' | 'error'; detail: string };
-    if (name === 'rates_monthly') {
-      const r = await refreshMonthRates(currentMonth(), by, deps?.fetchImpl);
-      result = r.ok
-        ? { status: 'ok', detail: `saved ${r.saved.join(',') || '-'}; manual: ${r.keptManual.join(',') || '-'}; missing: ${r.missingFromSource.join(',') || '-'}` }
-        : { status: 'error', detail: `${r.error}: ${r.detail}` };
-    } else {
-      const r = await runAlertEngine({});
-      await retryPendingNotifications();
-      result = { status: 'ok', detail: `checked=${r.checked} created=${r.created}` };
-    }
+    const r = await runAlertEngine({});
+    await retryPendingNotifications();
+    const result = { status: 'ok' as const, detail: `checked=${r.checked} created=${r.created}` };
     await repo.finishJobRun(id, result.status, result.detail);
     return result;
   } catch (e) {
@@ -54,17 +43,8 @@ export async function runDueJobs(trigger: 'lazy' | 'cron'): Promise<void> {
   g.__ddcJobsCheckedAt = now;
   g.__ddcJobsBusy = true;
   try {
-    const ym = currentMonth();
     const today = todayIso();
-    const [rates, ratesRuns, alertsRuns] = await Promise.all([
-      repo.getExchangeRates(),
-      repo.getRecentJobRuns('rates_monthly', 5),
-      repo.getRecentJobRuns('alerts_daily', 5),
-    ]);
-    const missing = missingRateCurrencies(rates, ym).length > 0;
-    if (isRatesDue(ratesRuns, missing, new Date())) {
-      await runJob('rates_monthly', trigger, 'system');
-    }
+    const alertsRuns = await repo.getRecentJobRuns('alerts_daily', 5);
     if (isAlertsDailyDue(alertsRuns, today, new Date())) {
       await runJob('alerts_daily', trigger, 'system');
     }

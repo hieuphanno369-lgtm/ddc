@@ -1,7 +1,7 @@
 import type { YearMonth } from '@/lib/clock';
 import type { CurrencyCode, ExchangeRate } from '@/server/repo/types';
 
-/** Q8: tiền tệ ngoài VND chỉ còn USD/EUR - đây là những mã tự lấy tỷ giá VCB hằng tháng. */
+/** Q8: tiền tệ ngoài VND chỉ còn USD/EUR - đây là những mã cần nhập tay tỷ giá hằng tháng. */
 export const FX_CURRENCIES = ['USD', 'EUR'] as const;
 export type FxCurrency = (typeof FX_CURRENCIES)[number];
 

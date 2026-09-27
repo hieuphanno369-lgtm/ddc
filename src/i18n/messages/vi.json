@@ -777,26 +777,16 @@
   },
   "fxRates": {
     "title": "Tỷ giá theo tháng",
-    "hint": "Tự lấy tỷ giá mua chuyển khoản Vietcombank mỗi tháng; chỉ sửa tay khi lỗi. Số nhập tay không bị ghi đè.",
+    "hint": "Nhập tay tỷ giá mua chuyển khoản Vietcombank cho từng tháng.",
     "month": "Tháng",
     "source": {
       "vcb": "VCB",
       "manual": "Nhập tay"
     },
-    "fetchNow": "Lấy ngay từ Vietcombank",
-    "lastRun": "Lần lấy gần nhất: {time} · {status}",
-    "never": "Chưa lấy lần nào",
-    "status": {
-      "ok": "thành công",
-      "error": "lỗi",
-      "running": "đang chạy"
-    },
     "edit": "Sửa",
     "save": "Lưu",
     "delete": "Xoá",
     "confirmDelete": "Xoá tỷ giá {cur} tháng {month}?",
-    "fetchOk": "Đã lấy: {detail}",
-    "fetchErr": "Không lấy được tỷ giá: {detail}",
     "missing": "Thiếu tỷ giá {currencies} tháng {month}.",
     "missingLink": "Cập nhật",
     "err": {

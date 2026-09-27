@@ -6,7 +6,6 @@ import { historyMonths } from '@/lib/clock';
 import type { FxCurrency } from '@/lib/fx';
 import { requireRoleUser } from './action-guards';
 import { overviewTag, profileTag } from './cache';
-import { runJob } from './jobs';
 import { repo } from './repo';
 import { deleteExchangeRateSchema, factorySchema, saveExchangeRateSchema } from './validation';
 
@@ -77,15 +76,4 @@ export async function deleteExchangeRateAction(
   await logActivity(user, 'delete_exchange_rate', `${parsed.data.currencyCode}/${parsed.data.yearMonth}`);
   revalidateTag(profileTag);
   return { ok: true };
-}
-
-/** Nút admin "Lấy ngay" - bỏ qua isRatesDue (luôn gọi VCB ngay khi bấm). */
-export async function fetchRatesNowAction(): Promise<
-  { ok: true; status: 'ok' | 'error'; detail: string } | { ok: false; error: 'Forbidden' }
-> {
-  const user = await requireRoleUser(['admin']);
-  if (!user) return { ok: false, error: 'Forbidden' };
-  const result = await runJob('rates_monthly', 'admin', user.email);
-  revalidateTag(profileTag);
-  return { ok: true, ...result };
 }

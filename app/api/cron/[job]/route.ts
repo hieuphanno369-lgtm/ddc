@@ -5,14 +5,12 @@ import type { JobName } from '@/server/repo/types';
 
 /**
  * Cron ngoài gọi (K4, ke-hoach.md P2A). Ví dụ:
- *   curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://<host>/api/cron/rates_monthly
- *   (ngày 1 hằng tháng 08:30, lặp mỗi 6 giờ tới khi ok)
  *   curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://<host>/api/cron/alerts_daily
  *   (06:00 mỗi ngày)
  */
 export const dynamic = 'force-dynamic';
 
-const JOB_NAMES: JobName[] = ['alerts_daily', 'rates_monthly'];
+const JOB_NAMES: JobName[] = ['alerts_daily'];
 
 function safeEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a);

@@ -540,10 +540,10 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
   },
   job_run: {
     kind: 'log',
-    desc: 'Nhật ký chạy job định kỳ (lấy tỷ giá hằng tháng, quét cảnh báo hằng ngày).',
+    desc: 'Nhật ký chạy job định kỳ (quét cảnh báo hằng ngày).',
     fields: {
       id: 'khoá chính',
-      jobName: "tên job - 'alerts_daily' | 'rates_monthly'",
+      jobName: "tên job - 'alerts_daily' (P3E/D4: bỏ tự lấy VCB, dữ liệu cũ có thể còn 'rates_monthly')",
       trigger: "nguồn kích hoạt - 'cron' | 'lazy' | 'admin'",
       status: "'running' | 'ok' | 'error'",
       detail: 'chi tiết kết quả / lỗi',

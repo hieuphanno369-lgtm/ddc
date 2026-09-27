@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { repo } from '@/server/repo/mock-repo';
 import type { CurrentUser } from '@/lib/session';
 
@@ -11,7 +11,7 @@ vi.mock('@/lib/session', () => ({ getCurrentUser: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/session';
 import {
-  deleteExchangeRateAction, fetchRatesNowAction, saveExchangeRateAction, saveFactoryAction, setFactoryActiveAction,
+  deleteExchangeRateAction, saveExchangeRateAction, saveFactoryAction, setFactoryActiveAction,
 } from '@/server/actions-master';
 
 const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.com.vn', role: 'admin', canViewFinance: true };
@@ -128,33 +128,5 @@ describe('saveExchangeRateAction / deleteExchangeRateAction', () => {
     login(ADMIN);
     const res = await deleteExchangeRateAction('EUR', '2020-01');
     expect(res).toEqual({ ok: false, error: 'Not found' });
-  });
-});
-
-describe('fetchRatesNowAction', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it('admin bam Lay ngay - fetch ok -> status ok', async () => {
-    login(ADMIN);
-    vi.stubGlobal('fetch', vi.fn(async () => ({
-      ok: true, status: 200,
-      text: async () => '<ExrateList><Exrate CurrencyCode="USD" Transfer="25,140.00"/><Exrate CurrencyCode="EUR" Transfer="27,500.00"/></ExrateList>',
-    }) as Response));
-    const res = await fetchRatesNowAction();
-    expect(res).toEqual({ ok: true, status: 'ok', detail: expect.any(String) });
-  });
-
-  it('admin bam Lay ngay - fetch loi mang -> status error', async () => {
-    login(ADMIN);
-    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('ECONNRESET'); }));
-    const res = await fetchRatesNowAction();
-    expect(res).toEqual({ ok: true, status: 'error', detail: expect.stringContaining('ECONNRESET') });
-  });
-
-  it('data-entry -> Forbidden', async () => {
-    login(dataEntry('pm@daidung.com.vn'));
-    expect(await fetchRatesNowAction()).toEqual({ ok: false, error: 'Forbidden' });
   });
 });
