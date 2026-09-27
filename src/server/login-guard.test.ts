@@ -156,7 +156,7 @@ describe('checkCredentials - L3: xac nhan nguyen tu chong TOCTOU khi doan mat kh
       },
       countThrottle: vi.fn().mockResolvedValue(0),
       recordThrottle: vi.fn().mockResolvedValue(undefined),
-      reserveThrottle: vi.fn().mockResolvedValue(true),
+      reserveThrottle: vi.fn().mockResolvedValue(1),
       releaseThrottle: vi.fn().mockResolvedValue(undefined),
       resetFailedLogin,
       registerFailedLogin: vi.fn(),
@@ -291,5 +291,45 @@ describe('checkCredentials - gioi han theo IP', () => {
     expect(spy.mock.calls.length).toBeLessThanOrEqual(IP_FAIL_LIMIT);
     const limited = results.filter((r) => !r.ok && r.reason === 'ip_limited').length;
     expect(limited).toBe(30 - IP_FAIL_LIMIT);
+  });
+
+  it('N4 (vong sua bao mat 3): dang nhap DUNG xen ke KHONG lam giam so lan sai da dem theo IP', async () => {
+    const store = createMemoryAuthStore(makeSource([account()]));
+    const IP = '3.3.3.3';
+    let t = 0;
+
+    for (let i = 0; i < 19; i++) {
+      const r = await checkCredentials(store, { email: `n4-sai-${i}@daidung.com.vn`, password: 'sai', ip: IP }, at(t));
+      expect(r).toEqual({ ok: false, reason: 'invalid' });
+      t += 100;
+    }
+
+    // 5 lan dung xen giua - reserve IP roi nha lai ngay (khong tinh vao gioi han IP).
+    for (let i = 0; i < 5; i++) {
+      const r = await checkCredentials(store, { email: 'a@daidung.com.vn', password: REAL_PW, ip: IP }, at(t));
+      expect(r.ok).toBe(true);
+      t += 100;
+    }
+
+    const r20 = await checkCredentials(store, { email: 'n4-sai-19@daidung.com.vn', password: 'sai', ip: IP }, at(t));
+    expect(r20).toEqual({ ok: false, reason: 'invalid' }); // lan sai thu 20 theo IP, van con cho
+    t += 100;
+
+    const r21 = await checkCredentials(store, { email: 'n4-sai-20@daidung.com.vn', password: 'sai', ip: IP }, at(t));
+    expect(r21).toEqual({ ok: false, reason: 'ip_limited' }); // het cho ngay sau do
+
+    expect(await store.countThrottle('login_fail_ip', IP, '2000-01-01T00:00:00.000Z')).toBe(20);
+  });
+});
+
+describe('checkCredentials - G2 (vong sua bao mat 3): chuan hoa email truoc khi lam khoa throttle', () => {
+  it('email hoa/thuong + khoang trang khac nhau van dung CHUNG 1 khoa throttle login_fail_unknown_email', async () => {
+    const store = createMemoryAuthStore(makeSource([]));
+    await checkCredentials(store, { email: '  La@Daidung.com.vn  ', password: 'x', ip: '' }, at(0));
+    await checkCredentials(store, { email: 'la@daidung.com.vn', password: 'x', ip: '' }, at(1000));
+    await checkCredentials(store, { email: 'LA@DAIDUNG.COM.VN', password: 'x', ip: '' }, at(2000));
+
+    const count = await store.countThrottle('login_fail_unknown_email', 'la@daidung.com.vn', '2000-01-01T00:00:00.000Z');
+    expect(count).toBe(3); // ca 3 bien the deu quy ve cung 1 khoa da chuan hoa
   });
 });

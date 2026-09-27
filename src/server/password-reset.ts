@@ -102,8 +102,12 @@ async function finishPasswordResetRequest(
  * 2. Email không hợp lệ -> `accepted` (không lộ định dạng email nào được chấp nhận).
  * 3. `ipKey = ip.trim() || 'unknown'` (R3 - không còn IP rỗng nào bỏ qua giới hạn), rồi "đặt chỗ"
  *    NGUYÊN TỬ (R2 - đếm + ghi trong CÙNG 1 lượt, đóng race TOCTOU khi nhiều yêu cầu chạy đồng thời)
- *    cho CẢ email (3/giờ) lẫn IP (10/giờ); hết chỗ ở CHIỀU NÀO cũng -> `accepted`, KHÔNG ghi log
- *    (L4 - nhánh này có thể bị spam liên tục khi đã lộ giới hạn, ghi log mỗi lần sẽ phình
+ *    cho IP (10/giờ) TRƯỚC (N1, vòng bảo mật 3 - trước đây đặt chỗ email TRƯỚC IP, nên 1 IP đã hết
+ *    lượt vẫn kịp ghi 1 dòng email của nạn nhân TRƯỚC KHI biết IP đã hết lượt, tự IP đó khoá được
+ *    lượt xin link của mọi email); IP hết chỗ -> `accepted` NGAY, KHÔNG đụng tới email. Còn chỗ IP
+ *    mới "đặt chỗ" cho email (3/giờ); email hết chỗ -> nhả lại đúng chỗ IP vừa đặt rồi mới `accepted`
+ *    (giống cách `checkCredentials` nhả chỗ IP khi mật khẩu đúng). Hết chỗ ở CHIỀU NÀO cũng KHÔNG ghi
+ *    log (L4 - nhánh này có thể bị spam liên tục khi đã lộ giới hạn, ghi log mỗi lần sẽ phình
  *    `activity_log` vô ích).
  * 4. Còn chỗ cả 2 chiều -> trả `accepted` NGAY (L6) - phần còn lại (đọc tài khoản, sinh token, gửi
  *    mail) chạy NỀN có timeout (R6 - 1 việc bị treo không chặn việc sau), xem
@@ -130,12 +134,20 @@ export async function requestPasswordReset(
   const ipKey = ip.trim() || 'unknown';
   const nowIso = now.toISOString();
   const sinceIso = new Date(now.getTime() - RESET_WINDOW_MS).toISOString();
-  // R2 - "đặt chỗ" NGUYÊN TỬ (đếm cửa sổ + ghi thêm 1 dòng nếu còn chỗ, trong CÙNG 1 lời gọi) cho cả
-  // 2 chiều - đóng TOCTOU khi nhiều yêu cầu xin đặt lại chạy đồng thời cùng đọc số đếm cũ.
-  const emailReserved = await store.reserveThrottle('reset_req_email', email, nowIso, sinceIso, RESET_EMAIL_LIMIT);
+  // N1 (bao-mat.md vòng 3) - "đặt chỗ" NGUYÊN TỬ cho IP TRƯỚC, chỉ khi IP còn chỗ mới đụng tới email:
+  // trước đây đặt chỗ email TRƯỚC IP, nên 1 IP đã hết lượt vẫn kịp ghi 1 dòng email của nạn nhân
+  // TRƯỚC KHI biết IP đã hết lượt - 1 IP gửi rác đủ 10 yêu cầu là khoá được lượt xin link của MỌI
+  // email (kể cả email chưa từng bị đụng tới), không cần biết email đó là gì.
   const ipReserved = await store.reserveThrottle('reset_req_ip', ipKey, nowIso, sinceIso, RESET_IP_LIMIT);
-  if (!emailReserved || !ipReserved) {
+  if (ipReserved === null) {
     // L4 - KHÔNG ghi activity_log ở nhánh bị giới hạn (tránh phình dữ liệu khi bị spam).
+    return { status: 'accepted' };
+  }
+  const emailReserved = await store.reserveThrottle('reset_req_email', email, nowIso, sinceIso, RESET_EMAIL_LIMIT);
+  if (emailReserved === null) {
+    // Email hết chỗ: nhả lại đúng chỗ IP vừa đặt - lượt này không nên tính vào giới hạn IP vì nó bị
+    // chặn bởi giới hạn EMAIL, không phải do IP này thật sự đang bị lạm dụng.
+    await store.releaseThrottle(ipReserved);
     return { status: 'accepted' };
   }
 

@@ -329,6 +329,39 @@ describe('requestPasswordReset - khong lo email ton tai (S3)', () => {
     }
   });
 
+  it('N1 (vong sua bao mat 3): dat cho IP TRUOC email - 1 IP het luot KHONG duoc dot luot email cua nan nhan; tu IP khac van nhan du mail', async () => {
+    const store = createMemoryAuthStore(makeSource([account({ email: 'v@daidung.com.vn' })]));
+    const { mailer, queued } = makeMailer();
+    const IP_X = '1.1.1.1';
+
+    // IP X gui du RESET_IP_LIMIT yeu cau cho cac email rac (khong lien quan V) - dot het luot IP X.
+    for (let i = 0; i < RESET_IP_LIMIT; i++) {
+      await requestPasswordReset(store, mailer, { email: `rac-${i}@vi-du.com`, ip: IP_X, locale: 'vi', baseUrl: BASE_URL }, at(i * 10));
+    }
+
+    // Yeu cau tiep theo tu IP X (da het luot), lan nay cho email V - phai bi chan boi gioi han IP
+    // TRUOC KHI dung toi email V (truoc day dat cho email TRUOC IP nen van kip ghi 1 dong cho V).
+    await requestPasswordReset(store, mailer, { email: 'v@daidung.com.vn', ip: IP_X, locale: 'vi', baseUrl: BASE_URL }, at(RESET_IP_LIMIT * 10));
+    await __resetRequestQueueIdleForTest();
+
+    expect(await store.countThrottle('reset_req_email', 'v@daidung.com.vn', '2020-01-01T00:00:00.000Z')).toBe(0);
+    expect(queued.some((q) => q.to === 'v@daidung.com.vn')).toBe(false);
+
+    // Tu 1 IP khac (chua bi gioi han), V van nhan du RESET_EMAIL_LIMIT mail - luot cua V khong bi dot.
+    const IP_Y = '2.2.2.2';
+    for (let i = 0; i < RESET_EMAIL_LIMIT; i++) {
+      await requestPasswordReset(
+        store,
+        mailer,
+        { email: 'v@daidung.com.vn', ip: IP_Y, locale: 'vi', baseUrl: BASE_URL },
+        at(RESET_IP_LIMIT * 10 + 1000 + i * 100),
+      );
+    }
+    await __resetRequestQueueIdleForTest();
+
+    expect(queued.filter((q) => q.to === 'v@daidung.com.vn')).toHaveLength(RESET_EMAIL_LIMIT);
+  });
+
   it('L6: requestPasswordReset() tra ve KHONG CAN CHO xong viec doc tai khoan/soan+gui mail (viec do chay nen)', async () => {
     // Ep 1 "thao tac cham" bang deferred promise (khong dua vao suy doan thu tu microtask cua JS,
     // vi Promise.then() tren 1 promise DA resolve co the chay truoc ca continuation cua await ben

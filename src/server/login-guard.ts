@@ -20,7 +20,9 @@ export type CredentialResult =
 const DUMMY_HASH = hashPassword('khong-ton-tai-mat-khau-nay-dung-de-can-thoi-gian');
 
 /**
- * Luật đăng nhập (K5, K6, K7, L1, L3, L7, R1, R2, R3 - `.bangiao/bao-mat.md`), đúng thứ tự:
+ * Luật đăng nhập (K5, K6, K7, L1, L3, L7, R1, R2, R3, G2 - `.bangiao/bao-mat.md`), đúng thứ tự:
+ * 0. G2 (vòng bảo mật 3) - chuẩn hoá `email = input.email.trim().toLowerCase()` TRƯỚC khi dùng làm
+ *    khoá throttle (không còn 2 khoá khác nhau cho cùng 1 email chỉ vì hoa/thường hay khoảng trắng).
  * 1. "Đặt chỗ" NGUYÊN TỬ cho IP (`ipKey = ip.trim() || 'unknown'`, R3 - không còn IP rỗng nào bỏ
  *    qua giới hạn) NGAY TRƯỚC bcrypt (R2 - đóng race TOCTOU khi nhiều yêu cầu chạy đồng thời cùng
  *    đọc số đếm cũ trước khi ai kịp ghi); hết chỗ -> `ip_limited` (không kiểm mật khẩu, không bcrypt).
@@ -46,7 +48,12 @@ export async function checkCredentials(
   input: { email: string; password: string; ip: string },
   now: Date = new Date(),
 ): Promise<CredentialResult> {
-  const { email, password, ip } = input;
+  const { password, ip } = input;
+  // G2 (bao-mat.md vòng 3) - chuẩn hoá email TRƯỚC khi dùng làm khoá throttle: trước đây
+  // `login_fail_unknown_email` khoá theo chuỗi thô người gọi gõ, nên "A@Foo.com", " a@foo.com " và
+  // "a@foo.com" bị đếm thành 3 khoá khác nhau (bộ đếm/khoá theo email lạ có thể bị lách qua bằng biến
+  // thể hoa/thường hoặc khoảng trắng).
+  const email = input.email.trim().toLowerCase();
   const nowIso = now.toISOString();
   // R3 (bao-mat.md vòng 2) - `ip` rỗng (không xác định được IP thật) LUÔN gom vào khoá `'unknown'`,
   // KHÔNG còn nhánh bỏ qua giới hạn IP như trước (fail-open cũ: `ip === ''` thì coi như vô hạn).
@@ -59,12 +66,12 @@ export async function checkCredentials(
   // sai) thì `releaseIpSlot()` rút chỗ vừa đặt ra.
   const sinceIso = new Date(now.getTime() - IP_FAIL_WINDOW_MS).toISOString();
   const ipReserved = await store.reserveThrottle('login_fail_ip', ipKey, nowIso, sinceIso, IP_FAIL_LIMIT);
-  if (!ipReserved) return { ok: false, reason: 'ip_limited' };
+  if (ipReserved === null) return { ok: false, reason: 'ip_limited' };
   let ipSlotReleased = false;
   const releaseIpSlot = async () => {
     if (ipSlotReleased) return;
     ipSlotReleased = true;
-    await store.releaseThrottle('login_fail_ip', ipKey, nowIso);
+    await store.releaseThrottle(ipReserved);
   };
 
   const account = await store.getAccountState(email);

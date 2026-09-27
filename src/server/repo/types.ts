@@ -625,21 +625,34 @@ export interface AuthStore {
    * hở TOCTOU: N yêu cầu chạy đồng thời qua `Promise.all` đều đọc thấy số đếm CŨ (chưa ai kịp ghi)
    * rồi đều được coi là hợp lệ, vượt hẳn ngưỡng. `reserveThrottle` gộp "đếm cửa sổ [sinceIso, nay]"
    * và "ghi thêm 1 dòng nếu còn chỗ" thành 1 lời gọi NGUYÊN TỬ: đếm xong ghi ngay trong CÙNG 1 lượt,
-   * không có `await` nào xen giữa - ở Prisma (Task 5) tương đương 1 câu SQL kiểu
-   * `INSERT INTO auth_throttle ... SELECT ... WHERE (SELECT count(*) ...) < $limit RETURNING 1`
-   * hoặc transaction có khoá dòng; ở kho bộ nhớ, thân hàm không có `await` nội bộ nên tự nguyên tử
+   * không có `await` nào xen giữa - ở kho bộ nhớ, thân hàm không có `await` nội bộ nên tự nguyên tử
    * theo đúng nghĩa JS đơn luồng (xem ghi chú Promise.all ở `login-guard.ts`).
-   * Trả `true` và đã ghi thêm 1 dòng `nowIso` nếu số dòng trong cửa sổ (TRƯỚC khi ghi) < `limit`;
-   * trả `false` (KHÔNG ghi thêm) nếu đã đủ `limit` - giữ đúng hành vi cũ "vượt ngưỡng thì không ghi
-   * thêm dòng nào" (không để bộ đếm phình vô hạn khi bị spam).
+   * N2 (bao-mat.md vòng 3) - "trong CÙNG 1 lời gọi" ở kho bộ nhớ KHÔNG đủ để mô tả tính nguyên tử
+   * thật cho Prisma: 1 câu `INSERT ... SELECT ... WHERE (SELECT count(*) ...) < $limit` chạy ở mức
+   * cách ly mặc định READ COMMITTED của Postgres KHÔNG NGUYÊN TỬ - nhiều giao dịch cùng `kind:key`
+   * chạy song song đều có thể `SELECT count(*)` thấy số cũ TRƯỚC khi bên kia COMMIT dòng mới, nên cả
+   * hai vẫn "còn chỗ" dù tổng đã vượt `limit`. Bản Prisma (Task 5) BẮT BUỘC bọc trong 1 transaction có
+   * `pg_advisory_xact_lock(hashtext(kind || ':' || key))` ở đầu (khoá đúng theo cặp `kind:key`, tự
+   * nhả khi transaction kết thúc, không chặn các `kind:key` khác) rồi mới đếm cửa sổ + ghi dòng mới -
+   * chỉ như vậy mọi giao dịch cùng `kind:key` mới chạy TUẦN TỰ với nhau. "1 câu SQL đơn thuần ở READ
+   * COMMITTED" (không khoá) là KHÔNG ĐỦ, dù có `RETURNING`.
+   * Trả về `id` (khoá chính) của dòng vừa ghi (`nowIso`) nếu số dòng trong cửa sổ (TRƯỚC khi ghi) <
+   * `limit`; trả `null` (KHÔNG ghi thêm) nếu đã đủ `limit` - giữ đúng hành vi cũ "vượt ngưỡng thì
+   * không ghi thêm dòng nào" (không để bộ đếm phình vô hạn khi bị spam). `id` dùng để `releaseThrottle`
+   * xoá ĐÚNG dòng này (xem bên dưới).
    */
-  reserveThrottle(kind: ThrottleKind, key: string, nowIso: string, sinceIso: string, limit: number): Promise<boolean>;
+  reserveThrottle(kind: ThrottleKind, key: string, nowIso: string, sinceIso: string, limit: number): Promise<number | null>;
   /**
-   * Rút lại đúng 1 dòng đã ghi bởi `reserveThrottle(kind, key, nowIso, ...)` - dùng khi cuối cùng
-   * lượt đó KHÔNG được tính là 1 lần sai (ví dụ đăng nhập bằng đúng mật khẩu sau khi đã "đặt chỗ"
-   * ở đầu `checkCredentials`, xem `login-guard.ts`). Không có dòng nào khớp thì không làm gì.
+   * Rút lại ĐÚNG 1 dòng đã ghi bởi `reserveThrottle` (nhận lại `id` nó trả về) - dùng khi cuối cùng
+   * lượt đó KHÔNG được tính là 1 lần sai/1 lần xin (ví dụ đăng nhập bằng đúng mật khẩu sau khi đã
+   * "đặt chỗ" ở đầu `checkCredentials`, hoặc chỗ email hết lượt nên nhả lại chỗ IP đã đặt ở
+   * `requestPasswordReset` - N1, xem `login-guard.ts`/`password-reset.ts`).
+   * N2 (bao-mat.md vòng 3) - xoá theo `id` (khoá chính), KHÔNG được cài bằng `deleteMany` lọc theo
+   * `kind/key/createdAt`: 2 dòng ghi trùng mili giây (cùng `kind/key/createdAt`) sẽ bị xoá NHẦM cả 2
+   * thay vì đúng 1 dòng cần rút. Không có dòng nào khớp `id` thì không làm gì (ví dụ dòng đã bị
+   * `pruneAuthData` dọn trước đó).
    */
-  releaseThrottle(kind: ThrottleKind, key: string, nowIso: string): Promise<void>;
+  releaseThrottle(id: number): Promise<void>;
   /** Xoá mọi token cũ của email rồi tạo token mới (1 transaction). */
   replaceResetToken(email: string, tokenHash: string, expiresAtIso: string, requestIp: string): Promise<void>;
   /** Token còn dùng được (chưa dùng, chưa hết hạn, tài khoản còn, có mật khẩu, isActive)? */

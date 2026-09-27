@@ -159,25 +159,39 @@ describe('replaceResetToken / peekResetToken / consumeResetToken', () => {
   });
 });
 
-describe('reserveThrottle / releaseThrottle (R2, bao-mat.md vong 2)', () => {
-  it('con cho thi ghi + tra true; het cho thi KHONG ghi them + tra false', async () => {
+describe('reserveThrottle / releaseThrottle (R2 vong 2, N2 vong 3 - tra/nhan id thay vi boolean)', () => {
+  it('con cho thi ghi + tra id (number); het cho thi KHONG ghi them + tra null', async () => {
     for (let i = 0; i < 3; i++) {
-      const ok = await store.reserveThrottle('reset_req_email', 'a@daidung.com.vn', `t${i}`, '2000-01-01T00:00:00.000Z', 3);
-      expect(ok).toBe(true);
+      const id = await store.reserveThrottle('reset_req_email', 'a@daidung.com.vn', `t${i}`, '2000-01-01T00:00:00.000Z', 3);
+      expect(typeof id).toBe('number');
     }
     const over = await store.reserveThrottle('reset_req_email', 'a@daidung.com.vn', 't3', '2000-01-01T00:00:00.000Z', 3);
-    expect(over).toBe(false);
+    expect(over).toBeNull();
     expect(await store.countThrottle('reset_req_email', 'a@daidung.com.vn', '2000-01-01T00:00:00.000Z')).toBe(3);
   });
 
-  it('releaseThrottle rut dung 1 dong vua ghi boi reserveThrottle o cung nowIso', async () => {
-    await store.reserveThrottle('login_fail_ip', '1.2.3.4', 'now-1', '2000-01-01T00:00:00.000Z', 20);
-    await store.releaseThrottle('login_fail_ip', '1.2.3.4', 'now-1');
+  it('releaseThrottle(id) rut dung 1 dong vua ghi boi reserveThrottle', async () => {
+    const id = await store.reserveThrottle('login_fail_ip', '1.2.3.4', 'now-1', '2000-01-01T00:00:00.000Z', 20);
+    expect(id).not.toBeNull();
+    await store.releaseThrottle(id as number);
     expect(await store.countThrottle('login_fail_ip', '1.2.3.4', '2000-01-01T00:00:00.000Z')).toBe(0);
   });
 
-  it('releaseThrottle khong khop dong nao thi khong lam gi (khong nem loi)', async () => {
-    await expect(store.releaseThrottle('login_fail_ip', 'khong-ton-tai', 'now-x')).resolves.toBeUndefined();
+  it('releaseThrottle khong khop id nao thi khong lam gi (khong nem loi)', async () => {
+    await expect(store.releaseThrottle(999_999)).resolves.toBeUndefined();
+  });
+
+  it('N2: 2 dong trung createdAt (cung kind/key) - releaseThrottle(id) chi xoa DUNG 1 dong, dong con lai van con', async () => {
+    const id1 = await store.reserveThrottle('login_fail_ip', '9.9.9.9', 'trung-nhau', '2000-01-01T00:00:00.000Z', 20);
+    const id2 = await store.reserveThrottle('login_fail_ip', '9.9.9.9', 'trung-nhau', '2000-01-01T00:00:00.000Z', 20);
+    expect(id1).not.toBeNull();
+    expect(id2).not.toBeNull();
+    expect(id1).not.toBe(id2); // id khac nhau du createdAt trung nhau het
+
+    await store.releaseThrottle(id1 as number);
+
+    // Chi mat dung 1 dong (id1), dong id2 (createdAt trung id1) phai con nguyen.
+    expect(await store.countThrottle('login_fail_ip', '9.9.9.9', '2000-01-01T00:00:00.000Z')).toBe(1);
   });
 });
 

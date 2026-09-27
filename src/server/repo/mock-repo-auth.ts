@@ -26,6 +26,9 @@ interface ResetTokenRow {
 }
 
 interface ThrottleRow {
+  /** N2 (bao-mat.md vòng 3) - khoá chính, dùng để `releaseThrottle` xoá ĐÚNG dòng (không dựa vào
+   * `kind/key/createdAt` vì 2 dòng có thể trùng mili giây). */
+  id: number;
   kind: ThrottleKind;
   key: string;
   createdAt: string;
@@ -35,6 +38,7 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
   const counters = new Map<string, Counters>();
   let resetTokens: ResetTokenRow[] = [];
   let throttle: ThrottleRow[] = [];
+  let nextThrottleId = 1;
 
   function findEmail(email: string): string | undefined {
     return source.findAccount(email.toLowerCase())?.email;
@@ -110,7 +114,7 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
     },
 
     async recordThrottle(kind, key, nowIso) {
-      throttle.push({ kind, key, createdAt: nowIso });
+      throttle.push({ id: nextThrottleId++, kind, key, createdAt: nowIso });
     },
 
     async countThrottle(kind, key, sinceIso) {
@@ -120,13 +124,15 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
     async reserveThrottle(kind, key, nowIso, sinceIso, limit) {
       // R2 - dem + ghi trong CUNG 1 loi goi, khong co await nao xen giua (xem chu thich types.ts).
       const count = throttle.filter((t) => t.kind === kind && t.key === key && t.createdAt >= sinceIso).length;
-      if (count >= limit) return false;
-      throttle.push({ kind, key, createdAt: nowIso });
-      return true;
+      if (count >= limit) return null;
+      const id = nextThrottleId++;
+      throttle.push({ id, kind, key, createdAt: nowIso });
+      return id;
     },
 
-    async releaseThrottle(kind, key, nowIso) {
-      const idx = throttle.findIndex((t) => t.kind === kind && t.key === key && t.createdAt === nowIso);
+    async releaseThrottle(id) {
+      // N2 - xoa theo id (khoa chinh), KHONG loc theo kind/key/createdAt (2 dong co the trung mili giay).
+      const idx = throttle.findIndex((t) => t.id === id);
       if (idx !== -1) throttle.splice(idx, 1);
     },
 
