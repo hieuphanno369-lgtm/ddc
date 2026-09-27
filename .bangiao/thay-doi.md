@@ -41,7 +41,18 @@ Nhánh `feature/nang-next15`, từ `main` @ `54ac9bf` (**BASE**, dùng để rol
 
 ## Task 1: dời `dynamic({ ssr: false })` ra client component
 
-(cập nhật khi hoàn thành)
+- Tạo `src/components/dashboard/OverviewChartsLazy.tsx` (5 export: `CapacityBar`, `SCurve`, `SpiCpiLine`,
+  `DrillDonut`, `GroupByCard`) và `src/components/project/ProjectDetailChartsLazy.tsx` (10 export: `SCurve`,
+  `SpiCpiLine`, `CountdownPanel`, `ResourceBreakdownChart`, `WeeklyTrackingCard`, `KeyMilestoneChart`,
+  `StageExplorer`, `ManpowerMonthChart`, `WeeklyManpowerStackChart`, `EquipmentPlanGantt`) - đều `'use client'`,
+  chép nguyên `dynamic(...)` từ 2 server component gốc, không đổi `loading`/đường dẫn import.
+- Sửa `OverviewWidgets.tsx` và `app/[locale]/(app)/projects/[id]/page.tsx`: xoá import `next/dynamic` + các
+  khai báo `dynamic(...)`, thay bằng import từ 2 file Lazy trên. `CardSkeleton` không còn dùng trực tiếp
+  trong `OverviewWidgets.tsx` nên xoá luôn import.
+- Kiểm: `npx tsc --noEmit` sạch; `npm test` 210 file / 2409 test xanh (tăng đúng 2 test so mốc 2407, do
+  `legacy-style-guard.test.ts` quét theo từng file nguồn trong `src/` - thêm 2 file `*ChartsLazy.tsx` mới thì
+  tự sinh thêm 2 test case, không phải regression); `git grep -n --untracked "ssr: false" -- app src` chỉ còn
+  khớp trong 2 file `*ChartsLazy.tsx` (không còn trong `app/**`/server component nào).
 
 ## Task 2: nâng Next 15 + React 19 + next-auth + recharts, chuyển request API sang async
 
@@ -185,8 +196,87 @@ tiếp (foreground). Không tắt bất kỳ tiến trình nào của B/C.
 
 ## Cần hỏi
 
-(chưa có mục nào)
+(chưa có mục nào - không phải dừng lại hỏi lần nào trong phase này)
 
 ## Để sau
 
-(cập nhật khi hoàn thành Task 2 Bước 6)
+- Advisory `deepmerge-ts`/`prisma`, `postcss` (bundle trong `next`, chỉ hết khi lên `next@16`),
+  `uuid`/`exceljs`, `xlsx` (không có bản vá) - xem bảng "Còn lại, ngoài phạm vi" ở Task 4. Không có mục nào
+  liên quan tới `next-auth` cần "Để sau" (đã kiểm Bước 6 Task 2: next-auth 4.24.15 đã tự `await` đầy đủ).
+- Q1 (đo T1 trên 10 triệu dòng): theo quyết định của chủ dự án, gộp vào load test P5 mục 7 (đo so sánh
+  trước/sau ở phase này chỉ trên 17 dự án, DB tạm e2e - xem `.bangiao/hieu-nang.md`).
+
+## Task 5: bàn giao cho dây chuyền
+
+### Danh sách toàn bộ file đã sửa (từ BASE `54ac9bf` tới commit cuối, không tính ảnh `.bangiao/anh-test/`)
+
+```
+ app/[locale]/(app)/audit/page.tsx
+ app/[locale]/(app)/ho-so-du-an/page.tsx
+ app/[locale]/(app)/layout.tsx
+ app/[locale]/(app)/nhap-lieu/page.tsx
+ app/[locale]/(app)/overview/page.tsx
+ app/[locale]/(app)/projects/[id]/page.tsx
+ app/[locale]/(app)/projects/page.tsx
+ app/[locale]/layout.tsx
+ app/[locale]/login/page.tsx
+ app/[locale]/page.tsx
+ app/api/cron/[job]/route.ts
+ app/api/photos/[...path]/route.ts
+ e2e/02-overview.spec.ts
+ package-lock.json
+ package.json
+ src/components/dashboard/OverviewChartsLazy.tsx (mới)
+ src/components/dashboard/OverviewWidgets.tsx
+ src/components/form/ProjectForm.tsx
+ src/components/project/ProjectDetailChartsLazy.tsx (mới)
+ src/components/ui/motion.ts
+ src/i18n/routing.ts
+ src/lib/activity.ts
+ src/server/app-pages-auth-guard.test.ts
+ src/server/cron-route.test.ts
+ src/server/ho-so-du-an-page-guard.qa.test.ts
+ src/server/ho-so-du-an-page-guard.test.ts
+ src/server/nhap-lieu-page-guard.test.ts
+ src/server/operation-pages-render.test.ts
+ src/server/pages-role-guard.test.ts
+ src/server/photo-route.test.ts
+ src/server/projects-detail-finance-gate.test.ts
+ src/server/projects-detail-page-finance-guard.test.ts
+ src/server/projects-detail-page-month-guard.test.ts
+ src/server/projects-detail-page-render.test.ts
+ src/server/queries-n1.test.ts
+ src/server/queries-request-memo.test.ts
+ src/server/queries.ts
+ vitest.config.ts
+```
+
+**Danh sách trang (`app/**`) đã sửa trong phase này** (theo Q2 đã chốt: bên merge `main` sau tự giải xung đột
+với nhánh `feature/p7-c2-chuoi-gia-tri` của C, xung đột dự kiến ở chữ ký hàm/khối import - xem file cụ thể):
+`app/[locale]/page.tsx`, `app/[locale]/layout.tsx`, `app/[locale]/login/page.tsx`,
+`app/[locale]/(app)/layout.tsx`, `app/[locale]/(app)/projects/page.tsx`,
+`app/[locale]/(app)/overview/page.tsx`, `app/[locale]/(app)/nhap-lieu/page.tsx`,
+`app/[locale]/(app)/ho-so-du-an/page.tsx`, `app/[locale]/(app)/audit/page.tsx`,
+`app/[locale]/(app)/projects/[id]/page.tsx` (file này trùng với 3 file C đang/đã sửa cho P7-C2 Task 6 -
+xung đột dự kiến nhỏ nhất tập trung ở đây).
+
+### Test đã sửa kỳ vọng (không phải chỉnh sửa hành vi, chỉ thích nghi API mới) kèm lý do
+
+| File | Sửa gì | Vì sao |
+|---|---|---|
+| 12 file `*.test.ts` liệt kê ở Task 2 Bước 4 | Bọc `Promise.resolve(...)` quanh `params`/`searchParams` truyền vào page/route | `params`/`searchParams` giờ là `Promise`, không đổi kỳ vọng assert |
+| `src/server/queries-request-memo.test.ts` | Sửa 2 dòng comment đầu file | Giải thích lại đúng: Vitest giờ CÓ export `React.cache` thật (React 19), chỉ là không memo ngoài Server Component |
+| `src/server/pages-role-guard.test.ts` | Thêm `permanentRedirect: vi.fn()` vào mock `next/navigation` | next-intl 4 (`createNavigation`) đọc export này ngay lúc nạp `@/i18n/navigation`, mock cũ thiếu nên throw |
+| `e2e/02-overview.spec.ts` | Đổi `.count()` đọc 1 lần thành `expect(async () => {...}).toPass({ timeout: 15000 })` | Chart dùng `dynamic({ssr:false})`, chunk nặng hơn (recharts 2.15.4 + React 19) nên trên `next dev` có thể tải lâu hơn 5s mặc định của Playwright - đã xác nhận qua Playwright thủ công: không có lỗi, chỉ chậm hơn mốc kiểm cũ |
+
+### Kết quả next-auth Bước 6
+
+`next-auth@4.24.15` đã `await` đầy đủ `context.params`, `cookies()`, `headers()` trong
+`node_modules/next-auth/next/index.js` - không có gì phải vá, không có mục "Để sau" cho next-auth.
+
+### Nhắc bước merge sau này (B và C)
+
+Khi merge nhánh này vào `main`: B và C phải `git merge main`, sau đó `npm install` (nhớ đặt
+`NODE_EXTRA_CA_CERTS=D:\_project\DDC_dieu-phoi\tools\win-root-ca.pem` vì mạng chặn TLS), rồi xoá `.next`
+(`Remove-Item -Recurse -Force .next`) trước khi chạy `npm run dev` (bản build cache cũ của Next 14 không
+dùng lại được với Next 15). Không có migration Prisma nào trong phase này.
