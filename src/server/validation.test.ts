@@ -9,7 +9,10 @@ import {
   saveMonthlyDataSchema,
   stageWeightRowsSchema,
 } from './validation';
-import { SEED_STAGE_CODES, STAGE_MAX_COUNT, STAGE_ORDER } from '@/lib/stages';
+import { SEED_STAGE_CODES, STAGE_MAX_COUNT } from '@/lib/stages';
+
+/** 7 mã giai đoạn cũ (trước settlement) - chỉ để dựng dữ liệu test. */
+const LEGACY7_STAGE_CODES = SEED_STAGE_CODES.slice(0, 7);
 
 describe('photoFileSchema - chặn file không phải ảnh / quá dung lượng (Mục 6)', () => {
   it('nhận file ảnh trong giới hạn', () => {
@@ -120,7 +123,7 @@ describe('Mục 5 - 4 trường ngày: chỉ còn gửi từ step "Hồ sơ dự
 describe('saveMonthlyDataSchema - chain 7 giai đoạn (thay ô nhập tay pctActual)', () => {
   const base = { projectId: 1, month: '2026-09' };
   // stageCode để dạng string để test được cả giá trị lạ 'kickoff'
-  const chain7 = STAGE_ORDER.map((stageCode, i) => ({
+  const chain7 = LEGACY7_STAGE_CODES.map((stageCode, i) => ({
     stageCode: String(stageCode),
     pctComplete: i / 10,
     applicable: true,
@@ -170,7 +173,7 @@ describe('saveMonthlyDataSchema - chain 7 giai đoạn (thay ô nhập tay pctAc
   });
 
   it('chặn 7 phần tử TRÙNG stageCode (đủ số lượng nhưng thiếu giai đoạn thật)', () => {
-    const allDesign = STAGE_ORDER.map(() => ({ stageCode: 'design', pctComplete: 0.5, applicable: true }));
+    const allDesign = LEGACY7_STAGE_CODES.map(() => ({ stageCode: 'design', pctComplete: 0.5, applicable: true }));
     expect(parse(allDesign).success).toBe(false);
 
     // 6 giai đoạn thật + 1 giai đoạn lặp → vẫn phải bị chặn

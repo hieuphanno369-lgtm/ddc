@@ -1,4 +1,4 @@
-import type { Market, ProjectType, Priority, Status, StageCode } from '@/server/repo/types';
+import type { Market, ProjectType, Priority, Status } from '@/server/repo/types';
 
 /** Map enum → i18n key. Component dùng t(key) để hiển thị. */
 export const statusKey: Record<Status, string> = {
@@ -24,16 +24,6 @@ export const marketKey: Record<Market, string> = {
   TN: 'market.domestic',
   XK: 'market.export',
   NoiBo: 'market.internal',
-};
-
-export const stageKey: Record<StageCode, string> = {
-  design: 'stage.design',
-  shop: 'stage.shop',
-  procurement: 'stage.procurement',
-  fabrication: 'stage.fabrication',
-  transport: 'stage.transport',
-  erection: 'stage.erection',
-  handover: 'stage.handover',
 };
 
 export const priorityLabel: Record<Priority, string> = {

@@ -2,19 +2,10 @@ import type { Stage, StageCode, StageWeightInput } from '@/server/repo/types';
 import { THRESHOLDS } from '@/lib/thresholds';
 
 /**
- * Chuỗi giá trị 7 giai đoạn - nguồn duy nhất cho thứ tự + công thức % tổng thể.
+ * Chuỗi giá trị quản lý dự án - nguồn duy nhất cho công thức % tổng thể. Danh sách + thứ tự giai
+ * đoạn giờ đọc động từ `repo.getStages()` (P7-C2) - xem `activeStages`/`stageOrder` bên dưới.
  * Pure functions, unit-test được.
  */
-
-export const STAGE_ORDER: StageCode[] = [
-  'design',
-  'shop',
-  'procurement',
-  'fabrication',
-  'transport',
-  'erection',
-  'handover',
-];
 
 /** Tối đa số giai đoạn (tính cả ngừng dùng) - chặn payload/giao diện vô hạn. */
 export const STAGE_MAX_COUNT = 30;
@@ -73,17 +64,6 @@ export const LEGACY_STAGE_WEIGHTS: StageWeight[] = [
   { stageCode: 'settlement', weightPct: 0, applicable: true },
 ];
 
-/** manual = nhập tay %HT; volume = suy từ sản lượng hạng mục (fact_stage_work_item). Bộ phân loại đã chốt (Q5). */
-export const STAGE_CALC_MODE: Record<StageCode, StageCalcMode> = {
-  design: 'manual',
-  shop: 'volume',
-  procurement: 'volume',
-  fabrication: 'volume',
-  transport: 'volume',
-  erection: 'volume',
-  handover: 'manual',
-};
-
 /** Giai đoạn chỉ tính vào % tổng khi applicable ở CẢ chain lẫn bảng trọng số, và w > 0. */
 function effectiveWeight(stage: StageInput, weights: StageWeight[]): number {
   if (!stage.applicable) return 0;
@@ -93,10 +73,7 @@ function effectiveWeight(stage: StageInput, weights: StageWeight[]): number {
 }
 
 /** % tổng = Σ(w_i × pct_i) / Σ(w_i) trên giai đoạn applicable. Σw = 0 → 0. */
-export function calcChainPctActual(
-  stages: StageInput[],
-  weights: StageWeight[] = DEFAULT_STAGE_WEIGHTS,
-): number {
+export function calcChainPctActual(stages: StageInput[], weights: StageWeight[]): number {
   let num = 0;
   let den = 0;
   for (const s of stages) {
@@ -146,46 +123,14 @@ export function validateStageWeights(weights: StageWeight[]): WeightValidation {
   return ok ? { ok: true, total } : { ok: false, total, error: 'sum' };
 }
 
-export interface StageContribution {
-  stageCode: StageCode;
-  weightPct: number;
-  applicable: boolean;
-  calcMode: StageCalcMode;
-  pctComplete: number;
-  /** Phần đóng góp vào % tổng: w×pct/Σw. Cộng cả 7 dòng = calcChainPctActual. */
-  contributionPct: number;
-}
-
-/** Bảng chuỗi giá trị cho UI/API - luôn trả theo STAGE_ORDER, chỉ gồm stage có trong `stages`. */
-export function calcStageContributions(
-  stages: StageInput[],
-  weights: StageWeight[] = DEFAULT_STAGE_WEIGHTS,
-): StageContribution[] {
-  const den = stages.reduce((sum, s) => sum + effectiveWeight(s, weights), 0);
-  return STAGE_ORDER.flatMap((code) => {
-    const s = stages.find((x) => x.stageCode === code);
-    if (!s) return [];
-    const row = weights.find((x) => x.stageCode === code);
-    const eff = effectiveWeight(s, weights);
-    return [{
-      stageCode: code,
-      weightPct: row?.weightPct ?? 0,
-      applicable: s.applicable && (row?.applicable ?? false),
-      calcMode: STAGE_CALC_MODE[code],
-      pctComplete: s.pctComplete,
-      contributionPct: den ? (eff * s.pctComplete) / den : 0,
-    }];
-  });
-}
-
 /**
  * Giai đoạn hiện tại = giai đoạn applicable ĐẦU TIÊN (theo `order`) có pctComplete < 1. Không có → null.
  * `weights` có truyền (Q4a) -> bỏ qua giai đoạn có effectiveWeight = 0 (trọng số 0% hoặc tắt áp dụng
- * ở bảng trọng số không coi là khâu nghẽn, khớp cách tính %TT). Không truyền -> hành vi cũ (chỉ xét chain).
+ * ở bảng trọng số không coi là khâu nghẽn, khớp cách tính %TT). Không truyền -> chỉ xét chain.
  */
 export function findCurrentStage(
   stages: StageInput[],
-  order: readonly StageCode[] = STAGE_ORDER,
+  order: readonly StageCode[],
   weights?: readonly StageWeight[],
 ): StageCode | null {
   for (const code of order) {

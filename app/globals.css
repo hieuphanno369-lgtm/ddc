@@ -487,7 +487,7 @@
     padding-top:11px;border-top:.5px solid var(--sep);font-size:var(--t-caption1);color:var(--label2)}
 
   /* --- P2B vong sua 1 muc 4: the "Chuoi gia tri" rong het hang (danh-gia.md muc 4) - 2 cot
-     trai/phai render rieng (VALUE_CHAIN_COLUMNS) nen chi can xep doc trong tung cot, khong dung
+     trai/phai render rieng (valueChainColumns, doc side tu dim_stage) nen chi can xep doc trong tung cot, khong dung
      grid-auto-flow (de khong vo thu tu khi 1 giai doan "khong ap dung" bi an) --- */
   .stagecol{display:flex;flex-direction:column;gap:2px}
   .stage .stagesub{grid-column:3;font-size:10px;color:var(--label3);margin-top:1px}

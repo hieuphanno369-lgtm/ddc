@@ -24,7 +24,7 @@ export function isProjectCodeTakenIn(d: RepoData, code: string, exceptProjectId:
 }
 
 /** Chuỗi mô tả trọng số cho audit_log: "design:5,shop:10(x),…" - (x) = không áp dụng.
- * P7-C2: duyệt theo THỨ TỰ NHẬN VÀO (danh sách giai đoạn giờ động, không còn STAGE_ORDER cứng). */
+ * P7-C2: duyệt theo THỨ TỰ NHẬN VÀO (danh sách giai đoạn giờ động, đọc từ repo.getStages()). */
 function stageWeightAuditText(rows: { stageCode: string; weightPct: number; applicable: boolean }[]): string {
   return rows.map((r) => (r.applicable ? `${r.stageCode}:${r.weightPct}` : `${r.stageCode}:${r.weightPct}(x)`)).join(',');
 }

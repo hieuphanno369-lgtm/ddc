@@ -189,7 +189,7 @@ describe('Vong sua 1 muc 4 - the "Chuoi gia tri" rong het hang, bo the EVM (danh
     expect(right.every((p) => p >= 0)).toBe(true);
     expect([...left].sort((a, b) => a - b)).toEqual(left);
     expect([...right].sort((a, b) => a - b)).toEqual(right);
-    // Cot phai bat dau ngay sau khi cot trai da liet ke xong (khong xen ke nhu STAGE_ORDER goc).
+    // Cot phai bat dau ngay sau khi cot trai da liet ke xong (khong xen ke theo thu tu sortOrder chung).
     expect(Math.min(...right)).toBeGreaterThan(Math.max(...left));
   });
 

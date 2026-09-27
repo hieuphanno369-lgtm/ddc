@@ -1,5 +1,5 @@
 import { daysBetween, endOfMonth, type IsoDate } from '@/lib/clock';
-import { STAGE_ORDER, activeStages } from '@/lib/stages';
+import { activeStages } from '@/lib/stages';
 import { monthTicks, type MonthTick } from '@/lib/time-axis';
 import type { ProjectStageWeight, Stage, StageCode, StageMilestoneView } from '@/server/repo/types';
 
@@ -17,7 +17,7 @@ export interface StageTimelineRow {
 export function buildStageTimelineRows(
   ms: StageMilestoneView[],
   weights: ProjectStageWeight[],
-  order: readonly StageCode[] = STAGE_ORDER,
+  order: readonly StageCode[],
 ): StageTimelineRow[] {
   return order.flatMap((code) => {
     const m = ms.find((x) => x.stageCode === code);

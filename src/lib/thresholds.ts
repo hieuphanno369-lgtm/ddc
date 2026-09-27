@@ -22,7 +22,7 @@ export const THRESHOLDS = {
   completionPct: 1.0,
   /** Trần % nhập liệu hợp lệ (cho phép vượt tiến độ tới 150%) */
   pctInputMax: 1.5,
-  /** Tổng trọng số 7 giai đoạn (điểm phần trăm) - project_stage_weight phải cộng đủ số này */
+  /** Tổng trọng số các giai đoạn (điểm phần trăm) - project_stage_weight phải cộng đủ số này */
   stageWeightTotal: 100,
   /** Sai số float chấp nhận khi cộng trọng số (0.01 điểm phần trăm) */
   stageWeightEpsilon: 0.01,

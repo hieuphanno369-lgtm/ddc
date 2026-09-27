@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Project, ValueChainProgress } from '@/server/repo/types';
-import { SEED_STAGE_CODES, STAGE_ORDER } from '@/lib/stages';
+import { SEED_STAGE_CODES } from '@/lib/stages';
 import { repo } from '@/server/repo/mock-repo';
 import {
   buildBaseForm,
@@ -18,6 +18,9 @@ import {
   type FormState,
   type StoredDraft,
 } from './dataEntryState';
+
+/** 7 mã giai đoạn cũ (trước settlement) - chỉ để dựng dữ liệu test. */
+const LEGACY7_STAGE_CODES = SEED_STAGE_CODES.slice(0, 7);
 
 /** P7-C2: order dung de test = 8 ma seed (gom Thanh quyet toan), khop tap giai doan dang dung that. */
 const ORDER = SEED_STAGE_CODES;
@@ -134,7 +137,7 @@ describe('buildBaseForm', () => {
   });
 
   it("P7-C2: order 8 ma, chain chi co 7 dong (thieu settlement) -> stagePct.settlement = '', stageApplicable.settlement = true", () => {
-    const chain7 = STAGE_ORDER.map((stageCode) => ({ projectId: 1, stageCode, yearMonth: '2026-09', pctComplete: 0.5, applicable: true }));
+    const chain7 = LEGACY7_STAGE_CODES.map((stageCode) => ({ projectId: 1, stageCode, yearMonth: '2026-09', pctComplete: 0.5, applicable: true }));
     const base = buildBaseForm(makeProject(), undefined, undefined, chain7, null, ORDER);
     expect(base.stagePct.settlement).toBe('');
     expect(base.stageApplicable.settlement).toBe(true);
@@ -299,7 +302,7 @@ describe('restoreDraft', () => {
     };
     const restored = restoreDraft(base, draft);
     expect(restored.stageApplicable).toEqual(base.stageApplicable);
-    for (const s of STAGE_ORDER) expect(restored.stageApplicable[s]).toBeDefined();
+    for (const s of LEGACY7_STAGE_CODES) expect(restored.stageApplicable[s]).toBeDefined();
   });
 
   it('JSON bi chen truong tai chinh/ho so (revenueCumulative, projectName) -> giu nguyen gia tri base', () => {

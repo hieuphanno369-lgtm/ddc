@@ -1,6 +1,6 @@
 import type { ProjectStageWeight, Stage, StageCode } from '@/server/repo/types';
 import type { WorkItemCompare } from '@/lib/stage-timeline';
-import { STAGE_ORDER, activeStages, calcChainPctActual, validateStageWeights, type StageInput } from '@/lib/stages';
+import { activeStages, calcChainPctActual, validateStageWeights, type StageInput } from '@/lib/stages';
 
 function formatWeightPoints(value: number, locale: string): string {
   return `${new Intl.NumberFormat(locale === 'vi' ? 'vi-VN' : 'en-US', { maximumFractionDigits: 1 }).format(value)}%`;
@@ -20,18 +20,8 @@ export function stagePctLabel(pct: number, locale: string): string {
   }).format(pct);
 }
 
-/**
- * Lưới 2 cột thẻ "Chuỗi giá trị" (mock-up `mockup-apple-glass.html` dòng 701-707, ảnh mẫu chủ dự
- * án 2026-09-24): trái = Thiết kế/Vật tư/Vận chuyển/Nghiệm thu & BG, phải = Shop Drawing/Gia
- * công/Lắp dựng - đúng thứ tự hiển thị trong mock-up, KHÔNG phải thứ tự xen kẽ của `STAGE_ORDER`.
- */
-export const VALUE_CHAIN_COLUMNS: readonly [readonly StageCode[], readonly StageCode[]] = [
-  ['design', 'procurement', 'transport', 'handover'],
-  ['shop', 'fabrication', 'erection'],
-];
-
 /** 2 cột (trái, phải) của thẻ "Chuỗi giá trị quản lý dự án" - chỉ giai đoạn đang dùng, mỗi cột
- * xếp theo `sortOrder` tăng dần (dùng `activeStages`). Nguồn thay cho `VALUE_CHAIN_COLUMNS` cứng. */
+ * xếp theo `sortOrder` tăng dần (dùng `activeStages`); bên trái/phải do admin cấu hình (P7-C2). */
 export function valueChainColumns(stages: readonly Stage[]): [Stage[], Stage[]] {
   const active = activeStages(stages);
   return [active.filter((s) => s.side === 'left'), active.filter((s) => s.side === 'right')];
@@ -58,7 +48,7 @@ export interface ChainFooterSummary { weightTotal: number; weightOk: boolean; pc
 export function chainFooterSummary(
   chain: ChainStageRow[],
   weights: ProjectStageWeight[],
-  order: readonly StageCode[] = STAGE_ORDER,
+  order: readonly StageCode[],
 ): ChainFooterSummary {
   const v = validateStageWeights(weights);
   const pctTotal = calcChainPctActual(chainStageInputs(chain, order), weights);

@@ -685,7 +685,7 @@ const coreRepo = {
     return 'created';
   },
 
-  /** Ghi 7 giai đoạn chuỗi giá trị của 1 tháng (upsert theo projectId/stageCode/yearMonth). */
+  /** Ghi các giai đoạn chuỗi giá trị của 1 tháng (upsert theo projectId/stageCode/yearMonth). */
   saveValueChain(
     projectId: number,
     yearMonth: string,

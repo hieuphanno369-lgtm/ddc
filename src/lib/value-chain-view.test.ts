@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { ProjectStageWeight, Stage, StageCode } from '@/server/repo/types';
 import type { WorkItemCompare, WorkItemCompareRow } from '@/lib/stage-timeline';
-import { LEGACY_STAGE_WEIGHTS, SEED_STAGE_CODES, STAGE_ORDER, calcChainPctActual } from '@/lib/stages';
+import { LEGACY_STAGE_WEIGHTS, SEED_STAGE_CODES, calcChainPctActual } from '@/lib/stages';
 import {
-  VALUE_CHAIN_COLUMNS,
   chainFooterSummary,
   chainWeightTotalLabel,
   stagePctLabel,
@@ -11,6 +10,9 @@ import {
   stageWeightLabel,
   valueChainColumns,
 } from './value-chain-view';
+
+/** 7 mã "cũ" (không gồm settlement) - dùng cho các test tính %TT theo bộ trọng số cũ. */
+const OLD7 = SEED_STAGE_CODES.slice(0, 7);
 
 const W = (stageCode: ProjectStageWeight['stageCode'], weightPct: number, applicable = true): ProjectStageWeight => ({
   projectId: 1,
@@ -72,19 +74,6 @@ describe('stagePctLabel (vong sua 1 muc 4a - luon 1 chu so thap phan, khac forma
   });
 });
 
-describe('VALUE_CHAIN_COLUMNS (vong sua 1 muc 4a - 2 cot theo mock-up, khong xen ke STAGE_ORDER)', () => {
-  it('cot trai: design/procurement/transport/handover; cot phai: shop/fabrication/erection', () => {
-    expect(VALUE_CHAIN_COLUMNS[0]).toEqual(['design', 'procurement', 'transport', 'handover']);
-    expect(VALUE_CHAIN_COLUMNS[1]).toEqual(['shop', 'fabrication', 'erection']);
-  });
-
-  it('gop 2 cot = dung 7 giai doan cua STAGE_ORDER, khong thieu khong trung', () => {
-    const all = [...VALUE_CHAIN_COLUMNS[0], ...VALUE_CHAIN_COLUMNS[1]];
-    expect(new Set(all).size).toBe(all.length);
-    expect([...all].sort()).toEqual([...STAGE_ORDER].sort());
-  });
-});
-
 const CHAIN_ROW = (stageCode: StageCode, pctComplete: number, applicable = true) => ({ stageCode, pctComplete, applicable });
 
 describe('chainFooterSummary (vong sua 1 muc 4c - dong chan Sigma trong so + %TT)', () => {
@@ -92,7 +81,7 @@ describe('chainFooterSummary (vong sua 1 muc 4c - dong chan Sigma trong so + %TT
     const weights: ProjectStageWeight[] = [W('design', 50), W('fabrication', 30), W('shop', 20)];
     // shop co trong so nhung chain danh dau khong ap dung -> khong duoc tinh (dung effectiveWeight cua stages.ts).
     const chain = [CHAIN_ROW('design', 0.5), CHAIN_ROW('fabrication', 0.25), CHAIN_ROW('shop', 0.9, false)];
-    const out = chainFooterSummary(chain, weights);
+    const out = chainFooterSummary(chain, weights, OLD7);
     expect(out.weightTotal).toBe(100);
     expect(out.weightOk).toBe(true);
     expect(out.pctTotal).toBeCloseTo((50 * 0.5 + 30 * 0.25) / (50 + 30), 10);
@@ -101,24 +90,24 @@ describe('chainFooterSummary (vong sua 1 muc 4c - dong chan Sigma trong so + %TT
   it('trong so lech 100 -> weightOk=false, weightTotal = tong that (khong ghi cung 100)', () => {
     const weights: ProjectStageWeight[] = [W('design', 50), W('fabrication', 30)];
     const chain = [CHAIN_ROW('design', 0.5), CHAIN_ROW('fabrication', 0.25)];
-    const out = chainFooterSummary(chain, weights);
+    const out = chainFooterSummary(chain, weights, OLD7);
     expect(out.weightTotal).toBe(80);
     expect(out.weightOk).toBe(false);
   });
 
-  it('thieu han dong chain cho 1 giai doan co trong so -> mac dinh applicable=true/pct=0 (khop STAGE_ORDER day du)', () => {
+  it('thieu han dong chain cho 1 giai doan co trong so -> mac dinh applicable=true/pct=0 (khop du danh sach order)', () => {
     const weights: ProjectStageWeight[] = [W('design', 50), W('fabrication', 50)];
     const chain = [CHAIN_ROW('design', 1)]; // thieu dong 'fabrication'
-    const out = chainFooterSummary(chain, weights);
+    const out = chainFooterSummary(chain, weights, OLD7);
     expect(out.pctTotal).toBeCloseTo(0.5, 10);
   });
 
   it('khop voi calcChainPctActual khi truyen du 7 giai doan tuong tu (nhat quan cong thuc)', () => {
-    const weights: ProjectStageWeight[] = STAGE_ORDER.map((s) => W(s, 100 / STAGE_ORDER.length));
-    const chain = STAGE_ORDER.map((s) => CHAIN_ROW(s, 0.6));
-    const out = chainFooterSummary(chain, weights);
+    const weights: ProjectStageWeight[] = OLD7.map((s) => W(s, 100 / OLD7.length));
+    const chain = OLD7.map((s) => CHAIN_ROW(s, 0.6));
+    const out = chainFooterSummary(chain, weights, OLD7);
     const expected = calcChainPctActual(
-      STAGE_ORDER.map((s) => ({ stageCode: s, pctComplete: 0.6, applicable: true })),
+      OLD7.map((s) => ({ stageCode: s, pctComplete: 0.6, applicable: true })),
       weights,
     );
     expect(out.pctTotal).toBeCloseTo(expected, 10);

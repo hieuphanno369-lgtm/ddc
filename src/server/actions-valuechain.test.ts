@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { repo } from '@/server/repo/mock-repo';
-import { SEED_STAGE_CODES, STAGE_ORDER } from '@/lib/stages';
+import { SEED_STAGE_CODES } from '@/lib/stages';
 import type { CurrentUser } from '@/lib/session';
 import type { StageCode } from '@/server/repo/types';
 
@@ -18,6 +18,9 @@ vi.mock('@/lib/session', () => ({ getCurrentUser: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/session';
 import { commitImportAction, saveMonthlyData } from '@/server/actions';
+
+/** 7 mã giai đoạn cũ (trước settlement) - chỉ để dựng dữ liệu test. */
+const LEGACY7_STAGE_CODES = SEED_STAGE_CODES.slice(0, 7);
 
 const YM = '2026-09';
 const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.com.vn', role: 'admin', canViewFinance: true };
@@ -71,7 +74,7 @@ describe('saveMonthlyData - % tổng & khâu nghẽn tự suy từ chain', () =>
     const id = pid();
 
     const res = await saveMonthlyData(id, YM, {
-      chain: chain([0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.9], STAGE_ORDER.map(() => false)),
+      chain: chain([0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.9], LEGACY7_STAGE_CODES.map(() => false)),
     });
 
     expect(res).toEqual({ ok: true });
@@ -287,7 +290,7 @@ describe('fix #1 month-lock - khoá đúng phạm vi THÁNG, chặn cả write p
 
 describe('fix #2 chặn trùng stageCode - action từ chối, KHÔNG ghi dở dang', () => {
   const allSame = (): { stageCode: StageCode; pctComplete: number; applicable: boolean }[] =>
-    STAGE_ORDER.map(() => ({ stageCode: 'design' as StageCode, pctComplete: 0.5, applicable: true }));
+    LEGACY7_STAGE_CODES.map(() => ({ stageCode: 'design' as StageCode, pctComplete: 0.5, applicable: true }));
 
   it('7× cùng stageCode → action trả ok:false và value chain giữ nguyên (không upsert 1 dòng mất 6 giai đoạn)', async () => {
     const id = pid();

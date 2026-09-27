@@ -12,7 +12,7 @@ interface StageSelectionValue {
 export const StageSelectionContext = createContext<StageSelectionValue | null>(null);
 
 /**
- * Vong sua 1 muc 4d (danh-gia.md): noi chip "Toan bo 7 giai doan" cua the "Chuoi gia tri" voi
+ * Vong sua 1 muc 4d (danh-gia.md): noi chip "Toan bo giai doan" cua the "Chuoi gia tri" voi
  * giai doan dang chon o StageExplorer, khong viet lai StageExplorer - chi doi nguon state tu
  * useState noi bo sang Context dung chung. Bao ca hai the trong Provider nay o page.tsx.
  */

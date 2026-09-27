@@ -2,8 +2,6 @@ import type {
   Contractor, Equipment, ProjectEquipmentPlan, ProjectEquipmentQuota, ProjectManpowerPlanMonth, ProjectShiftRatio,
   Shift, Stage,
 } from '@/server/repo/types';
-import { DEFAULT_STAGE_WEIGHTS, STAGE_ORDER } from '@/lib/stages';
-
 /** Các giai đoạn chuỗi giá trị thành dimension thật (P7-C2: thêm Thanh quyết toán, side, isActive).
  * Tên song ngữ khớp i18n key stage.* trong src/lib/labels.ts (đã gỡ ở Task 7). */
 export const stages: Stage[] = [
@@ -157,5 +155,3 @@ export const shiftRatioSeed: ProjectShiftRatio[] = [
   { projectId: ERP_DETAIL_PROJECT_ID, shiftCode: 'morning', pct: 0.6 },
   { projectId: ERP_DETAIL_PROJECT_ID, shiftCode: 'evening', pct: 0.4 },
 ];
-
-export { DEFAULT_STAGE_WEIGHTS, STAGE_ORDER };

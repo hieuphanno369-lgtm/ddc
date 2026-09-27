@@ -146,7 +146,7 @@ export function penaltyState(input: {
 /** Khâu nghẽn: stage applicable ĐẦU TIÊN trong chuỗi có %HT < 100% (bỏ qua giai đoạn không áp dụng). */
 export function findBottleneck(
   chain: ValueChainProgress[],
-  order?: readonly StageCode[],
+  order: readonly StageCode[],
   weights?: readonly StageWeight[],
 ): StageCode | null {
   return findCurrentStage(chain, order, weights);

@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { Stage } from '@/server/repo/types';
 import {
-  DEFAULT_STAGE_WEIGHTS, LEGACY_STAGE_WEIGHTS, STAGE_ORDER, activeStages, calcChainPctActual,
-  calcStageContributions, calcStagePctFromVolume, findCurrentStage, fillWeightsForStages,
+  DEFAULT_STAGE_WEIGHTS, LEGACY_STAGE_WEIGHTS, SEED_STAGE_CODES, activeStages, calcChainPctActual,
+  calcStagePctFromVolume, findCurrentStage, fillWeightsForStages,
   isSameStageSet, nextCustomStageCode, normPct, stageName, stageNameMap, validateStageWeights,
   type StageInput, type StageWeight,
 } from './stages';
 import { THRESHOLDS } from './thresholds';
+
+/** 7 mã "cũ" (không gồm settlement) - dùng lại cho các test đã có từ trước P7-C2 (hằng cứng cũ đã gỡ ở Task 7). */
+const OLD7 = SEED_STAGE_CODES.slice(0, 7);
 
 const stage = (stageCode: StageInput['stageCode'], pctComplete: number, applicable = true): StageInput => ({
   stageCode,
@@ -19,13 +22,13 @@ const w = (stageCode: StageWeight['stageCode'], weightPct: number, applicable = 
 
 describe('% tổng thể = tổng CÓ TRỌNG SỐ', () => {
   it('0 giai đoạn áp dụng → 0 (không chia cho 0)', () => {
-    expect(calcChainPctActual([])).toBe(0);
-    expect(calcChainPctActual([stage('design', 0.5, false), stage('shop', 1, false)])).toBe(0);
+    expect(calcChainPctActual([], DEFAULT_STAGE_WEIGHTS)).toBe(0);
+    expect(calcChainPctActual([stage('design', 0.5, false), stage('shop', 1, false)], DEFAULT_STAGE_WEIGHTS)).toBe(0);
   });
 
   it('tất cả = 0 → 0; tất cả = 1 → 1 (trọng số mặc định cộng đủ 100)', () => {
-    expect(calcChainPctActual(STAGE_ORDER.map((s) => stage(s, 0)))).toBe(0);
-    expect(calcChainPctActual(STAGE_ORDER.map((s) => stage(s, 1)))).toBeCloseTo(1, 10);
+    expect(calcChainPctActual(SEED_STAGE_CODES.map((s) => stage(s, 0)), DEFAULT_STAGE_WEIGHTS)).toBe(0);
+    expect(calcChainPctActual(SEED_STAGE_CODES.map((s) => stage(s, 1)), DEFAULT_STAGE_WEIGHTS)).toBeCloseTo(1, 10);
   });
 
   it('trọng số mặc định 5/10/10/40/5/25/3 (P7-C2, chain 7 mã - thiếu settlement 2) áp đúng, KHÔNG phải trung bình cộng', () => {
@@ -35,14 +38,14 @@ describe('% tổng thể = tổng CÓ TRỌNG SỐ', () => {
     ];
     // (5×1 + 10×0.8 + 10×0.6) / (5+10+10+40+5+25+3) = 19 / 98 - mẫu số KHÔNG có settlement (2)
     // vì chain chỉ gửi 7 mã (settlement không nằm trong `stages`, effectiveWeight của nó không được cộng).
-    expect(calcChainPctActual(stages)).toBeCloseTo(19 / 98, 10);
+    expect(calcChainPctActual(stages, DEFAULT_STAGE_WEIGHTS)).toBeCloseTo(19 / 98, 10);
     // Trung bình cộng cũ ≈ 0.342 - phải KHÁC, đây là chỗ chứng minh test có giá trị
-    expect(calcChainPctActual(stages)).not.toBeCloseTo((1 + 0.8 + 0.6) / 7, 3);
+    expect(calcChainPctActual(stages, DEFAULT_STAGE_WEIGHTS)).not.toBeCloseTo((1 + 0.8 + 0.6) / 7, 3);
   });
 
   it('giai đoạn không áp dụng bị loại khỏi CẢ tử số lẫn mẫu số', () => {
     const stages = [stage('design', 0.5), stage('shop', 1.0), stage('procurement', 0.9, false)];
-    expect(calcChainPctActual(stages)).toBeCloseTo(12.5 / 15, 10);
+    expect(calcChainPctActual(stages, DEFAULT_STAGE_WEIGHTS)).toBeCloseTo(12.5 / 15, 10);
   });
 
   it('applicable=false ở BẢNG TRỌNG SỐ cũng loại giai đoạn đó (2 nguồn, cùng hiệu lực)', () => {
@@ -127,38 +130,18 @@ describe('calcStagePctFromVolume', () => {
   });
 });
 
-describe('calcStageContributions', () => {
-  it('tổng contributionPct = calcChainPctActual (bất biến của bảng chuỗi giá trị)', () => {
-    const stages = [
-      stage('design', 1), stage('shop', 0.8), stage('procurement', 0.6),
-      stage('fabrication', 0.2), stage('transport', 0), stage('erection', 0), stage('handover', 0),
-    ];
-    const sum = calcStageContributions(stages).reduce((a, c) => a + c.contributionPct, 0);
-    expect(sum).toBeCloseTo(calcChainPctActual(stages), 10);
-  });
-  it('giai đoạn không áp dụng có contributionPct = 0 nhưng vẫn nằm trong danh sách', () => {
-    const rows = calcStageContributions([stage('design', 1), stage('shop', 1, false)]);
-    expect(rows).toHaveLength(2);
-    expect(rows.find((r) => r.stageCode === 'shop')!.contributionPct).toBe(0);
-  });
-  it('trả về theo STAGE_ORDER, không theo thứ tự mảng đầu vào', () => {
-    const rows = calcStageContributions([stage('erection', 1), stage('design', 1)]);
-    expect(rows.map((r) => r.stageCode)).toEqual(['design', 'erection']);
-  });
-});
-
 describe('Giai đoạn hiện tại (khâu nghẽn)', () => {
   it('bỏ qua giai đoạn không áp dụng', () => {
     const stages = [stage('design', 0, false), stage('shop', 0), stage('procurement', 0)];
-    expect(findCurrentStage(stages)).toBe('shop');
+    expect(findCurrentStage(stages, OLD7)).toBe('shop');
   });
   it('trả về giai đoạn áp dụng đầu tiên có %HT < 100%', () => {
     const stages = [stage('design', 1), stage('shop', 1), stage('procurement', 0.8), stage('fabrication', 0.5)];
-    expect(findCurrentStage(stages)).toBe('procurement');
+    expect(findCurrentStage(stages, OLD7)).toBe('procurement');
   });
   it('tất cả giai đoạn áp dụng = 100% → null', () => {
-    const all = STAGE_ORDER.map((s) => stage(s, 1));
-    expect(findCurrentStage(all)).toBeNull();
+    const all = OLD7.map((s) => stage(s, 1));
+    expect(findCurrentStage(all, OLD7)).toBeNull();
   });
 });
 
@@ -179,24 +162,24 @@ describe('Chuẩn hóa % nhập tay', () => {
 
 describe('Biên bổ sung - giai đoạn hiện tại', () => {
   it('0 giai đoạn áp dụng → null (không có khâu nghẽn, không crash)', () => {
-    expect(findCurrentStage(STAGE_ORDER.map((s) => stage(s, 0.5, false)))).toBeNull();
-    expect(findCurrentStage([])).toBeNull();
+    expect(findCurrentStage(OLD7.map((s) => stage(s, 0.5, false)), OLD7)).toBeNull();
+    expect(findCurrentStage([], OLD7)).toBeNull();
   });
 
   it('đúng 100% coi như xong; 99% vẫn là giai đoạn hiện tại', () => {
-    expect(findCurrentStage([stage('design', 1), stage('shop', 0.99)])).toBe('shop');
-    expect(findCurrentStage([stage('design', 1)])).toBeNull();
+    expect(findCurrentStage([stage('design', 1), stage('shop', 0.99)], OLD7)).toBe('shop');
+    expect(findCurrentStage([stage('design', 1)], OLD7)).toBeNull();
   });
 
   it('giai đoạn áp dụng cuối cùng (handover) chưa xong → trả về đúng nó', () => {
-    const all = STAGE_ORDER.map((s) => stage(s, 1));
+    const all = OLD7.map((s) => stage(s, 1));
     all[6] = stage('handover', 0.5);
-    expect(findCurrentStage(all)).toBe('handover');
+    expect(findCurrentStage(all, OLD7)).toBe('handover');
   });
 
-  it('không phụ thuộc thứ tự phần tử trong mảng (vẫn theo STAGE_ORDER)', () => {
+  it('không phụ thuộc thứ tự phần tử trong mảng (vẫn theo order truyền vào)', () => {
     const shuffled = [stage('erection', 0), stage('design', 1), stage('shop', 1)];
-    expect(findCurrentStage(shuffled)).toBe('erection');
+    expect(findCurrentStage(shuffled, OLD7)).toBe('erection');
   });
 });
 

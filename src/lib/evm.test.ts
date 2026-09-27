@@ -104,21 +104,22 @@ describe('Nguy cơ phạt HĐ', () => {
 });
 
 describe('Khâu nghẽn chuỗi giá trị', () => {
+  const ORDER = ['design', 'shop', 'procurement', 'fabrication', 'transport', 'erection', 'handover'] as const;
   const chain = (pcts: [number, number, number, number, number, number, number]): ValueChainProgress[] =>
-    (['design', 'shop', 'procurement', 'fabrication', 'transport', 'erection', 'handover'] as const).map(
+    ORDER.map(
       (stageCode, i) => ({ projectId: 1, stageCode, yearMonth: '2026-09', pctComplete: pcts[i], applicable: true }),
     );
   it('Trả về stage đầu tiên < 100%', () => {
-    expect(findBottleneck(chain([1, 1, 0.8, 0.5, 0, 0, 0]))).toBe('procurement');
+    expect(findBottleneck(chain([1, 1, 0.8, 0.5, 0, 0, 0]), ORDER)).toBe('procurement');
   });
   it('Không có khâu nghẽn khi tất cả 100%', () => {
-    expect(findBottleneck(chain([1, 1, 1, 1, 1, 1, 1]))).toBeNull();
+    expect(findBottleneck(chain([1, 1, 1, 1, 1, 1, 1]), ORDER)).toBeNull();
   });
   it('Bỏ qua giai đoạn không áp dụng - design non-applicable → shop', () => {
     const stages = chain([0, 0, 0, 0, 0, 0, 0]).map((c) =>
       c.stageCode === 'design' ? { ...c, applicable: false } : c,
     );
-    expect(findBottleneck(stages)).toBe('shop');
+    expect(findBottleneck(stages, ORDER)).toBe('shop');
   });
 });
 
