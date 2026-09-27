@@ -267,7 +267,7 @@ xu ly. DB `_c` da don sach ve dung 17 du an / 8 giai doan.
 - Test `stageWeights: []` DO: action tra ve cau tieng Anh tho cua zod `"Too small: expected array to have >=1 items"` thay vi ma `weights_required`.
 - Goc: `stageWeightRowsSchema` (`src/server/validation.ts`) co `.min(1)` khong kem ma loi, nen zod chan mang rong truoc khi toi nhanh `weights_required` trong `createProjectAction`, va form se hien cau khong co ban dich.
 - Sua: `.min(1, { message: 'weights_required' })`.
-- Noi dung thu hai cua schema (`saveProjectStageWeightsAction`) quy moi loi parse ve `Invalid input`, nen khong doi hanh vi.
+- Noi dung schema thu hai (`saveStageWeightsAction` trong `src/server/actions-project.ts`) quy moi loi parse ve `Invalid input`, nen khong doi hanh vi.
 
 ## 4. Chua lam
 
