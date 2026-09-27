@@ -91,7 +91,7 @@ export default async function ProjectDetailPage({
   // T1 Bước 6: gom mọi lệnh đọc ĐỘC LẬP (không phụ thuộc kết quả của nhau) vào 1 Promise.all -
   // trang Chi tiết trước đây await tuần tự từng dòng (>20 round-trip nối tiếp).
   const [
-    summaryOrNull, lastUpdate, facts, chain, financial, alerts, aliases, sapCodes, photos, dims,
+    summaryOrNull, lastUpdate, facts, chain, financial, alerts, aliases, sapCodes, dims,
     resources, breakdown, tracking, keyMilestones, stageWeights, stageMilestones, compare,
     projectsList, monthChart, weekly, planGantt,
   ] = await Promise.all([
@@ -103,7 +103,6 @@ export default async function ProjectDetailPage({
     repo.getAlerts(id),
     repo.getAliases(id),
     repo.getSapCodes(id),
-    repo.getPhotos(id),
     repo.getDims(),
     getResourceSnapshot(id, month),
     getResourceBreakdown(id, month),
@@ -538,30 +537,6 @@ export default async function ProjectDetailPage({
         )}
       </div>
 
-      {/* Photos */}
-      <Card>
-        <CardHeader title={t('detail.photos')} />
-        <CardBody>
-          {photos.length === 0 ? (
-            <p className="empty">{t('common.noData')}</p>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-              {photos.map((ph) => (
-                <div key={ph.id} className="relative aspect-[4/3] overflow-hidden rounded-md" style={{ background: 'var(--fill)' }}>
-                  {ph.url ? (
-                    <img src={`/api/photos/${ph.url}`} alt={ph.caption || t('detail.photos')} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full flex-col items-center justify-center text-label3">
-                      <IconProject size={24} />
-                      <span className="mt-1 px-2 text-center text-xs">{ph.caption}</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </CardBody>
-      </Card>
     </>
   );
 }

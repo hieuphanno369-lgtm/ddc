@@ -9,7 +9,7 @@ import { ResourceEntryPanel } from '@/components/form/ResourceEntryPanel';
 import { EquipmentPlanEditor } from '@/components/form/EquipmentPlanEditor';
 import { ManpowerPlanEditor } from '@/components/form/ManpowerPlanEditor';
 
-const STEPS: DataEntryStep[] = ['progress', 'finance', 'profile', 'extras', 'resources'];
+const STEPS: DataEntryStep[] = ['progress', 'finance', 'profile', 'resources'];
 
 export default async function NhapLieuPage({
   searchParams,
@@ -50,7 +50,6 @@ export default async function NhapLieuPage({
     project && user.canViewFinance ? (await repo.getFinancial(project.id)).find((f) => f.yearMonth === month) : undefined;
   const chain = project ? await repo.getValueChain(project.id, month) : [];
   const alerts = project ? await repo.getAlerts(project.id) : [];
-  const photos = project ? await repo.getPhotos(project.id) : [];
   const locked = await repo.isMonthLocked(month);
   const today = todayIso();
   const initialStep = typeof sp.step === 'string' && (STEPS as string[]).includes(sp.step)
@@ -106,7 +105,6 @@ export default async function NhapLieuPage({
             financial={user.canViewFinance ? financial : undefined}
             chain={chain}
             alerts={alerts}
-            photos={photos}
             month={month}
             months={months}
             locked={locked}

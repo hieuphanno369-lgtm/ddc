@@ -62,7 +62,6 @@ async function benchDetail(projectId: number, month: string): Promise<number> {
       repo.getAlerts(projectId),
       repo.getAliases(projectId),
       repo.getSapCodes(projectId),
-      repo.getPhotos(projectId),
       repo.getDims(),
       getResourceSnapshot(projectId, month),
       getResourceBreakdown(projectId, month),

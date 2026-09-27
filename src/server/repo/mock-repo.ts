@@ -36,7 +36,6 @@ import type {
   ProjectKeyMilestone,
   KeyMilestoneInput,
   ProjectSapCode,
-  ProjectPhoto,
   ProjectStageWeight,
   ProjectType,
   ProjectWorkItem,
@@ -276,41 +275,6 @@ const coreRepo = {
     return projectId ? getData().sapCodes.filter((s) => s.projectId === projectId) : getData().sapCodes;
   },
 
-  getPhotos(projectId: number, yearMonth?: string): ProjectPhoto[] {
-    return getData()
-      .photos.filter(
-        (ph) => ph.projectId === projectId && (!yearMonth || ph.yearMonth === yearMonth),
-      )
-      .sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt));
-  },
-
-  getPhotoById(photoId: number): ProjectPhoto | null {
-    return getData().photos.find((ph) => ph.id === photoId) ?? null;
-  },
-
-  addPhoto(projectId: number, yearMonth: string, url: string, caption: string, uploadedBy: string): ProjectPhoto {
-    const nextId = Math.max(0, ...getData().photos.map((p) => p.id)) + 1;
-    const photo: ProjectPhoto = {
-      id: nextId,
-      projectId,
-      yearMonth,
-      url,
-      caption,
-      uploadedBy,
-      uploadedAt: new Date().toISOString(),
-    };
-    getData().photos.push(photo);
-    return photo;
-  },
-
-  deletePhoto(photoId: number): boolean {
-    const photos = getData().photos;
-    const idx = photos.findIndex((p) => p.id === photoId);
-    if (idx < 0) return false;
-    photos.splice(idx, 1);
-    return true;
-  },
-
   getDims() {
     const d = getData();
     return {
@@ -462,7 +426,6 @@ const coreRepo = {
     d.alerts = d.alerts.filter((x) => x.projectId !== id);
     d.aliases = d.aliases.filter((x) => x.projectId !== id);
     d.sapCodes = d.sapCodes.filter((x) => x.projectId !== id);
-    d.photos = d.photos.filter((x) => x.projectId !== id);
     d.assignments = d.assignments.filter((x) => x.projectId !== id);
     d.projectHistory = d.projectHistory.filter((x) => x.snapshot.id !== id);
     d.sapQueue = d.sapQueue.filter((x) => x.projectId !== id);

@@ -179,7 +179,6 @@
     "aliasHistory": "Lịch sử mã dự án",
     "alerts": "Alert / Action",
     "financial": "Tài chính chi tiết",
-    "photos": "Ảnh hiện trường",
     "bottleneck": "Khâu nghẽn",
     "noBottleneck": "Không có khâu nghẽn",
     "planned": "Kế hoạch",
@@ -328,7 +327,6 @@
     "tabFinance": "Tài chính",
     "tabAlert": "Alert/Action",
     "tabCode": "Mã dự án",
-    "tabPhotos": "Ảnh hiện trường",
     "projectCode": "Mã dự án",
     "projectName": "Tên dự án",
     "customer": "Khách hàng",
@@ -360,7 +358,6 @@
     "stepProgress": "Tiến độ tháng",
     "stepFinance": "Tài chính",
     "stepProfile": "Hồ sơ dự án",
-    "stepExtras": "Ảnh hiện trường",
     "preview": "Kết quả dự kiến",
     "stageSection": "Tiến độ theo 7 giai đoạn",
     "stageApplicable": "Áp dụng",
@@ -375,8 +372,6 @@
     "required": "Bắt buộc",
     "locked": "Đã khóa số liệu tháng",
     "lockMonth": "Khóa số liệu tháng",
-    "photoUploadError": "Tải ảnh thất bại",
-    "confirmDeletePhoto": "Xóa ảnh này?",
     "validation": {
       "pctRange": "% hoàn thành phải nằm trong [0, 1.5]",
       "stageRange": "% giai đoạn phải nằm trong [0, 1.5]",
@@ -628,14 +623,6 @@
       "notFound": "Không tìm thấy dự án.",
       "generic": "Lưu thất bại: {msg}",
       "financeReadonly": "Chỉ Admin/BOD được sửa số tài chính — các ô dưới đây chỉ để xem."
-    },
-    "photo": {
-      "dropTitle": "Kéo thả ảnh vào đây hoặc bấm để chọn",
-      "dropHint": "Ảnh JPG/PNG/WebP, tối đa {mb}MB mỗi ảnh, chọn được nhiều ảnh",
-      "uploading": "Đang tải {i}/{n} · {pct}%",
-      "notImage": "{name}: không phải file ảnh",
-      "tooBig": "{name}: rỗng hoặc vượt quá {mb}MB",
-      "failed": "{name}: {msg}"
     }
   },
   "resourceKpi": {

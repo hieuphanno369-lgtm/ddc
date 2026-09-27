@@ -12,10 +12,8 @@ import { cellText, type CellValue } from '@/lib/daily-import';
 import { assertXlsxInflatedSize, readBoundedSheet } from './daily-import';
 import type { CreateProjectInput, CurrencyCode, KeyMilestoneInput, Market, Priority, Project, ProjectType, Role, StageCode, StageWeightInput } from './repo/types';
 import { listTag, overviewTag, profileTag, trendTag } from './cache';
-import { addSapCodeSchema, changePasswordSchema, closeAlertSchema, commitImportSchema, createAccountSchema, createDimSchema, createProjectSchema, deletePhotoSchema, importFileSchema, IMPORT_LEGACY_MAX_ROWS, lockMonthSchema, mergeDimSchema, renameDimSchema, resetPasswordSchema, saveKeyMilestonesSchema, saveMonthlyDataSchema, userRoleSchema } from './validation';
+import { addSapCodeSchema, changePasswordSchema, closeAlertSchema, commitImportSchema, createAccountSchema, createDimSchema, createProjectSchema, importFileSchema, IMPORT_LEGACY_MAX_ROWS, lockMonthSchema, mergeDimSchema, renameDimSchema, resetPasswordSchema, saveKeyMilestonesSchema, saveMonthlyDataSchema, userRoleSchema } from './validation';
 import { repo } from './repo';
-import { deletePhotoFile } from '@/lib/uploads';
-import { addPhotoForUser } from './photo-service';
 import { historyMonths } from '@/lib/clock';
 import { runAlertEngineSafe } from './alert-engine';
 import { checkProfileRules } from './project-profile-rules';
@@ -405,37 +403,6 @@ export async function addSapCodeAction(projectId: number, sapCode: string, sourc
   const ok = await repo.addSapCode(projectId, sapCode, sourceDocType, user.email);
   await logActivity(user, 'add_sap', sapCode);
   return { ok };
-}
-
-/** Upload ảnh hiện trường - ghi file vào data/uploads, DB lưu path tương đối. */
-export async function addPhotoAction(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) return { ok: false, error: 'Forbidden' };
-  const r = await addPhotoForUser(user, formData);
-  return r.ok ? { ok: true, id: r.id } : { ok: false, error: r.error };
-}
-
-/** Xóa ảnh - owner / Admin / data-entry được gán vào dự án đó (PIC/Backup) được xóa (cả file lẫn record). */
-export async function deletePhotoAction(photoId: number) {
-  const parsed = deletePhotoSchema.safeParse({ photoId });
-  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
-
-  const photo = await repo.getPhotoById(parsed.data.photoId);
-  if (!photo) return { ok: false, error: 'Not found' };
-
-  const user = await getCurrentUser();
-  if (!user) return { ok: false, error: 'Forbidden' };
-  const isPic =
-    user.role === 'data-entry' && (await repo.getAssignmentsForUser(user.email)).includes(photo.projectId);
-  if (user.role !== 'admin' && photo.uploadedBy !== user.email && !isPic) {
-    return { ok: false, error: 'Forbidden' };
-  }
-
-  await repo.deletePhoto(parsed.data.photoId);
-  await deletePhotoFile(photo.url);
-  await logActivity(user, 'delete_photo', `photo ${parsed.data.photoId}`);
-  revalidateTag(profileTag);
-  return { ok: true };
 }
 
 /** Khóa số liệu tháng (chỉ Admin) - chặn sửa retroactive. */

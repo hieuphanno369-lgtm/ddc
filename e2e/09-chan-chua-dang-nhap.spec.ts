@@ -95,8 +95,6 @@ test.describe('09 - chan truy cap khi chua dang nhap (S-1)', () => {
     expect((await api.get('/api/export', { maxRedirects: 0 })).status()).toBe(401);
     expect((await api.get('/api/report/export', { maxRedirects: 0 })).status()).toBe(403);
     expect((await api.get('/api/templates/daily-resources?project=1', { maxRedirects: 0 })).status()).toBe(403);
-    expect((await api.get('/api/photos/2026-09/x.png', { maxRedirects: 0 })).status()).toBe(401);
-    expect([401, 403]).toContain((await api.post('/api/photo-upload', { maxRedirects: 0 })).status());
     expect([401, 503]).toContain((await api.post('/api/cron/alerts_daily', { maxRedirects: 0 })).status());
     const health = await api.get('/api/health');
     expect(health.status()).toBe(200);

@@ -1,76 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
-  PHOTO_MAX_BYTES,
-  addPhotoSchema,
   createProjectSchema,
-  deletePhotoSchema,
-  photoFileSchema,
   saveKeyMilestonesSchema,
   saveMonthlyDataSchema,
 } from './validation';
 import { STAGE_ORDER } from '@/lib/stages';
-
-describe('photoFileSchema - chặn file không phải ảnh / quá dung lượng (Mục 6)', () => {
-  it('nhận file ảnh trong giới hạn', () => {
-    const r = photoFileSchema.safeParse({ type: 'image/png', size: 1024 });
-    expect(r.success).toBe(true);
-  });
-
-  it('nhận đúng mốc 5MB, chặn vượt 1 byte', () => {
-    expect(photoFileSchema.safeParse({ type: 'image/jpeg', size: PHOTO_MAX_BYTES }).success).toBe(true);
-    const over = photoFileSchema.safeParse({ type: 'image/jpeg', size: PHOTO_MAX_BYTES + 1 });
-    expect(over.success).toBe(false);
-  });
-
-  it('chặn file không phải ảnh (pdf, zip, không có type)', () => {
-    expect(photoFileSchema.safeParse({ type: 'application/pdf', size: 1024 }).success).toBe(false);
-    expect(photoFileSchema.safeParse({ type: 'application/zip', size: 1024 }).success).toBe(false);
-    expect(photoFileSchema.safeParse({ type: '', size: 1024 }).success).toBe(false);
-  });
-
-  it('chặn file rỗng (size 0)', () => {
-    expect(photoFileSchema.safeParse({ type: 'image/png', size: 0 }).success).toBe(false);
-  });
-});
-
-describe('addPhotoSchema (Mục 6)', () => {
-  const ok = { projectId: 1, yearMonth: '2026-09', caption: '' };
-
-  it('nhận payload hợp lệ (caption rỗng vì UI không nhập caption)', () => {
-    expect(addPhotoSchema.safeParse(ok).success).toBe(true);
-  });
-
-  it.each(['2026-9', '09-2026', '2026/09', '', '2026-13-01'])('chặn yearMonth sai định dạng: %s', (ym) => {
-    expect(addPhotoSchema.safeParse({ ...ok, yearMonth: ym }).success).toBe(false);
-  });
-
-  // N-7 (danh-gia.md, vòng 2): '2026-00'/'2026-99' KHỚP regex cũ /^\d{4}-\d{2}$/ (chỉ check
-  // 2 chữ số bất kỳ, không check tháng 01-12 thật) - từng lọt qua đây, ghi 1 dòng vĩnh viễn vào
-  // bảng append-only ở tháng không dropdown nào chọn được. Nay dùng chung isValidYearMonth().
-  it.each(['2026-00', '2026-99', '9999-12'])('N-7: chặn yearMonth ĐÚNG format 2 chữ số nhưng SAI miền giá trị: %s', (ym) => {
-    expect(addPhotoSchema.safeParse({ ...ok, yearMonth: ym }).success).toBe(false);
-  });
-
-  it('chặn caption dài quá 200 ký tự', () => {
-    expect(addPhotoSchema.safeParse({ ...ok, caption: 'a'.repeat(200) }).success).toBe(true);
-    expect(addPhotoSchema.safeParse({ ...ok, caption: 'a'.repeat(201) }).success).toBe(false);
-  });
-
-  it('chặn projectId không hợp lệ', () => {
-    expect(addPhotoSchema.safeParse({ ...ok, projectId: 0 }).success).toBe(false);
-    expect(addPhotoSchema.safeParse({ ...ok, projectId: -1 }).success).toBe(false);
-    expect(addPhotoSchema.safeParse({ ...ok, projectId: 1.5 }).success).toBe(false);
-  });
-});
-
-describe('deletePhotoSchema (Mục 6)', () => {
-  it('nhận id nguyên dương, chặn 0 / số thực / chuỗi', () => {
-    expect(deletePhotoSchema.safeParse({ photoId: 7 }).success).toBe(true);
-    expect(deletePhotoSchema.safeParse({ photoId: 0 }).success).toBe(false);
-    expect(deletePhotoSchema.safeParse({ photoId: 1.5 }).success).toBe(false);
-    expect(deletePhotoSchema.safeParse({ photoId: '7' }).success).toBe(false);
-  });
-});
 
 describe('Mục 5 - 4 trường ngày: chỉ còn gửi từ step "Hồ sơ dự án"', () => {
   const required = {

@@ -179,7 +179,6 @@
     "aliasHistory": "Project Code History",
     "alerts": "Alert / Action",
     "financial": "Financial Details",
-    "photos": "Site Photos",
     "bottleneck": "Bottleneck",
     "noBottleneck": "No bottleneck",
     "planned": "Planned",
@@ -328,7 +327,6 @@
     "tabFinance": "Finance",
     "tabAlert": "Alert/Action",
     "tabCode": "Project Code",
-    "tabPhotos": "Site Photos",
     "projectCode": "Project Code",
     "projectName": "Project Name",
     "customer": "Customer",
@@ -360,7 +358,6 @@
     "stepProgress": "Monthly progress",
     "stepFinance": "Finance",
     "stepProfile": "Project profile",
-    "stepExtras": "Site photos",
     "preview": "Preview",
     "stageSection": "Progress by 7 stages",
     "stageApplicable": "Applicable",
@@ -375,8 +372,6 @@
     "required": "Required",
     "locked": "Month data locked",
     "lockMonth": "Lock month data",
-    "photoUploadError": "Photo upload failed",
-    "confirmDeletePhoto": "Delete this photo?",
     "validation": {
       "pctRange": "Completion % must be within [0, 1.5]",
       "stageRange": "Stage % must be in [0, 1.5]",
@@ -628,14 +623,6 @@
       "notFound": "Project not found.",
       "generic": "Save failed: {msg}",
       "financeReadonly": "Only Admin/BOD can edit financials — fields below are read-only."
-    },
-    "photo": {
-      "dropTitle": "Drag photos here or click to choose",
-      "dropHint": "JPG/PNG/WebP, up to {mb}MB each, multiple allowed",
-      "uploading": "Uploading {i}/{n} · {pct}%",
-      "notImage": "{name}: not an image",
-      "tooBig": "{name}: empty or larger than {mb}MB",
-      "failed": "{name}: {msg}"
     }
   },
   "resourceKpi": {

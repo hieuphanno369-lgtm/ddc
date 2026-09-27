@@ -15,8 +15,6 @@ const GUARDS: Record<string, Guard> = {
   'cron/[job]/route.ts': 'cron-secret',
   'export/route.ts': 'session',
   'report/export/route.ts': 'session',
-  'photo-upload/route.ts': 'session',
-  'photos/[...path]/route.ts': 'session',
   'templates/daily-resources/route.ts': 'session',
 };
 

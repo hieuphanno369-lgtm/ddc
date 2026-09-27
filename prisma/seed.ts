@@ -168,9 +168,6 @@ async function main() {
   });
 
   await prisma.projectPhoto.deleteMany();
-  await prisma.projectPhoto.createMany({
-    data: data.photos.map((p) => ({ ...p, uploadedAt: new Date(p.uploadedAt) })),
-  });
 
   await prisma.sapQueue.deleteMany();
   await prisma.projectHistory.deleteMany();

@@ -12,7 +12,6 @@ import type {
   FactProgressMonthly,
   Factory,
   Project,
-  ProjectPhoto,
   TeamKd,
   ValueChainProgress,
 } from '@/server/repo/types';
@@ -22,7 +21,7 @@ import { computeEvm } from '@/lib/evm';
 import { STAGE_ORDER, calcChainPctActual, findCurrentStage, normPct } from '@/lib/stages';
 import { THRESHOLDS } from '@/lib/thresholds';
 import { fmtNum, formatDateTime, formatPct, formatRatio } from '@/lib/format';
-import { closeAlertAction, deletePhotoAction, lockMonthAction, saveMonthlyData } from '@/server/actions';
+import { closeAlertAction, lockMonthAction, saveMonthlyData } from '@/server/actions';
 import { draftOwnerTag, purgeForeignDrafts } from '@/lib/drafts';
 import {
   buildBaseForm,
@@ -37,13 +36,11 @@ import {
   type DraftCheck,
   type FormState,
 } from './dataEntryState';
-import { PhotoDropzone } from './PhotoDropzone';
 import { Badge, Dot } from '@/components/ui/Badge';
 import { StatusBadge } from '@/components/ui/Badges';
-import { IconProject } from '@/components/icons';
 import { HelpTip } from '@/components/ui/HelpTip';
 
-export type DataEntryStep = 'progress' | 'finance' | 'profile' | 'extras' | 'resources';
+export type DataEntryStep = 'progress' | 'finance' | 'profile' | 'resources';
 type Step = DataEntryStep;
 
 interface Props {
@@ -54,7 +51,6 @@ interface Props {
   financial: FactFinancial | undefined;
   chain: ValueChainProgress[];
   alerts: AlertLog[];
-  photos: ProjectPhoto[];
   month: string;
   months: string[];
   locked: boolean;
@@ -79,7 +75,6 @@ export function DataEntryForm({
   financial,
   chain,
   alerts,
-  photos,
   month,
   months,
   locked,
@@ -218,17 +213,10 @@ export function DataEntryForm({
     }
   }
 
-  async function removePhoto(photoId: number) {
-    if (!window.confirm(t('form.confirmDeletePhoto'))) return;
-    await deletePhotoAction(photoId);
-    router.refresh();
-  }
-
   const steps: { key: Step; label: string }[] = [
     { key: 'progress', label: t('form.stepProgress') },
     { key: 'finance', label: t('form.stepFinance') },
     { key: 'profile', label: t('form.stepProfile') },
-    { key: 'extras', label: t('form.stepExtras') },
     { key: 'resources', label: t('dailyEntry.step') },
   ];
 
@@ -439,41 +427,6 @@ export function DataEntryForm({
           </div>
         )}
 
-        {step === 'extras' && (
-          <div className="mt-5 space-y-3">
-            <PhotoDropzone
-              projectId={projectId}
-              yearMonth={month}
-              disabled={locked}
-              onUploaded={() => router.refresh()}
-            />
-            {photos.length === 0 ? (
-              <p className="empty">{t('common.noData')}</p>
-            ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                {photos.map((ph) => (
-                  <div key={ph.id} className="relative aspect-[4/3] overflow-hidden rounded-md" style={{ background: 'var(--fill)' }}>
-                    {ph.url ? (
-                      <img src={`/api/photos/${ph.url}`} alt={ph.caption || t('detail.photos')} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full flex-col items-center justify-center text-label3">
-                        <IconProject size={24} />
-                        <span className="mt-1 px-2 text-center text-xs">{ph.caption}</span>
-                      </div>
-                    )}
-                    <button
-                      onClick={() => removePhoto(ph.id)}
-                      className="absolute right-1 top-1 rounded-md px-2 py-1 text-caption1 font-semibold"
-                      style={{ background: 'var(--glass-3)', color: 'var(--danger)', boxShadow: 'var(--e1)' }}
-                    >
-                      {t('common.delete')}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
         </div>
       </div>
       )}

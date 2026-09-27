@@ -24,7 +24,6 @@ import type {
   ProjectContractor,
   ProjectKeyMilestone,
   ProjectSapCode,
-  ProjectPhoto,
   ProjectEquipmentPlan,
   ProjectEquipmentQuota,
   ProjectHistoryEntry,
@@ -290,18 +289,6 @@ function buildSapCodes(projects: Project[]): ProjectSapCode[] {
   return out;
 }
 
-function buildPhotos(projects: Project[]): ProjectPhoto[] {
-  return projects.slice(0, 4).map((p, i) => ({
-    id: i + 1,
-    projectId: p.id,
-    yearMonth: SEED_CURRENT_MONTH,
-    url: '',
-    caption: 'Ảnh hiện trường tháng 09/2026',
-    uploadedBy: 'PM dự án',
-    uploadedAt: '2026-09-10T00:00:00Z',
-  }));
-}
-
 /**
  * Phân quyền PIC từng dự án. Email PHẢI khớp userRoles bên dưới, nếu không
  * data-entry/viewer sẽ không đọc được dự án nào sau khi requireProjectRead có hiệu lực.
@@ -508,7 +495,6 @@ export interface RepoData {
   alerts: AlertLog[];
   aliases: ProjectAlias[];
   sapCodes: ProjectSapCode[];
-  photos: ProjectPhoto[];
   assignments: ProjectAssignment[];
   projectHistory: ProjectHistoryEntry[];
   auditLog: AuditLogEntry[];
@@ -652,7 +638,6 @@ export function buildRepoData(): RepoData {
     alerts: buildAlerts(projects, facts),
     aliases: buildAliases(projects),
     sapCodes: buildSapCodes(projects),
-    photos: buildPhotos(projects),
     assignments: buildAssignments(projects),
     projectHistory: [],
     auditLog: [],

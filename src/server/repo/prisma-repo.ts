@@ -36,7 +36,6 @@ import type {
   ProjectHistoryEntry,
   ProjectKeyMilestone,
   KeyMilestoneInput,
-  ProjectPhoto,
   ProjectSapCode,
   ProjectStageWeight,
   ProjectType,
@@ -395,64 +394,6 @@ const coreRepo = {
       linkedBy: s.linkedBy,
       note: s.note,
     }));
-  },
-
-  async getPhotos(projectId: number, yearMonth?: string): Promise<ProjectPhoto[]> {
-    const rows = await prisma.projectPhoto.findMany({
-      where: { projectId, ...(yearMonth ? { yearMonth } : {}) },
-      orderBy: { uploadedAt: 'desc' },
-    });
-    return rows.map((p) => ({
-      id: p.id,
-      projectId: p.projectId,
-      yearMonth: p.yearMonth,
-      url: p.url,
-      caption: p.caption,
-      uploadedBy: p.uploadedBy,
-      uploadedAt: p.uploadedAt.toISOString(),
-    }));
-  },
-
-  async getPhotoById(photoId: number): Promise<ProjectPhoto | null> {
-    const p = await prisma.projectPhoto.findUnique({ where: { id: photoId } });
-    if (!p) return null;
-    return {
-      id: p.id,
-      projectId: p.projectId,
-      yearMonth: p.yearMonth,
-      url: p.url,
-      caption: p.caption,
-      uploadedBy: p.uploadedBy,
-      uploadedAt: p.uploadedAt.toISOString(),
-    };
-  },
-
-  async addPhoto(
-    projectId: number,
-    yearMonth: string,
-    url: string,
-    caption: string,
-    uploadedBy: string,
-  ): Promise<ProjectPhoto> {
-    const p = await prisma.projectPhoto.create({ data: { projectId, yearMonth, url, caption, uploadedBy } });
-    return {
-      id: p.id,
-      projectId: p.projectId,
-      yearMonth: p.yearMonth,
-      url: p.url,
-      caption: p.caption,
-      uploadedBy: p.uploadedBy,
-      uploadedAt: p.uploadedAt.toISOString(),
-    };
-  },
-
-  async deletePhoto(photoId: number): Promise<boolean> {
-    try {
-      await prisma.projectPhoto.delete({ where: { id: photoId } });
-      return true;
-    } catch {
-      return false;
-    }
   },
 
   async getDims(): Promise<{

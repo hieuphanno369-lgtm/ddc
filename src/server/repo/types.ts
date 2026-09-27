@@ -420,16 +420,6 @@ export interface AlertLog {
   notifyAttempts: number;
 }
 
-export interface ProjectPhoto {
-  id: number;
-  projectId: number;
-  yearMonth: string;
-  url: string;
-  caption: string;
-  uploadedBy: string;
-  uploadedAt: string;
-}
-
 export type Role = 'admin' | 'bod' | 'data-entry' | 'viewer';
 
 /** Tài khoản người dùng (email + password hash + quyền). */

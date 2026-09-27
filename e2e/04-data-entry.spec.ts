@@ -7,7 +7,6 @@ const STEP_LABELS = [
   vi('form.stepProgress'),
   vi('form.stepFinance'),
   vi('form.stepProfile'),
-  vi('form.stepExtras'),
   vi('dailyEntry.step'),
 ];
 

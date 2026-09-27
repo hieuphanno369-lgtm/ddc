@@ -238,26 +238,6 @@ export const importFileSchema = z.object({
   size: z.number().int().positive().max(IMPORT_MAX_BYTES, 'File vượt quá 10MB'),
 });
 
-// ---- Ảnh hiện trường ----
-
-/** Giới hạn dung lượng 1 ảnh upload (5MB) - chặn ở action trước khi ghi filesystem. */
-export const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
-
-export const photoFileSchema = z.object({
-  type: z.string().regex(/^image\//, 'Chỉ chấp nhận file ảnh'),
-  size: z.number().int().positive().max(PHOTO_MAX_BYTES, 'Ảnh vượt quá 5MB'),
-});
-
-export const addPhotoSchema = z.object({
-  projectId: z.number().int().positive(),
-  yearMonth,
-  caption: z.string().trim().max(200),
-});
-
-export const deletePhotoSchema = z.object({
-  photoId: z.number().int().positive(),
-});
-
 // ---- Dim chuẩn hóa (customer / team) ----
 export const suggestDimSchema = z.object({
   field: z.enum(['customer', 'team']),
