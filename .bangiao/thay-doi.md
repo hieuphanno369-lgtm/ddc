@@ -82,3 +82,38 @@ Tóm tắt: xoá `src/lib/vcb-rates.ts(.test)`, `src/server/fx-rates.ts(.test)`,
 - Google chỉ vào khi `email_verified === true` VÀ có trong `user_roles` VÀ `isActive` - test `auth-google.test.ts` đã phủ nhưng đáng chạy tay 1 lần với tài khoản Google thật khi có OAuth Client (chưa test được trong CI vì không có Google thật).
 - Tài khoản chỉ Google đăng nhập bằng Credentials phải luôn thấy "sai email hoặc mật khẩu" (không phân biệt được tài khoản nào chỉ dùng Google) - đã kiểm ở e2e 20 lẫn `authorize()` (K7, không đổi trong Task 3, giữ hành vi cũ).
 - `createAccountAction` giờ import `Prisma` từ `@prisma/client` trực tiếp trong `actions.ts` (trước đây tầng action không đụng Prisma trực tiếp, chỉ qua `repo`) - xem có muốn dọn lại theo mẫu `ProjectCodeTakenError` (lỗi tuỳ biến ném từ repo) ở đợt sau không, hiện tại chọn cách này vì Task 3 không được sửa `prisma-repo.ts`/`mock-repo.ts` (file nóng khác giữ, không nằm trong danh sách File của Task 3).
+
+---
+
+## Task 4: Hạ tầng D2/D3 không cần DB mới (`3414fff`)
+
+Toàn bộ module ở Task này CHƯA được nối vào luồng đăng nhập/trang thật (đó là Task 6/7, sau khi Task 5 xong). Task 4 chỉ dựng hạ tầng, tự kiểm bằng test đơn vị với kho bộ nhớ.
+
+**File mới:**
+- `src/lib/login-policy.ts`: hằng số K5 (ngưỡng khoá 5 lần, giới hạn IP 20/15 phút, cửa sổ email lạ 24h, giới hạn xin link 3/giờ/email + 10/giờ/IP, TTL token 30 phút, retention 24h) + `normalizeEmail()`.
+- `src/lib/reset-token.ts` + test: `generateResetToken()` (32 byte `crypto.randomBytes` -> base64url 43 ký tự, SHA-256 hex 64 ký tự), `hashResetToken()`, `isWellFormedResetToken()`.
+- `src/lib/client-ip.ts` + test: `clientIpFrom(headers)` - phần tử đầu `x-forwarded-for`, rồi `x-real-ip`, cắt 64 ký tự.
+- `src/server/repo/mock-repo-auth.ts` + test: `createMemoryAuthStore(source)` - triển khai đủ interface `AuthStore` (đếm sai, khoá/mở khoá, token đặt lại) cho chế độ mock; `failedLoginCount`/`lockedAt`/`passwordChangedAt` lưu tách khỏi `UserAccount` (chưa có cột DB tới Task 5) trong Map khép kín theo từng instance (không dùng `globalThis`, mỗi `createMemoryAuthStore()` độc lập).
+- `src/server/login-guard.ts` + test: `checkCredentials(store, input, now?)` - đúng thứ tự luật ở K5-K7 (giới hạn IP trước, tài khoản null vẫn chạy bcrypt giả (K6), tài khoản khoá trả `locked` không tiết lộ mật khẩu đúng/sai, tài khoản chỉ Google/bị tắt luôn `invalid`).
+- `src/server/password-reset.ts` + test: `requestPasswordReset`, `resetPasswordWithToken`, `isResetTokenUsable` - mọi nhánh (có tài khoản/email lạ/chỉ Google/bị tắt/bị giới hạn) đều trả `{ status: 'accepted' }` giống hệt nhau (S3); token dùng 1 lần, hết hạn 30 phút; đặt lại xong tài khoản đang khoá vẫn giữ khoá (K10).
+- `src/server/auth-mail.ts` + test: `getAuthSmtpConfig()` (kênh email id nhỏ nhất có cấu hình hợp lệ, kể cả đang tắt cảnh báo - Q6=a), `queueAuthEmail()` (gửi nền, không throw, không log địa chỉ/nội dung), `resetMailer` (implement `ResetMailer`, `compose()` dùng `getTranslations({ locale, namespace: 'authSecurity' })` key `mailSubject`/`mailBody` - 2 key này CHƯA có trong `vi.json`/`en.json`, Task 7 mới thêm; `compose()` chưa được gọi thật ở đâu trong Task 4-6 nên chưa lộ lỗi thiếu key).
+
+**File đã sửa:**
+- `src/server/repo/types.ts`: thêm `ThrottleKind`, `AuthAccountState`, `AuthStore` (cuối file, không đụng phần khác).
+- `src/server/notify/dispatch.ts`: tách hàm `smtpConfigFromChannel()` khỏi `sendToChannel()` (logic y hệt, chỉ đổi chỗ - không đổi hành vi); `sendToChannel` gọi lại hàm này. `dispatch.test.ts` thêm 4 test cho hàm mới, test cũ giữ nguyên.
+
+**Lệch/giới hạn đã biết:**
+- `mock-repo-auth.ts` không strict TDD (viết cùng lúc/trước test thay vì test đỏ trước) vì đây là module hoàn toàn mới, không có hành vi cũ cần bảo toàn - rủi ro thấp hơn sửa code có sẵn. Test vẫn phủ đủ 12 case theo kế hoạch, đã xanh.
+- `getAuthSmtpConfig`/`resetMailer` chưa được gọi ở bất kỳ action/trang thật nào (chờ Task 7 nối `requestPasswordResetAction`) - test hiện tại chỉ kiểm đơn vị với mock repo/mailer giả, CHƯA kiểm tích hợp với DB thật hay next-intl thật.
+
+**Cổng kiểm:**
+- `npx tsc --noEmit`: sạch.
+- `npm test`: 213 file / 2367 test xanh (mốc trước Task 3 = 207/2310).
+- `npm run build` (font mock): qua.
+- Không chạy e2e (kế hoạch không yêu cầu cho Task 4 - hạ tầng chưa nối vào trang/API thật nào).
+
+**Chỗ Tester/Reviewer/Security-reviewer nên soi kỹ:**
+- `checkCredentials` là nơi tập trung nhiều luật bảo mật nhất Task này (K5-K7, S3, S5, S6) - soi kỹ thứ tự kiểm tra (giới hạn IP trước, ghi throttle IP ở MỌI nhánh thất bại kể cả tài khoản đã khoá) khớp đúng bảng "Luật checkCredentials" trong `ke-hoach.md`.
+- `requestPasswordReset` ghi throttle (`recordThrottle`) TRƯỚC KHI biết tài khoản có tồn tại hay không (để lần xin thứ N+1 vẫn bị đếm ngay cả với email lạ) - nhưng SAU bước kiểm tra giới hạn hiện tại (không tự đếm chồng lên chính nó ở lần bị chặn) - xem lại đúng ý "S4 - giới hạn xin link theo email và IP" chưa bị đếm 2 lần hay thiếu 1 lần ở biên.
+- `mock-repo-auth.ts` dùng ISO string so sánh trực tiếp cho hạn token/cửa sổ throttle (không parse `Date`) - đúng vì mọi giá trị đều cùng định dạng cố định (`toISOString()`), nhưng nếu sau này có chỗ nào truyền ISO khác định dạng (thiếu mili giây, timezone khác) sẽ so sai - chưa có kiểm tra dạng cho các tham số `nowIso`/`sinceIso`.
+- `queueAuthEmail`/`getAuthSmtpConfig` trùng tên/hành vi khá giống `queueAlertNotifications`/`dispatchAlertNotifications` (2 hàng đợi nền riêng biệt, không dùng chung) - có chủ đích (email quên mật khẩu không nên chờ hàng đợi cảnh báo), ghi rõ ở đây để Reviewer không nhầm là trùng lặp code thừa.
