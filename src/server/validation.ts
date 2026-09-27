@@ -332,6 +332,17 @@ export const factorySchema = z.object({
   capacityTonPerYear: z.number().positive().max(10_000_000),
 });
 
+/** P7-C2 Task 8: thêm/sửa giai đoạn chuỗi giá trị. Không có `code` = tạo mới (mã do server sinh). */
+export const stageSchema = z.object({
+  code: stageCodeSchema.optional(),
+  nameVi: z.string().trim().min(1).max(60),
+  nameEn: z.string().trim().min(1).max(60),
+  side: z.enum(['left', 'right']),
+  sortOrder: z.number().int().min(1).max(999),
+  calcMode: z.enum(['manual', 'volume']),
+});
+export type StageInputAdmin = z.infer<typeof stageSchema>;
+
 /** T6 (Task 7, P2A): tỷ giá tháng - chỉ USD/EUR, tháng không được ở tương lai. */
 export const saveExchangeRateSchema = z.object({
   currencyCode: z.enum(FX_CURRENCIES),

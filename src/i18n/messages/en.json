@@ -591,7 +591,10 @@
     "set_can_view_finance": "Change finance view permission",
     "notify_channel_save": "Save notification channel",
     "notify_test": "Send notification channel test",
-    "save_manpower_plan": "Save monthly manpower plan"
+    "save_manpower_plan": "Save monthly manpower plan",
+    "save_stage": "Save value chain stage",
+    "activate_stage": "Reactivate stage",
+    "deactivate_stage": "Deactivate stage"
   },
   "dataGuard": {
     "import": {
@@ -1187,5 +1190,33 @@
     "actualAvg": "Actual avg/day",
     "actualDays": "Days with data",
     "noData": "No monthly manpower plan yet"
+  },
+  "stageAdmin": {
+    "title": "Value chain stages",
+    "order": "Order",
+    "nameVi": "Name (VI)",
+    "nameEn": "Name (EN)",
+    "side": "Side",
+    "left": "Left",
+    "right": "Right",
+    "calcMode": "Calc mode",
+    "manual": "Manual",
+    "volume": "By volume",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "save": "Save",
+    "add": "Add",
+    "deactivate": "Deactivate",
+    "activate": "Reactivate",
+    "hint": "Side: the column shown on the Project value chain card. Order: position within the column and the chain (smaller first). By volume is only used by the Comparison chart card; % complete is still entered manually in Data entry. A new stage is added with 0% to every project's weights. A stage can only be deactivated when no project gives it a weight above 0%.",
+    "err": {
+      "invalid": "Names are required and order must be a whole number 1-999",
+      "duplicate_name": "A stage with this name already exists",
+      "too_many": "At most 30 stages",
+      "in_use": "{n} projects still give this stage a weight above 0% - set it to 0% first",
+      "last_active": "At least 1 stage must stay active",
+      "generic": "Save failed"
+    }
   }
 }

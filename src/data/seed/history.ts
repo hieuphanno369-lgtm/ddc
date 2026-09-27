@@ -668,10 +668,11 @@ export function buildRepoData(): RepoData {
     activityLog: [],
     customers,
     teams,
-    factories,
+    // Sao chép để repo.reset() khôi phục được sau khi admin sửa (mảng seed dùng chung giữa các lần dựng).
+    factories: factories.map((f) => ({ ...f })),
     currencies,
     exchangeRates,
-    stages,
+    stages: stages.map((s) => ({ ...s })),
     stageWeights: buildStageWeights(projects),
     workItems: wi.workItems,
     workItemFacts: wi.facts,

@@ -197,6 +197,9 @@ export interface Stage {
   isActive?: boolean;
 }
 
+/** Kết quả bật/tắt giai đoạn (P7-C2 Task 8): `in_use` kèm số dự án còn đặt trọng số > 0%. */
+export type SetStageActiveResult = 'ok' | 'not_found' | 'last_active' | { status: 'in_use'; count: number };
+
 export interface ProjectStageWeight {
   projectId: number;
   stageCode: StageCode;

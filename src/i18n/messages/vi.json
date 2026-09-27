@@ -591,7 +591,10 @@
     "set_can_view_finance": "Đổi quyền xem tài chính",
     "notify_channel_save": "Lưu kênh thông báo",
     "notify_test": "Gửi thử kênh thông báo",
-    "save_manpower_plan": "Lưu kế hoạch nhân lực tháng"
+    "save_manpower_plan": "Lưu kế hoạch nhân lực tháng",
+    "save_stage": "Lưu giai đoạn chuỗi giá trị",
+    "activate_stage": "Dùng lại giai đoạn",
+    "deactivate_stage": "Ngừng dùng giai đoạn"
   },
   "dataGuard": {
     "import": {
@@ -1187,5 +1190,33 @@
     "actualAvg": "TT TB/ngày",
     "actualDays": "Số ngày có số liệu",
     "noData": "Chưa có kế hoạch nhân lực theo tháng"
+  },
+  "stageAdmin": {
+    "title": "Giai đoạn chuỗi giá trị",
+    "order": "Thứ tự",
+    "nameVi": "Tên (VI)",
+    "nameEn": "Tên (EN)",
+    "side": "Bên",
+    "left": "Trái",
+    "right": "Phải",
+    "calcMode": "Cách tính",
+    "manual": "Nhập tay",
+    "volume": "Theo sản lượng",
+    "status": "Trạng thái",
+    "active": "Đang dùng",
+    "inactive": "Ngừng dùng",
+    "save": "Lưu",
+    "add": "Thêm",
+    "deactivate": "Ngừng dùng",
+    "activate": "Dùng lại",
+    "hint": "Bên: cột hiển thị ở thẻ Chuỗi giá trị quản lý dự án. Thứ tự: xếp trong cột và trong chuỗi (số nhỏ đứng trước). Cách tính Theo sản lượng chỉ dùng cho thẻ Biểu đồ so sánh; %HT vẫn nhập tay ở Nhập liệu. Giai đoạn mới được thêm 0% vào trọng số mọi dự án. Chỉ ngừng dùng được khi không dự án nào đặt trọng số lớn hơn 0%.",
+    "err": {
+      "invalid": "Tên không được trống, thứ tự là số nguyên 1-999",
+      "duplicate_name": "Đã có giai đoạn trùng tên",
+      "too_many": "Tối đa 30 giai đoạn",
+      "in_use": "Còn {n} dự án đang đặt trọng số lớn hơn 0% cho giai đoạn này - sửa về 0% trước",
+      "last_active": "Phải còn ít nhất 1 giai đoạn đang dùng",
+      "generic": "Lưu thất bại"
+    }
   }
 }

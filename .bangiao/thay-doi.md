@@ -11,3 +11,22 @@
 - Test mới: `src/lib/stages-nguon-dong.test.ts` (2 test tĩnh), chạy ĐỎ trước khi gỡ xong (7 file còn nhắc hằng cũ), sau đó XANH.
 - Test dùng 7 mã cũ chuyển sang hằng cục bộ `LEGACY7_STAGE_CODES = SEED_STAGE_CODES.slice(0, 7)`.
 - Kết quả: `npx tsc --noEmit` sạch; `npm test` 211 file / 2451 test XANH (trước Task 7: 210 / 2454).
+
+## Task 8: Màn quản trị giai đoạn (CHƯA gắn vào trang /admin)
+
+- Chủ dự án chọn (2026-09-27): A đang giữ mọi page `app/**` để nâng Next, nên Task 8 làm mọi phần không đụng page. Còn lại: chèn Card `StageEditor` vào `app/[locale]/(app)/admin/page.tsx` ngay sau Card `factoryAdmin` + e2e kịch bản 2-3, làm sau khi A merge Nâng Next vào `main`.
+- `validation.ts`: `stageSchema` + kiểu `StageInputAdmin`.
+- Repo (mock + Prisma): `saveStage`, `setStageActive`. Tạo mới trong 1 transaction: `dim_stage` mã `custom_<n>`, trọng số 0% áp dụng, audit `create`.
+- `actions-master.ts`: `saveStageAction`, `setStageActiveAction` (chỉ admin, `Forbidden` trước khi parse), ghi activity `save_stage`/`activate_stage`/`deactivate_stage`, làm mới `profileTag` + `overviewTag`/`listTag` mọi tháng lịch sử.
+- `src/components/admin/StageEditor.tsx` (khuôn `FactoryEditor`, không thêm CSS, chú thích dùng class `hintline` có sẵn).
+- i18n: nhóm `stageAdmin` cuối file, 3 key `activity.*` cuối nhóm `activity` (vi + en). `messages.test.ts` thêm `StageEditor`.
+
+Lệch so với kế hoạch (kỹ thuật):
+- `setStageActive` trả `{ status: 'in_use', count }` thay cho chuỗi `'in_use'`, để action lấy được số dự án kèm thông báo (kế hoạch yêu cầu hiện số dự án nhưng chữ ký repo chưa mang số).
+- Chèn trọng số 0% chỉ cho dự án ĐÃ có dòng trọng số (kế hoạch ghi "mọi dự án"). Lý do: dự án chưa có dòng nào đang dùng bộ mặc định qua `getStageWeights`; chèn 1 dòng lẻ sẽ làm mất bộ mặc định và %TT về 0. Trên DB `_c` cả 17/17 dự án đều có dòng nên kết quả như kế hoạch.
+- Sửa gốc lỗi test rò trạng thái: `buildRepoData` (`src/data/seed/history.ts`) dùng chung mảng `stages`/`factories` của module seed, nên `repo.reset()` không khôi phục được sau khi admin sửa. Nay sao chép từng phần tử khi dựng dữ liệu.
+
+Kiểm:
+- Test ĐỎ trước khi code: 19 test (action 9, repo mock 5, repo Prisma 5) + `StageEditor.test.ts` không nạp được.
+- Sau khi code: `npx tsc --noEmit` sạch; `npm test` 212 file / 2475 test XANH.
+- Chạy thật repo Prisma trên DB `_c` (script tạm, đã dọn): tạo `custom_1` chèn 17/17 dòng trọng số 0%; trùng tên " kiểm THỬ c " bị chặn; sửa tên/bên/thứ tự/cách tính OK; ngừng dùng `fabrication` trả `in_use` 17 dự án; ngừng dùng rồi dùng lại `custom_1` OK. Sau đó xoá giai đoạn thử, trọng số và audit thử, còn 8 giai đoạn.

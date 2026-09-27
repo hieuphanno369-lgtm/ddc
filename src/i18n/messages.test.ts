@@ -68,6 +68,7 @@ const CHANGED_SOURCES: Record<string, string> = {
   'TopPriorityList': 'src/components/dashboard/TopPriorityList.tsx',
   'layout [locale] (metadata)': 'app/[locale]/layout.tsx',
   'trang /login': 'app/[locale]/login/page.tsx',
+  'StageEditor': 'src/components/admin/StageEditor.tsx',
 };
 
 describe('i18n: vi/en phủ key như nhau', () => {
