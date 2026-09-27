@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 import { exportProjects, type DashboardFilters, type GroupBy } from '@/server/queries';
 import { rateLimit } from '@/lib/rate-limit';
+import { clientIpFrom } from '@/lib/client-ip';
 import { getCurrentUser } from '@/lib/session';
 import { safeCell } from '@/lib/excel-safe';
 import type { Market, Priority, ProjectType, Status } from '@/server/repo/types';
@@ -15,7 +16,8 @@ export async function GET(req: NextRequest) {
   if (!['admin', 'bod'].includes(user.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   const canViewFinance = user.canViewFinance;
 
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0] ?? 'local';
+  // L2 - dùng chung `clientIpFrom` (TRUSTED_PROXY_HOPS, không còn tin phần tử đầu XFF).
+  const ip = clientIpFrom(req.headers);
   const rl = rateLimit(`export:${ip}`, 30, 60_000);
   if (!rl.ok) {
     return NextResponse.json(

@@ -84,3 +84,25 @@ describe('GET /api/export - phan quyen + chong chen cong thuc', () => {
     expect(res.status).toBe(200);
   });
 });
+
+/**
+ * L2 (bao-mat.md) - trước đây IP dùng để giới hạn lấy PHẦN TỬ ĐẦU của `x-forwarded-for` (client tự
+ * gửi được), nên chỉ cần đổi phần tử đầu mỗi lần gọi là né được giới hạn vô hạn. Nay khoá theo
+ * `TRUSTED_PROXY_HOPS` tính từ phải (mặc định 1 = phần tử CUỐI, do proxy tin cậy ghi).
+ */
+describe('GET /api/export - IP dung de gioi han khong con ne duoc bang cach doi phan tu dau XFF (L2)', () => {
+  it('doi phan tu dau moi lan goi, giu nguyen phan tu cuoi -> van bi chan sau du gioi han', async () => {
+    login(ADMIN);
+    vi.mocked(exportProjects).mockResolvedValue([ROW] as never);
+    const REAL_IP = '203.0.113.78';
+    const reqWith = (fakeFirst: string) =>
+      new NextRequest('http://localhost/api/export', { headers: { 'x-forwarded-for': `${fakeFirst}, ${REAL_IP}` } });
+
+    for (let i = 0; i < 30; i++) {
+      const res = await GET(reqWith(`10.1.0.${i}`));
+      expect(res.status).toBe(200);
+    }
+    const over = await GET(reqWith('10.1.0.999'));
+    expect(over.status).toBe(429);
+  });
+});
