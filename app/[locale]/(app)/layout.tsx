@@ -9,11 +9,12 @@ import { TopProgressBar } from '@/components/layout/TopProgressBar';
 
 export default async function AppLayout({
   children,
-  params: { locale },
+  params,
 }: {
   children: React.ReactNode;
-  params: { locale: string };
+  params: Promise<{ locale: string }>;
 }) {
+  const { locale } = await params;
   const user = await requireUser(locale);
 
   void runDueJobs('lazy'); // K4: chay job "luoi" khi co nguoi mo app - KHONG await.

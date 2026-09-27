@@ -45,7 +45,63 @@ Nhánh `feature/nang-next15`, từ `main` @ `54ac9bf` (**BASE**, dùng để rol
 
 ## Task 2: nâng Next 15 + React 19 + next-auth + recharts, chuyển request API sang async
 
-(cập nhật khi hoàn thành)
+- **Bước 1 (codemod):** `npx @next/codemod@latest next-async-request-api .` chạy được (phải thêm `--force` vì
+  `.bangiao/ke-hoach.md` chưa track), chỉ đụng đúng 13 file dự kiến (12 file `app/**`/`app/api/**` + `src/lib/activity.ts`).
+  Codemod tự sinh format không khớp phong cách repo (destructure nhiều dòng, thụt lề lệch ở `projects/page.tsx`) nên đã
+  `git checkout --` bỏ kết quả codemod và **tự sửa tay lại đúng mẫu ở Bước 3 của kế hoạch** cho cả 13 file (không còn
+  dấu vết `@next-codemod`/`UnsafeUnwrapped`).
+- **`app/[locale]/(app)/projects/[id]/page.tsx`:** theo mẫu kế hoạch ban đầu dùng
+  `const [{ id: rawId }, sp] = await Promise.all([params, searchParams]);` nhưng test tĩnh
+  `src/server/app-pages-require-user.test.ts` (`awaitedCallees`) coi `Promise.all(...)` là MỘT lời gọi hàm đứng trước
+  `requireUser` nên bị đỏ (test này không nằm trong danh sách file dự kiến đụng của kế hoạch, không phải file khoá của
+  C). Đổi sang 2 lệnh `await params;` / `await searchParams;` riêng (không có dấu ngoặc ngay sau tên biến nên không bị
+  tính là lời gọi), giữ đúng thứ tự `getLocale` → `requireUser`; đã ghi lý do bằng comment ngay tại chỗ.
+- **Bước 2 (cài gói):** `next@15.5.26`, `react@19.3.0`, `react-dom@19.3.0`, `next-auth@4.24.15`, `recharts@2.15.4`,
+  `react-is@19.3.0`, `@types/react@19.3.0`, `@types/react-dom@19.3.0` (đều `--save-exact`).
+  `npm ls react-is`: lần cài đầu `recharts` vẫn kéo `react-is@18.3.1` riêng (peer cảnh báo, không tự override khi chỉ
+  cài gói mới) → thêm `"recharts": { "react-is": "$react-is" }` vào `overrides` của `package.json`, chạy lại
+  `npm install` (không tham số) để npm reconcile lại `node_modules` → `react-is` dưới `recharts` đã dedupe về 19.3.0.
+  Còn 1 bản `react-is@16.13.1` lồng dưới `prop-types` (dependency của `react-smooth`) - không đụng tới vì đây chỉ
+  dùng cho `PropTypes.isValidElementType` khi dev-check, không liên quan `$$typeof`/Tooltip/Legend của Recharts.
+  `npm ls react react-dom`: chỉ 1 bản `19.3.0` duy nhất, không còn bản 18.x nào.
+- **Sửa ngoài danh sách dự kiến - `src/components/ui/motion.ts`:** React 19 đổi kiểu để `useRef<T>(null)` trả về
+  `RefObject<T | null>` thay vì `RefObject<T>`; 3 hook `useRise`, `usePressable`, `useHoverLift` khai tham số
+  `ref: RefObject<HTMLElement>` (không nhận `null`) nên `tsc` đỏ ở 3 nơi gọi (`Rise.tsx`, `Card.tsx`, `LoginForm.tsx`).
+  Cả 3 hook đã tự kiểm `if (!ref.current) return` ngay dòng đầu `useEffect`, nên chỉ nới kiểu tham số thành
+  `RefObject<HTMLElement | null>`, không đổi logic. Đây là hệ quả bắt buộc của việc nâng React 19 (không phải lựa
+  chọn), ghi rõ ở đây theo yêu cầu "sửa file ngoài danh sách phải ghi lý do".
+- **Bước 3 (rà tay params/searchParams):** áp đúng mẫu kế hoạch cho 9 page/layout, 2 route handler, `activity.ts`
+  (`await headers()`). Trang `overview`/`nhap-lieu`/`ho-so-du-an` đổi tên biến cục bộ `searchParams` (đối tượng đã
+  `await`) thành `sp` như mẫu; `audit/page.tsx` dùng `const sp = (await searchParams) ?? {};` để giữ hành vi
+  `AuditPage({})` không có `searchParams` vẫn chạy được (test `AuditPage({})` giữ nguyên, không sửa).
+- **Bước 4 (sửa 12 file test gọi page/route):** bọc `Promise.resolve(...)` quanh `params`/`searchParams` truyền vào,
+  không đổi kỳ vọng của test nào.
+- **Bước 5 (comment `React.cache`, khoá `src/server/queries.ts`):** đã xác nhận B/C không giữ file này trước khi sửa
+  (xem `phien-B.md`/`phien-C.md` lúc 08:xx); chỉ sửa comment giải thích `requestMemo` (từ React 19, `cache` có export
+  thật ở mọi bản React nhưng ngoài Server Component chỉ gọi thẳng hàm gốc, không memo), không đổi code. Đồng bộ comment
+  ở `queries-request-memo.test.ts`. Đã nhả khoá ngay sau khi commit Task 2.
+- **Bước 6 (next-auth với Next 15):** `grep -n "await" node_modules/next-auth/next/index.js` quanh chỗ gọi
+  `context.params`, `cookies()`, `headers()`: **next-auth@4.24.15 đã `await` đầy đủ cả 3** (`await context.params`,
+  `await cookies()`, `await headers()`). Không có gì phải ghi vào mục "Để sau" cho advisory này.
+- **Bước 7 (cổng):** `npx tsc --noEmit` sạch; `npm test` **210 file / 2409 test xanh** (bằng mốc Task 0+1, không tụt).
+  `npm run build` (font mock + DB tạm `ddc_control_tower_e2e_a`) qua, không cảnh báo `ssr: false`/"should be
+  awaited"/"sync dynamic APIs". Không có test nào lỗi do khác biệt chuỗi HTML React 19 (`renderToStaticMarkup`).
+  Lưu ý môi trường: lần build đầu chạy `run_in_background` bị hệ điều hành/harness dừng vì hệ thống thiếu RAM (máy có
+  23 tiến trình `node.exe` khác đang chạy, gồm dev server 3003 của C ~2.2GB) - build lại thành công khi chạy trực
+  tiếp (foreground, không qua nền).
+
+**Bảng phiên bản đã cài (khớp Task 0 Bước 4):**
+
+| Gói | Bản cũ | Bản mới |
+|---|---|---|
+| next | 14.2.35 | 15.5.26 |
+| react | 18.3.1 | 19.3.0 |
+| react-dom | 18.3.1 | 19.3.0 |
+| @types/react | 18.3.5 | 19.3.0 |
+| @types/react-dom | 18.3.0 | 19.3.0 |
+| next-auth | 4.24.7 | 4.24.15 |
+| recharts | 2.12.7 | 2.15.4 |
+| react-is | (ẩn, 18.x) | 19.3.0 (ghim + override cho recharts) |
 
 ## Task 3: nâng next-intl 4.x
 

@@ -45,7 +45,7 @@ import ProjectDetailPage from '../../app/[locale]/(app)/projects/[id]/page';
 async function render(user: CurrentUser | null) {
   (getCurrentUser as Mock).mockResolvedValue(user);
   return renderToStaticMarkup(
-    (await ProjectDetailPage({ params: { id: '1', locale: 'vi' }, searchParams: {} })) as React.ReactElement,
+    (await ProjectDetailPage({ params: Promise.resolve({ id: '1', locale: 'vi' }), searchParams: Promise.resolve({}) })) as React.ReactElement,
   );
 }
 

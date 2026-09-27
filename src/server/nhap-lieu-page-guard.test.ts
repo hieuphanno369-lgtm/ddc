@@ -75,7 +75,7 @@ function login(u: CurrentUser | null) {
 async function visit(): Promise<string | null> {
   redirectCalls.length = 0;
   try {
-    const el = await NhapLieuPage({ searchParams: {} });
+    const el = await NhapLieuPage({ searchParams: Promise.resolve({}) });
     renderToStaticMarkup(el as React.ReactElement);
     return null;
   } catch (e) {
@@ -146,7 +146,7 @@ describe('guard /nhap-lieu (F2a)', () => {
 describe('nạp dữ liệu buoc resources (Task 3)', () => {
   async function visitWithQuery(searchParams: Record<string, string>) {
     redirectCalls.length = 0;
-    const el = await NhapLieuPage({ searchParams });
+    const el = await NhapLieuPage({ searchParams: Promise.resolve(searchParams) });
     renderToStaticMarkup(el as React.ReactElement);
   }
 

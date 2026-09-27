@@ -14,8 +14,9 @@ const STEPS: DataEntryStep[] = ['progress', 'finance', 'profile', 'extras', 'res
 export default async function NhapLieuPage({
   searchParams,
 }: {
-  searchParams: Record<string, string | string[] | undefined>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const sp = await searchParams;
   // F2a (danh-gia.md, vong sua 1): trang tu kiem quyen server-side, khong pho mac middleware
   // (CVE-2025-29927 co the bi bypass qua header x-middleware-subrequest).
   const locale = await getLocale();
@@ -30,14 +31,14 @@ export default async function NhapLieuPage({
   }
   const projects = all.map((p) => ({ id: p.id, name: p.projectName, code: p.currentAliasCode }));
 
-  const selectedRaw = typeof searchParams.project === 'string' ? Number(searchParams.project) : NaN;
+  const selectedRaw = typeof sp.project === 'string' ? Number(sp.project) : NaN;
   const selectedId =
     Number.isFinite(selectedRaw) && all.some((p) => p.id === selectedRaw) ? selectedRaw : all[0]?.id;
 
   const months = historyMonths();
   const month =
-    typeof searchParams.month === 'string' && months.includes(searchParams.month)
-      ? searchParams.month
+    typeof sp.month === 'string' && months.includes(sp.month)
+      ? sp.month
       : currentMonth();
 
   const dims = await repo.getDims();
@@ -52,12 +53,12 @@ export default async function NhapLieuPage({
   const photos = project ? await repo.getPhotos(project.id) : [];
   const locked = await repo.isMonthLocked(month);
   const today = todayIso();
-  const initialStep = typeof searchParams.step === 'string' && (STEPS as string[]).includes(searchParams.step)
-    ? (searchParams.step as DataEntryStep) : undefined;
+  const initialStep = typeof sp.step === 'string' && (STEPS as string[]).includes(sp.step)
+    ? (sp.step as DataEntryStep) : undefined;
 
   // Buoc "Nhan luc & Thiet bi" (B, P2A): ngay dang xem trong khoang cho phep theo role (Q2).
   const entryWindow = dailyDateWindow(user.role, today);
-  const dateParam = typeof searchParams.date === 'string' ? searchParams.date : '';
+  const dateParam = typeof sp.date === 'string' ? sp.date : '';
   const date = isValidIsoDate(dateParam) && isInWindow(dateParam, entryWindow) ? dateParam : today;
   const members = project ? await repo.getContractors(project.id) : [];
   const allContractors = await repo.getContractors();

@@ -48,7 +48,7 @@ const VIEWER: CurrentUser = { name: 'Viewer', email: 'viewer@daidung.com.vn', ro
 async function render(searchParams: Record<string, string> = {}, projectId = '1', user: CurrentUser = ADMIN) {
   (getCurrentUser as Mock).mockResolvedValue(user);
   return renderToStaticMarkup(
-    (await ProjectDetailPage({ params: { id: projectId, locale: 'vi' }, searchParams })) as React.ReactElement,
+    (await ProjectDetailPage({ params: Promise.resolve({ id: projectId, locale: 'vi' }), searchParams: Promise.resolve(searchParams) })) as React.ReactElement,
   );
 }
 

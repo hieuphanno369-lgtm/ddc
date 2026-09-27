@@ -21,7 +21,7 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(bufA, bufB);
 }
 
-export async function POST(req: Request, { params }: { params: { job: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ job: string }> }) {
   const secret = process.env.CRON_SECRET;
   if (!secret) return NextResponse.json({ error: 'cron_disabled' }, { status: 503 });
 
@@ -30,10 +30,11 @@ export async function POST(req: Request, { params }: { params: { job: string } }
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (!(JOB_NAMES as string[]).includes(params.job)) {
+  const { job } = await params;
+  if (!(JOB_NAMES as string[]).includes(job)) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  const result = await runJob(params.job as JobName, 'cron');
+  const result = await runJob(job as JobName, 'cron');
   return NextResponse.json(result, { status: 200 });
 }

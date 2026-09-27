@@ -9,7 +9,7 @@ const req = (auth?: string) => new Request('http://localhost/api/cron/rates_mont
   method: 'POST',
   headers: auth ? { authorization: auth } : undefined,
 });
-const ctx = (job: string) => ({ params: { job } });
+const ctx = (job: string) => ({ params: Promise.resolve({ job }) });
 
 const ORIGINAL_SECRET = process.env.CRON_SECRET;
 

@@ -6,7 +6,7 @@ export async function logActivity(user: { name: string; email: string }, action:
   let ip = '';
   let userAgent = '';
   try {
-    const h = headers();
+    const h = await headers();
     ip = h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '';
     userAgent = h.get('user-agent') ?? '';
   } catch {

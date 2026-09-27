@@ -8,17 +8,18 @@ import { auditHref, parseLogRange, parsePage } from '@/lib/log-paging';
 import { getAuditLogPage } from '@/server/audit-log-page';
 
 export default async function AuditPage({
-  searchParams = {},
+  searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const sp = (await searchParams) ?? {};
   // RBAC server-side: nhật ký thay đổi chỉ dành cho admin (không phó mặc middleware).
   const locale = await getLocale();
   await requireUser(locale, ['admin']);
   const t = await getTranslations();
 
-  const range = parseLogRange(searchParams.range);
-  const data = await getAuditLogPage({ page: parsePage(searchParams.page), range });
+  const range = parseLogRange(sp.range);
+  const data = await getAuditLogPage({ page: parsePage(sp.page), range });
 
   const pillStyle = { padding: '5px 12px', fontSize: 'var(--t-caption1)' };
 

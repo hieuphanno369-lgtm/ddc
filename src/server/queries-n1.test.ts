@@ -82,7 +82,7 @@ describe('queries N+1 (T1 Bước 5)', () => {
     const getAuditLog = vi.spyOn(repo, 'getAuditLog');
     (getCurrentUser as ReturnType<typeof vi.fn>).mockResolvedValue(ADMIN);
     await renderToStaticMarkup(
-      (await ProjectDetailPage({ params: { id: '1', locale: 'vi' }, searchParams: {} })) as React.ReactElement,
+      (await ProjectDetailPage({ params: Promise.resolve({ id: '1', locale: 'vi' }), searchParams: Promise.resolve({}) })) as React.ReactElement,
     );
     expect(getAuditLog).not.toHaveBeenCalled();
   });

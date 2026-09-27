@@ -54,8 +54,8 @@ const render = async (
 ) =>
   renderToStaticMarkup(
     (await ProjectDetailPage({
-      params: { id: projectId, locale: 'vi' },
-      searchParams,
+      params: Promise.resolve({ id: projectId, locale: 'vi' }),
+      searchParams: Promise.resolve(searchParams),
     })) as React.ReactElement,
   );
 

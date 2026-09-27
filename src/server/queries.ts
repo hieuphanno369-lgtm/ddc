@@ -146,9 +146,10 @@ export async function getScopedProjectIds(filters: DashboardFilters): Promise<Se
  * cùng gọi loadWatchlist, cộng getStatusBreakdown/getTonnageValueByGroup/getCapacityData/
  * listProjects) - mỗi lần lặp lại đủ 3 query + `summarize()` trên toàn bộ dự án (đo trên 10 triệu
  * dòng: ~50-100ms/lần cho summarize() riêng, KHÔNG giảm dù lặp lại - không phải "cache nguội").
- * `React.cache()` chỉ có thật khi module này được bundle qua Next.js (dev/build/start); khi chạy
- * qua `tsx` (scripts/perf/*) hoặc Vitest, 'react' không có export `cache` thật -> fallback về hàm
- * gốc (không memo, giữ đúng hành vi cũ) để không bao giờ ném 'cache is not a function'.
+ * Từ React 19, `cache` có export thật ở MỌI bản React (kể cả chạy qua `tsx` scripts/perf/* hay
+ * Vitest); nhưng ngoài Server Component nó chỉ gọi thẳng hàm gốc, không memo gì (không có request
+ * scope để nhớ). `typeof reactCache === 'function'` vẫn giữ để an toàn (không bao giờ ném 'cache is
+ * not a function' nếu môi trường nào đó thiếu export này), dù nay luôn true.
  */
 function requestMemo<Args extends unknown[], R>(fn: (...args: Args) => Promise<R>): (...args: Args) => Promise<R> {
   return typeof reactCache === 'function' ? reactCache(fn) : fn;
