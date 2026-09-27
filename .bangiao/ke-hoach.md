@@ -386,29 +386,57 @@ export const resetMailer: ResetMailer; // compose dùng getTranslations({ locale
 `Locale` import từ `@/i18n/routing`; `SmtpConfig` từ `@/server/notify/email`.
 
 **Luật `checkCredentials` (đúng thứ tự):**
-1. [SỬA ở vòng bảo mật 2, R2+R3 - `.bangiao/bao-mat.md`] `ipKey = ip.trim() || 'unknown'` (không còn IP
-   rỗng nào bỏ qua giới hạn); `reserveThrottle('login_fail_ip', ipKey, now, now - IP_FAIL_WINDOW_MS, IP_FAIL_LIMIT)`
+1. [SỬA ở vòng bảo mật 2, R2+R3; N2/G2 ở vòng 3 - `.bangiao/bao-mat.md`] `email = input.email.trim().toLowerCase()`
+   (G2 - chuẩn hoá TRƯỚC khi dùng làm khoá throttle, không còn 2 khoá khác nhau cho cùng 1 email chỉ
+   vì hoa/thường hoặc khoảng trắng); `ipKey = ip.trim() || 'unknown'` (không còn IP rỗng nào bỏ qua
+   giới hạn); `reserveThrottle('login_fail_ip', ipKey, now, now - IP_FAIL_WINDOW_MS, IP_FAIL_LIMIT)`
    NGUYÊN TỬ (đếm + ghi trong CÙNG 1 lượt, không còn "đếm rồi ghi" tách rời - đóng race TOCTOU khi
-   nhiều yêu cầu chạy đồng thời); hết chỗ -> `ip_limited` (không kiểm mật khẩu). Đúng mật khẩu thì
-   `releaseThrottle` rút lại chỗ đã đặt (không tính lượt đúng vào giới hạn IP). **Task 5 (Prisma) bắt
-   buộc làm `reserveThrottle`/`releaseThrottle` thật NGUYÊN TỬ** (ví dụ 1 câu `INSERT INTO
-   auth_throttle ... SELECT ... WHERE (SELECT count(*) ...) < $limit RETURNING 1`, hoặc transaction có
-   khoá dòng) - không được cài lại kiểu "đếm 1 câu SELECT rồi ghi 1 câu INSERT riêng" vì mất đúng tính
-   nguyên tử đã sửa ở vòng 2, xem JSDoc `AuthStore.reserveThrottle` trong `types.ts`.
+   nhiều yêu cầu chạy đồng thời) trả về `id` (khoá chính) của dòng vừa ghi, hoặc `null` nếu hết chỗ ->
+   `null` thì `ip_limited` (không kiểm mật khẩu). Đúng mật khẩu thì `releaseThrottle(id)` rút lại ĐÚNG
+   dòng đã đặt theo `id` (không tính lượt đúng vào giới hạn IP). **Task 5 (Prisma) bắt buộc**:
+   `reserveThrottle` chạy trong 1 transaction có `pg_advisory_xact_lock(hashtext(kind || ':' || key))`
+   rồi mới đếm + ghi - 1 câu `INSERT ... SELECT ... WHERE (SELECT count(*) ...) < $limit` đơn thuần ở
+   READ COMMITTED là KHÔNG ĐỦ (2 giao dịch song song vẫn cùng thấy số đếm cũ); `releaseThrottle(id)`
+   xoá theo khoá chính `id`, CẤM cài bằng `deleteMany` lọc theo `kind/key/createdAt` (xoá nhầm khi 2
+   dòng trùng mili giây). Xem JSDoc `AuthStore.reserveThrottle`/`releaseThrottle` trong `types.ts`.
 2. `account = getAccountState(email)`.
-3. `account === null`: gọi `verifyPassword(password, DUMMY_HASH)` (hằng bcrypt cost 10 sinh sẵn 1 lần ở module), `recordThrottle('login_fail_unknown_email', email)`, ghi IP sai (nếu có IP); nếu `countThrottle('login_fail_unknown_email', email, now - UNKNOWN_EMAIL_WINDOW_MS) >= LOGIN_LOCK_THRESHOLD` -> `locked`, ngược lại `invalid`.
-4. `account.lockedAt !== null` -> ghi IP sai, trả `locked` (không nói mật khẩu đúng hay sai).
-5. Mật khẩu sai hoặc `passwordHash === ''` hoặc `!isActive`: `registerFailedLogin`, ghi IP sai; `justLocked` thì `logActivity(who, 'login_locked', \`${count}\`)` với `who = { name: account.name || email, email }`; `locked` -> `locked`, ngược lại `invalid`.
-   `passwordHash === ''` thì vẫn chạy `verifyPassword` với `DUMMY_HASH` (cân thời gian), không gọi với hash rỗng.
-6. Đúng: `failedLoginCount > 0` thì `resetFailedLogin`; trả `ok: true`.
+3. `account === null`: `verifyPassword(password, DUMMY_HASH)` (K6, hằng bcrypt cost 10 sinh sẵn 1 lần
+   ở module); `recordThrottle('login_fail_unknown_email', email, now)`; `countThrottle('login_fail_unknown_email',
+   email, now - UNKNOWN_EMAIL_WINDOW_MS) >= LOGIN_LOCK_THRESHOLD` -> `locked`, ngược lại `invalid`.
+   (Chỗ IP đã đặt ở bước 1 giữ nguyên, không ghi thêm gì cho IP ở nhánh này.)
+4. `account.lockedAt !== null` -> `verifyPassword(password, DUMMY_HASH)` (L1, cân thời gian với nhánh
+   3), trả `locked` (không nói mật khẩu đúng hay sai).
+5. [SỬA ở vòng bảo mật 2, R1/L7] `account.passwordHash === ''` (chỉ Google) -> `verifyPassword(password,
+   DUMMY_HASH)`, đi Y HỆT nhánh 3 (`recordThrottle`/`countThrottle` CHUNG kho `login_fail_unknown_email`
+   theo email), KHÔNG gọi `registerFailedLogin`, KHÔNG đặt `lockedAt` (không bao giờ khoá tài khoản chỉ
+   Google qua form mật khẩu; G1 - tài khoản này thừa hưởng nguyên giới hạn K6 của nhánh email lạ, phân
+   biệt được bằng cách chờ 24 giờ mới hết cửa sổ thay vì không bao giờ `locked` như bản trước R1).
+6. Mật khẩu sai hoặc `!isActive`: `registerFailedLogin(email, LOGIN_LOCK_THRESHOLD, now)`; `justLocked`
+   thì `logActivity(who, 'login_locked', \`${count}\`)` với `who = { name: account.name || email, email }`;
+   `locked` -> `locked`, ngược lại `invalid`. (Chỗ IP đã đặt ở bước 1 GIỮ NGUYÊN, tính là 1 lần sai
+   theo IP.)
+7. Đúng: `releaseThrottle(id)` rút lại chỗ IP đã đặt ở bước 1 (`id` lấy từ bước 1, không tính lượt
+   đúng vào giới hạn IP); `resetFailedLogin(email)` NGUYÊN TỬ (L3, LUÔN gọi kể cả `failedLoginCount === 0`);
+   `false` -> `locked`; `true` -> `ok: true`.
 
 **Luật `requestPasswordReset`:**
 1. `smtp = await mailer.getSmtp()`; `!smtp || !baseUrl` -> `smtp_missing` (trước mọi xử lý theo email).
 2. `email = normalizeEmail(input.email)`; null -> `accepted`.
-3. `ip` khác rỗng và `countThrottle('reset_req_ip', ip, now-1h) >= 10`, hoặc `countThrottle('reset_req_email', email, now-1h) >= 3` -> log `rate_limited`, `accepted`; ngược lại `recordThrottle` cả 2 (IP chỉ khi khác rỗng).
-4. Tài khoản null -> log `no_account`; `passwordHash === ''` -> log `google_only`; `!isActive` -> log `inactive`; cả 3 trả `accepted`, không tạo token.
+3. [SỬA N1 ở vòng bảo mật 3] `ipKey = ip.trim() || 'unknown'` (R3); "đặt chỗ" NGUYÊN TỬ cho **IP TRƯỚC**:
+   `reserveThrottle('reset_req_ip', ipKey, now, now-1h, RESET_IP_LIMIT)`; `null` (hết chỗ) -> `accepted`
+   NGAY, KHÔNG ghi log (L4), KHÔNG đụng tới chỗ email (trước đây đặt chỗ email TRƯỚC IP nên 1 IP đã
+   hết lượt vẫn kịp ghi 1 dòng email của nạn nhân trước khi bị chặn - lỗi N1). Còn chỗ IP mới "đặt chỗ"
+   cho email: `reserveThrottle('reset_req_email', email, now, now-1h, RESET_EMAIL_LIMIT)`; `null` (email
+   hết chỗ) -> `releaseThrottle(id)` rút lại đúng chỗ IP vừa đặt (giống cách `checkCredentials` nhả chỗ
+   IP khi mật khẩu đúng) rồi `accepted`, KHÔNG ghi log. Còn chỗ cả 2 -> sang bước 4.
+4. Tài khoản null -> log `no_account` (ghi cố định `{ name: 'khong-ton-tai', email: 'khong-ton-tai' }`,
+   L4, không lưu email thô người gọi tự nhập); `passwordHash === ''` -> log `google_only`; `!isActive`
+   -> log `inactive`; cả 3 trả `accepted`, không tạo token. (Bước 4-5 chạy NỀN sau khi đã trả `accepted`
+   - L6, xem `finishPasswordResetRequest`.)
 5. `generateResetToken()`, `replaceResetToken(email, tokenHash, now + 30 phút, ip)`, link = `${baseUrl.replace(/\/$/, '')}/${locale}/dat-lai-mat-khau?token=${token}`, `compose` rồi `queue`; log `sent` (tài khoản đang khoá vẫn gửi).
-Log: `logActivity(who, 'password_reset_request', detail)` với `who = { name: email, email }`, `detail` chỉ là 1 trong `sent|no_account|google_only|inactive|rate_limited`.
+Log: `logActivity(who, 'password_reset_request', detail)` với `who = { name: email, email }` (trừ nhánh
+`no_account` dùng tên cố định như trên), `detail` chỉ là 1 trong `sent|no_account|google_only|inactive`
+(KHÔNG còn `rate_limited` - L4 bỏ hẳn ghi log ở nhánh bị giới hạn).
 
 **Luật `resetPasswordWithToken`:** token sai định dạng -> `invalid_token`; `newPassword.length < 8` -> `too_short` (kiểm TRƯỚC khi đụng token để không đốt token); `consumeResetToken(hashResetToken(token), hashPassword(newPassword), now)` `ok: false` -> `invalid_token`; ok -> `logActivity(who, 'password_reset_done')`, trả `{ ok: true, locked }`.
 
@@ -421,12 +449,21 @@ Log: `logActivity(who, 'password_reset_request', detail)` với `who = { name: e
   đúng sau 3 lần sai -> `ok` và `failedLoginCount` về 0;
   tạo guard mới trên CÙNG kho (giả lập khởi động lại) -> bộ đếm còn nguyên;
   email lạ: spy `verifyPassword` được gọi; 5 lần -> `locked`; sau 24 giờ + 1ms -> `invalid`;
-  tài khoản chỉ Google hoặc `isActive=false` nhập mật khẩu -> `invalid` và bộ đếm tăng;
+  [SỬA ở vòng bảo mật 2, R1/L7] tài khoản chỉ Google nhập mật khẩu -> đi giống nhánh email lạ (4 lần
+  `invalid`, từ lần 5 `locked`), KHÔNG tăng `failedLoginCount` thật, KHÔNG đặt `lockedAt`; `isActive=false`
+  nhập ĐÚNG mật khẩu vẫn tăng `failedLoginCount` thật và có thể bị `locked` (khác nhánh chỉ Google);
   20 lần sai từ 1 IP (nhiều email khác nhau) -> lần 21 `ip_limited` kể cả mật khẩu đúng của tài khoản khác; sau 15 phút + 1ms -> kiểm bình thường;
   [SỬA ở vòng bảo mật 2, R3] `ip = ''` gom vào khoá `'unknown'` - VẪN bị giới hạn như 1 IP thật (KHÔNG
   còn "không bao giờ `ip_limited`" như bản đầu, đó chính là lỗ hổng fail-open R3 mô tả trong
   `bao-mat.md`); thêm test R2: `Promise.all` 30 request sai đồng thời từ 1 IP -> số lần gọi bcrypt
   (`verifyPassword`) phải `<= IP_FAIL_LIMIT`.
+  [THÊM ở vòng bảo mật 3, N4] 19 lần sai từ 1 IP, xen 5 lần đăng nhập ĐÚNG từ CÙNG IP đó (reserve rồi
+  release nên không tính), rồi lần sai thứ 20 vẫn `invalid`, lần kế tiếp mới `ip_limited` - chứng minh
+  đăng nhập đúng xen kẽ không làm giảm số lần sai đã đếm theo IP (`countThrottle('login_fail_ip', ip)`
+  đúng bằng 20).
+  [THÊM ở vòng bảo mật 3, G2] email có hoa/thường/khoảng trắng khác nhau (`'  La@Daidung.com.vn  '`,
+  `'la@daidung.com.vn'`, `'LA@DAIDUNG.COM.VN'`) dùng CHUNG 1 khoá throttle `login_fail_unknown_email`
+  sau khi chuẩn hoá `trim().toLowerCase()`.
 - [ ] 4.5 Test đỏ `password-reset.test.ts` (mailer giả ghi lại lệnh gửi, mock `@/lib/activity`):
   kết quả trả về của email có tài khoản, email lạ, chỉ Google, bị tắt, bị giới hạn là `toEqual` nhau (`{ status: 'accepted' }`);
   thiếu SMTP hoặc thiếu `baseUrl` -> `smtp_missing` với mọi email và không ghi throttle;
@@ -441,6 +478,9 @@ Log: `logActivity(who, 'password_reset_request', detail)` với `who = { name: e
   lần xin thứ 4 trong 1 giờ cùng email -> không gửi; lần thứ 11 cùng IP -> không gửi; email lạ cũng bị đếm;
   link bắt đầu bằng `baseUrl` truyền vào, có `/vi/dat-lai-mat-khau?token=`;
   không lời gọi `logActivity` nào có tham số chứa token.
+  [THÊM ở vòng bảo mật 3, N1] IP X gửi đủ `RESET_IP_LIMIT` yêu cầu cho các email rác (đốt hết lượt IP
+  X), yêu cầu tiếp theo từ IP X cho email V bị chặn và `countThrottle('reset_req_email', V)` vẫn 0
+  (không đốt nhầm lượt email của V); từ 1 IP khác, V vẫn nhận đủ `RESET_EMAIL_LIMIT` mail.
 - [ ] 4.6 Test đỏ `dispatch.test.ts` cho `smtpConfigFromChannel` (thiếu host/from -> `bad_config`; secret lỗi -> mã tương ứng; đủ -> cfg đúng port mặc định 587, `secure` mặc định false); test cũ của `sendToChannel` phải còn xanh.
   `auth-mail.test.ts`: `getAuthSmtpConfig` chọn kênh email id nhỏ nhất có cấu hình hợp lệ (mock `@/server/repo`), không có -> `null`; `queueAuthEmail` khi `sendEmail` ném hoặc trả lỗi thì không throw, `console.error` không chứa địa chỉ nhận hay nội dung.
   Chỗ phụ thuộc Q6 (`onlyEnabled`) viết theo đề xuất (a) sau khi có trả lời; chưa có thì để test đó `it.todo` và ghi chờ.

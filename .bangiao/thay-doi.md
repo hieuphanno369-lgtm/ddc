@@ -279,3 +279,60 @@ Mỗi mục đều làm test đỏ trước (xác nhận bằng `git stash push`
 - `reserveThrottle`/`releaseThrottle` (Prisma) - PHẢI nguyên tử thật (xem ghi chú R2 ở trên + JSDoc `types.ts`).
 - R7 phần 3: giới hạn tần suất ghi `login_google_denied` bằng bảng `auth_throttle`.
 - (Kế thừa từ vòng 1) `resetFailedLogin`, `consumeResetToken` Prisma nguyên tử; kiểm concurrency THẬT trên Postgres.
+
+---
+
+## Vòng sửa bảo mật 3 (sau security-reviewer KHÔNG ĐẠT lần 3, `.bangiao/bao-mat.md` mục "Vòng 3", N1-N4, G1-G2)
+
+Mỗi lỗi có sửa code đều làm test đỏ trước (xác nhận bằng `git stash push` CHỈ 4 file mã nguồn đã sửa
+`types.ts`/`mock-repo-auth.ts`/`login-guard.ts`/`password-reset.ts`, giữ nguyên mọi file test, chạy
+đỏ đúng mô tả, rồi `git stash pop` khôi phục lại xanh) rồi mới sửa. N3 (tài liệu), N4 và G1 (chỉ thêm
+test/ghi chú, không có lỗi code nào để sửa) không cần bước này.
+
+### N1 - Đặt chỗ throttle theo EMAIL trước IP ở `requestPasswordReset` (KHẮC PHỤC)
+
+- `src/server/password-reset.ts`: đảo lại thứ tự "đặt chỗ" - `reserveThrottle('reset_req_ip', ...)` chạy TRƯỚC, chỉ khi IP còn chỗ mới `reserveThrottle('reset_req_email', ...)`; email hết chỗ thì `releaseThrottle(ipReserved)` nhả lại ĐÚNG chỗ IP vừa đặt (giống cách `checkCredentials` nhả chỗ IP khi mật khẩu đúng) rồi mới trả `accepted`.
+- Trước đây đặt chỗ email TRƯỚC IP nên 1 IP gửi rác đủ 10 yêu cầu (đã hết `RESET_IP_LIMIT`) vẫn kịp ghi 1 dòng `reset_req_email` cho nạn nhân TRƯỚC KHI biết IP đã hết lượt - 1 IP khoá được lượt xin link của bất kỳ email nào, kể cả email chưa từng bị đụng tới.
+- Test đỏ trước: `password-reset.test.ts` mục "N1" - IP X gửi đủ `RESET_IP_LIMIT` yêu cầu cho các email rác, yêu cầu tiếp theo từ IP X cho email V bị chặn và `countThrottle('reset_req_email', V)` vẫn `0`; từ 1 IP khác (chưa bị giới hạn), V vẫn nhận đủ `RESET_EMAIL_LIMIT` mail. Chạy trên code cũ: đỏ (`countThrottle` trả `1` thay vì `0`).
+
+### N2 - Hợp đồng `reserveThrottle`/`releaseThrottle` đổi sang trả/nhận `id` (KHẮC PHỤC HỢP ĐỒNG + BẢN BỘ NHỚ; PHẦN PRISMA ĐỂ TASK 5)
+
+- `src/server/repo/types.ts`: `reserveThrottle(...)` đổi kiểu trả về từ `Promise<boolean>` sang `Promise<number | null>` (trả `id` - khoá chính của dòng vừa ghi khi còn chỗ, `null` khi hết chỗ); `releaseThrottle(kind, key, nowIso)` đổi thành `releaseThrottle(id: number)` - xoá theo khoá chính, không còn suy luận lại từ `kind/key/createdAt`.
+- JSDoc ghi rõ cho Task 5: bản Prisma **bắt buộc** chạy `reserveThrottle` trong 1 transaction có `pg_advisory_xact_lock(hashtext(kind || ':' || key))` rồi mới đếm cửa sổ + ghi dòng mới - 1 câu `INSERT ... SELECT ... WHERE (SELECT count(*) ...) < $limit` đơn thuần ở READ COMMITTED là KHÔNG ĐỦ (nhiều giao dịch song song vẫn cùng thấy số đếm cũ trước khi bên kia COMMIT); `releaseThrottle(id)` xoá theo khoá chính, **CẤM** cài bằng `deleteMany` lọc theo `kind/key/createdAt` (2 dòng ghi trùng mili giây sẽ bị xoá nhầm cả 2).
+- `src/server/repo/mock-repo-auth.ts`: thêm `id: number` vào `ThrottleRow` (bộ đếm `nextThrottleId` riêng mỗi `createMemoryAuthStore()`); `reserveThrottle` trả `id` vừa cấp hoặc `null`; `releaseThrottle(id)` xoá theo `id`.
+- `src/server/login-guard.ts`, `src/server/password-reset.ts`: cập nhật theo chữ ký mới (giữ nguyên hành vi nghiệp vụ, chỉ đổi cách truyền/nhận `id` thay vì `kind/key/nowIso`).
+- Chưa có bản Prisma nào của `AuthStore` ở thời điểm này (Task 5 chưa bắt đầu, không có `prisma-repo-auth.ts`) nên không có gì để sửa theo hợp đồng mới ngoài kho bộ nhớ + 2 nơi gọi - đã ghi rõ hợp đồng bắt buộc trong `types.ts` + `ke-hoach.md` mục Task 5 cho C làm sau.
+- Test: `mock-repo-auth.test.ts` mục "reserveThrottle / releaseThrottle" cập nhật lại theo `id`/`null`; thêm test mới "N2" - 2 lời gọi `reserveThrottle` cùng `kind/key/createdAt` (cố tình trùng mili giây) trả 2 `id` khác nhau, `releaseThrottle(id1)` chỉ xoá đúng 1 dòng, dòng còn lại (`id2`) vẫn còn (`countThrottle` vẫn đếm được 1). Test đỏ trước trên chữ ký cũ (kiểu trả về sai, không có `id`).
+
+### N3 - Kế hoạch còn luật cũ mâu thuẫn code (SỬA TÀI LIỆU, không đổi code)
+
+- `.bangiao/ke-hoach.md`: viết lại mục "Luật `checkCredentials`" và "Luật `requestPasswordReset`" cho khớp code hiện tại (thứ tự IP-trước-email của N1, hợp đồng `id` của N2, nhánh chỉ-Google chung kho với email lạ của R1, không còn `rate_limited` sau L4, `no_account` ghi tên cố định); sửa dòng test-plan 4.4 (mục Google-only/`isActive=false`) cho đúng hành vi hiện tại; thêm ghi chú test mới N4/G2 (4.4) và N1 (4.5) vào danh sách.
+
+### N4 - Thêm test tầng `checkCredentials`: đăng nhập đúng xen kẽ không làm giảm số lần sai theo IP (CHỈ THÊM TEST, hành vi đã đúng từ vòng 2/R2)
+
+- `src/server/login-guard.test.ts`: 19 lần sai từ IP X, xen 5 lần đăng nhập ĐÚNG từ CÙNG IP X (mỗi lần đúng reserve rồi release ngay, không tính vào giới hạn), lần sai thứ 20 vẫn `invalid`, lần kế tiếp mới `ip_limited`; `countThrottle('login_fail_ip', X)` đúng bằng `20`.
+- Không cần red-before-fix vì không có lỗi code: cơ chế reserve-trước/release-khi-đúng đã có sẵn từ R2 (vòng 2), test này chỉ bổ sung bằng chứng cho trường hợp cụ thể mà bao-mat.md yêu cầu.
+
+### G2 - `checkCredentials` chưa chuẩn hoá email trước khi làm khoá throttle (KHẮC PHỤC)
+
+- `src/server/login-guard.ts`: thêm `const email = input.email.trim().toLowerCase();` ngay đầu hàm (trước khi dùng làm khoá `login_fail_unknown_email` hay gọi `getAccountState`) - trước đây dùng thẳng chuỗi thô người gọi gõ, nên `"A@Foo.com"`, `" a@foo.com "` và `"a@foo.com"` bị đếm thành 3 khoá throttle khác nhau (bộ đếm/khoá email lạ có thể bị lách qua bằng biến thể hoa/thường hoặc khoảng trắng).
+- Test đỏ trước: `login-guard.test.ts` mục "G2" - gọi `checkCredentials` 3 lần với 3 biến thể casing/khoảng trắng của cùng 1 email lạ, `countThrottle('login_fail_unknown_email', 'la@daidung.com.vn')` phải bằng `3`. Chạy trên code cũ: đỏ (chỉ đếm được `1`, vì chỉ lời gọi thứ 2 dùng đúng chuỗi đã chuẩn hoá).
+
+### Ghi chú (không phải lỗi code, đính kèm theo yêu cầu)
+
+- G1: tài khoản chỉ Google thừa hưởng NGUYÊN giới hạn đã biết K6 của nhánh "email không tồn tại" (đã có từ R1 vòng 2) - phân biệt được với tài khoản thật bằng cách nhánh Google-only không bao giờ tăng `failedLoginCount` thật/đặt `lockedAt`, và cửa sổ đếm là 24 giờ (giống email lạ) thay vì khoá vĩnh viễn như tài khoản thật; đây là giới hạn đã biết, chấp nhận được (không phải lỗ hổng cần vá thêm ở vòng này).
+
+### Cổng kiểm cuối vòng sửa bảo mật 3
+
+- `npx tsc --noEmit`: sạch.
+- `npm test`: **218 file / 2433 test xanh** (mốc trước vòng sửa: 218/2429; +4 test mới: N1, N2, N4, G2 - không xoá/skip test nào).
+- Không chạy lại e2e (vòng sửa này không đụng route/UI nào, chỉ đổi logic nội bộ `login-guard.ts`/`password-reset.ts`/`repo/types.ts`/`repo/mock-repo-auth.ts` và tài liệu).
+
+### File nóng đụng tới trong vòng sửa bảo mật 3
+
+- Không đụng file nóng nào (`prisma-repo.ts`, `actions.ts`, `vi.json`, `en.json`, `queries.ts`, `project-queries.ts`, `schema.prisma`, `prisma/migrations/`, `globals.css`) - chưa có bản Prisma của `AuthStore` nên không có gì để sửa trong `prisma-repo.ts` ở vòng này.
+
+### Việc còn lại (để Task 5, khi C nhả khoá schema)
+
+- Cài `prisma-repo-auth.ts` (`reserveThrottle`/`releaseThrottle`) đúng hợp đồng `id`-based mới, dùng `pg_advisory_xact_lock` - xem JSDoc `types.ts` + mục Task 5 `ke-hoach.md`.
+- R7 phần 3, `resetFailedLogin`/`consumeResetToken` Prisma nguyên tử, kiểm concurrency THẬT trên Postgres (kế thừa từ vòng 1-2, chưa đổi).
