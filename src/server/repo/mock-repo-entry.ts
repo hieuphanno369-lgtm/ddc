@@ -226,8 +226,9 @@ export function makeEntryMockRepo({ getData, persist }: EntryMockDeps) {
       return true;
     },
 
-    /** P7-C2 Task 8: tạo/sửa giai đoạn chuỗi giá trị (khuôn `saveFactory`). Tạo mới: mã
-     * `custom_<n>`, chèn trọng số 0% áp dụng cho mọi dự án đã có dòng trọng số (dự án chưa có dòng
+    /** P7-C2 Task 8: tạo/sửa giai đoạn chuỗi giá trị (khuôn `saveFactory`). Mock chạy đồng bộ nên tự
+     * nguyên tử, khớp hành vi khoá advisory của bản Prisma (T-1/T-2). Tạo mới: mã `custom_<n>`,
+     * chèn trọng số 0% áp dụng cho mọi dự án đã có dòng trọng số (dự án chưa có dòng
      * nào đang dùng bộ mặc định, chèn 1 dòng lẻ sẽ làm mất bộ mặc định đó). Sửa: không đổi code/isActive. */
     saveStage(input: StageInputAdmin, by: string): Stage | 'duplicate_name' | 'not_found' | 'too_many' {
       const d = getData();
@@ -259,7 +260,9 @@ export function makeEntryMockRepo({ getData, persist }: EntryMockDeps) {
     },
 
     /** P7-C2 Task 8 (Q1a): ngừng dùng bị chặn khi còn dự án đặt trọng số > 0% (áp dụng) hoặc
-     * khi đây là giai đoạn đang dùng cuối cùng. Dùng lại: không đổi trọng số. */
+     * khi đây là giai đoạn đang dùng cuối cùng. Mock chạy đồng bộ (không `await` xen giữa các bước)
+     * nên tự nguyên tử, không cần khoá như bản Prisma (T-3). Dùng lại: chèn lại dòng trọng số còn
+     * thiếu cho dự án đã có dòng khác (T-4), giữ nguyên dòng đã có. */
     setStageActive(code: StageCode, isActive: boolean, by: string): SetStageActiveResult {
       const d = getData();
       const s = d.stages.find((x) => x.code === code);
@@ -273,6 +276,17 @@ export function makeEntryMockRepo({ getData, persist }: EntryMockDeps) {
       }
       const old = String(s.isActive !== false);
       s.isActive = isActive;
+      if (isActive) {
+        // T-4 (chu du an chot): dung lai giong het luc tao moi - chen dong trong so 0% ap dung cho
+        // MOI du an DA CO dong trong so nhung con thieu dong cua ma nay; du an da co dong duoc giu NGUYEN.
+        const withWeights = new Set(d.stageWeights.map((w) => w.projectId));
+        const hasCode = new Set(d.stageWeights.filter((w) => w.stageCode === code).map((w) => w.projectId));
+        for (const p of d.projects) {
+          if (withWeights.has(p.id) && !hasCode.has(p.id)) {
+            d.stageWeights.push({ projectId: p.id, stageCode: code, weightPct: 0, applicable: true });
+          }
+        }
+      }
       auditMock(d, 'dim_stage', code, 'isActive', old, String(isActive), by);
       persist();
       return 'ok';

@@ -186,10 +186,15 @@ describe('prisma-repo.replaceStageWeights', () => {
     { stageCode: 'handover' as const, weightPct: 0, applicable: false },
   ];
 
-  it('chay trong $transaction, xoa roi tao lai, ghi audit', async () => {
+  // T-4 (vong sua bao mat): deleteMany CHI duoc xoa dong cua ma co trong `rows` gui len (them dieu
+  // kien `stageCode: { in: ... }`) - KHONG con xoa het theo `projectId` nhu truoc (se xoa ca dong
+  // cua giai doan da ngung dung, khong nam trong `rows` vi form khong hien thi no).
+  it('chay trong $transaction, CHI xoa dong cua ma dang gui (T-4), tao lai, ghi audit', async () => {
     await repo.replaceStageWeights(7, rows, 'admin@x');
     expect(transactionMock).toHaveBeenCalledTimes(1);
-    expect(projectStageWeightDeleteMany).toHaveBeenCalledWith({ where: { projectId: 7 } });
+    expect(projectStageWeightDeleteMany).toHaveBeenCalledWith({
+      where: { projectId: 7, stageCode: { in: rows.map((r) => r.stageCode) } },
+    });
     expect(projectStageWeightCreateMany).toHaveBeenCalled();
     expect(auditCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({ tableName: 'project_stage_weight', recordId: '7', field: 'replace', changedBy: 'admin@x' }),

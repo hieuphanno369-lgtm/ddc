@@ -104,7 +104,7 @@ describe('isProjectCodeTaken (mock-repo)', () => {
 });
 
 describe('replaceStageWeights (mock-repo)', () => {
-  it('thay toan bo 7 dong, doc lai dung nhu vua gui', () => {
+  it('thay toan bo 8 dong (du 8 ma dang gui), doc lai dung nhu vua gui', () => {
     const rows = [
       { stageCode: 'design' as const, weightPct: 10, applicable: true },
       { stageCode: 'shop' as const, weightPct: 10, applicable: true },
@@ -113,11 +113,31 @@ describe('replaceStageWeights (mock-repo)', () => {
       { stageCode: 'transport' as const, weightPct: 5, applicable: true },
       { stageCode: 'erection' as const, weightPct: 22, applicable: true },
       { stageCode: 'handover' as const, weightPct: 3, applicable: true },
+      { stageCode: 'settlement' as const, weightPct: 0, applicable: true },
     ];
     repo.replaceStageWeights(1, rows, 'admin@x');
     const saved = repo.getStageWeights(1);
-    expect(saved).toHaveLength(7);
+    expect(saved).toHaveLength(8);
     expect(saved.find((w) => w.stageCode === 'fabrication')?.weightPct).toBe(40);
+  });
+
+  // T-4 (vong sua bao mat): ma KHONG nam trong rows gui len (vi du giai doan da ngung dung, form
+  // khong hien thi) phai duoc GIU NGUYEN, khong bi xoa theo cac ma con lai.
+  it('T-4: ma khong nam trong rows gui len duoc giu nguyen, khong bi xoa', () => {
+    const before = repo.getStageWeights(1).find((w) => w.stageCode === 'settlement');
+    expect(before).toBeTruthy();
+    repo.replaceStageWeights(1, [
+      { stageCode: 'design', weightPct: 100, applicable: true },
+      { stageCode: 'shop', weightPct: 0, applicable: false },
+      { stageCode: 'procurement', weightPct: 0, applicable: false },
+      { stageCode: 'fabrication', weightPct: 0, applicable: false },
+      { stageCode: 'transport', weightPct: 0, applicable: false },
+      { stageCode: 'erection', weightPct: 0, applicable: false },
+      { stageCode: 'handover', weightPct: 0, applicable: false },
+      // KHONG gui 'settlement' - mo phong giai doan da ngung dung, form khong hien thi
+    ], 'admin@x');
+    const after = repo.getStageWeights(1).find((w) => w.stageCode === 'settlement');
+    expect(after).toEqual(before);
   });
 
   it('du an seed da co dong rieng -> audit KHONG co tien to "default "', () => {

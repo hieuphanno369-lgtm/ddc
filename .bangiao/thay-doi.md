@@ -50,3 +50,41 @@ Kiểm:
 - `npx tsc --noEmit` sạch; `npm test` 212 file / 2487 test XANH; `npm run check:read` OK.
 - e2e toàn bộ 83/83 XANH trên 3003 (sau khi sửa CSS chạy lại lần nữa, vẫn 83/83).
 - Ảnh: `.bangiao/anh-task9/` (`project1-1440/390`, `project1-chuoi-1440/390`, `admin-giai-doan-1440/390`, `admin-khu-vuc-390`), chụp với font Inter thật.
+
+## Vòng sửa theo security-reviewer (T-1..T-4, `.bangiao/bao-mat.md`)
+
+Chủ dự án chốt 2026-09-27: vá cả T-1, T-2, T-3 (nguyên tử + an toàn đồng thời) và T-4 (giữ trọng số của giai đoạn ngừng dùng). Không cần migration (không thêm cột/bảng nào).
+
+**Cách vá T-1/T-2/T-3 (`src/server/repo/prisma-repo-entry.ts` - `saveStage`, `setStageActive`):**
+- Gộp TOÀN BỘ thân 2 hàm (đọc kiểm trùng tên/giới hạn 30/đếm dự án đang dùng/đếm giai đoạn cuối cùng, ghi, audit) vào 1 `prisma.$transaction`, câu lệnh đầu tiên trong transaction là khoá advisory `SELECT pg_advisory_xact_lock(hashtext('dim_stage'))`.
+- Lý do chọn advisory lock thay vì Serializable + thử lại hoặc unique index: (1) đúng khuôn đã có sẵn trong repo cho tình huống y hệt - trùng mã dự án khi tạo (`prisma-repo.ts:1083`, `pg_advisory_xact_lock(hashtext(lower(...)))`) - không phát minh cách mới; (2) khoá advisory là mutex thật của Postgres, độc lập với MVCC, nên không cần vòng lặp bắt lỗi serialization và thử lại như Serializable; (3) không cần migration (không thêm unique index), giảm rủi ro trên DB `_c` đang có dữ liệu thật; (4) 2 hàm dùng CHUNG 1 tên khoá `'dim_stage'` nên mọi thao tác ghi giai đoạn (tạo, sửa, ngừng/dùng lại) từ nhiều admin bị tuần tự hoá với nhau, đóng cả khe hở giữa các hàm (vd 1 admin đang tạo giai đoạn thứ 30 trong khi admin khác cũng tạo).
+- T-2 (audit tách rời update): giờ `stage.update` và `audit(...)` là 2 lệnh trong CÙNG 1 transaction - audit lỗi thì rollback cả update, không còn dữ liệu đổi mà thiếu dấu vết.
+- T-3 (TOCTOU ngừng dùng): đếm "còn dự án đang dùng", đếm "còn giai đoạn khác đang dùng" (last_active), `stage.update` và audit đều trong CÙNG transaction có khoá - 2 admin ngừng dùng 2 giai đoạn cuối cùng cùng lúc thì người thứ 2 luôn thấy kết quả của người thứ 1 (không còn 2 request cùng đọc "còn giai đoạn khác" rồi cùng ghi).
+- Repo mock (`mock-repo-entry.ts`): mock chạy đồng bộ, không có `await` xen giữa các bước đọc/ghi nên đã tự nguyên tử theo đúng nghĩa (JS đơn luồng) - không cần thêm khoá, chỉ thêm comment giải thích để khớp hành vi bản Prisma (yêu cầu "giữ repo mock hành vi tương đương").
+
+**Cách vá T-4 (giữ trọng số của giai đoạn ngừng dùng):**
+- `replaceStageWeights` (`prisma-repo-form.ts` và bản mock `mock-repo-form.ts`): trước đây xoá TOÀN BỘ dòng trọng số của dự án rồi chỉ tạo lại đúng các dòng gửi lên (form chỉ gửi giai đoạn đang dùng) - dòng của giai đoạn đã ngừng dùng bị xoá vĩnh viễn. Nay CHỈ xoá đúng các mã có trong `rows` gửi lên (Prisma: `deleteMany({ where: { projectId, stageCode: { in: rows.map(r => r.stageCode) } } })`; mock: lọc theo cùng tập mã) - dòng của giai đoạn không nằm trong `rows` (đang ngừng dùng) được giữ nguyên.
+- `setStageActive(code, true, ...)` (dùng lại giai đoạn, cả Prisma lẫn mock): thêm bước chèn lại dòng trọng số 0% áp dụng cho MỌI dự án đã có ít nhất 1 dòng trọng số nhưng còn thiếu dòng của mã này, y hệt logic lúc tạo giai đoạn mới (K10), dùng `skipDuplicates: true` nên dự án đã có dòng (kể cả dòng vừa được T-4 giữ lại) không bị ghi đè. Xử lý đúng câu hỏi "giai đoạn chưa từng có dòng cho một dự án mà dự án đó đã có dòng trọng số khác" -> chèn dòng 0% giống lúc tạo mới.
+- Đã rà các chỗ khác có thể xoá/ghi đè dòng trọng số: `createProject` (Prisma lẫn mock) không tự tạo dòng trọng số nào (chỉ gọi `replaceStageWeights` cho dự án mới, không có gì để xoá); `saveMonthlyData` không đụng bảng `project_stage_weight` (chỉ ghi `fact_value_chain_progress`) - không có nơi nào khác cần vá.
+
+**TDD:**
+- Viết ĐỎ trước: `git stash` tạm 4 file nguồn đã sửa (giữ nguyên test mới), chạy `prisma-repo-entry.test.ts` + `prisma-repo-form.test.ts` + `form.test.ts` -> **11 test đỏ đúng theo T-1..T-4** (dup-check/too-many không còn ở trong transaction nên `tx` mock rỗng gây lỗi runtime; TOCTOU/T-3 tương tự; `replaceStageWeights` xoá cả dòng `settlement` không nằm trong `rows`). `git stash pop` khôi phục bản vá, chạy lại XANH toàn bộ.
+- Kiểm thêm trên DB thật `_c` (script tạm `scripts/tmp-concurrency-check.ts`, đã xoá sau khi chạy): 2 lệnh `saveStage()` cùng tên "KIEM TRA DONG THOI T1 TAM" gọi đồng thời (`Promise.all`) -> đúng 1 thành công (`custom_1`), 1 `duplicate_name`, `dim_stage` chỉ còn đúng 1 dòng tên đó. Dữ liệu tạo ra đã tự dọn trong script (xoá `project_stage_weight`, `audit_log`, `dim_stage` của mã tạm); `npm run check:read` sau đó vẫn OK.
+- Không vá T-3 bằng cách deactivate thật 6/8 giai đoạn thật trên DB `_c` để dựng kịch bản "2 giai đoạn cuối cùng" (rủi ro cho dữ liệu chung), dựa vào test mock đã chứng minh: cùng 1 khoá advisory với T-1, cùng cơ chế transaction, đã RED/GREEN đầy đủ.
+
+**Test cũ phải sửa cho khớp hành vi mới (behavior thay đổi có chủ đích, không phải regression):**
+- `prisma-repo-entry.test.ts`: viết lại toàn bộ describe `saveStage / setStageActive` (trước đây dup-check/too-many/not-found/in-use test bằng mock top-level `prisma.stage.*`, giờ mọi thứ chạy qua `tx` do `transactionMock` cấp - thêm helper `makeTx()` dùng chung). Bỏ 2 mock top-level `stageFindMany`/`stageFindUnique`/`stageCount`/`stageUpdate`/`pswCount` không còn được gọi trực tiếp.
+- `prisma-repo-form.test.ts`: `deleteMany` giờ có thêm điều kiện `stageCode: { in: [...] }` thay vì chỉ `{ projectId }`.
+- `form.test.ts` (mock): test "thay toàn bộ 7 dòng" đổi thành 8 dòng (thêm `settlement`, khớp 8 giai đoạn hiện có, nếu không giai đoạn `settlement` có sẵn của dự án 1 sẽ được GIỮ LẠI theo đúng T-4 nên tổng số dòng đọc lại thành 8 chứ không phải 7); thêm 1 test mới xác nhận rõ hành vi T-4 (mã không gửi lên được giữ nguyên).
+
+**Cổng kiểm:**
+- `npx tsc --noEmit` sạch.
+- `npm test` **215 file / 2502 test XANH** (mốc trước vòng sửa 215/2497; +5 test ròng: thêm test T-1/T-2/T-3/T-4 mock+prisma, bớt/gộp 1 vài test cũ theo hành vi mới).
+- `npm run check:read` OK trên DB `_c` (đã dọn dữ liệu tạm dùng để kiểm T-1 thật).
+- `npx playwright test e2e/12-chuoi-gia-tri.spec.ts` trên 3003: **7/7 XANH** (3 setup đăng nhập + 4 kịch bản chuỗi giá trị/quản trị giai đoạn).
+
+**Chỗ Tester nên soi kỹ:**
+- 2 admin bấm "Thêm" giai đoạn gần như cùng lúc (nhất là khi form đã điền sẵn tên giống nhau, ví dụ đều để mặc định rồi gõ nhanh) - chỉ 1 tạo được, người còn lại nhận `stageAdmin.err.duplicate_name` thay vì lỗi 500.
+- Ngừng dùng 1 giai đoạn, dùng lại, rồi lưu trọng số dự án nhiều lần xen kẽ - dòng trọng số của giai đoạn đó không được biến mất kể cả khi form không hiển thị nó lúc đang ngừng dùng.
+- Dự án được tạo TRONG LÚC 1 giai đoạn đang ngừng dùng (nên không có dòng trọng số cho giai đoạn đó) - sau này admin dùng lại giai đoạn, dự án đó phải có dòng 0% mới, không lỗi khi tính %TT.
+- Không còn migration mới trong vòng sửa này (`prisma/schema.prisma` không đổi).

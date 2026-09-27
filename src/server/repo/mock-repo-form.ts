@@ -87,8 +87,11 @@ export function makeFormMockRepo({ getData, persist }: EntryMockDeps) {
       const beforeRows = own.length ? own : DEFAULT_STAGE_WEIGHTS;
       const beforeText = (own.length ? '' : 'default ') + stageWeightAuditText(beforeRows);
       const afterText = stageWeightAuditText(rows);
+      // T-4 (chu du an chot): CHI thay dong cua nhung ma co trong `rows` - KHONG xoa dong cua giai
+      // doan da ngung dung (khong nam trong `rows` vi form khong hien thi no).
+      const codes = new Set(rows.map((r) => r.stageCode));
       d.stageWeights = d.stageWeights
-        .filter((w) => w.projectId !== projectId)
+        .filter((w) => !(w.projectId === projectId && codes.has(w.stageCode)))
         .concat(rows.map((r) => ({ projectId, ...r })));
       audit(d, 'project_stage_weight', String(projectId), 'replace', beforeText, afterText, by);
       persist();

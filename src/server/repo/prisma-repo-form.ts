@@ -155,7 +155,10 @@ export const formPrismaRepo = {
       const beforeRows = ownRows.length ? ownRows : DEFAULT_STAGE_WEIGHTS;
       const beforeText = (ownRows.length ? '' : 'default ') + stageWeightAuditText(beforeRows);
       const afterText = stageWeightAuditText(rows);
-      await tx.projectStageWeight.deleteMany({ where: { projectId } });
+      // T-4 (chu du an chot): CHI xoa dong cua nhung ma co trong `rows` (giai doan dang dung, form
+      // gui len) - KHONG duoc xoa dong cua giai doan da ngung dung (khong nam trong `rows` vi form
+      // khong hien thi no). Khi admin dung lai giai doan do, du an co lai dung dong cu.
+      await tx.projectStageWeight.deleteMany({ where: { projectId, stageCode: { in: rows.map((r) => r.stageCode) } } });
       if (rows.length) {
         await tx.projectStageWeight.createMany({
           data: rows.map((r) => ({ projectId, stageCode: r.stageCode, weightPct: r.weightPct, applicable: r.applicable })),
