@@ -13,23 +13,77 @@ export interface ResetMailer {
   queue(cfg: SmtpConfig, to: string, subject: string, text: string): void;
 }
 
-type RequestLogDetail = 'sent' | 'no_account' | 'google_only' | 'inactive' | 'rate_limited';
+type RequestLogDetail = 'sent' | 'no_account' | 'google_only' | 'inactive';
 
 async function logRequest(email: string, detail: RequestLogDetail): Promise<void> {
   await logActivity({ name: email, email }, 'password_reset_request', detail);
 }
 
 /**
- * Luật (K3, K5, K6, K8, K9, K11, S1-S4 - ke-hoach.md), đúng thứ tự:
+ * L6 (bao-mat.md) - phần còn lại sau khi ghi throttle (đọc tài khoản, sinh token, lưu, soạn + gửi
+ * mail) chạy NỀN, cùng khuôn `queueAuthEmail`/`queueAlertNotifications`: nối tiếp nhau trong 1
+ * chuỗi Promise, không `await` từ `requestPasswordReset` - thời gian phản hồi không còn phụ thuộc
+ * việc tài khoản có tồn tại hay không (trước đây nhánh "có tài khoản, gửi được" tốn thêm nhiều việc
+ * đồng bộ hơn hẳn 3 nhánh còn lại, tạo timing oracle yếu bổ sung cho S3).
+ */
+let resetRequestQueueTail: Promise<void> = Promise.resolve();
+
+/** CHỈ dùng trong test - đợi hàng đợi xử lý xin đặt lại mật khẩu (L6) chạy xong. */
+export function __resetRequestQueueIdleForTest(): Promise<void> {
+  return resetRequestQueueTail.then(
+    () => undefined,
+    () => undefined,
+  );
+}
+
+async function finishPasswordResetRequest(
+  store: AuthStore,
+  mailer: ResetMailer,
+  smtp: SmtpConfig,
+  email: string,
+  ip: string,
+  locale: Locale,
+  baseUrl: string,
+  now: Date,
+): Promise<void> {
+  const account = await store.getAccountState(email);
+  if (!account) {
+    // L4 - KHÔNG lưu chuỗi email thô do người gọi tự chọn (attacker-controlled, không xác minh
+    // được là email thật nào) vào `activity_log`; chỉ ghi lại rằng CÓ 1 yêu cầu cho email lạ.
+    await logActivity({ name: 'khong-ton-tai', email: 'khong-ton-tai' }, 'password_reset_request', 'no_account');
+    return;
+  }
+  if (account.passwordHash === '') {
+    await logRequest(email, 'google_only');
+    return;
+  }
+  if (!account.isActive) {
+    await logRequest(email, 'inactive');
+    return;
+  }
+
+  const { token, tokenHash } = generateResetToken();
+  const expiresAtIso = new Date(now.getTime() + RESET_TOKEN_TTL_MS).toISOString();
+  await store.replaceResetToken(email, tokenHash, expiresAtIso, ip);
+  const link = `${baseUrl.replace(/\/$/, '')}/${locale}/dat-lai-mat-khau?token=${token}`;
+  const { subject, text } = await mailer.compose(locale, email, link);
+  mailer.queue(smtp, email, subject, text);
+  await logRequest(email, 'sent');
+}
+
+/**
+ * Luật (K3, K5, K6, K8, K9, K11, S1-S4, L4, L6 - ke-hoach.md + bao-mat.md), đúng thứ tự:
  * 1. Chưa cấu hình gửi email (thiếu SMTP hoặc `NEXTAUTH_URL`) -> `smtp_missing`, TRƯỚC mọi xử lý
  *    theo email (không nói riêng cho từng email).
  * 2. Email không hợp lệ -> `accepted` (không lộ định dạng email nào được chấp nhận).
- * 3. Giới hạn theo IP (10/giờ) hoặc theo email (3/giờ) -> `accepted`, không tạo token.
- * 4. Không có tài khoản, tài khoản chỉ Google, hoặc bị tắt -> `accepted`, không tạo token
- *    (K9: có mật khẩu mới cũng không đăng nhập được).
- * 5. Sinh token, xoá token cũ của email (K3), gửi link dựng từ `baseUrl` (K11 - không bao giờ từ
- *    header Host) - kể cả khi tài khoản đang khoá (đặt lại xong vẫn khoá, không mở khoá qua đây).
- * Toàn bộ nhánh đều trả `{ status: 'accepted' }` giống nhau (trừ nhánh 1) - không lộ email tồn tại (S3).
+ * 3. Giới hạn theo IP (10/giờ) hoặc theo email (3/giờ) -> `accepted`, KHÔNG ghi log (L4 - nhánh này
+ *    có thể bị spam liên tục khi đã lộ giới hạn, ghi log mỗi lần sẽ phình `activity_log` vô ích).
+ * 4. Ghi throttle rồi trả `accepted` NGAY (L6) - phần còn lại (đọc tài khoản, sinh token, gửi mail)
+ *    chạy nền, xem `finishPasswordResetRequest`:
+ *    - Không có tài khoản, tài khoản chỉ Google, hoặc bị tắt -> ghi log, không tạo token (K9).
+ *    - Sinh token, xoá token cũ của email (K3), gửi link dựng từ `baseUrl` (K11 - không bao giờ từ
+ *      header Host) - kể cả khi tài khoản đang khoá (đặt lại xong vẫn khoá, không mở khoá qua đây).
+ * Toàn bộ nhánh (trừ nhánh 1) đều trả `{ status: 'accepted' }` giống nhau - không lộ email tồn tại (S3).
  */
 export async function requestPasswordReset(
   store: AuthStore,
@@ -43,39 +97,25 @@ export async function requestPasswordReset(
   const email = normalizeEmail(input.email);
   if (!email) return { status: 'accepted' };
 
-  const { ip } = input;
+  const { ip, locale, baseUrl } = input;
   const sinceIso = new Date(now.getTime() - RESET_WINDOW_MS).toISOString();
   const ipLimited = ip !== '' && (await store.countThrottle('reset_req_ip', ip, sinceIso)) >= RESET_IP_LIMIT;
   const emailLimited = (await store.countThrottle('reset_req_email', email, sinceIso)) >= RESET_EMAIL_LIMIT;
   if (ipLimited || emailLimited) {
-    await logRequest(email, 'rate_limited');
+    // L4 - KHÔNG ghi activity_log ở nhánh bị giới hạn (tránh phình dữ liệu khi bị spam).
     return { status: 'accepted' };
   }
   const nowIso = now.toISOString();
   await store.recordThrottle('reset_req_email', email, nowIso);
   if (ip !== '') await store.recordThrottle('reset_req_ip', ip, nowIso);
 
-  const account = await store.getAccountState(email);
-  if (!account) {
-    await logRequest(email, 'no_account');
-    return { status: 'accepted' };
-  }
-  if (account.passwordHash === '') {
-    await logRequest(email, 'google_only');
-    return { status: 'accepted' };
-  }
-  if (!account.isActive) {
-    await logRequest(email, 'inactive');
-    return { status: 'accepted' };
-  }
+  // L6 - phần còn lại chạy nền, trả `accepted` ngay sau khi ghi throttle.
+  resetRequestQueueTail = resetRequestQueueTail
+    .then(() => finishPasswordResetRequest(store, mailer, smtp, email, ip, locale, baseUrl, now))
+    .catch((e) => {
+      console.error('[password-reset] loi xu ly nen', e instanceof Error ? e.message : String(e));
+    });
 
-  const { token, tokenHash } = generateResetToken();
-  const expiresAtIso = new Date(now.getTime() + RESET_TOKEN_TTL_MS).toISOString();
-  await store.replaceResetToken(email, tokenHash, expiresAtIso, ip);
-  const link = `${input.baseUrl.replace(/\/$/, '')}/${input.locale}/dat-lai-mat-khau?token=${token}`;
-  const { subject, text } = await mailer.compose(input.locale, email, link);
-  mailer.queue(smtp, email, subject, text);
-  await logRequest(email, 'sent');
   return { status: 'accepted' };
 }
 

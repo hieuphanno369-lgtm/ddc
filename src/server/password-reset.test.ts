@@ -8,7 +8,13 @@ import type { SmtpConfig } from './notify/email';
 vi.mock('@/lib/activity', () => ({ logActivity: vi.fn() }));
 
 import { logActivity } from '@/lib/activity';
-import { isResetTokenUsable, requestPasswordReset, resetPasswordWithToken, type ResetMailer } from './password-reset';
+import {
+  __resetRequestQueueIdleForTest,
+  isResetTokenUsable,
+  requestPasswordReset,
+  resetPasswordWithToken,
+  type ResetMailer,
+} from './password-reset';
 
 const REAL_PW = 'MatKhauDung1';
 const SMTP: SmtpConfig = { host: 'smtp.x.com', port: 587, secure: false, user: null, pass: null, from: 'a@daidung.com.vn' };
@@ -107,6 +113,7 @@ describe('requestPasswordReset - khong lo email ton tai (S3)', () => {
     const { mailer, composed } = makeMailer();
 
     await requestPasswordReset(store, mailer, { email: 'a@daidung.com.vn', ip: '', locale: 'vi', baseUrl: BASE_URL }, at(0));
+    await __resetRequestQueueIdleForTest();
 
     expect(composed).toHaveLength(1);
     expect(composed[0].link).toBe(`https://app.example.com/vi/dat-lai-mat-khau?token=${tokenFromLink(composed[0].link)}`);
@@ -118,6 +125,7 @@ describe('requestPasswordReset - khong lo email ton tai (S3)', () => {
     const { mailer } = makeMailer();
 
     await requestPasswordReset(store, mailer, { email: 'a@daidung.com.vn', ip: '', locale: 'vi', baseUrl: BASE_URL }, at(0));
+    await __resetRequestQueueIdleForTest();
 
     expect(replaceSpy).toHaveBeenCalledTimes(1);
     const expiresAtArg = replaceSpy.mock.calls[0][2];
@@ -132,6 +140,7 @@ describe('requestPasswordReset - khong lo email ton tai (S3)', () => {
     const { mailer, composed } = makeMailer();
 
     await requestPasswordReset(store, mailer, { email: 'a@daidung.com.vn', ip: '', locale: 'vi', baseUrl: BASE_URL }, at(0));
+    await __resetRequestQueueIdleForTest();
     const token = tokenFromLink(composed[0].link);
     await resetPasswordWithToken(store, { token, newPassword: 'MatKhauMoi1' }, at(1000));
     await isResetTokenUsable(store, token, at(0));
@@ -148,9 +157,11 @@ describe('requestPasswordReset - khong lo email ton tai (S3)', () => {
     for (let i = 0; i < RESET_EMAIL_LIMIT; i++) {
       await requestPasswordReset(store, mailer, input, at(i * 1000));
     }
+    await __resetRequestQueueIdleForTest();
     expect(queued).toHaveLength(RESET_EMAIL_LIMIT);
 
     await requestPasswordReset(store, mailer, input, at(RESET_EMAIL_LIMIT * 1000));
+    await __resetRequestQueueIdleForTest();
     expect(queued).toHaveLength(RESET_EMAIL_LIMIT); // lan thu 4 khong gui them
 
     // Email la cung bi dem: 4 lan xin cho 1 email khong ton tai deu khong gui (khong co token de gui),
@@ -174,9 +185,11 @@ describe('requestPasswordReset - khong lo email ton tai (S3)', () => {
     for (let i = 0; i < RESET_IP_LIMIT; i++) {
       await requestPasswordReset(store, mailer, { email: `e${i}@daidung.com.vn`, ip: IP, locale: 'vi', baseUrl: BASE_URL }, at(i * 100));
     }
+    await __resetRequestQueueIdleForTest();
     expect(queued).toHaveLength(RESET_IP_LIMIT);
 
     await requestPasswordReset(store, mailer, { email: `e${RESET_IP_LIMIT}@daidung.com.vn`, ip: IP, locale: 'vi', baseUrl: BASE_URL }, at(RESET_IP_LIMIT * 100));
+    await __resetRequestQueueIdleForTest();
     expect(queued).toHaveLength(RESET_IP_LIMIT);
   });
 
@@ -185,6 +198,7 @@ describe('requestPasswordReset - khong lo email ton tai (S3)', () => {
     const { mailer, composed } = makeMailer();
 
     await requestPasswordReset(store, mailer, { email: 'a@daidung.com.vn', ip: '', locale: 'vi', baseUrl: BASE_URL }, at(0));
+    await __resetRequestQueueIdleForTest();
     const token = tokenFromLink(composed[0].link);
     await resetPasswordWithToken(store, { token, newPassword: 'MatKhauMoi1' }, at(1000));
 
@@ -193,12 +207,73 @@ describe('requestPasswordReset - khong lo email ton tai (S3)', () => {
       expect(JSON.stringify(call)).not.toContain(token);
     }
   });
+
+  it('L4: vuot gioi han (rate_limited) KHONG ghi activity_log nao them', async () => {
+    const store = createMemoryAuthStore(makeSource([account()]));
+    const { mailer } = makeMailer();
+    const input = { email: 'a@daidung.com.vn', ip: '', locale: 'vi' as const, baseUrl: BASE_URL };
+
+    for (let i = 0; i < RESET_EMAIL_LIMIT; i++) await requestPasswordReset(store, mailer, input, at(i * 1000));
+    await __resetRequestQueueIdleForTest();
+    vi.mocked(logActivity).mockClear();
+
+    for (let i = 0; i < 5; i++) {
+      await requestPasswordReset(store, mailer, input, at((RESET_EMAIL_LIMIT + i) * 1000));
+    }
+    await __resetRequestQueueIdleForTest();
+
+    expect(logActivity).not.toHaveBeenCalled();
+  });
+
+  it('L4: nhanh no_account khong luu chuoi email tho do nguoi goi tu nhap', async () => {
+    const store = createMemoryAuthStore(makeSource([]));
+    const { mailer } = makeMailer();
+    const attackerEmail = 'toi-doan-duoc-email-nay@vi-du.com';
+
+    await requestPasswordReset(store, mailer, { email: attackerEmail, ip: '', locale: 'vi', baseUrl: BASE_URL }, at(0));
+    await __resetRequestQueueIdleForTest();
+
+    expect(logActivity).toHaveBeenCalledTimes(1);
+    const mock = logActivity as unknown as { mock: { calls: unknown[][] } };
+    for (const call of mock.mock.calls) {
+      expect(JSON.stringify(call)).not.toContain(attackerEmail);
+    }
+  });
+
+  it('L6: requestPasswordReset() tra ve KHONG CAN CHO xong viec doc tai khoan/soan+gui mail (viec do chay nen)', async () => {
+    // Ep 1 "thao tac cham" bang deferred promise (khong dua vao suy doan thu tu microtask cua JS,
+    // vi Promise.then() tren 1 promise DA resolve co the chay truoc ca continuation cua await ben
+    // ngoai - ep gate that su cham moi chung minh duoc requestPasswordReset() KHONG cho no).
+    const store = createMemoryAuthStore(makeSource([account()]));
+    const { mailer, composed } = makeMailer();
+    let openGate!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      openGate = resolve;
+    });
+    const realGetAccountState = store.getAccountState.bind(store);
+    vi.spyOn(store, 'getAccountState').mockImplementation(async (email: string) => {
+      await gate; // gia lap truy van cham (vi du DB that) - chua mo cho toi khi test goi openGate()
+      return realGetAccountState(email);
+    });
+
+    const res = await requestPasswordReset(store, mailer, { email: 'a@daidung.com.vn', ip: '', locale: 'vi', baseUrl: BASE_URL }, at(0));
+
+    // requestPasswordReset() DA tra ve accepted du "truy van tai khoan" van con dang cho `gate` -
+    // chung minh phan hoi khong bi phan viec nen (L6) lam cham.
+    expect(res).toEqual({ status: 'accepted' });
+    expect(composed).toHaveLength(0);
+
+    openGate();
+    await __resetRequestQueueIdleForTest();
+    expect(composed).toHaveLength(1);
+  });
 });
 
 describe('resetPasswordWithToken', () => {
   async function requestAndGetToken(store: ReturnType<typeof createMemoryAuthStore>, email: string, now: Date) {
     const { mailer, composed } = makeMailer();
     await requestPasswordReset(store, mailer, { email, ip: '', locale: 'vi', baseUrl: BASE_URL }, now);
+    await __resetRequestQueueIdleForTest();
     return tokenFromLink(composed[0].link);
   }
 
@@ -276,5 +351,6 @@ describe('isResetTokenUsable', () => {
 async function requestAndGetTokenHelper(store: ReturnType<typeof createMemoryAuthStore>, email: string, now: Date) {
   const { mailer, composed } = makeMailer();
   await requestPasswordReset(store, mailer, { email, ip: '', locale: 'vi', baseUrl: BASE_URL }, now);
+  await __resetRequestQueueIdleForTest();
   return tokenFromLink(composed[0].link);
 }

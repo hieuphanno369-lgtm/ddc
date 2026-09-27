@@ -13,7 +13,12 @@ import { createMemoryAuthStore, type MemoryAccountSource } from './repo/mock-rep
 import type { UserAccount } from './repo/types';
 import type { SmtpConfig } from './notify/email';
 import { checkCredentials } from './login-guard';
-import { requestPasswordReset, resetPasswordWithToken, type ResetMailer } from './password-reset';
+import {
+  __resetRequestQueueIdleForTest,
+  requestPasswordReset,
+  resetPasswordWithToken,
+  type ResetMailer,
+} from './password-reset';
 
 vi.mock('@/lib/activity', () => ({ logActivity: vi.fn() }));
 
@@ -81,6 +86,7 @@ describe('duong chay thuan loi: dat lai mat khau roi dang nhap bang mat khau moi
     const { mailer, tokenOf } = makeMailer();
 
     await requestPasswordReset(store, mailer, { email: 'nguoi@daidung.com.vn', ip: '', locale: 'vi', baseUrl: BASE_URL }, at(0));
+    await __resetRequestQueueIdleForTest();
     const reset = await resetPasswordWithToken(store, { token: tokenOf(), newPassword: NEW_PW }, at(1000));
     expect(reset).toEqual({ ok: true, locked: false });
 
@@ -97,6 +103,7 @@ describe('bien: token dung 1 lan, het han, tai khoan dang khoa van giu khoa sau 
     const store = createMemoryAuthStore(makeSource([account()]));
     const { mailer, tokenOf } = makeMailer();
     await requestPasswordReset(store, mailer, { email: 'nguoi@daidung.com.vn', ip: '', locale: 'vi', baseUrl: BASE_URL }, at(0));
+    await __resetRequestQueueIdleForTest();
     const token = tokenOf();
 
     expect(await resetPasswordWithToken(store, { token, newPassword: NEW_PW }, at(1000))).toEqual({ ok: true, locked: false });
@@ -108,6 +115,7 @@ describe('bien: token dung 1 lan, het han, tai khoan dang khoa van giu khoa sau 
     const store = createMemoryAuthStore(makeSource([account()]));
     const { mailer, tokenOf } = makeMailer();
     await requestPasswordReset(store, mailer, { email: 'nguoi@daidung.com.vn', ip: '', locale: 'vi', baseUrl: BASE_URL }, at(0));
+    await __resetRequestQueueIdleForTest();
     const token = tokenOf();
 
     const result = await resetPasswordWithToken(store, { token, newPassword: NEW_PW }, at(RESET_TOKEN_TTL_MS + 1));
@@ -127,6 +135,7 @@ describe('bien: token dung 1 lan, het han, tai khoan dang khoa van giu khoa sau 
 
     const { mailer, tokenOf } = makeMailer();
     await requestPasswordReset(store, mailer, { email: 'nguoi@daidung.com.vn', ip: '', locale: 'vi', baseUrl: BASE_URL }, at(2000));
+    await __resetRequestQueueIdleForTest();
     const reset = await resetPasswordWithToken(store, { token: tokenOf(), newPassword: NEW_PW }, at(3000));
     expect(reset).toEqual({ ok: true, locked: true });
 
