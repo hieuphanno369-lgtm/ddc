@@ -291,3 +291,55 @@ R1, R3, R4, R6, R7 đã đóng đúng gốc; R5 chấp nhận được.
 Bắt buộc: N1, N2.
 Nên sửa: N3, N4, G2.
 Nếu chỉ còn N3, N4, G1, G2 thì có thể coi là ĐẠT cho phạm vi Task 1-4.
+
+# Vòng 4 - rà lại bản sửa N1-N4 (commit `47a8652` code, `5468a3a` tài liệu, diff `aa197f1..HEAD`)
+
+KET LUAN: DAT
+
+Người rà: security-reviewer (chỉ đọc), skill đã dùng: `ddc-tower:security-review`; điều phối viên ghi lại báo cáo.
+Phạm vi: phần Task 1-4 của P3E; Task 5-8 chưa tới lượt nên không tính là thiếu.
+Test tự chạy: `login-guard.test.ts`, `password-reset.test.ts`, `repo/mock-repo-auth.test.ts` được 3 file, 58/58 xanh.
+Test tự chạy thêm: 12 file auth liên quan (`src/lib/auth-*.test.ts`, `app-pages-auth-guard`, `auth-mail`, `authz`, `login-reset-integration`, `middleware-auth`, `middleware-auth.qa`, `reset-data-removed`) được 120/120 xanh.
+`npx tsc --noEmit`: exit 0, không lỗi.
+Không chạy lại toàn bộ `npm test`; con số 218 file / 2433 test là theo `thay-doi.md` của coder.
+Lý do ĐẠT: N1, N2 (phần hợp đồng và kho bộ nhớ), N3, N4, G2 đều đã đóng đúng gốc; bản sửa không mở lỗ mức trung bình hay cao; chỉ còn vấn đề mức thấp và ghi chú cho Task 5.
+
+## Trạng thái lỗi vòng 3
+
+| Lỗi | Trạng thái |
+|---|---|
+| N1 | Đã đóng: `password-reset.ts:141-144` đặt chỗ `reset_req_ip` trước, IP hết chỗ thì trả `accepted` ngay và không đụng email; `:146-151` chỉ đặt chỗ email khi IP còn chỗ, email hết chỗ thì `releaseThrottle(ipReserved)`. Test N1 (`password-reset.test.ts:332-363`) chứng minh đúng kịch bản vòng 3 yêu cầu. Việc nhả chỗ IP có hệ quả phụ mức thấp, xem L1. |
+| N2 | Đã đóng phần làm được ở Task 1-4: `types.ts:644` trả `Promise<number \| null>`, `:655` đổi thành `releaseThrottle(id: number)`; JSDoc `:628-655` bắt buộc `pg_advisory_xact_lock(hashtext(kind \|\| ':' \|\| key))` trong transaction, ghi rõ INSERT SELECT ở READ COMMITTED là KHÔNG ĐỦ, cấm `deleteMany` lọc theo `kind/key/createdAt`. Kho bộ nhớ (`mock-repo-auth.ts:124-137`) cấp `id` tăng dần và xoá đúng 1 dòng theo `id`. Cả 2 nơi gọi (`login-guard.ts:68-74`, `password-reset.ts:141-150`) khớp chữ ký mới và so `=== null`. Model `AuthThrottle.id Int @default(autoincrement())` trong kế hoạch (`ke-hoach.md:539`) khớp kiểu `number`. Phần Prisma để Task 5. |
+| N3 | Đã đóng: `ke-hoach.md:388-437` khớp code (G2 chuẩn hoá email, IP trước email, hợp đồng `id`, nhánh chỉ Google chung kho email lạ, `resetFailedLogin` luôn gọi, bỏ `rate_limited`, `no_account` ghi tên cố định); test-plan 4.4 và 4.5 đã cập nhật. |
+| N4 | Đã đóng: test `login-guard.test.ts:296-321` dùng 19 email lạ khác nhau, 5 lần đúng xen giữa, lần sai thứ 20 `invalid`, lần 21 `ip_limited`, đếm bằng 20. Test bắt được cả 2 kiểu hỏng: không nhả và nhả quá tay. |
+| G1 | Đã ghi vào `thay-doi.md` và `ke-hoach.md:423-424` như giới hạn đã biết. |
+| G2 | Đã đóng: `login-guard.ts:56` chuẩn hoá `input.email.trim().toLowerCase()` trước mọi khoá throttle và `getAccountState`; test `login-guard.test.ts:324-333` với 3 biến thể ra cùng 1 khoá, đếm 3. |
+
+## Lỗi còn lại
+
+**L1. [Thấp, hệ quả phụ của bản sửa N1] Email đã hết lượt thì yêu cầu xin link không còn bị tính vào giới hạn IP, nên có thể gửi vô hạn**
+
+- File: `src/server/password-reset.ts:146-151`.
+- Cách khai thác: làm hết 3 lượt/giờ của một email E, sau đó gửi liên tục yêu cầu cho E từ cùng 1 IP; mỗi yêu cầu đặt chỗ IP rồi nhả ngay, bộ đếm IP không bao giờ tăng.
+- Tác động: không gửi mail, không ghi `activity_log`, không lộ email tồn tại; thiệt hại duy nhất là 3 lượt gọi DB mỗi yêu cầu, không có trần theo IP.
+- Đánh giá: chấp nhận được cho Task 1-4, nhưng phải quyết trước khi chạy Prisma thật (Task 5).
+- Cách sửa, chọn 1 trong 2:
+  - (a, khuyên dùng) bỏ `releaseThrottle(ipReserved)` ở nhánh email hết lượt; N1 vẫn đóng. Cái giá: người dùng thật sau cùng 1 IP văn phòng tự bấm quá 3 lần sẽ ăn chung 10/giờ của văn phòng.
+  - (b) giữ việc nhả chỗ nhưng thêm giới hạn tần suất ở tầng route hoặc proxy (Task 8, checklist deploy).
+- Test đề nghị với (a): làm hết lượt email E từ IP X, gửi thêm 20 yêu cầu cho E từ X, rồi `countThrottle('reset_req_ip', X)` bằng 10 và 1 email khác từ X bị chặn.
+
+**L2. [Thấp, thiếu test] Chưa có test cho nhánh "email hết lượt thì nhả chỗ IP" ở `requestPasswordReset`**
+
+- File: `src/server/password-reset.ts:147-151`.
+- Nếu giữ hành vi nhả chỗ (L1 phương án b): từ IP X gửi 5 yêu cầu cho cùng email E, `countThrottle('reset_req_ip', X)` bằng 3, `countThrottle('reset_req_email', E)` bằng 3.
+- Nếu chọn L1 phương án (a) thì thay bằng test của L1.
+
+## Ghi chú (không chặn)
+
+- G3 (Task 5): advisory lock phải chạy trên cùng kết nối với câu đếm và câu ghi, tức là trong `prisma.$transaction(async (tx) => { ... })` và gọi qua `tx`.
+- G3 (tiếp): `pg_advisory_xact_lock` trả kiểu `void`, dùng `tx.$executeRaw` hoặc ép `::text`.
+- G3 (tiếp): test concurrency trên DB thật (30 lời gọi song song, limit 20, đúng 20 id khác null; release khi 2 dòng trùng `createdAt` chỉ xoá 1).
+- G4 (Task 5): không dùng chung `kind` `login_fail_unknown_email` để giới hạn ghi `login_google_denied` như chú thích `src/lib/auth.ts:156-161` gợi ý; nên thêm loại riêng, ví dụ `google_denied`.
+- G5: nếu `releaseThrottle` ném lỗi thì `requestPasswordReset` ném theo, hỏng theo hướng an toàn; route ở Task 5-6 phải bọc lỗi thành phản hồi chung, không lộ `message` của Prisma.
+- G6: với Prisma, trong khoảng ngắn giữa đặt chỗ và nhả chỗ IP, yêu cầu đồng thời cùng IP có thể bị chặn nhầm tạm thời; không đáng kể.
+- G7: nhánh nhả chỗ IP thêm 1 lượt gọi DB, đo thời gian có thể biết email đang hết lượt; không lộ email có tồn tại hay không, không đáng kể.
