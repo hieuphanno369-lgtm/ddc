@@ -72,7 +72,7 @@ English -> URL chuyen dung `/en/overview`, tieu de trang doi sang "MANAGEMENT RE
 
 Trinh duyet that, ca 2 trang (Tong quan, Chi tiet), ca `next start` (production) lan `next dev`: chart
 mount du so luong, co truc/legend/tooltip, khong co canh bao `defaultProps`/hydration. Anh chup so voi
-`.bangiao/anh-test/sau-*.png` khop bo cuc, mau sac, font o ca 1440px va 390px (xem muc 3).
+`.bangiao/archive/nang-next15-2026-09-27/anh-test/sau-*.png` khop bo cuc, mau sac, font o ca 1440px va 390px (xem muc 3).
 
 ### 2.7 Redirect dang nhap khi chua co cookie
 

@@ -94,7 +94,7 @@ Kiểm lại trước mỗi lệnh: `echo $env:DATABASE_URL` phải chứa `ddc_
 Tạo mới:
 - `src/components/dashboard/OverviewChartsLazy.tsx` (Task 1)
 - `src/components/project/ProjectDetailChartsLazy.tsx` (Task 1)
-- `.bangiao/thay-doi.md`, `.bangiao/hieu-nang.md`, `.bangiao/anh-test/*.png` (hồ sơ dây chuyền)
+- `.bangiao/thay-doi.md`, `.bangiao/hieu-nang.md`, `.bangiao/archive/nang-next15-2026-09-27/anh-test/*.png` (hồ sơ dây chuyền)
 
 Sửa:
 - `src/components/dashboard/OverviewWidgets.tsx` (Task 1)
@@ -139,7 +139,7 @@ Nếu buộc phải sửa file nào ngoài danh sách: ghi lý do vào `.bangiao
   - `RECHARTS_VER` = cao nhất trong `npm view recharts@2 version`; `npm view recharts@<RECHARTS_VER> peerDependencies` phải gồm React 19; ghi lại dải `react-is` trong `dependencies`.
   - `INTL_VER` = cao nhất trong `npm view next-intl@4 version`; kiểm peer `next` gồm `^15`. Ghi thêm bản 3.x cao nhất (`npm view next-intl@3 version`) để đối chiếu.
 - [ ] **Bước 5: Đo và chụp ảnh "trước"** theo "Quy trình đo và chụp" (cuối file), nhãn `truoc`.
-  Kết quả vào `.bangiao/hieu-nang.md` mục "Trước (Next 14)", ảnh vào `.bangiao/anh-test/truoc-*.png`.
+  Kết quả vào `.bangiao/hieu-nang.md` mục "Trước (Next 14)", ảnh vào `.bangiao/archive/nang-next15-2026-09-27/anh-test/truoc-*.png`.
 
 **Xong khi:** `.bangiao/thay-doi.md` có BASE, mốc test, mốc e2e, audit trước, bảng phiên bản; `.bangiao/hieu-nang.md` có bảng "Trước"; có 4 ảnh `truoc-*`.
 Commit hồ sơ này cùng Task 1 (không commit riêng).
@@ -193,7 +193,7 @@ export const GroupByCard = dynamic(() => import('./DrillCharts').then((m) => m.G
 - [ ] **Bước 6: Commit**
 
 ```powershell
-git add .bangiao/thay-doi.md .bangiao/hieu-nang.md .bangiao/anh-test src/components/dashboard/OverviewChartsLazy.tsx src/components/project/ProjectDetailChartsLazy.tsx src/components/dashboard/OverviewWidgets.tsx "app/[locale]/(app)/projects/[id]/page.tsx"
+git add .bangiao/thay-doi.md .bangiao/hieu-nang.md .bangiao/archive/nang-next15-2026-09-27/anh-test src/components/dashboard/OverviewChartsLazy.tsx src/components/project/ProjectDetailChartsLazy.tsx src/components/dashboard/OverviewWidgets.tsx "app/[locale]/(app)/projects/[id]/page.tsx"
 git commit -m "refactor(next15): doi dynamic ssr:false ra client component, ghi moc nen truoc khi nang" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
@@ -357,7 +357,7 @@ export type Locale = (typeof routing.locales)[number];
   - Hover 1 chart Recharts ở Tổng quan và ở Chi tiết: tooltip hiện (chụp thêm `sau-tooltip.png`).
   - Hiệu năng: mọi request < 1500 ms; mỗi URL "lần đầu" không chậm hơn "trước" quá 20% (hoặc quá 150 ms, lấy mức lớn hơn); cột "3 lần sau" của `/vi/overview?...` nhỏ hơn rõ cột "lần đầu" (chứng tỏ `unstable_cache` vẫn ăn). Không đạt thì điều tra trước khi commit, ghi phân tích vào `hieu-nang.md`.
 - [ ] **Bước 7:** Kiểm các trường hợp biên của Task 2 và Task 3 chưa có test tự động phủ (cookie locale, open redirect) và ghi kết quả.
-- [ ] **Bước 8: Commit** hồ sơ `.bangiao/thay-doi.md`, `.bangiao/hieu-nang.md`, `.bangiao/anh-test/sau-*.png` (và sửa lỗi nếu có): `docs(next15): cong day du, do hieu nang va anh truoc/sau` + Co-Authored-By. Cập nhật `phien-A.md`.
+- [ ] **Bước 8: Commit** hồ sơ `.bangiao/thay-doi.md`, `.bangiao/hieu-nang.md`, `.bangiao/archive/nang-next15-2026-09-27/anh-test/sau-*.png` (và sửa lỗi nếu có): `docs(next15): cong day du, do hieu nang va anh truoc/sau` + Co-Authored-By. Cập nhật `phien-A.md`.
 
 **Xong khi:** tất cả cổng xanh, audit sạch 3 gói, ảnh và số liệu đạt tiêu chí.
 
@@ -380,7 +380,7 @@ Hai script dưới đây để ở `$env:TEMP`, KHÔNG commit.
 2. Đặt biến DB tạm. Build lấy font thật: `$env:NODE_EXTRA_CA_CERTS=...win-root-ca.pem`, KHÔNG đặt `NEXT_FONT_GOOGLE_MOCKED_RESPONSES`, `npx next build`. Nếu build lỗi tải font thì dùng font mock và ghi rõ vào `hieu-nang.md` (cả trước và sau phải cùng một cách build).
 3. `npx next start -p 3010` (cửa sổ riêng, cùng biến DB tạm).
 4. `node $env:TEMP\do-trang-a.mjs` (chạy từ thư mục repo), chép bảng vào `.bangiao/hieu-nang.md`.
-5. `node $env:TEMP\chup-a.mjs <nhan>` (chạy từ thư mục repo), ảnh vào `.bangiao/anh-test/`, chép danh sách console vào `hieu-nang.md`.
+5. `node $env:TEMP\chup-a.mjs <nhan>` (chạy từ thư mục repo), ảnh vào `.bangiao/archive/nang-next15-2026-09-27/anh-test/`, chép danh sách console vào `hieu-nang.md`.
 6. Tắt `next start`, `Remove-Item -Recurse -Force .next`.
 
 `$env:TEMP\do-trang-a.mjs`:
@@ -435,7 +435,7 @@ for (const [w, h] of SIZES) {
   for (const [name, path] of PAGES) {
     await page.goto(`http://localhost:3010${path}`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(2000); // cho animation Recharts xong
-    await page.screenshot({ path: `.bangiao/anh-test/${label}-${name}-${w}.png`, fullPage: true });
+    await page.screenshot({ path: `.bangiao/archive/nang-next15-2026-09-27/anh-test/${label}-${name}-${w}.png`, fullPage: true });
   }
   console.log(`--- console ${w}px ---\n${logs.join('\n') || '(khong co)'}`);
   await ctx.close();

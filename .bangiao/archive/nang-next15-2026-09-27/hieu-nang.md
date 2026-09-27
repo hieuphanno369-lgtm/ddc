@@ -22,7 +22,7 @@ Quy trình: xem `ke-hoach.md` mục "Quy trình đo và chụp". Build lấy fon
 Console (Playwright, 1440x900 và 390x844, trang `/vi/overview?month=2026-09` + `/vi/projects/1`): không có
 lỗi/cảnh báo (`(khong co)` ở cả 2 kích thước).
 
-Ảnh: `.bangiao/anh-test/truoc-overview-1440.png`, `truoc-overview-390.png`, `truoc-project1-1440.png`,
+Ảnh: `.bangiao/archive/nang-next15-2026-09-27/anh-test/truoc-overview-1440.png`, `truoc-overview-390.png`, `truoc-project1-1440.png`,
 `truoc-project1-390.png`.
 
 ## Sau (Next 15.5.26 + React 19.3.0 + next-intl 4.14.7 + next-auth 4.24.15 + recharts 2.15.4)

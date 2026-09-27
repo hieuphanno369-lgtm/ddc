@@ -210,7 +210,7 @@ tiếp (foreground). Không tắt bất kỳ tiến trình nào của B/C.
 
 ## Task 5: bàn giao cho dây chuyền
 
-### Danh sách toàn bộ file đã sửa (từ BASE `54ac9bf` tới commit cuối, không tính ảnh `.bangiao/anh-test/`)
+### Danh sách toàn bộ file đã sửa (từ BASE `54ac9bf` tới commit cuối, không tính ảnh `.bangiao/archive/nang-next15-2026-09-27/anh-test/`)
 
 ```
  app/[locale]/(app)/audit/page.tsx
