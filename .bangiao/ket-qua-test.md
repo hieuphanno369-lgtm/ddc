@@ -150,3 +150,59 @@ voi bao cao cua coder va khop so lieu. Da kiem bang trinh duyet that (khong chi 
 soi rieng diem `toPass` 15s (khong che loi that) va cac bien Task 2/3 theo dung yeu cau.
 
 **Viec ke tiep**: security-reviewer -> reviewer.
+
+## Vong 2 (sau vong sua 1 theo reviewer, commit 38d7f0d)
+
+Skill da dung: `test-driven-development`, `verification-before-completion`.
+Nhanh `feature/nang-next15`, HEAD luc kiem: `38d7f0d`. Da doc `.bangiao/thay-doi.md` muc "Vong sua 1 theo
+reviewer", `.bangiao/danh-gia.md`, `.bangiao/danh-gia-bao-mat.md`, va `git diff d66e5bd..HEAD`.
+
+### 1. Doi chieu diff voi 2 muc "Can sua" cua reviewer
+
+- Muc 1 (bo khoa cung `expect(res.status()).toBe(404)`): dung. Da thay bang
+  `expect([200, 404]).toContain(res.status())` + kiem `pathname === '/vi/login'` khi 200; ten test doi tu
+  "phai that bai" sang "bien: ... khong ra host la, khong lo du lieu"; kiem yeu `not.toContain('projectName')`
+  da doi thanh `not.toContain('href="/vi/projects/')`.
+- Muc 2 (doi ten file 12 -> 13, sua nhan describe): dung, `git mv` giu lich su (similarity 66%), khong con
+  file `12-locale-redirect-cookie.spec.ts` nao, khong dam so voi `e2e/12-chuoi-gia-tri.spec.ts` cua nhanh C.
+- 3 muc "Nen lam": ca 3 co trong diff (`isOpenRedirectLocation` them `/\\`, `fresh.dispose()` trong
+  `finally`, bo tham chieu "xem thay-doi.md" o comment dau file).
+
+### 2. Kiem huong cua test bien (gia lap va L-1 tam thoi)
+
+Da sua tam `middleware.ts` (CHI de kiem chung, khong phai sua that) theo dung de xuat trong
+`.bangiao/danh-gia-bao-mat.md` muc L-1: doi matcher tu `.*\\..*` (loai tru moi duong dan co dau cham) thanh
+`.*\\.(?:ico|png|jpg|jpeg|svg|webp|gif|css|js|map|txt|xml|woff2?)$` (chi loai tru dung file tinh theo duoi
+o CUOI duong dan). Chay rieng `npm run test:e2e:a -- e2e/13-locale-redirect-cookie.spec.ts` voi ban va tam
+nay: **8/8 xanh** (3 setup + 5 test), bao gom dung test bien dang xet
+(`/vi/overview//evil.com` -> gio middleware CO chay, redirect ve `/vi/login`, response cuoi la 200 tai
+`/vi/login`) - test khong do, xac nhan huong sua dung: test khoa dung dieu can khoa (khong ra host la,
+khong lo du lieu), KHONG khoa cung ma trang thai 404 se doi khi L-1 duoc va o phase sau.
+Sau do `git checkout -- middleware.ts` phuc hoi ban goc, `git status` sach (khong con thay doi o
+`middleware.ts` hay bat ky file nao khac).
+
+Kiem rieng `href="/vi/projects/`: cac lien ket du an that trong `TopPriorityList.tsx`, `ProjectTable.tsx`
+deu dung `<Link href={`/projects/${s.id}`}>` cua `next-intl` (render thanh the `<a href="/vi/projects/1">`
+that su tren trang Tong quan). Neu trang bao ve nao do lo HTML that (vi du L-1 bi khai thac that trong
+tuong lai va lam sai mot page khac), chuoi nay se xuat hien trong body - kiem yeu cu (`not.toContain
+('projectName')`, ten thuoc tinh JS gan nhu khong bao gio co trong HTML) khong bat duoc dieu do, kiem moi
+bat duoc. Ket luan: kiem moi co gia tri that, khong phai kiem hinh thuc.
+
+### 3. Cong lenh chay lai doc lap (vong 2)
+
+| Lenh | Ket qua |
+|---|---|
+| `npx tsc --noEmit` | Sach (exit 0, khong output) |
+| `npm test` | **210 file / 2409 test xanh** (khop moc) |
+| `npm run test:e2e:a` (toan bo, cong 3010, DB tam; khong co server nao o 3000/3010 truoc khi chay; chi thay cong 3003 cua C dang chay, khong dung toi) | **79/79 xanh** (2.0 phut). Co 1 dong log `[WebServer] Error: aborted { code: 'ECONNRESET' }` xen giua test 13/14 (05-import) - khong lam test nao do, khong lap lai o cac lan chay khac trong phien nay, ghi nhan la nhieu log vo hai (ket noi bi dong som tu phia client cua chinh 1 request truoc do), khong phai regression. |
+
+`git status` cuoi phien: sach (khong co file san pham nao bi doi vinh vien; middleware.ts da phuc hoi dung
+ban goc sau buoc kiem muc 2).
+
+### 4. Ket luan vong 2
+
+Khong test nao rot. Ca 2 muc "Can sua" bat buoc va 3 muc "Nen lam" cua reviewer deu da duoc ap dung dung
+huong va da kiem chung doc lap (kem gia lap L-1 tam thoi). Moi cong (`tsc`, `npm test`, `npm run
+test:e2e:a` toan bo 79/79) deu xanh.
+
+**Viec ke tiep**: security-reviewer -> reviewer (chot lai vong 2).
