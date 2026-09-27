@@ -117,3 +117,89 @@ Toàn bộ module ở Task này CHƯA được nối vào luồng đăng nhập/
 - `requestPasswordReset` ghi throttle (`recordThrottle`) TRƯỚC KHI biết tài khoản có tồn tại hay không (để lần xin thứ N+1 vẫn bị đếm ngay cả với email lạ) - nhưng SAU bước kiểm tra giới hạn hiện tại (không tự đếm chồng lên chính nó ở lần bị chặn) - xem lại đúng ý "S4 - giới hạn xin link theo email và IP" chưa bị đếm 2 lần hay thiếu 1 lần ở biên.
 - `mock-repo-auth.ts` dùng ISO string so sánh trực tiếp cho hạn token/cửa sổ throttle (không parse `Date`) - đúng vì mọi giá trị đều cùng định dạng cố định (`toISOString()`), nhưng nếu sau này có chỗ nào truyền ISO khác định dạng (thiếu mili giây, timezone khác) sẽ so sai - chưa có kiểm tra dạng cho các tham số `nowIso`/`sinceIso`.
 - `queueAuthEmail`/`getAuthSmtpConfig` trùng tên/hành vi khá giống `queueAlertNotifications`/`dispatchAlertNotifications` (2 hàng đợi nền riêng biệt, không dùng chung) - có chủ đích (email quên mật khẩu không nên chờ hàng đợi cảnh báo), ghi rõ ở đây để Reviewer không nhầm là trùng lặp code thừa.
+
+---
+
+## Vòng sửa bảo mật 1 (sau security-reviewer, `.bangiao/bao-mat.md` L1-L8)
+
+> Phạm vi: chỉ phần KHÔNG cần đổi schema (C vẫn đang giữ `schema.prisma`/`prisma/migrations/`/`prisma-repo.ts`).
+> Mỗi lỗi có test đỏ (đã tự xác nhận bằng `git stash` chỉ phần code sửa, giữ nguyên test, chạy đỏ đúng lỗi mô tả, `git stash pop` khôi phục rồi xanh lại) rồi mới sửa. Không đụng `schema.prisma`/`prisma/migrations/`.
+
+### L1 - Timing oracle ở nhánh "đã khoá" (KHẮC PHỤC)
+
+- `src/server/login-guard.ts`: nhánh `account.lockedAt !== null` giờ gọi `verifyPassword(password, DUMMY_HASH)` TRƯỚC khi trả `locked`, giống hệt nhánh email lạ - không còn tốn ít thời gian hơn để lộ "email này có tồn tại và đã khoá".
+- Test đỏ trước: `login-guard.test.ts` mục "L1" so số lần gọi `verifyPassword` giữa nhánh đã khoá và nhánh email lạ hoàn toàn xa lạ, phải bằng nhau và > 0.
+
+### L2 - `X-Forwarded-For` tin phần tử đầu, fail-open khi thiếu IP (KHẮC PHỤC theo quyết định chủ dự án)
+
+- `src/lib/client-ip.ts`: viết lại `clientIpFrom` - đọc `TRUSTED_PROXY_HOPS` (mặc định 1, giá trị không hợp lệ coi như 1), lấy phần tử tính từ PHẢI của `X-Forwarded-For` (mặc định = phần tử cuối); không có `X-Forwarded-For` hợp lệ thì rơi về `x-real-ip`; không có gì thì trả `'unknown'` (KHÔNG còn trả `''`/bỏ giới hạn).
+- Dùng chung 1 hàm cho `src/lib/activity.ts` (log hoạt động), `app/api/export/route.ts`, `app/api/health/route.ts` (rate limit) - trước đây mỗi nơi tự viết lại logic lấy phần tử đầu.
+- Thêm biến `TRUSTED_PROXY_HOPS` vào `.env.example` kèm chú thích (số tầng reverse proxy tin cậy phía trước app; mặc định 1).
+- Đóng luôn 1 lỗ hổng cũ đã ghi nợ ở `PROGRESS.md` (P3D-B, "L-3 rate-limit /api/health né được qua X-Forwarded-For") - trước đây đổi phần tử đầu mỗi request là né được giới hạn `/api/health`, `/api/export` vô hạn lần; nay không còn né được vì khoá theo phần tử cuối (do proxy tin cậy ghi, client không sửa được).
+- Test đỏ trước: `client-ip.test.ts` viết lại toàn bộ (lấy phần tử cuối thay vì đầu, `TRUSTED_PROXY_HOPS=2`, giá trị không hợp lệ coi như 1, không có IP nào trả `'unknown'`); thêm describe "L2" trong `export-route.test.ts`/`health-route.test.ts`: đổi phần tử ĐẦU của XFF liên tục 30/120 lần (giữ nguyên phần tử cuối) vẫn bị chặn 429 đúng hạn mức (trước đây sẽ KHÔNG BAO GIỜ bị chặn).
+- **Việc cho tài liệu deploy (C, T17), bổ sung:** reverse proxy lúc deploy phải cấu hình đúng số tầng khớp `TRUSTED_PROXY_HOPS` (mặc định 1 = 1 reverse proxy trực tiếp trước app, vd Nginx/Caddy nối thêm IP client vào cuối `X-Forwarded-For`); nếu có thêm 1 tầng LB phía trước nữa thì đặt `TRUSTED_PROXY_HOPS=2`.
+
+### L3 - Race TOCTOU trong `checkCredentials` (KHẮC PHỤC phần hợp đồng interface + mock; PHẦN PRISMA ĐỂ TASK 5)
+
+- `src/server/repo/types.ts`: đổi `resetFailedLogin(email): Promise<void>` thành `Promise<boolean>` - phải NGUYÊN TỬ, tự kiểm `locked_at IS NULL` tại thời điểm ghi (không dựa vào bất kỳ giá trị đọc trước đó); `false` = đã bị khoá bởi 1 yêu cầu sai khác, bên gọi phải coi là "locked", KHÔNG được coi là đăng nhập thành công. JSDoc trong `types.ts` ghi rõ ví dụ câu SQL Prisma cho Task 5.
+- `src/server/repo/mock-repo-auth.ts`: `resetFailedLogin` kiểm `lockedAt !== null` trước khi reset, trả `false` nếu đã khoá.
+- `src/server/login-guard.ts`: nhánh mật khẩu đúng giờ LUÔN gọi `resetFailedLogin` (kể cả `failedLoginCount === 0` - trước đây bỏ qua hẳn bước này khi bộ đếm đang là 0, tức là dùng thẳng bản chụp `account` cũ để trả `ok:true` mà không xác nhận lại gì); `false` -> trả `{ ok:false, reason:'locked' }`.
+- `.bangiao/ke-hoach.md` mục Task 5: thêm ghi chú cho C biết `resetFailedLogin` đổi kiểu trả về, phải cài atomic (`updateMany` có điều kiện `lockedAt: null`) khi làm `prisma-repo-auth.ts`.
+- Test đỏ trước: `mock-repo-auth.test.ts` ("L3") - tài khoản đã khoá thì `resetFailedLogin` trả `false`, không đụng bộ đếm; `login-guard.test.ts` ("L3") gồm (1) test dùng `AuthStore` giả lập đúng kịch bản race (đọc thấy `lockedAt:null` nhưng `resetFailedLogin` trả `false` - mô phỏng có kiểm soát, không dựa vào suy đoán thứ tự `Promise.all` của JS vì không đáng tin cậy để làm test ổn định) - xác nhận `checkCredentials` LUÔN gọi `resetFailedLogin` và trả `locked` chứ không phải `ok:true`; (2) 1 test `Promise.all` thật với 10 yêu cầu sai đồng thời trên kho bộ nhớ, xác nhận không mất lần tăng bộ đếm nào (bất biến chung, không phụ thuộc thứ tự).
+  **Còn để Task 5:** xác nhận bằng concurrency THẬT (nhiều kết nối Postgres song song) chỉ làm được khi có `prisma-repo-auth.ts` + `$transaction`/`updateMany` thật; phần này thuộc `prisma-repo-auth.test.ts` ở Task 5.
+
+### L4 - Log tràn lan ở nhánh `rate_limited`, lưu email thô ở nhánh `no_account` (KHẮC PHỤC)
+
+- `src/server/password-reset.ts`: nhánh bị giới hạn (`rate_limited`) KHÔNG còn gọi `logActivity` (trước đây ghi 1 dòng mỗi lần bị chặn, spam được `activity_log` vô hạn).
+- Nhánh `no_account`: không còn lưu chuỗi email do người gọi tự nhập (có thể là bất kỳ chuỗi nào miễn đúng khuôn `normalizeEmail` - tối đa 254 ký tự, đúng 1 `@`) - đổi thành ghi cố định `{ name: 'khong-ton-tai', email: 'khong-ton-tai' }`, `detail` vẫn là `'no_account'` để phân biệt loại.
+- Kiểu `RequestLogDetail` bỏ `'rate_limited'` (không còn nhánh nào ghi giá trị này).
+- Test đỏ trước: `password-reset.test.ts` 2 test mới ("L4") - vượt hạn mức nhiều lần liên tục không ghi `logActivity` lần nào; nhánh no_account với email tuỳ ý không xuất hiện trong bất kỳ lời gọi `logActivity` nào.
+
+### L5 - `consumeResetToken` (mock) không kiểm lại `isActive`/`passwordHash` (KHẮC PHỤC)
+
+- `src/server/repo/mock-repo-auth.ts`: `consumeResetToken` giờ kiểm CÙNG điều kiện với `peekResetToken` (`account.passwordHash !== ''` và `account.isActive`) NGAY TẠI THỜI ĐIỂM TIÊU token, không chỉ tin token còn hạn - đóng kịch bản "cấp token rồi admin tắt tài khoản/chuyển tài khoản sang chỉ-Google trước khi người cầm link kịp dùng".
+- Hợp đồng ghi trong JSDoc `AuthStore.consumeResetToken` (`types.ts`) để Task 5 cài Prisma giống hệt (kiểm trong transaction, không tách rời 2 bước).
+- `.bangiao/ke-hoach.md` mục Task 5 đã có sẵn FK cascade (`PasswordResetToken.user onDelete: Cascade` - xoá tài khoản thì token tự mất); bổ sung thêm 1 dòng nhắc `consumeResetToken` Prisma phải kiểm `isActive`/`passwordHash` trong cùng transaction.
+- Test đỏ trước: `mock-repo-auth.test.ts` 2 test mới ("L5") - tài khoản bị tắt / chuyển sang chỉ-Google SAU khi token đã cấp -> `consumeResetToken` phải trả `{ ok:false }` giống `peekResetToken`.
+
+### L6 - Timing ở `requestPasswordReset` (KHẮC PHỤC)
+
+- `src/server/password-reset.ts`: sau khi ghi throttle (`recordThrottle`), hàm trả `{ status: 'accepted' }` NGAY LẬP TỨC; toàn bộ phần còn lại (đọc tài khoản, sinh token, `replaceResetToken`, soạn mail, `mailer.queue`, ghi `logActivity`) chuyển vào hàm nền `finishPasswordResetRequest`, chạy qua 1 chuỗi Promise nối tiếp `resetRequestQueueTail` (cùng khuôn `queueAuthEmail`/`queueAlertNotifications`) - không `await` từ `requestPasswordReset`.
+- Thêm `__resetRequestQueueIdleForTest()` (chỉ dùng trong test) để chờ hàng đợi nền chạy xong trước khi kiểm side-effect (giống `__authMailQueueIdleForTest`).
+- **Cập nhật toàn bộ test cũ** (`password-reset.test.ts`, `login-reset-integration.test.ts`) thêm `await __resetRequestQueueIdleForTest()` ở đúng chỗ cần lấy token/kiểm mail đã gửi - hành vi cũ (đồng bộ) không còn đúng nữa, đây là thay đổi hành vi có chủ đích chứ không phải hồi quy.
+- Test đỏ trước (test MỚI, không phải test cũ bị sửa): "L6" - ép 1 "thao tác chậm" bằng deferred promise (`gate`) trong `store.getAccountState`, xác nhận `requestPasswordReset()` trả `accepted` xong XONG mà thao tác chậm vẫn chưa hoàn tất (`composed` rỗng), chỉ sau khi mở `gate` + drain hàng đợi thì `mailer.compose` mới chạy - chứng minh phản hồi không còn chờ việc đọc tài khoản/soạn+gửi mail.
+
+### L7 - Tài khoản chỉ Google bị khoá qua form mật khẩu (KHẮC PHỤC theo quyết định chủ dự án 2026-09-27, phương án b)
+
+- `src/server/login-guard.ts`: tách nhánh `isGoogleOnly` (passwordHash rỗng) ra riêng, TRƯỚC nhánh mật khẩu sai/tài khoản tắt - vẫn chạy `verifyPassword(password, DUMMY_HASH)` (không lộ timing tài khoản nào là chỉ-Google), vẫn ghi IP sai (không đụng tới bảo vệ theo IP), nhưng KHÔNG gọi `registerFailedLogin` -> không tăng bộ đếm, không bao giờ bị khoá vì sai ở form mật khẩu.
+- Test đỏ trước: sửa lại test cũ (đã sai theo quyết định mới) trong `login-guard.test.ts` - gọi 10 lần sai liên tiếp (vượt xa ngưỡng 5), xác nhận `failedLoginCount` vẫn là 0 và `lockedAt` vẫn `null`, đồng thời `verifyPassword` vẫn được gọi (không lộ timing).
+
+### L8 - Đăng nhập Google bị từ chối không để lại dấu vết (KHẮC PHỤC)
+
+- `src/lib/auth.ts`: callback `signIn` nhánh Google, khi `googleAccessDecision(...) !== 'allow'`, ghi `logActivity({ name: user.name ?? email, email }, 'login_google_denied', decision)` trước khi trả `false` (decision là 1 trong `unverified|not_found|inactive|locked`, không phải token/link).
+- Thêm key i18n `activity.login_google_denied` vào CUỐI nhóm `activity` trong `vi.json`/`en.json` (đã kiểm `phien-B.md`/`phien-C.md` không ai giữ 2 file này trước khi sửa, đã ghi giữ vào `phien-A.md`, nhả ngay sau khi commit xong vòng sửa này).
+- Test đỏ trước: `auth-google.test.ts` thêm describe "L8" - 3 nhánh từ chối (`unverified`/`not_found`/`inactive`) đều ghi đúng `login_google_denied` kèm decision; nhánh được chấp nhận KHÔNG ghi; không log nào chứa chuỗi `token`/`http`.
+
+### Ghi chú của tester (không phải L1-L8, việc phụ đính kèm theo yêu cầu)
+
+- `src/server/validation.ts`: `createAccountSchema.email` thêm `.trim().toLowerCase()` trước `.email()`, kèm thông báo lỗi tiếng Việt cố định `'Email không hợp lệ'` (trước đây dùng message mặc định tiếng Anh của zod, hiện xuống thẳng UI qua `UserEditor.tsx` vì không map riêng).
+  **Đổi hành vi có chủ đích:** email có khoảng trắng đầu/cuối giờ được TRIM rồi chấp nhận (trước đây bị từ chối thẳng) - đã cập nhật lại test cũ `actions-account-duplicate-email.test.ts` (không còn kỳ vọng từ chối, mà kỳ vọng email khoảng trắng trùng với email đã có bị chặn `duplicate`, giữ đúng tinh thần "không lách qua kiểm trùng bằng biến thể khoảng trắng").
+  Test đỏ trước: `validation.test.ts` mục "createAccountSchema - email trim + thong bao tieng Viet".
+
+### Cổng kiểm cuối vòng sửa
+
+- `npx tsc --noEmit`: sạch.
+- `npm test`: **217 file / 2408 test xanh** (mốc trước vòng sửa: 217/2385; +23 test mới, không xoá/skip test nào).
+- Đã tự kiểm TDD bằng `git stash push` CHỈ 10 file mã nguồn đã sửa (giữ nguyên mọi file test) rồi chạy lại các test liên quan: toàn bộ đúng như mô tả từng lỗi ở trên đều ĐỎ (L1: so lệch số lần gọi bcrypt; L2: 8 test client-ip đỏ + export/health "không bao giờ 429"; L3: đúng 5 test mock/guard đỏ; L7: sai kỳ vọng cũ; L8: 3 test đỏ vì không gọi `logActivity`) rồi `git stash pop` khôi phục, chạy lại xanh 100%.
+- `npm run build` (font mock): qua.
+- `npm run test:e2e:a -- e2e/01-login.spec.ts e2e/07-admin.spec.ts e2e/20-dang-nhap-google.spec.ts` (cổng 3010, DB tạm `ddc_control_tower_e2e_a`): **13/13 xanh**.
+
+### File nóng đụng tới trong vòng sửa này
+
+- `vi.json`, `en.json`: chỉ thêm 1 key `activity.login_google_denied` ở cuối nhóm `activity`, không đổi/xoá key nào khác - đã kiểm `phien-B.md`/`phien-C.md` trước khi sửa (không ai giữ), ghi giữ vào `phien-A.md`, nhả ngay sau commit.
+- Không đụng `actions.ts`, `prisma-repo.ts`, `queries.ts`, `project-queries.ts`, `schema.prisma`, `prisma/migrations/`, `globals.css`.
+
+### Việc còn lại (để Task 5, khi C nhả khoá schema)
+
+- `prisma-repo-auth.ts`: cài `resetFailedLogin` nguyên tử (`updateMany` với `where: { email, lockedAt: null }`), `consumeResetToken` kiểm `isActive`/`passwordHash` trong cùng transaction - đã ghi rõ hợp đồng trong `types.ts` + ghi chú thêm trong `ke-hoach.md` mục Task 5.
+- Kiểm concurrency THẬT (nhiều kết nối Postgres song song) cho L3 - phần mock chỉ mô phỏng có kiểm soát, chưa phải bằng chứng cho database thật.
