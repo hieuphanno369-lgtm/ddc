@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation';
 import { SidebarProjectBrand } from '@/components/layout/SidebarBrand';
-import dynamic from 'next/dynamic';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { repo } from '@/server/repo';
@@ -27,25 +26,18 @@ import { HelpTip } from '@/components/ui/HelpTip';
 import { PlanActualTimeline } from '@/components/project/PlanActualTimeline';
 import { StageSelectionProvider } from '@/components/project/StageSelectionContext';
 import { ValueChainModeChip } from '@/components/project/ValueChainModeChip';
-const SCurve = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SCurve), { ssr: false, loading: () => <div className="sk h-60" /> });
-const CountdownPanel = dynamic(() => import('@/components/project/CountdownPanel').then((m) => m.CountdownPanel), { ssr: false, loading: () => <div className="sk" style={{ width: 240, height: 88 }} /> });
-const ResourceBreakdownChart = dynamic(() => import('@/components/project/ResourceBreakdownChart').then((m) => m.ResourceBreakdownChart), { ssr: false, loading: () => <div className="sk h-60" /> });
-const WeeklyTrackingCard = dynamic(() => import('@/components/project/WeeklyTrackingCard').then((m) => m.WeeklyTrackingCard), { ssr: false, loading: () => <div className="sk h-60" /> });
-const KeyMilestoneChart = dynamic(() => import('@/components/project/KeyMilestoneChart').then((m) => m.KeyMilestoneChart), { ssr: false, loading: () => <div className="sk h-60" /> });
-const StageExplorer = dynamic(() => import('@/components/project/StageExplorer').then((m) => m.StageExplorer), { ssr: false, loading: () => <div className="sk h-60" /> });
-const SpiCpiLine = dynamic(() => import('@/components/dashboard/charts').then((m) => m.SpiCpiLine), { ssr: false, loading: () => <div className="sk h-60" /> });
-const ManpowerMonthChart = dynamic(
-  () => import('@/components/project/ManpowerMonthChart').then((m) => m.ManpowerMonthChart),
-  { ssr: false, loading: () => <div className="sk h-60" /> },
-);
-const WeeklyManpowerStackChart = dynamic(
-  () => import('@/components/project/WeeklyManpowerStackChart').then((m) => m.WeeklyManpowerStackChart),
-  { ssr: false, loading: () => <div className="sk h-60" /> },
-);
-const EquipmentPlanGantt = dynamic(
-  () => import('@/components/project/EquipmentPlanGantt').then((m) => m.EquipmentPlanGantt),
-  { ssr: false, loading: () => <div className="sk h-60" /> },
-);
+import {
+  CountdownPanel,
+  EquipmentPlanGantt,
+  KeyMilestoneChart,
+  ManpowerMonthChart,
+  ResourceBreakdownChart,
+  SCurve,
+  SpiCpiLine,
+  StageExplorer,
+  WeeklyManpowerStackChart,
+  WeeklyTrackingCard,
+} from '@/components/project/ProjectDetailChartsLazy';
 import { getResourceBreakdown, getResourceSnapshot, getWeeklyTracking, getWorkItemComparison } from '@/server/project-queries';
 import { getManpowerMonthChartData, getWeeklyChartData } from '@/server/manpower-queries';
 import { getEquipmentPlanGantt } from '@/server/equipment-plan-gantt-queries';
