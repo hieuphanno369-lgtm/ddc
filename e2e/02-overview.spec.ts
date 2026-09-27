@@ -11,8 +11,13 @@ test.describe('02 - Tong quan (admin)', () => {
     const firstKpis = page.locator('.kpis').first();
     await expect(firstKpis.locator('.kpi')).toHaveCount(6);
 
-    const chartCount = await page.locator('.recharts-wrapper').count();
-    expect(chartCount).toBeGreaterThanOrEqual(4);
+    // Cac chart dung dynamic({ ssr: false }) (chunk client rieng, xem OverviewChartsLazy.tsx) - o che do
+    // `next dev` chunk nay bien dich khi request dau tien nen co the cham hon default expect timeout (5s).
+    // Doi (khong phai gia lap "cache am") thay vi doc .count() 1 lan, tranh bao do gia khi chunk chua kip nap.
+    await expect(async () => {
+      const chartCount = await page.locator('.recharts-wrapper').count();
+      expect(chartCount).toBeGreaterThanOrEqual(4);
+    }).toPass({ timeout: 15_000 });
 
     const rows = page.locator('table.tbl tbody tr');
     await expect(rows.first()).toBeVisible();

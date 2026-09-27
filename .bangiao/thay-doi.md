@@ -130,7 +130,58 @@ Nhánh `feature/nang-next15`, từ `main` @ `54ac9bf` (**BASE**, dùng để rol
 
 ## Task 4: cổng đầy đủ + kiểm trình duyệt
 
-(cập nhật khi hoàn thành)
+- **Bước 1-2:** `npx tsc --noEmit` sạch; `npm test` 210 file / 2409 test xanh (bằng mốc); `npm run build`
+  (font mock + DB tạm) qua sạch.
+- **Bước 3 (e2e đầy đủ):** lần chạy đầu **73/74** - `e2e/02-overview.spec.ts` đỏ (`chartCount` = 0, cần
+  >= 4). Chạy lại riêng spec 3 lần: đỏ cả 3 (không phải chập chờn - lặp lại chính xác), nên đây là **spec mới
+  đỏ, phải sửa gốc** theo đúng quy định của kế hoạch. Điều tra bằng Playwright thủ công trên bản `next start`
+  (production): KHÔNG có lỗi JS/console, cả 5 chart (đúng số lượng cho role admin) đều mount đúng, chỉ mất
+  khoảng 1-2s để chunk client (`OverviewChartsLazy`, nặng hơn do bọc thêm recharts 2.15.4 + React 19) tải xong
+  khi chạy qua `next dev` (biên dịch on-demand) - quá mốc 5s mặc định của `expect()` Playwright khi hệ thống
+  đang tải (nhiều tiến trình node khác chạy song song, xem mục môi trường bên dưới). **Sửa
+  `e2e/02-overview.spec.ts`** (test-only, không sửa app): thay `.count()` đọc 1 lần bằng
+  `expect(async () => {...}).toPass({ timeout: 15_000 })` để chờ đúng lúc chart mount thay vì đoán 1 mốc cố
+  định. Chạy lại riêng spec 3 lần sau sửa: XANH cả 3. Chạy lại toàn bộ: **74/74 xanh**.
+- **Bước 4 (`check:read`):** lần đầu (ngay sau khi chạy hết 74 spec e2e) LỆCH 3 mục
+  (`readManpowerWeekly/Range/ActualByMonth`) - nguyên nhân: `04-data-entry.spec.ts` (1 trong 74 spec) ghi
+  thật 1 ô số nhân lực vào DB, làm dữ liệu trôi khỏi mốc tĩnh `SEED_REPORT_DATE` mà `buildRepoData()` (hàm
+  build dữ liệu "mock" để so sánh) dùng - không liên quan gì tới việc nâng Next/React/next-intl (không đụng
+  file seed/check nào ở phase này). Seed sạch lại (`npx prisma db seed`, KHÔNG chạy lại e2e) rồi `npm run
+  check:read` ngay sau: **OK toàn bộ 23/23 dòng**. Ghi chú cho Tester: `check:read` chỉ đáng tin khi chạy
+  NGAY sau seed, chưa qua spec e2e nào ghi dữ liệu (đúng như comment gốc của
+  `scripts/check-read-parity.ts`) - không phải quy định riêng của phase này.
+- **Bước 5 (audit cuối):** `npm audit --omit=dev` hết sạch advisory của `next`, `next-intl`, `cookie`.
+  `npm ls cookie` → `cookie@0.7.2` (mọi bản >= 0.7). Còn lại 8 advisory (3 moderate, 5 high) NGOÀI PHẠM VI
+  (xem mục "Còn lại, ngoài phạm vi" bên dưới).
+- **Bước 6 (đo + chụp "sau"):** xem `.bangiao/hieu-nang.md` mục "Sau". Tóm tắt: hiệu năng mọi trang NHANH
+  HƠN "trước" (không có ô nào chậm hơn), `unstable_cache` vẫn ăn (median 3 lần sau < lần đầu ở hầu hết
+  dòng), console sạch, ảnh `sau-*` giống hệt `truoc-*` (chỉ khác giờ/mã ngẫu nhiên do seed lại), tooltip
+  Recharts hiện đúng ở cả Tổng quan và Chi tiết.
+- **Bước 7 (trường hợp biên Task 2+3, kiểm bằng `curl`/trình duyệt):**
+  - `GET /` không cookie → `307` `Location: /vi` (mặc định đúng locale `vi`).
+  - `GET /` với cookie `NEXT_LOCALE=en` → `307` `Location: /en`.
+  - `GET /vi//evil.com` → `308` `Location: /vi/evil.com` (KHÔNG có `//host` lạ - không phải open redirect).
+  - `GET //evil.com/vi` → `308` `Location: /evil.com/vi` (KHÔNG có host lạ - không phải open redirect).
+  - Mở `/vi` thật (theo redirect) → `Set-Cookie: NEXT_LOCALE=vi; ...; Max-Age=31536000` (đúng 1 năm, khớp
+    `localeCookie.maxAge` đã cấu hình ở Task 3).
+  - Chưa đăng nhập vào `/vi/overview` vẫn về `/vi/login`: đã phủ bởi e2e `09-chan-chua-dang-nhap.spec.ts`
+    (74/74 xanh ở Bước 3).
+
+### Còn lại, ngoài phạm vi (không thuộc next/next-intl/cookie)
+
+| Gói | Mức | Lý do ngoài phạm vi |
+|---|---|---|
+| `deepmerge-ts` (qua `@prisma/config`/`prisma`) | high | Cần hạ `prisma` xuống 6.12.0 (breaking) - không liên quan Next |
+| `postcss` (bundle sẵn trong `next`) | high | Chỉ hết khi lên `next@16` (breaking, ngoài phạm vi ">= 15.5.24") |
+| `uuid` (qua `exceljs`) | moderate | Cần hạ `exceljs` xuống 3.4.0 (breaking) - không liên quan Next |
+| `xlsx` | high | Không có bản vá (No fix available), đã biết từ trước phase này |
+
+### Môi trường lúc chạy (ghi chú cho Tester)
+
+Máy chạy song song nhiều tiến trình node (MCP servers, tsserver của cả 3 worktree A/B/C, dev server 3003 của
+C ~2.2GB) nên có lúc RAM khả dụng thấp (~2.3-2.7GB/16GB). 1 lần `next build` chạy nền (`run_in_background`)
+bị chính hệ thống/harness dừng để bảo vệ máy (không phải lỗi của build) - build lại thành công khi chạy trực
+tiếp (foreground). Không tắt bất kỳ tiến trình nào của B/C.
 
 ## Cần hỏi
 
