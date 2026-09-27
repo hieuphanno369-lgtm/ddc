@@ -135,3 +135,114 @@ rui ro nguoi giao viec neu ten da co test tot san. Tester bo sung 3 file (10 tes
 doan goc bi ngung dung chua co test) va 1 diem cung co (bien `STAGE_MAX_COUNT` qua tang action that).
 Khong tim thay loi hanh vi nao can Reviewer/chu du an quyet dinh. Giao dien 1440/390 o ca hai trang
 (`/admin` the giai doan, `/projects/1` the Chuoi gia tri) dung nhu mo ta, khong lech pixel dang ke.
+
+---
+
+# Vong 2 - kiem doc lap vong sua T-1..T-4 theo security-reviewer
+
+KET QUA: DAT
+
+Kiem tren commit `ca9a255` (fix "vong sua bao mat T-1..T-4"), nhanh `feature/p7-c2-chuoi-gia-tri`,
+worktree `D:\_project\DDC_Control_Tower-C` (tai khoan C, cong 3003, DB `ddc_control_tower_c`).
+Skill da dung: `test-driven-development`, `verification-before-completion`.
+
+## 1. Cong kiem doc lap
+
+- `npx tsc --noEmit`: sach, ca truoc va sau khi them test moi.
+- `npm test` (truoc khi them test): **215 file / 2502 test XANH** - dung khop coder bao trong `thay-doi.md`.
+- `npm test` (sau khi them 1 test moi o `entry.test.ts`): **215 file / 2503 test XANH**.
+- `npm run check:read`: OK, sau khi seed lai va chay ngay (xem muc 5 ve 1 lan bao "CO LECH" do do tre
+  thoi gian giua seed va check, khong phai loi code).
+- `npx playwright test` (TOAN BO, khong loc file): **83/83 XANH** tren cong 3003 (coder chi bao 7/7 cho
+  rieng `e2e/12-chuoi-gia-tri.spec.ts` trong vong sua nay; 83 la tong so kich ban toan bo suite gom ca
+  12 file khac khong doi trong vong sua). Khong dung cong 3000/3001/3002.
+
+## 2. Kiem doc lap tren repo Prisma that (DB `_c`), khong qua mock
+
+Dung `entryPrismaRepo`/`formPrismaRepo` that (khong mock `@/server/db`) qua script tam
+`scripts/tmp-tester-v2-concurrency.ts` (da xoa ngay sau khi chay xong, khong con trong git status).
+
+- **T-1 (2 lenh `saveStage` dong thoi CUNG TEN)**: goi `Promise.all` 2 lan `saveStage` voi cung
+  `nameVi`. Ket qua: dung 1 doi tuong `Stage` tao thanh cong + 1 chuoi `'duplicate_name'`; `dim_stage`
+  sau do chi con DUNG 1 dong ten do (khong trung, khong vuot, khong nem loi/500).
+- **T-3 mo rong (2 lenh `setStageActive` dong thoi tren 2 giai doan tam KHAC nhau)**: ca hai deu tra
+  `'ok'`, khong deadlock, khong nem loi - chung minh khoa advisory dung 1 ten `'dim_stage'` serial hoa
+  dung cac giao dich dong thoi tren DB that (khong chi tren mock nhu test cua coder). KHONG dung lai
+  kich ban "2 giai doan cuoi cung" tren du lieu that (giong ly do coder da ghi: phai tat 6/8 giai doan
+  that qua rui ro cho DB dang dung chung); dong y voi lua chon nay cua coder, dua vao test mock da
+  RED/GREEN day du (`prisma-repo-entry.test.ts` dong 229-242) + bang chung tren cho thay khoa hoat dong
+  dung tren Postgres that.
+- **T-4 (ngung dung -> luu trong so xen ke KHONG gui ma do -> dung lai) tren du an that (du an 1)**:
+  tao giai doan tam, `applicable=false` de "sua trong so" (weightPct 5, khong chan duoc ngung dung vi
+  luat chi chan khi `applicable=true` VA `weightPct>0`) -> ngung dung OK -> luu trong so LAN NUA KHONG
+  gui ma do (mo phong form an di) -> doc lai DB: dong van con dung `5/false` (khong bi xoa) -> dung lai
+  -> doc lai DB: dong VAN `5/false` (khong bi ghi de ve `0/true`, dung `skipDuplicates`). `calcChainPctActual`
+  voi va khong co dong nay cho ra CUNG 1 so (0,5) - dung "khong doi %TT" chu du an yeu cau.
+- Da don toan bo giai doan/dong trong so/audit tam ngay trong script, roi `npx prisma db seed` +
+  `check:read` de dua DB ve chuan (xem muc 4).
+
+## 3. Kiem giao dien that (Playwright MCP, dang nhap admin that, cong 3003)
+
+- **1440px**: mo `/admin`, dien dong Them moi ("Tester V2 GD Thu", thu tu 5, ben Trai) -> bam Them ->
+  xuat hien dung dong trong bang, ghi hoat dong "Luu giai doan chuoi gia tri". Sang `/projects/1`: giai
+  doan moi hien dung CUOI cot trai, 0%. Sang `/ho-so-du-an?project=1`: dong trong so moi hien dung 0.
+  Quay lai `/admin` bam "Ngung dung" -> trang thai doi "Ngung dung", nut doi thanh "Dung lai"; sang
+  `/projects/1` giai doan da BIEN MAT khoi the (dung). Quay lai `/admin` bam "Dung lai" -> sang
+  `/projects/1`: giai doan XUAT HIEN LAI dung vi tri, 0%, khong loi console, chan the %TT khong doi
+  (79,0% - dung vi trong so giai doan nay la 0% ca truoc/sau).
+  - Da don sach giai doan tam nay ngay sau khi kiem xong.
+- **390px**: the "Giai doan chuoi gia tri" render dung, khong crash, khong de chu; bang co `minWidth`
+  920px lam CUON NGANG trong khung the (kiem bang `scrollLeft`) thay vi ep cot - cuon toi cung thay du
+  cot "Trang thai" + nut "Luu"/"Ngung dung"/"Dung lai", dung y thiet ke coder ghi trong `thay-doi.md`.
+  Khong phat hien loi giao dien.
+- Console trinh duyet: 0 error/warning lien quan trong suot qua trinh thao tac tren.
+
+## 4. Test moi them (chi tao/sua file test, khong dung code san pham)
+
+`src/server/repo/entry.test.ts` (mock-repo-entry) - `entry repo (mock) - quan tri giai doan`: coder da
+sua `mock-repo-entry.ts` de them nhanh T-4 (dung lai chen 0%) nhung theo `thay-doi.md` "chi bo sung
+comment giai thich", KHONG co test moi rieng cho nhanh nay o tang mock (chi co o tang Prisma trong
+`prisma-repo-entry.test.ts`). Them 1 test:
+
+> "setStageActive dung lai -> chen 0% cho du an da co dong khac nhung thieu dong ma nay, giu nguyen
+> dong da co, du an chua co dong nao thi khong them"
+
+Da doi chieu qua `git show ca9a255 -- src/server/repo/mock-repo-entry.ts`: test nay nham dung vao 12
+dong code MOI them trong nhanh `if (isActive) { ... }` cua `setStageActive` (khong ton tai truoc fix) -
+neu bo doan do di thi du an 1 (co dong `design` nhung thieu dong `custom_1`) se KHONG duoc chen dong 0%,
+test se ROT. Khong sua code san pham de xac nhan RED truc tiep (dung luat "khong dung code san pham");
+doi chieu bang doc diff la bang chung thay the. Da chay `npx vitest run src/server/repo/entry.test.ts`
+rieng (25/25 XANH, +1 so voi truoc) va trong `npm test` toan cuc (215/2503 XANH).
+
+## 5. Ghi chu ky thuat (khong phai loi code, chi de Reviewer/dieu phoi biet)
+
+- **`check:read` nhay do lech thoi gian, khong phai loi vong sua nay**: chay `npm run check:read` NGAY
+  SAU KHI e2e/khao sat giao dien (khong seed lai) bao "CO LECH" o 3 diem (`readManpowerWeekly`,
+  `readManpowerRange`, `readManpowerActualByMonth` cho du an 1) - do mock tu tinh "hom nay" bang dong ho
+  he thong tai THOI DIEM CHAY script, con du lieu that trong DB duoc chot cung dinh dang do luc
+  `npx prisma db seed` chay (trong `e2e/global-setup.ts`, khong truyen `DDC_FAKE_TODAY`) - neu 2 moc
+  thoi gian nay lech qua ranh gioi ngay/tuan (o day do phien kiem keo dai qua nhieu buoc: tsc, 2503
+  test, 83 kich ban e2e ~4 phut, thao tac trinh duyet that) thi mock va Prisma tinh "tuan nay"/"thang
+  nay" khac nhau. Sua bang cach `npx prisma db seed` roi chay `check:read` NGAY sau -> OK. Day la han
+  che co san cua kich ban `check-read-parity.ts` (tu ghi trong comment dau file "chay tay ... cung
+  DDC_FAKE_TODAY luc seed"), KHONG lien quan gi den fix T-1..T-4; ghi lai de A/B biet neu gap lai.
+- e2e file 12 van tao 1 giai doan tam moi lan chay (theo dung luat Q1a "khong xoa, chi ngung dung") -
+  da don sach sau MOI lan chay (ca lan dau do sot tu phien truoc, lan chay toan bo cua tester, va lan
+  kiem giao dien thu cong) - DB cuoi cung dung **17 du an / 8 giai doan**.
+- Khong sua `PROGRESS.md`, `.serena/memories/`, file nong nao; khong sua bat ky file san pham nao
+  trong vong 2 (chi 1 file test: `src/server/repo/entry.test.ts`); khong dung `git stash`.
+
+## 6. File da sua trong vong 2
+
+- `src/server/repo/entry.test.ts` (them 1 test)
+
+## Ket luan vong 2
+
+**DAT.** Vong sua T-1..T-4 dung nhu coder mo ta: khoa advisory `pg_advisory_xact_lock(hashtext('dim_stage'))`
+gop tron doc-kiem-ghi-audit vao 1 transaction, kiem chung DUOC tren ca mock lan repo Prisma that (DB
+`_c`) - 2 `saveStage` dong thoi cung ten chi 1 thanh cong khong loi 500; trong so giai doan ngung dung
+duoc GIU NGUYEN qua nhieu vong ngung/luu/dung lai xen ke, dung lai khong ghi de dong da co va tu dong bu
+0% cho du an thieu dong; giao dien `/admin` va `/projects/1` o ca 1440 va 390 hoat dong dung sau khi
+them/ngung/dung lai giai doan that qua trinh duyet, khong loi console. Bo sung 1 test that o tang mock
+lap 1 lo nho (nhanh T-4 cua mock chua co test rieng). Khong tim thay loi hanh vi nao moi can Reviewer
+xu ly. DB `_c` da don sach ve dung 17 du an / 8 giai doan.

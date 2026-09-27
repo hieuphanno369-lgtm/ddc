@@ -237,4 +237,29 @@ describe('entry repo (mock) - quan tri giai doan', () => {
     ]);
     expect(r.setStageActive('shop', false, 'u@x')).toEqual({ status: 'in_use', count: 1 });
   });
+
+  // Vong sua bao mat T-4 (tester doc lap vong 2): mock chua co test rieng cho nhanh dung-lai chen
+  // lai dong trong so 0% - chi co comment. Du an 1 da co dong KHAC (design) nhung thieu dong
+  // custom_1 -> duoc chen 0%; du an 2 DA co dong custom_1 tu truoc (vd ngung/dung lai nhieu lan) ->
+  // GIU NGUYEN (khong bi ghi de ve 0%); du an 3 CHUA co dong trong so nao ca -> khong duoc them
+  // dong le (dang dung bo mac dinh qua getStageWeights, giong K10 luc tao moi).
+  it('setStageActive dung lai -> chen 0% cho du an da co dong khac nhung thieu dong ma nay, giu nguyen dong da co, du an chua co dong nao thi khong them', () => {
+    const { r, data } = make(
+      [stage('design', 1), stage('custom_1', 2, false)],
+      [
+        { projectId: 1, stageCode: 'design', weightPct: 100, applicable: true },
+        { projectId: 2, stageCode: 'design', weightPct: 50, applicable: true },
+        { projectId: 2, stageCode: 'custom_1', weightPct: 7, applicable: false },
+      ],
+      [1, 2, 3],
+    );
+
+    expect(r.setStageActive('custom_1', true, 'u@x')).toBe('ok');
+
+    expect(data.stages.find((s) => s.code === 'custom_1')!.isActive).toBe(true);
+    const rowsForCode = data.stageWeights.filter((w) => w.stageCode === 'custom_1');
+    expect(rowsForCode.find((w) => w.projectId === 1)).toEqual({ projectId: 1, stageCode: 'custom_1', weightPct: 0, applicable: true });
+    expect(rowsForCode.find((w) => w.projectId === 2)).toEqual({ projectId: 2, stageCode: 'custom_1', weightPct: 7, applicable: false });
+    expect(rowsForCode.some((w) => w.projectId === 3)).toBe(false);
+  });
 });
