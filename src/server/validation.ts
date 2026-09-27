@@ -106,7 +106,7 @@ export const stageWeightRowsSchema = z
       applicable: z.boolean(),
     }),
   )
-  .min(1).max(STAGE_MAX_COUNT)
+  .min(1, { message: 'weights_required' }).max(STAGE_MAX_COUNT)
   .refine((arr) => new Set(arr.map((s) => s.stageCode)).size === arr.length, { message: 'stageCode bi trung' });
 
 /** P3A (Task 5): các trường hồ sơ dùng chung cho tạo mới VÀ sửa (G-4/7/8/11/12). */

@@ -246,3 +246,33 @@ duoc GIU NGUYEN qua nhieu vong ngung/luu/dung lai xen ke, dung lai khong ghi de 
 them/ngung/dung lai giai doan that qua trinh duyet, khong loi console. Bo sung 1 test that o tang mock
 lap 1 lo nho (nhanh T-4 cua mock chua co test rieng). Khong tim thay loi hanh vi nao moi can Reviewer
 xu ly. DB `_c` da don sach ve dung 17 du an / 8 giai doan.
+
+---
+
+# Vong 3 - kiem vong sua reviewer (`d6d4f14`, `8416963`) - 2026-09-28
+
+## 1. Cong kiem
+
+- `npx tsc --noEmit`: sach.
+- `npm test`: 219/219 file, 2519/2519 test DAT (sau ban sua o muc 3).
+
+## 2. Test moi them
+
+- `src/i18n/stage-admin-hint-vong3.test.ts`: khoa chu `stageAdmin.hint` moi o ca vi va en (muc 4 cua reviewer).
+- `src/server/repo/mock-repo-create-project-stage-weights-vong3.test.ts`: goi thang `repo.createProject` voi trong so khop, lech tap giai doan, mang rong, ma la, khong gui; moi ca that bai deu khong de lai du an nua voi hay dong trong so mo coi.
+- `src/server/actions-create-project-vong3.qa.test.ts`: `stageWeights: []` phai tra `weights_required`; tao lai dung ma CT sau lan tao bi `stages_changed` phai thanh cong, khong gap `code_taken`.
+
+## 3. Loi tim thay va da sua
+
+- Test `stageWeights: []` DO: action tra ve cau tieng Anh tho cua zod `"Too small: expected array to have >=1 items"` thay vi ma `weights_required`.
+- Goc: `stageWeightRowsSchema` (`src/server/validation.ts`) co `.min(1)` khong kem ma loi, nen zod chan mang rong truoc khi toi nhanh `weights_required` trong `createProjectAction`, va form se hien cau khong co ban dich.
+- Sua: `.min(1, { message: 'weights_required' })`.
+- Noi dung thu hai cua schema (`saveProjectStageWeightsAction`) quy moi loi parse ve `Invalid input`, nen khong doi hanh vi.
+
+## 4. Chua lam
+
+- Khong kiem giao dien that (Playwright) o vong nay: form tao du an luon gui du bang trong so, nen mang rong khong di toi duoc tu giao dien; ban sua chi doi ma loi o tang server.
+
+## Ket luan vong 3
+
+**DAT** sau 1 ban sua nho o schema; khong con loi hanh vi nao can Reviewer xu ly.
