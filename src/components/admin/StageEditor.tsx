@@ -75,7 +75,7 @@ export function StageEditor({ stages }: { stages: Stage[] }) {
           <input
             type="number" step="1" min="1" max="999" value={draft.sortOrder}
             onChange={(e) => onChange({ sortOrder: e.target.value })}
-            className="inp" aria-label={t('stageAdmin.order')}
+            className="inp" style={{ width: 72 }} aria-label={t('stageAdmin.order')}
           />
         </td>
         <td>
@@ -109,8 +109,9 @@ export function StageEditor({ stages }: { stages: Stage[] }) {
   return (
     <div className="space-y-2">
       {err && <p className="sumbar bad">{err}</p>}
-      <div className="scroll" style={{ maxHeight: 420 }}>
-        <table className="tbl sticky">
+      {/* Không giới hạn chiều cao (tối đa 30 dòng) để dòng Thêm luôn thấy; bề rộng tối thiểu để màn hẹp cuộn ngang thay vì ép ô. */}
+      <div className="scroll">
+        <table className="tbl" style={{ minWidth: 920 }}>
           <thead>
             <tr>
               <th>{t('stageAdmin.order')}</th>

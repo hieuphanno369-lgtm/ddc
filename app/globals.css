@@ -490,7 +490,7 @@
      trai/phai render rieng (valueChainColumns, doc side tu dim_stage) nen chi can xep doc trong tung cot, khong dung
      grid-auto-flow (de khong vo thu tu khi 1 giai doan "khong ap dung" bi an) --- */
   .stagecol{display:flex;flex-direction:column;gap:2px}
-  .stage .stagesub{grid-column:3;font-size:10px;color:var(--label3);margin-top:1px}
+  .stage .stagesub{grid-column:3 / -1;white-space:nowrap;font-size:10px;color:var(--label3);margin-top:1px}
 
   /* --- Task 9: Bieu do (mockup-apple-glass.html dong 379-390, copy nguyen van) --- */
   /* Q5=(a): KHONG ship .hud (widget do fps) - bo hoan toan, khong dua vao app that. */
