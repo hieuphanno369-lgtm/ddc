@@ -195,7 +195,7 @@ async function main() {
   // Sync autoincrement sequence sau createMany có id explicit (Prisma createMany KHÔNG bump sequence).
   await syncSequences();
 
-  console.log('Seed xong: 17 dự án + 7 giai đoạn + 6 nhà thầu + 7 nhóm thiết bị + 10 hạng mục + 5 mốc chính');
+  console.log(`Seed xong: 17 dự án + ${data.stages.length} giai đoạn + 6 nhà thầu + 7 nhóm thiết bị + 10 hạng mục + 5 mốc chính`);
 }
 
 /**
