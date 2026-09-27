@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { repo } from '@/server/repo/mock-repo';
-import { DEFAULT_STAGE_WEIGHTS, LEGACY_STAGE_WEIGHTS, SEED_STAGE_CODES } from '@/lib/stages';
+import { LEGACY_STAGE_WEIGHTS, SEED_STAGE_CODES } from '@/lib/stages';
 import type { CurrentUser } from '@/lib/session';
 
 /**
@@ -76,11 +76,13 @@ describe('createProjectAction + stageWeights (P7-C2 Task 3, kiem thu doc lap)', 
     expect(repo.listProjects()).toHaveLength(before);
   });
 
-  it('khong gui stageWeights -> van tao duoc du an binh thuong, roi ve bo mac dinh (K7, hanh vi cu khong doi)', async () => {
+  // Vong sua reviewer (muc 3): stageWeights BAT BUOC khi tao du an - thieu (hoac mang rong) khong
+  // con duoc am tham roi ve bo mac dinh nua (truoc day K7 cho phep, nhung bo mac dinh co Thanh quyet
+  // toan 2% khien luat Q1a khong dem duoc du an nay, van ngung dung duoc giai doan do).
+  it("khong gui stageWeights -> { ok:false, error:'weights_required' }, KHONG tao du an moi", async () => {
+    const before = repo.listProjects().length;
     const res = await createProjectAction(base);
-    expect(res.ok).toBe(true);
-    // Chua co dong trong so nao duoc luu rieng cho du an nay -> getStageWeights roi ve DEFAULT_STAGE_WEIGHTS.
-    expect(repo.getStageWeights(res.id!).map((w) => ({ stageCode: w.stageCode, weightPct: w.weightPct, applicable: w.applicable })))
-      .toEqual(DEFAULT_STAGE_WEIGHTS);
+    expect(res).toEqual({ ok: false, error: 'weights_required' });
+    expect(repo.listProjects()).toHaveLength(before);
   });
 });

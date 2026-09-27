@@ -162,3 +162,17 @@ describe('chainFooterSummary voi order truyen vao (giai doan dong)', () => {
     expect(out8.pctTotal).toBeCloseTo(out7.pctTotal, 10);
   });
 });
+
+describe('chainFooterSummary - bo qua dong trong so cua ma NGOAI order (vong sua reviewer muc 2b)', () => {
+  // Khe ho T-3: neu 1 dong trong so cua giai doan DA NGUNG DUNG sot lai (khong nam trong `order`,
+  // vi du do khe ho T-3 cu truoc khi vong sua nay chan lai), Sigma trong so o dong chan the KHONG
+  // duoc cong dong do vao - tranh bao lech 100 gia (dong da ngung dung khong con hien trong thẻ).
+  it('weights co 1 dong ma NGOAI order (con trong so > 0) -> khong cong vao weightTotal', () => {
+    const order7 = OLD7; // 7 ma dang dung, KHONG co 'settlement'
+    const weights: ProjectStageWeight[] = [...OLD7.map((s) => W(s, 100 / OLD7.length)), W('settlement', 20)];
+    const chain = OLD7.map((s) => CHAIN_ROW(s, 0.6));
+    const out = chainFooterSummary(chain, weights, order7);
+    expect(out.weightTotal).toBeCloseTo(100, 10);
+    expect(out.weightOk).toBe(true);
+  });
+});

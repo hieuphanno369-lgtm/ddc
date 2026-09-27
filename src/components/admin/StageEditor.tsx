@@ -17,7 +17,7 @@ interface RowDraft {
 const EMPTY_ROW: RowDraft = { sortOrder: '', nameVi: '', nameEn: '', side: 'left', calcMode: 'manual' };
 
 function toDraft(s: Stage): RowDraft {
-  return { sortOrder: String(s.sortOrder), nameVi: s.nameVi, nameEn: s.nameEn, side: s.side ?? 'left', calcMode: s.calcMode };
+  return { sortOrder: String(s.sortOrder), nameVi: s.nameVi, nameEn: s.nameEn, side: s.side, calcMode: s.calcMode };
 }
 
 /** P7-C2 Task 8: thêm/sửa giai đoạn chuỗi giá trị, ngừng dùng/dùng lại - khuôn `FactoryEditor.tsx`. */
@@ -61,7 +61,7 @@ export function StageEditor({ stages }: { stages: Stage[] }) {
 
   async function toggleActive(s: Stage) {
     setErr(null);
-    const res = await setStageActiveAction(s.code, s.isActive === false);
+    const res = await setStageActiveAction(s.code, !s.isActive);
     if (res.ok) router.refresh();
     else if (res.error === 'in_use') setErr(t('stageAdmin.err.in_use', { n: res.count ?? 0 }));
     else if (res.error === 'last_active') setErr(t('stageAdmin.err.last_active'));
@@ -126,7 +126,7 @@ export function StageEditor({ stages }: { stages: Stage[] }) {
           <tbody>
             {sorted.map((s) => {
               const draft = draftOf(s);
-              const active = s.isActive !== false;
+              const active = s.isActive;
               return (
                 <tr key={s.code}>
                   {cells(draft, (patch) => setDraft(s, patch))}

@@ -272,9 +272,9 @@ export function makeEntryMockRepo({ getData, persist }: EntryMockDeps) {
           d.stageWeights.filter((w) => w.stageCode === code && w.applicable && w.weightPct > 0).map((w) => w.projectId),
         ).size;
         if (count > 0) return { status: 'in_use', count };
-        if (!d.stages.some((x) => x.code !== code && x.isActive !== false)) return 'last_active';
+        if (!d.stages.some((x) => x.code !== code && x.isActive)) return 'last_active';
       }
-      const old = String(s.isActive !== false);
+      const old = String(s.isActive);
       s.isActive = isActive;
       if (isActive) {
         // T-4 (chu du an chot): dung lai giong het luc tao moi - chen dong trong so 0% ap dung cho

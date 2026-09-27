@@ -1013,7 +1013,8 @@
       "notFound": "Project not found.",
       "generic": "Save failed: {msg}",
       "unexpected": "Save failed due to a system or connection error. Try again, and contact an administrator if it persists.",
-      "stages_changed": "The stage list was just changed by an admin - reload the page and re-enter the weights."
+      "stages_changed": "The stage list was just changed by an admin - reload the page and re-enter the weights.",
+      "weights_required": "Enter the stage weights before creating the project."
     },
     "tip": {
       "plannedFinish": "Internal target used to run the schedule. % Plan = days elapsed since Planned start ÷ total days from Planned start to Planned finish. The countdown on Project detail counts to 17:00 on this date. Not the same as Committed handover.",
@@ -1209,7 +1210,7 @@
     "add": "Add",
     "deactivate": "Deactivate",
     "activate": "Reactivate",
-    "hint": "Side: the column shown on the Project value chain card. Order: position within the column and the chain (smaller first). By volume is only used by the Comparison chart card; % complete is still entered manually in Data entry. A new stage is added with 0% to every project's weights. A stage can only be deactivated when no project gives it a weight above 0%.",
+    "hint": "Side: the column shown on the Project value chain card. Order: position within the column and the chain (smaller first). By volume is only used by the Comparison chart card; % complete is still entered manually in Data entry. A new stage only adds 0% to the weights of projects that already have their own weight rows. A stage can only be deactivated when no project gives it a weight above 0%.",
     "err": {
       "invalid": "Names are required and order must be a whole number 1-999",
       "duplicate_name": "A stage with this name already exists",

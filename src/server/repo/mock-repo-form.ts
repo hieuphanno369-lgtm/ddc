@@ -1,5 +1,5 @@
 import type { RepoData } from '@/data/seed/history';
-import { DEFAULT_STAGE_WEIGHTS } from '@/lib/stages';
+import { DEFAULT_STAGE_WEIGHTS, isSameStageSet } from '@/lib/stages';
 import { planAliasChange } from '@/lib/project-code';
 import { equipGroupsAuditText } from '@/lib/equipment-plan';
 import { manpowerMonthAuditText, ratioAuditText, resolveShiftRatios } from '@/lib/manpower-plan';
@@ -81,8 +81,14 @@ export function makeFormMockRepo({ getData, persist }: EntryMockDeps) {
       return 'changed';
     },
 
-    replaceStageWeights(projectId: number, rows: StageWeightInput[], by: string): void {
+    /** Vong sua reviewer (muc 2a): kiem lai tap giai doan DANG DUNG khop voi `rows` gui len - cung
+     * dieu kien voi ban Prisma (mock tuong duong), chan khe ho khi 1 request khac ngung dung giai
+     * doan xen giua luc `actions-project.ts` kiem `isSameStageSet` va luc goi ham nay. */
+    replaceStageWeights(projectId: number, rows: StageWeightInput[], by: string): 'ok' | 'stages_changed' {
       const d = getData();
+      const activeCodes = d.stages.filter((s) => s.isActive).map((s) => s.code);
+      if (!isSameStageSet(rows.map((r) => r.stageCode), activeCodes)) return 'stages_changed';
+
       const own = d.stageWeights.filter((w) => w.projectId === projectId);
       const beforeRows = own.length ? own : DEFAULT_STAGE_WEIGHTS;
       const beforeText = (own.length ? '' : 'default ') + stageWeightAuditText(beforeRows);
@@ -95,6 +101,7 @@ export function makeFormMockRepo({ getData, persist }: EntryMockDeps) {
         .concat(rows.map((r) => ({ projectId, ...r })));
       audit(d, 'project_stage_weight', String(projectId), 'replace', beforeText, afterText, by);
       persist();
+      return 'ok';
     },
 
     removeSapCode(projectId: number, sapCodeId: number, by: string): 'removed' | 'not_found' {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { repo } from '@/server/repo/mock-repo';
-import { SEED_STAGE_CODES } from '@/lib/stages';
+import { LEGACY_STAGE_WEIGHTS, SEED_STAGE_CODES } from '@/lib/stages';
 import type { CurrentUser } from '@/lib/session';
 import type { StageCode } from '@/server/repo/types';
 
@@ -103,6 +103,7 @@ describe('Q6/S-7 (vong sua 1) - server EP VIET HOA ten du an, khong con tin rien
       projectName: 'DU AN CDT DA GOP', customerId: fromId, teamKdId: 1, marketCode: 'TN',
       projectType: 'EPC', priority: 'P1', contractValue: 10, tonnage: 100,
       plannedStartDate: '2026-10-01', plannedFinishDate: '2027-06-30', committedHandoverDate: '2027-07-31',
+      stageWeights: LEGACY_STAGE_WEIGHTS.map((w) => ({ ...w })),
     });
     expect(res).toEqual({ ok: false, error: 'invalid_customer' });
   });

@@ -126,6 +126,9 @@ describe('replaceStageWeights (mock-repo)', () => {
   it('T-4: ma khong nam trong rows gui len duoc giu nguyen, khong bi xoa', () => {
     const before = repo.getStageWeights(1).find((w) => w.stageCode === 'settlement');
     expect(before).toBeTruthy();
+    // Vong sua reviewer (muc 2a): replaceStageWeights gio kiem lai tap giai doan DANG DUNG - ngung
+    // dung 'settlement' TRUOC de tap dang dung khop voi 7 dong gui ben duoi (khong con 'settlement').
+    expect(repo.setStageActive('settlement', false, 'admin@x')).toBe('ok');
     repo.replaceStageWeights(1, [
       { stageCode: 'design', weightPct: 100, applicable: true },
       { stageCode: 'shop', weightPct: 0, applicable: false },
@@ -141,6 +144,7 @@ describe('replaceStageWeights (mock-repo)', () => {
   });
 
   it('du an seed da co dong rieng -> audit KHONG co tien to "default "', () => {
+    repo.setStageActive('settlement', false, 'admin@x');
     repo.replaceStageWeights(1, [
       { stageCode: 'design', weightPct: 100, applicable: true },
       { stageCode: 'shop', weightPct: 0, applicable: false },
@@ -161,6 +165,7 @@ describe('replaceStageWeights (mock-repo)', () => {
       projectType: 'Khac', priority: 'P2', contractValue: 10, tonnage: 100,
       plannedStartDate: '2026-10-01', plannedFinishDate: '2027-06-30', committedHandoverDate: '2027-07-31',
     }, 'admin@x');
+    repo.setStageActive('settlement', false, 'admin@x');
     repo.replaceStageWeights(created.id, [
       { stageCode: 'design', weightPct: 100, applicable: true },
       { stageCode: 'shop', weightPct: 0, applicable: false },
@@ -172,6 +177,26 @@ describe('replaceStageWeights (mock-repo)', () => {
     ], 'admin@x');
     const entry = repo.getAuditLog().filter((a) => a.tableName === 'project_stage_weight').pop();
     expect(entry?.oldValue.startsWith('default ')).toBe(true);
+  });
+
+  // Vong sua reviewer, muc 2a (T-3 phia nguoi nhap): rows gui len KHONG khop tap giai doan DANG
+  // DUNG that (con du 8 ma, chua ngung dung ma nao) -> 'stages_changed', KHONG ghi/xoa gi ca.
+  it('rows lech tap giai doan dang dung (thieu settlement, van con active) -> stages_changed, khong ghi/xoa', () => {
+    const beforeRows = repo.getStageWeights(1);
+    const beforeAudit = repo.getAuditLog().length;
+    const res = repo.replaceStageWeights(1, [
+      { stageCode: 'design', weightPct: 100, applicable: true },
+      { stageCode: 'shop', weightPct: 0, applicable: false },
+      { stageCode: 'procurement', weightPct: 0, applicable: false },
+      { stageCode: 'fabrication', weightPct: 0, applicable: false },
+      { stageCode: 'transport', weightPct: 0, applicable: false },
+      { stageCode: 'erection', weightPct: 0, applicable: false },
+      { stageCode: 'handover', weightPct: 0, applicable: false },
+      // KHONG gui 'settlement' - nhung 'settlement' VAN dang dung (chua ngung dung) -> lech that.
+    ], 'admin@x');
+    expect(res).toBe('stages_changed');
+    expect(repo.getStageWeights(1)).toEqual(beforeRows);
+    expect(repo.getAuditLog().length).toBe(beforeAudit);
   });
 });
 

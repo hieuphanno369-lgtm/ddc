@@ -50,8 +50,12 @@ export function chainFooterSummary(
   weights: ProjectStageWeight[],
   order: readonly StageCode[],
 ): ChainFooterSummary {
-  const v = validateStageWeights(weights);
-  const pctTotal = calcChainPctActual(chainStageInputs(chain, order), weights);
+  // Vong sua reviewer (muc 2b): CHI cong cac dong co ma nam trong `order` (giai doan DANG DUNG).
+  // Phong khe ho T-3: neu 1 dong trong so cua giai doan da ngung dung sot lai (chua kip xoa), Sigma
+  // trong so o day khong duoc cong nham dong do vao, tranh bao lech 100 gia cho nguoi dung.
+  const activeWeights = weights.filter((w) => order.includes(w.stageCode));
+  const v = validateStageWeights(activeWeights);
+  const pctTotal = calcChainPctActual(chainStageInputs(chain, order), activeWeights);
   return { weightTotal: v.total, weightOk: v.ok, pctTotal };
 }
 

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { repo } from '@/server/repo/mock-repo';
+import { LEGACY_STAGE_WEIGHTS } from '@/lib/stages';
 import type { CurrentUser } from '@/lib/session';
 
 vi.mock('next/cache', () => ({ revalidateTag: vi.fn(), revalidatePath: vi.fn() }));
@@ -70,6 +71,7 @@ describe('createProjectAction voi keyMilestones', () => {
     projectName: 'DU AN TEST', customerId: 1, teamKdId: 1, marketCode: 'TN' as const,
     projectType: 'EPC' as const, priority: 'P1' as const, contractValue: 10,
     tonnage: 100, plannedStartDate: '2026-10-01', plannedFinishDate: '2027-06-30', committedHandoverDate: '2027-07-31',
+    stageWeights: LEGACY_STAGE_WEIGHTS.map((w) => ({ ...w })),
   };
 
   it('kem keyMilestones -> du an moi co 1 moc', async () => {
@@ -90,6 +92,7 @@ describe('createProjectAction - F-1 (vong sua 1, vong 2): chan mau ma tu sinh M-
     projectName: 'DU AN TEST F-1', customerId: 1, teamKdId: 1, marketCode: 'TN' as const,
     projectType: 'EPC' as const, priority: 'P1' as const, contractValue: 10,
     tonnage: 100, plannedStartDate: '2026-10-01', plannedFinishDate: '2027-06-30', committedHandoverDate: '2027-07-31',
+    stageWeights: LEGACY_STAGE_WEIGHTS.map((w) => ({ ...w })),
   };
 
   it('currentAliasCode = "M-00099" (dung mau, hoa) -> code_reserved, khong tao du an moi', async () => {

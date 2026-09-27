@@ -190,11 +190,10 @@ export interface Stage {
   nameEn: string;
   sortOrder: number;
   calcMode: StageCalcMode;
-  /** Bên hiển thị ở thẻ Chuỗi giá trị quản lý dự án. Optional ở Task 1 (repo/seed chưa cấp);
-   * Task 2 trở đi mọi nguồn thật (Prisma, mock) đều điền đủ. */
-  side?: StageSide;
-  /** false = ngừng dùng: ẩn khỏi chart/form, giữ số liệu cũ. Optional cùng lý do với `side`. */
-  isActive?: boolean;
+  /** Bên hiển thị ở thẻ Chuỗi giá trị quản lý dự án. */
+  side: StageSide;
+  /** false = ngừng dùng: ẩn khỏi chart/form, giữ số liệu cũ. */
+  isActive: boolean;
 }
 
 /** Kết quả bật/tắt giai đoạn (P7-C2 Task 8): `in_use` kèm số dự án còn đặt trọng số > 0%. */

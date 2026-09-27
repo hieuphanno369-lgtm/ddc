@@ -1,6 +1,6 @@
 import { prisma } from '@/server/db';
 import { Prisma, type PrismaClient } from '@prisma/client';
-import { DEFAULT_STAGE_WEIGHTS } from '@/lib/stages';
+import { DEFAULT_STAGE_WEIGHTS, isSameStageSet } from '@/lib/stages';
 import { planAliasChange } from '@/lib/project-code';
 import { equipGroupsAuditText } from '@/lib/equipment-plan';
 import { manpowerMonthAuditText, ratioAuditText, resolveShiftRatios } from '@/lib/manpower-plan';
@@ -8,7 +8,7 @@ import type { IsoDate } from '@/lib/clock';
 import { audit } from './prisma-repo-entry';
 import type {
   AuditLogEntry, EquipmentPlanGroupInput, EquipmentPlanSegment, EquipmentQuota, ManpowerPlanInput,
-  ManpowerPlanMonthRow, ProjectAlias, ProjectMember, Role, ShiftRatio, StageWeightInput,
+  ManpowerPlanMonthRow, ProjectAlias, ProjectMember, Role, ShiftRatio, StageCode, StageWeightInput,
 } from './types';
 
 /** '00:00:00Z' của ngày `s` ('YYYY-MM-DD') - khớp cách lưu ngày @db.Date ở prisma-repo.ts. */
@@ -149,8 +149,21 @@ export const formPrismaRepo = {
     }
   },
 
-  async replaceStageWeights(projectId: number, rows: StageWeightInput[], by: string): Promise<void> {
-    await prisma.$transaction(async (tx) => {
+  /**
+   * Vong sua reviewer (muc 2a): khoa `hashtext('dim_stage')` - CUNG mot khoa voi saveStage/
+   * setStageActive (prisma-repo-entry.ts) - roi doc lai tap giai doan DANG DUNG NGAY TRONG
+   * transaction. `actions-project.ts`/`actions.ts` da kiem `isSameStageSet` truoc khi goi ham nay,
+   * nhung kiem do chay NGOAI transaction nen van co the lech neu admin ngung dung 1 giai doan dung
+   * luc xen giua - kiem lai o day chan dut khe ho do (T-3 phia nguoi nhap), tra 'stages_changed'
+   * giong ket qua actions da tra cho nguoi dung, KHONG ghi gi.
+   */
+  async replaceStageWeights(projectId: number, rows: StageWeightInput[], by: string): Promise<'ok' | 'stages_changed'> {
+    return prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('dim_stage'))`;
+      const activeStages = await tx.stage.findMany({ where: { isActive: true }, select: { code: true } });
+      const activeCodes = activeStages.map((s) => s.code as StageCode);
+      if (!isSameStageSet(rows.map((r) => r.stageCode), activeCodes)) return 'stages_changed';
+
       const ownRows = await tx.projectStageWeight.findMany({ where: { projectId } });
       const beforeRows = ownRows.length ? ownRows : DEFAULT_STAGE_WEIGHTS;
       const beforeText = (ownRows.length ? '' : 'default ') + stageWeightAuditText(beforeRows);
@@ -165,6 +178,7 @@ export const formPrismaRepo = {
         });
       }
       await audit(tx, 'project_stage_weight', String(projectId), 'replace', beforeText, afterText, by);
+      return 'ok';
     });
   },
 

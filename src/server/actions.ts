@@ -238,11 +238,13 @@ export async function createProjectAction(
   if (currentAliasCode && (await repo.isProjectCodeTaken(currentAliasCode, null))) {
     return { ok: false, error: 'code_taken' };
   }
-  if (stageWeights) {
-    const order = stageOrder(await repo.getStages());
-    if (!isSameStageSet(stageWeights.map((w) => w.stageCode), order)) return { ok: false, error: 'stages_changed' };
-  }
-  if (stageWeights && !validateStageWeights(stageWeights).ok) {
+  // Vong sua reviewer (muc 3): stageWeights BAT BUOC khi tao du an - thieu thi khong duoc am tham
+  // roi ve bo mac dinh (co Thanh quyet toan 2%, luat Q1a khong dem duoc nen van ngung dung duoc
+  // giai doan do va lam %TT du an doi ngoai y muon nguoi tao).
+  if (!stageWeights || stageWeights.length === 0) return { ok: false, error: 'weights_required' };
+  const order = stageOrder(await repo.getStages());
+  if (!isSameStageSet(stageWeights.map((w) => w.stageCode), order)) return { ok: false, error: 'stages_changed' };
+  if (!validateStageWeights(stageWeights).ok) {
     return { ok: false, error: 'weights_invalid' };
   }
   const dims = await repo.getDims();
@@ -271,7 +273,12 @@ export async function createProjectAction(
     throw e;
   }
   if (user.role === 'data-entry') await repo.addAssignment(p.id, user.email, 'PIC');
-  if (stageWeights) await repo.replaceStageWeights(p.id, stageWeights, user.email);
+  // Vong sua reviewer (muc 2a, T-3): repo.replaceStageWeights kiem lai tap giai doan dang dung NGAY
+  // TRONG transaction (khoa cung dim_stage) - phong khi admin ngung dung 1 giai doan dung luc xen
+  // giua kiem o tren va luc ghi that. Rat hiem xay ra (can dung luc tao du an) nhung du an da tao
+  // (p.id) van giu nguyen - chi con thieu dong trong so, admin luu lai o /ho-so-du-an la xong.
+  const weightsResult = await repo.replaceStageWeights(p.id, stageWeights, user.email);
+  if (weightsResult === 'stages_changed') return { ok: false, error: 'stages_changed' };
   if (keyMilestones?.length) await repo.replaceKeyMilestones(p.id, keyMilestones, user.email);
   await runAlertEngineSafe(p.id).catch(() => {});
   await logActivity(user, 'create_project', p.projectName);

@@ -88,3 +88,49 @@ Chủ dự án chốt 2026-09-27: vá cả T-1, T-2, T-3 (nguyên tử + an toà
 - Ngừng dùng 1 giai đoạn, dùng lại, rồi lưu trọng số dự án nhiều lần xen kẽ - dòng trọng số của giai đoạn đó không được biến mất kể cả khi form không hiển thị nó lúc đang ngừng dùng.
 - Dự án được tạo TRONG LÚC 1 giai đoạn đang ngừng dùng (nên không có dòng trọng số cho giai đoạn đó) - sau này admin dùng lại giai đoạn, dự án đó phải có dòng 0% mới, không lỗi khi tính %TT.
 - Không còn migration mới trong vòng sửa này (`prisma/schema.prisma` không đổi).
+
+## Vòng sửa theo reviewer (4 mục "Nên làm", `.bangiao/review.md`)
+
+Chủ dự án chốt làm cả 4 mục trước khi merge main. Không migration (`prisma/schema.prisma` không đổi).
+
+**Mục 1 - `side`/`isActive` bắt buộc (`src/server/repo/types.ts`):**
+- `Stage.side: StageSide` và `Stage.isActive: boolean` bỏ dấu `?` (trước là optional "vì Task 1 repo/seed chưa cấp", nay mọi nguồn thật đã cấp đủ từ lâu).
+- `npx tsc --noEmit` KHÔNG báo lỗi nào sau khi bỏ optional (mọi nơi tạo `Stage` - seed `erp.ts`, `prisma-repo.ts`, `prisma-repo-entry.ts`, test - đã điền đủ 2 trường từ P7-C2 Task 2). Chỉ còn 3 chỗ đọc kiểu "hiểu thiếu giá trị theo 2 nghĩa ngược nhau" mà reviewer chỉ ra, sửa cho một nghĩa duy nhất:
+  - `src/components/admin/StageEditor.tsx`: `toDraft` bỏ `s.side ?? 'left'` → `s.side`; `toggleActive` bỏ `s.isActive === false` → `!s.isActive`; render bảng bỏ `s.isActive !== false` → `s.isActive`.
+  - `src/server/repo/mock-repo-entry.ts` (`setStageActive`): bỏ 2 chỗ `x.isActive !== false` → `x.isActive` (đếm giai đoạn khác đang dùng, và giá trị audit "trước khi đổi").
+  - `src/lib/value-chain-view.ts` (`valueChainColumns`): không cần sửa code (đã lọc đúng `s.side === 'left'/'right'`), chỉ còn ý nghĩa "thiếu `side` rớt khỏi cả 2 cột" không còn xảy ra được nữa vì `side` giờ bắt buộc.
+
+**Mục 2 - khe hở lưu trọng số lúc admin ngừng dùng giai đoạn (làm cả (a) và (b), theo đúng đề nghị của chủ dự án):**
+- (a) `replaceStageWeights` (`src/server/repo/prisma-repo-form.ts`): thêm `SELECT pg_advisory_xact_lock(hashtext('dim_stage'))` (CÙNG khoá với `saveStage`/`setStageActive` ở `prisma-repo-entry.ts`) làm câu lệnh đầu tiên trong `$transaction`, rồi đọc lại `tx.stage.findMany({ where: { isActive: true } })` và so với `rows` gửi lên bằng `isSameStageSet` - lệch thì trả `'stages_changed'` NGAY, không xoá/ghi/audit gì; khớp thì chạy tiếp logic cũ, trả `'ok'`. Đổi chữ ký từ `Promise<void>` sang `Promise<'ok' | 'stages_changed'>`.
+- Mock tương đương (`src/server/repo/mock-repo-form.ts`): cùng kiểm tra `isSameStageSet` với `d.stages.filter(isActive)` ngay đầu hàm - dù mock chạy đồng bộ (không có `await` xen giữa các bước bên trong CHÍNH hàm này), khe hở vẫn có thể xảy ra ở tầng gọi (giữa lúc `actions-project.ts` `await repo.getStages()` kiểm nhanh và lúc `await repo.replaceStageWeights(...)` chạy thật, một request khác xen vào gọi `setStageActive` trọn vẹn) - kiểm lại trong chính hàm này đóng đúng khe hở đó.
+- Gọi nơi dùng (`src/server/actions-project.ts` `saveStageWeightsAction`, `src/server/actions.ts` `createProjectAction`): bắt kết quả trả về, `'stages_changed'` thì trả lỗi `{ ok:false, error:'stages_changed' }` cho người dùng (đúng chữ lỗi đã có, chỉ đổi chỗ phát hiện từ "trước transaction" sang "cả trước lẫn trong transaction").
+- (b) `chainFooterSummary` (`src/lib/value-chain-view.ts`): lọc `weights` chỉ giữ dòng có `stageCode` nằm trong `order` (giai đoạn đang dùng) trước khi đưa vào `validateStageWeights`/`calcChainPctActual` - một dòng trọng số mồ côi của giai đoạn đã ngừng dùng (nếu còn sót do timing hiếm) sẽ không bị cộng nhầm vào Σ trọng số hiển thị ở thẻ Chuỗi giá trị.
+- Chủ dự án đã chọn làm cả (a) và (b) nên không cần chọn phương án nào tốt hơn - đây là 2 lớp phòng thủ độc lập (a chặn ghi sai ở nguồn, b chặn hiển thị sai ở nơi đọc), không thừa vì (b) còn bảo vệ được cả dữ liệu cũ đã lỡ ghi sai từ TRƯỚC vòng sửa này.
+
+**Mục 3 - `stageWeights` bắt buộc khi tạo dự án (`src/server/actions.ts` `createProjectAction`):**
+- Thêm kiểm `if (!stageWeights || stageWeights.length === 0) return { ok: false, error: 'weights_required' }` trước 2 kiểm cũ (`stages_changed`, `weights_invalid`). Không sửa `createProjectSchema` (giữ `stageWeights` optional ở tầng zod) - lỗi mới là lỗi nghiệp vụ có tên riêng, cùng khuôn với `weights_invalid`/`stages_changed`/`invalid_customer`... đã có, không lẫn với thông báo zod mặc định (khó hiểu với người dùng).
+- `repo.replaceStageWeights(p.id, stageWeights, user.email)` giờ luôn được gọi (bỏ `if (stageWeights)`) và bắt kết quả `'stages_changed'` để trả lỗi thay vì âm thầm bỏ qua.
+- Form tạo dự án (`ProjectForm.tsx`) đã LUÔN gửi `stageWeights: weights` với `weights` khởi tạo qua `fillWeightsForStages(DEFAULT_STAGE_WEIGHTS, order)` (không đời nào rỗng) - không cần sửa UI, chỉ cần xác nhận lại (đã đọc code, không đổi).
+- i18n: thêm `projectForm.err.weights_required` cuối nhóm `err` (vi + en) - "Cần nhập trọng số các giai đoạn trước khi tạo dự án." / "Enter the stage weights before creating the project."
+- Test cũ phải sửa cho khớp hành vi mới: 4 `base` không có `stageWeights` (2 ở `actions-key-milestones.test.ts`, 1 ở `actions-project.qa.test.ts`, 1 ở `actions-vong-sua-1.qa.test.ts`) nay thêm `stageWeights: LEGACY_STAGE_WEIGHTS.map((w) => ({ ...w }))`. Test cũ "không gửi stageWeights -> vẫn tạo được, rơi về mặc định" (`actions-p7c2-tester.qa.test.ts`) đổi thành RED trước (mong đợi cũ thất bại) rồi sửa lại thành xác nhận hành vi MỚI: `{ ok:false, error:'weights_required' }`, không tạo dự án.
+
+**Mục 4 - sửa chữ `stageAdmin.hint` (`src/i18n/messages/vi.json`, `en.json`):**
+- Câu cũ "Giai đoạn mới được thêm 0% vào trọng số mọi dự án" không khớp code thật (`saveStage`/`setStageActive` chỉ chèn 0% cho dự án ĐÃ CÓ dòng trọng số riêng, xem comment `prisma-repo-entry.ts:242-244`).
+- Đổi thành "Giai đoạn mới chỉ thêm 0% vào trọng số của dự án đã có dòng trọng số riêng." (vi) / "A new stage only adds 0% to the weights of projects that already have their own weight rows." (en). Giữ nguyên các câu khác trong hint.
+
+**TDD:**
+- Viết ĐỎ trước cho mục 2 và 3: thêm mock `stage.findMany` vào `prisma-repo-form.test.ts` (chưa từng có), viết 2 test mới cho `replaceStageWeights` (khớp tập -> `'ok'`; lệch tập -> `'stages_changed'`, không xoá/tạo/audit) - chạy đỏ (`expected undefined to be 'ok'/'stages_changed'`) trước khi sửa `prisma-repo-form.ts`. Tương tự `form.test.ts` (mock) + `value-chain-view.test.ts` (`chainFooterSummary` cộng nhầm dòng mồ côi - đỏ `120` thay vì `100` trước khi sửa). Mục 3: sửa lại test "không gửi stageWeights" thành đỏ trước (kỳ vọng cũ `ok:true` không còn đúng) rồi cập nhật kỳ vọng mới.
+- 3 test cũ ở `form.test.ts` (mock) đang gửi 7/8 dòng trong khi cả 8 giai đoạn vẫn đang dùng (giả lập "giai đoạn đã ngừng dùng" chỉ bằng cách không gửi mã đó, không thật sự gọi `setStageActive`) nay phải gọi `repo.setStageActive('settlement', false, 'admin@x')` trước, để tập giai đoạn đang dùng THẬT SỰ khớp với 7 dòng gửi lên (nếu không sẽ bị chặn `'stages_changed'` đúng như hành vi mới).
+
+**Cổng kiểm:**
+- `npx tsc --noEmit` sạch.
+- `npm test` **215 file / 2506 test XANH** (mốc trước vòng sửa 215/2503; +3 test ròng: +2 test `replaceStageWeights` Prisma, +1 test `replaceStageWeights` mock lệch tập, +1 test `chainFooterSummary` dòng mồ côi, +1 test `weights_required`, -2 test cũ gộp/đổi kỳ vọng).
+- `npm run check:read` OK trên DB `_c` (reseed lại sau khi Playwright ghi thêm 1 ngày nhân lực thật vào DB lúc chạy e2e - không liên quan 4 mục sửa, chỉ là hệ quả chạy e2e trên DB thật).
+- `npx playwright test` toàn bộ trên 3003: **83/83 XANH**.
+- Soi ảnh `/admin` (Card "Giai đoạn chuỗi giá trị") ở 1440 và 390 (`.bangiao/anh-vong-sua/`): bảng vẫn cuộn ngang gọn ở 390 như trước; dòng hint mới wrap tự nhiên theo bề rộng thẻ, không tràn, không đè chữ ở cả 2 cỡ màn hình.
+- Dữ liệu DB `_c`: dọn về đúng 17 dự án / 8 giai đoạn (`design,shop,procurement,fabrication,transport,erection,handover,settlement`) bằng `npx prisma db seed` sau khi chạy Playwright.
+
+**Chỗ Tester nên soi kỹ:**
+- `createProjectAction`: khi `repo.replaceStageWeights` trả `'stages_changed'` (cực hiếm - cần admin ngừng dùng đúng 1 giai đoạn xen giữa lúc kiểm nhanh và lúc ghi thật lúc TẠO dự án), dự án ĐÃ được tạo (`repo.createProject` đã chạy xong) nhưng action trả lỗi cho người dùng - dự án tồn tại với 0 dòng trọng số riêng (rơi về mặc định `DEFAULT_STAGE_WEIGHTS` có Thanh quyết toán 2%). Admin cần vào `/ho-so-du-an` lưu lại trọng số là xong; không có cách tự động dọn/rollback dự án đã tạo trong action này (giống các bước phụ khác của `createProjectAction` như `replaceKeyMilestones` cũng không có rollback nếu lỗi).
+- `actions-p7c2-tester.qa.test.ts`, `actions-key-milestones.test.ts`, `actions-project.qa.test.ts`, `actions-vong-sua-1.qa.test.ts`: mọi lời gọi `createProjectAction` trong test đều phải có `stageWeights` khớp đúng tập giai đoạn đang dùng - nếu Tester viết thêm test mới gọi `createProjectAction` mà quên `stageWeights`, sẽ luôn nhận `weights_required` (đây là hành vi ĐÚNG, không phải lỗi).
+- 3 test đổi trong `form.test.ts` (mock) gọi `repo.setStageActive('settlement', false, ...)` trước khi gửi 7 dòng trọng số - nếu sau này có PR khác đổi lại "Thanh quyết toán" không được ngừng dùng được nữa (ví dụ do rule nghiệp vụ mới), các test này sẽ đỏ và cần điều chỉnh lại theo giai đoạn khác.

@@ -11,6 +11,7 @@ const {
   projectEquipmentQuotaFindMany, projectEquipmentQuotaDeleteMany, projectEquipmentQuotaCreateMany,
   projectManpowerPlanMonthFindMany, projectManpowerPlanMonthDeleteMany, projectManpowerPlanMonthCreateMany,
   projectShiftRatioFindMany, projectShiftRatioDeleteMany, projectShiftRatioCreateMany, shiftFindMany,
+  stageFindMany,
 } = vi.hoisted(() => {
   const projectFindUnique = vi.fn(async () => ({
     id: 7, currentAliasCode: 'OLD-CODE', createdAt: new Date('2026-01-01T00:00:00Z'),
@@ -45,6 +46,7 @@ const {
   const projectShiftRatioDeleteMany = vi.fn(async () => ({ count: 0 }));
   const projectShiftRatioCreateMany = vi.fn(async () => ({ count: 0 }));
   const shiftFindMany = vi.fn(async () => [] as unknown[]);
+  const stageFindMany = vi.fn(async () => [] as unknown[]);
   const client = {
     project: { findUnique: projectFindUnique, findFirst: projectFindFirst, update: projectUpdate },
     projectAlias: { findMany: projectAliasFindMany, findFirst: projectAliasFindFirst, create: projectAliasCreate, update: projectAliasUpdate },
@@ -55,6 +57,7 @@ const {
     projectManpowerPlanMonth: { findMany: projectManpowerPlanMonthFindMany, deleteMany: projectManpowerPlanMonthDeleteMany, createMany: projectManpowerPlanMonthCreateMany },
     projectShiftRatio: { findMany: projectShiftRatioFindMany, deleteMany: projectShiftRatioDeleteMany, createMany: projectShiftRatioCreateMany },
     shift: { findMany: shiftFindMany },
+    stage: { findMany: stageFindMany },
     projectAssignment: {
       findUnique: projectAssignmentFindUnique, findFirst: projectAssignmentFindFirst,
       update: projectAssignmentUpdate, create: projectAssignmentCreate, delete: projectAssignmentDelete,
@@ -73,6 +76,7 @@ const {
     projectEquipmentQuotaFindMany, projectEquipmentQuotaDeleteMany, projectEquipmentQuotaCreateMany,
     projectManpowerPlanMonthFindMany, projectManpowerPlanMonthDeleteMany, projectManpowerPlanMonthCreateMany,
     projectShiftRatioFindMany, projectShiftRatioDeleteMany, projectShiftRatioCreateMany, shiftFindMany,
+    stageFindMany,
   };
 });
 
@@ -87,6 +91,7 @@ vi.mock('@/server/db', () => ({
     projectManpowerPlanMonth: { findMany: projectManpowerPlanMonthFindMany, deleteMany: projectManpowerPlanMonthDeleteMany, createMany: projectManpowerPlanMonthCreateMany },
     projectShiftRatio: { findMany: projectShiftRatioFindMany, deleteMany: projectShiftRatioDeleteMany, createMany: projectShiftRatioCreateMany },
     shift: { findMany: shiftFindMany },
+    stage: { findMany: stageFindMany },
     projectAssignment: {
       findUnique: projectAssignmentFindUnique, findFirst: projectAssignmentFindFirst,
       update: projectAssignmentUpdate, create: projectAssignmentCreate, delete: projectAssignmentDelete,
@@ -137,6 +142,8 @@ beforeEach(() => {
   projectShiftRatioCreateMany.mockClear();
   shiftFindMany.mockClear();
   shiftFindMany.mockResolvedValue([]);
+  stageFindMany.mockClear();
+  stageFindMany.mockResolvedValue([]);
 });
 
 describe('prisma-repo.changeProjectCode', () => {
@@ -186,12 +193,19 @@ describe('prisma-repo.replaceStageWeights', () => {
     { stageCode: 'handover' as const, weightPct: 0, applicable: false },
   ];
 
+  beforeEach(() => {
+    // Mac dinh: tap giai doan dang dung (dim_stage) dung bang cac ma trong `rows` - khong lech.
+    stageFindMany.mockResolvedValue(rows.map((r) => ({ code: r.stageCode })));
+  });
+
   // T-4 (vong sua bao mat): deleteMany CHI duoc xoa dong cua ma co trong `rows` gui len (them dieu
   // kien `stageCode: { in: ... }`) - KHONG con xoa het theo `projectId` nhu truoc (se xoa ca dong
   // cua giai doan da ngung dung, khong nam trong `rows` vi form khong hien thi no).
-  it('chay trong $transaction, CHI xoa dong cua ma dang gui (T-4), tao lai, ghi audit', async () => {
-    await repo.replaceStageWeights(7, rows, 'admin@x');
+  it('chay trong $transaction, khoa dim_stage, CHI xoa dong cua ma dang gui (T-4), tao lai, ghi audit', async () => {
+    const res = await repo.replaceStageWeights(7, rows, 'admin@x');
+    expect(res).toBe('ok');
     expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(executeRaw).toHaveBeenCalledTimes(1);
     expect(projectStageWeightDeleteMany).toHaveBeenCalledWith({
       where: { projectId: 7, stageCode: { in: rows.map((r) => r.stageCode) } },
     });
@@ -199,6 +213,19 @@ describe('prisma-repo.replaceStageWeights', () => {
     expect(auditCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({ tableName: 'project_stage_weight', recordId: '7', field: 'replace', changedBy: 'admin@x' }),
     });
+  });
+
+  // Vong sua reviewer, muc 2a (T-3 phia nguoi nhap): admin ngung dung 1 giai doan (vd 'handover')
+  // NGAY LUC dang luu trong so -> tap dang dung (dim_stage, doc lai TRONG transaction) khac voi ma
+  // gui len -> tra 'stages_changed', KHONG xoa/ghi gi (chong sot dong trong so cua giai doan vua
+  // ngung dung, khac voi kiem o actions-project.ts vi kiem do chay TRUOC transaction nay).
+  it("tap giai doan dang dung doc lai TRONG transaction khac voi rows -> 'stages_changed', khong xoa/tao/ghi audit", async () => {
+    stageFindMany.mockResolvedValueOnce(rows.filter((r) => r.stageCode !== 'handover').map((r) => ({ code: r.stageCode })));
+    const res = await repo.replaceStageWeights(7, rows, 'admin@x');
+    expect(res).toBe('stages_changed');
+    expect(projectStageWeightDeleteMany).not.toHaveBeenCalled();
+    expect(projectStageWeightCreateMany).not.toHaveBeenCalled();
+    expect(auditCreate).not.toHaveBeenCalled();
   });
 });
 

@@ -1013,7 +1013,8 @@
       "notFound": "Không tìm thấy dự án.",
       "generic": "Lưu thất bại: {msg}",
       "unexpected": "Lưu thất bại do lỗi hệ thống hoặc mất kết nối. Thử lại, nếu vẫn lỗi hãy báo quản trị.",
-      "stages_changed": "Danh sách giai đoạn vừa được quản trị thay đổi - tải lại trang rồi nhập lại trọng số."
+      "stages_changed": "Danh sách giai đoạn vừa được quản trị thay đổi - tải lại trang rồi nhập lại trọng số.",
+      "weights_required": "Cần nhập trọng số các giai đoạn trước khi tạo dự án."
     },
     "tip": {
       "plannedFinish": "Mốc nội bộ để chạy tiến độ. % Kế hoạch = số ngày đã trôi từ Ngày BĐ kế hoạch ÷ tổng số ngày từ BĐ đến HT kế hoạch. Đồng hồ đếm ngược ở Chi tiết dự án đếm tới 17:00 ngày này. Không nhầm với Bàn giao cam kết.",
@@ -1209,7 +1210,7 @@
     "add": "Thêm",
     "deactivate": "Ngừng dùng",
     "activate": "Dùng lại",
-    "hint": "Bên: cột hiển thị ở thẻ Chuỗi giá trị quản lý dự án. Thứ tự: xếp trong cột và trong chuỗi (số nhỏ đứng trước). Cách tính Theo sản lượng chỉ dùng cho thẻ Biểu đồ so sánh; %HT vẫn nhập tay ở Nhập liệu. Giai đoạn mới được thêm 0% vào trọng số mọi dự án. Chỉ ngừng dùng được khi không dự án nào đặt trọng số lớn hơn 0%.",
+    "hint": "Bên: cột hiển thị ở thẻ Chuỗi giá trị quản lý dự án. Thứ tự: xếp trong cột và trong chuỗi (số nhỏ đứng trước). Cách tính Theo sản lượng chỉ dùng cho thẻ Biểu đồ so sánh; %HT vẫn nhập tay ở Nhập liệu. Giai đoạn mới chỉ thêm 0% vào trọng số của dự án đã có dòng trọng số riêng. Chỉ ngừng dùng được khi không dự án nào đặt trọng số lớn hơn 0%.",
     "err": {
       "invalid": "Tên không được trống, thứ tự là số nguyên 1-999",
       "duplicate_name": "Đã có giai đoạn trùng tên",

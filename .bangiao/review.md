@@ -53,18 +53,20 @@ Không có.
 
 ## Nên làm (không chặn merge)
 
-1. `src/server/repo/types.ts:195,197`: đổi `side?`/`isActive?` thành bắt buộc. Hiện 3 chỗ hiểu thiếu giá trị theo 2 kiểu ngược nhau:
+**Chủ dự án chốt (2026-09-27): làm cả 4 mục trước khi merge main. Đã làm xong, xem `.bangiao/thay-doi.md` mục "Vòng sửa theo reviewer (4 mục Nên làm)".**
+
+1. **XONG.** `src/server/repo/types.ts:195,197`: đổi `side?`/`isActive?` thành bắt buộc. Hiện 3 chỗ hiểu thiếu giá trị theo 2 kiểu ngược nhau:
    - `src/lib/stages.ts:148` (`filter((s) => s.isActive)`: thiếu thì coi là ngừng dùng);
    - `src/components/admin/StageEditor.tsx:64,129` (`=== false` / `!== false`: thiếu thì coi là đang dùng);
    - `src/lib/value-chain-view.ts:27` (thiếu `side` thì rơi khỏi cả 2 cột).
-2. Khe hở T-3 phía người nhập: `src/server/actions-project.ts:136-141` kiểm tập giai đoạn ngoài transaction; bước ghi `src/server/repo/prisma-repo-form.ts:161` không lấy khoá `dim_stage`.
+2. **XONG (làm cả (a) và (b)).** Khe hở T-3 phía người nhập: `src/server/actions-project.ts:136-141` kiểm tập giai đoạn ngoài transaction; bước ghi `src/server/repo/prisma-repo-form.ts:161` không lấy khoá `dim_stage`.
    - Admin ngừng dùng đúng lúc đó thì có thể sót dòng trọng số lớn hơn 0% của giai đoạn đã ngừng dùng.
    - Ô Σ trọng số ở thẻ Chuỗi giá trị (`src/lib/value-chain-view.ts:53`) sẽ cộng cả dòng đó và báo lệch 100.
    - Cách vá: lấy khoá `hashtext('dim_stage')` và kiểm lại tập giai đoạn trong transaction của `replaceStageWeights`, hoặc cho `chainFooterSummary` chỉ cộng mã có trong `order`.
-3. `src/server/actions.ts:241`: `stageWeights` tuỳ chọn khi tạo dự án.
+3. **XONG.** `src/server/actions.ts:241`: `stageWeights` tuỳ chọn khi tạo dự án.
    - Dự án không có dòng nào sẽ dùng ngầm bộ mặc định có Thanh quyết toán 2%, luật Q1a không đếm được nên vẫn ngừng dùng được và %TT đổi.
    - Hiện form luôn gửi, DB `_c` 17/17 dự án có dòng, rủi ro thấp. Nên bắt buộc khi tạo.
-4. `src/i18n/messages/vi.json` và `en.json`, khoá `stageAdmin.hint`: câu "thêm 0% vào trọng số mọi dự án" chưa khớp code (chỉ dự án đã có dòng trọng số). Nên sửa chữ.
+4. **XONG.** `src/i18n/messages/vi.json` và `en.json`, khoá `stageAdmin.hint`: câu "thêm 0% vào trọng số mọi dự án" chưa khớp code (chỉ dự án đã có dòng trọng số). Nên sửa chữ.
 
 ## Câu hỏi nghiệp vụ
 
