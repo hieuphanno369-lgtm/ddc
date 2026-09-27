@@ -230,3 +230,64 @@ Lý do KHÔNG ĐẠT: bản sửa L7 mở đường lộ email mới (R1), và p
 Bắt buộc: R1, R2, R3.
 Nên sửa: R6, R7, R5.
 Chờ chủ dự án chọn: R4.
+
+---
+
+# Vòng 3 - rà lại bản sửa R1-R7 (commit `33b0e3f`, diff `26529a8..HEAD`)
+
+KET LUAN: KHONG DAT
+
+Người rà: security-reviewer (chỉ đọc); điều phối viên ghi lại báo cáo.
+Test đã chạy: 8 file liên quan, 110/110 xanh.
+Lý do KHÔNG ĐẠT: bản sửa R2 ở `requestPasswordReset` đặt chỗ theo email TRƯỚC IP, nên một IP đã hết lượt vẫn đốt được lượt xin link của mọi email (N1).
+R1, R3, R4, R6, R7 đã đóng đúng gốc; R5 chấp nhận được.
+
+## Trạng thái lỗi vòng 2
+
+| Lỗi | Trạng thái |
+|---|---|
+| R1 | Đã đóng: nhánh chỉ Google (`login-guard.ts:87-99`) dùng chung kho `login_fail_unknown_email`, không `registerFailedLogin`, không `lockedAt`; bảng 3 loại email qua 6 lần ra cùng `invalid x4, locked x2`. Chênh 1-2 lượt DB không đáng kể so với bcrypt. Xem G1. |
+| R2 | Đóng ở `checkCredentials` và kho bộ nhớ; `requestPasswordReset` mở N1; hợp đồng Prisma gợi ý SQL không nguyên tử (N2). |
+| R3 | Đã đóng (`login-guard.ts:53`, `password-reset.ts:130`); kế hoạch còn chữ cũ (N3). |
+| R4 | Đã đóng theo (a): `clientIpResolved` chỉ boolean; `console.warn` chuỗi cố định, chỉ production, tối đa 1 lần/15 phút. Cờ không phát hiện được cấu hình R5. |
+| R5 | Chấp nhận, với điều kiện checklist deploy Task 8.4 bắt buộc proxy nối thêm vào XFF. |
+| R6 | Đã đóng: timeout 30 giây có test ném lỗi và treo; việc chạy ngầm sau timeout không mở lỗ (hạn token tính theo lúc nhận yêu cầu). Task 5: log `e.name`/mã lỗi thay vì `message` của Prisma. |
+| R7 | Đã đóng phần làm được (`activity.ts:27-34`, `auth.ts:162`); giới hạn tần suất ghi `login_google_denied`: chưa tới lượt (Task 5). |
+
+## Lỗi còn lại
+
+**N1. [Trung bình, lỗ mới do bản sửa R2] Đặt chỗ throttle theo email trước IP**
+
+- File: `src/server/password-reset.ts:135-136`.
+- IP đã hết 10/giờ vẫn ghi dòng email trước khi bị chặn, nên 1 IP khoá được quên mật khẩu của toàn công ty (nạn nhân nhận `accepted` mà không có mail).
+- Sửa: đặt chỗ `reset_req_ip` trước, chỉ khi còn lượt mới đặt chỗ `reset_req_email`.
+- Test: IP X gửi 10 yêu cầu cho 10 email rác, yêu cầu thứ 11 cho V bị chặn và `countThrottle('reset_req_email', V)` vẫn 0; từ IP Y, V vẫn nhận đủ mail.
+
+**N2. [Thấp ở Task 1-4, bắt buộc sửa trước Task 5] SQL gợi ý cho `reserveThrottle` bản Prisma không nguyên tử; `releaseThrottle` khoá theo timestamp**
+
+- File: `src/server/repo/types.ts:623-642` (dòng 629), `.bangiao/ke-hoach.md:393-396`.
+- `INSERT ... SELECT ... WHERE (SELECT count(*) ...) < $limit` ở READ COMMITTED không nguyên tử, R2 sẽ quay lại nếu Task 5 làm theo.
+- `releaseThrottle` theo `createdAt` nếu viết bằng `deleteMany` có thể xoá luôn các dòng sai trùng mili giây.
+- Bản bộ nhớ hiện tại đúng (`splice` đúng 1 dòng), đăng nhập đúng xen kẽ không reset được quota IP.
+- Sửa hợp đồng và kế hoạch: `reserveThrottle` trong transaction có `pg_advisory_xact_lock(hashtext(kind || ':' || key))` (hoặc SERIALIZABLE kèm thử lại), ghi rõ INSERT SELECT đơn thuần là KHÔNG ĐỦ; `reserveThrottle` trả id dòng, `releaseThrottle(id)` xoá theo id (cấm `deleteMany`).
+- Test Task 5 trên DB thật: 30 lời gọi song song, limit 20, đúng 20 true; release khi 2 dòng trùng `createdAt` chỉ xoá 1.
+
+**N3. [Thấp, tài liệu] Kế hoạch còn luật cũ mâu thuẫn code**
+
+- File: `.bangiao/ke-hoach.md:399`, `:401`, `:409`, `:424`.
+- Sửa theo code hiện tại (và thứ tự IP rồi email của N1).
+
+**N4. [Thấp, thiếu test] Chưa có test tầng `checkCredentials` chứng minh đăng nhập đúng xen kẽ không làm giảm số lần sai theo IP**
+
+- Test đề nghị: 19 lần sai từ IP X, 5 lần đúng từ X, lần sai thứ 20 vẫn `invalid`, lần kế tiếp `ip_limited`; `countThrottle('login_fail_ip', X)` bằng 20.
+
+## Ghi chú (không chặn)
+
+- G1: tài khoản chỉ Google thừa hưởng giới hạn đã biết K6 (phân biệt được bằng cách chậm hơn 24 giờ); ghi thêm vào mục giới hạn đã biết ở `thay-doi.md`.
+- G2: `checkCredentials` dùng `email` thô làm khoá throttle email lạ; thêm `email.trim().toLowerCase()` phòng thủ trong `checkCredentials`.
+
+## Việc cần coder sửa ở vòng 3
+
+Bắt buộc: N1, N2.
+Nên sửa: N3, N4, G2.
+Nếu chỉ còn N3, N4, G1, G2 thì có thể coi là ĐẠT cho phạm vi Task 1-4.
