@@ -64,14 +64,17 @@ font giống hệt nhau. Khác biệt duy nhất: dòng "Cập nhật DB lần c
 
 - **e2e `02-overview.spec.ts` đỏ 3/3 lần** (không phải chập chờn - lỗi lặp lại chính xác): `chartCount` = 0
   thay vì >= 4 ngay sau khi kiểm KPI. Điều tra bằng Playwright thủ công (`next start` + script riêng, xem
-  console/network): KHÔNG có lỗi JS, không phải recharts/react-is hỏng - cả 5 chart vẫn mount đúng, chỉ là
-  script `next dev` biên dịch on-demand chunk chứa Recharts ở lần request đầu (nặng hơn do `react-is`/React
-  19), lâu hơn `expect()` timeout mặc định (5s) của Playwright. Xác nhận: dùng cùng script đo thủ công trên
-  bản `next start` (production, chunk đã build sẵn) thì chart lên chỉ sau ~1-2s, chartCount = 5 (đúng số
-  chart của trang, không thiếu chart nào).
+  console/network): KHÔNG có lỗi JS, không phải recharts/react-is hỏng - cả 5 chart vẫn mount đúng. `.count()`
+  đọc DOM một lần duy nhất, không chờ gì cả (không liên quan tới timeout mặc định 5s của `expect()`), nên
+  bản chất test cũ vốn đã phụ thuộc thời điểm đọc có trùng lúc chunk client (chứa Recharts) mount xong hay
+  chưa. Giả thuyết (chưa kiểm chứng): ở Next 14 `ssr: false` gọi trong Server Component có thể không thực sự
+  được áp dụng nên chart đã có sẵn trong bundle trang; nay chart nằm trong client component thật nên là
+  chunk lười thật, chỉ nạp sau hydration - qua `next dev` (biên dịch on-demand) có thể mất hơn vài giây.
+  Xác nhận: dùng cùng script đo thủ công trên bản `next start` (production, chunk đã build sẵn) thì chart
+  lên chỉ sau ~1-2s, chartCount = 5 (đúng số chart của trang, không thiếu chart nào).
   → Sửa `e2e/02-overview.spec.ts` (không sửa app): bọc phép kiểm `.recharts-wrapper` bằng
   `expect(async () => {...}).toPass({ timeout: 15_000 })` thay vì đọc `.count()` một lần duy nhất, để chờ
-  đúng lúc chunk client nạp xong thay vì đoán bừa 1 mốc thời gian cố định. Chạy lại riêng spec này 3 lần sau
+  đúng lúc chunk client nạp xong thay vì đọc ngay lập tức. Chạy lại riêng spec này 3 lần sau
   sửa: XANH cả 3. Chạy lại toàn bộ 74 spec: XANH 74/74.
 - **`npm run check:read` LỆCH ở lần chạy đầu (`readManpowerWeekly/Range/ActualByMonth`)**: do DB tạm đã bị
   chính 74 spec e2e (đặc biệt `04-data-entry.spec.ts` ghi 1 ô số nhân lực thật) sửa dữ liệu SAU khi seed,

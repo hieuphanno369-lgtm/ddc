@@ -146,13 +146,15 @@ Nhánh `feature/nang-next15`, từ `main` @ `54ac9bf` (**BASE**, dùng để rol
 - **Bước 3 (e2e đầy đủ):** lần chạy đầu **73/74** - `e2e/02-overview.spec.ts` đỏ (`chartCount` = 0, cần
   >= 4). Chạy lại riêng spec 3 lần: đỏ cả 3 (không phải chập chờn - lặp lại chính xác), nên đây là **spec mới
   đỏ, phải sửa gốc** theo đúng quy định của kế hoạch. Điều tra bằng Playwright thủ công trên bản `next start`
-  (production): KHÔNG có lỗi JS/console, cả 5 chart (đúng số lượng cho role admin) đều mount đúng, chỉ mất
-  khoảng 1-2s để chunk client (`OverviewChartsLazy`, nặng hơn do bọc thêm recharts 2.15.4 + React 19) tải xong
-  khi chạy qua `next dev` (biên dịch on-demand) - quá mốc 5s mặc định của `expect()` Playwright khi hệ thống
-  đang tải (nhiều tiến trình node khác chạy song song, xem mục môi trường bên dưới). **Sửa
-  `e2e/02-overview.spec.ts`** (test-only, không sửa app): thay `.count()` đọc 1 lần bằng
-  `expect(async () => {...}).toPass({ timeout: 15_000 })` để chờ đúng lúc chart mount thay vì đoán 1 mốc cố
-  định. Chạy lại riêng spec 3 lần sau sửa: XANH cả 3. Chạy lại toàn bộ: **74/74 xanh**.
+  (production): KHÔNG có lỗi JS/console, cả 5 chart (đúng số lượng cho role admin) đều mount đúng. `.count()`
+  đọc DOM một lần duy nhất, không chờ gì cả (không liên quan tới mốc 5s mặc định của `expect()`), nên bản
+  chất test cũ vốn đã phụ thuộc thời điểm: đọc có trùng lúc chunk client (`OverviewChartsLazy`) mount xong
+  hay chưa. Giả thuyết (chưa kiểm chứng): ở Next 14 `ssr: false` gọi trong Server Component có thể không
+  thực sự được áp dụng nên chart đã có sẵn trong bundle trang; nay chart nằm trong client component thật
+  nên là chunk lười thật, chỉ nạp sau hydration - qua `next dev` (biên dịch on-demand) mất khoảng 1-2s.
+  **Sửa `e2e/02-overview.spec.ts`** (test-only, không sửa app): thay `.count()` đọc 1 lần bằng
+  `expect(async () => {...}).toPass({ timeout: 15_000 })` để chờ đúng lúc chart mount thay vì đọc ngay lập
+  tức. Chạy lại riêng spec 3 lần sau sửa: XANH cả 3. Chạy lại toàn bộ: **74/74 xanh**.
 - **Bước 4 (`check:read`):** lần đầu (ngay sau khi chạy hết 74 spec e2e) LỆCH 3 mục
   (`readManpowerWeekly/Range/ActualByMonth`) - nguyên nhân: `04-data-entry.spec.ts` (1 trong 74 spec) ghi
   thật 1 ô số nhân lực vào DB, làm dữ liệu trôi khỏi mốc tĩnh `SEED_REPORT_DATE` mà `buildRepoData()` (hàm
@@ -267,7 +269,7 @@ xung đột dự kiến nhỏ nhất tập trung ở đây).
 | 12 file `*.test.ts` liệt kê ở Task 2 Bước 4 | Bọc `Promise.resolve(...)` quanh `params`/`searchParams` truyền vào page/route | `params`/`searchParams` giờ là `Promise`, không đổi kỳ vọng assert |
 | `src/server/queries-request-memo.test.ts` | Sửa 2 dòng comment đầu file | Giải thích lại đúng: Vitest giờ CÓ export `React.cache` thật (React 19), chỉ là không memo ngoài Server Component |
 | `src/server/pages-role-guard.test.ts` | Thêm `permanentRedirect: vi.fn()` vào mock `next/navigation` | next-intl 4 (`createNavigation`) đọc export này ngay lúc nạp `@/i18n/navigation`, mock cũ thiếu nên throw |
-| `e2e/02-overview.spec.ts` | Đổi `.count()` đọc 1 lần thành `expect(async () => {...}).toPass({ timeout: 15000 })` | Chart dùng `dynamic({ssr:false})`, chunk nặng hơn (recharts 2.15.4 + React 19) nên trên `next dev` có thể tải lâu hơn 5s mặc định của Playwright - đã xác nhận qua Playwright thủ công: không có lỗi, chỉ chậm hơn mốc kiểm cũ |
+| `e2e/02-overview.spec.ts` | Đổi `.count()` đọc 1 lần thành `expect(async () => {...}).toPass({ timeout: 15000 })` | `.count()` đọc DOM một lần, không chờ gì (không phải do vượt mốc 5s của `expect()`); giả thuyết chưa kiểm chứng: chart nay nằm trong client component thật nên là chunk lười thật, chỉ nạp sau hydration - đã xác nhận qua Playwright thủ công: không có lỗi, chỉ chậm hơn mốc kiểm cũ |
 
 ### Kết quả next-auth Bước 6
 
@@ -280,3 +282,43 @@ Khi merge nhánh này vào `main`: B và C phải `git merge main`, sau đó `np
 `NODE_EXTRA_CA_CERTS=D:\_project\DDC_dieu-phoi\tools\win-root-ca.pem` vì mạng chặn TLS), rồi xoá `.next`
 (`Remove-Item -Recurse -Force .next`) trước khi chạy `npm run dev` (bản build cache cũ của Next 14 không
 dùng lại được với Next 15). Không có migration Prisma nào trong phase này.
+
+## Vòng sửa 1 theo reviewer
+
+Đã sửa đúng 2 mục "Cần sửa" (bắt buộc) và các mục "Nên làm" trong `.bangiao/danh-gia.md`.
+
+### Cần sửa (bắt buộc)
+
+1. `e2e/13-locale-redirect-cookie.spec.ts` (tên cũ `12-...`), test cuối cùng: bỏ kỳ vọng cứng
+   `expect(res.status()).toBe(404)` (đang khoá hành vi của lỗ hổng L-1 - sẽ vá ở phase sau, lúc đó đường
+   này đổi thành 200 tại `/vi/login` và test sẽ đỏ oan). Thay bằng `expect([200, 404]).toContain(res.status())`,
+   và nếu 200 thì kiểm thêm `pathname` phải là `/vi/login`. Đổi tên test + sửa comment cho khớp (bỏ chữ
+   "phải thất bại", đổi thành "biến: ... không ra host lạ, không lộ dữ liệu"). Đổi kiểm yếu
+   `expect(body).not.toContain('projectName')` (tên thuộc tính JS, gần như không bao giờ xuất hiện trong
+   HTML) thành `expect(body).not.toContain('href="/vi/projects/')` (không phụ thuộc tên dự án seed cụ thể).
+2. Đổi tên file `e2e/12-locale-redirect-cookie.spec.ts` thành `e2e/13-locale-redirect-cookie.spec.ts`
+   (dùng `git mv`, tránh đụng số thứ tự với `e2e/12-chuoi-gia-tri.spec.ts` của nhánh C), sửa nhãn
+   `test.describe('12 - ...')` thành `'13 - ...'`. Sửa tham chiếu tên file trong `.bangiao/ket-qua-test.md`
+   (mục 1 và 4) và `.bangiao/danh-gia-bao-mat.md` mục I-5.
+
+### Nên làm (không chặn, cùng phạm vi nên làm luôn)
+
+- `isOpenRedirectLocation`: thêm `location.startsWith('/\\')` là open redirect (trình duyệt hiểu `/\host`
+  như `//host`).
+- Test cookie 1 năm: đặt `fresh.get(...)` + các assert trong `try`, `fresh.dispose()` trong `finally`, để
+  assert đỏ không bỏ lại context chưa dispose.
+- Bỏ tham chiếu "xem thay-doi.md" ở comment đầu file (dòng nói về URL tuyệt đối cho `//evil.com/vi`) vì
+  giải thích đã đủ ngay trong comment, `thay-doi.md` không có mục riêng cho chi tiết này.
+- Sửa lại câu chữ về nguyên nhân `e2e/02-overview.spec.ts` ở mục "Test đã sửa kỳ vọng" phía trên và ở
+  `.bangiao/hieu-nang.md`: bỏ khẳng định sai "`.count()` vượt mốc 5s mặc định của `expect()`" (`.count()`
+  đọc DOM một lần, không hề chờ hay dùng cơ chế retry của `expect()`), đổi thành giả thuyết CHƯA KIỂM
+  CHỨNG: có thể ở Next 14 `ssr: false` gọi trong Server Component không thực sự được áp dụng nên chart đã
+  có sẵn trong bundle trang, còn nay chart nằm trong client component thật nên là chunk lười thật, chỉ nạp
+  sau hydration.
+
+### Kết quả chạy lại (coder, vòng sửa 1)
+
+- `npm run test:e2e:a -- e2e/13-locale-redirect-cookie.spec.ts` (cổng 3010, DB tạm, đã tắt server 3000/3010
+  của A trước khi chạy, không đụng cổng 3001/3003 của B/C): **8/8 xanh** (3 setup + 5 test).
+- `npx tsc --noEmit`: sạch (exit 0, không output).
+- `npm test`: **210 file / 2409 test xanh** (khớp mốc trước khi sửa).

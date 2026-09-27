@@ -16,10 +16,10 @@ Nhanh `feature/nang-next15`, HEAD luc kiem: `50083cf` (Task 5 ban giao). Da doc 
 | `npm test` | **210 file / 2409 test xanh** (khop moc coder bao cao, chay 2 lan o dau va cuoi phien deu ra dung so nay) |
 | `npm run build` (font mock + DB tam `ddc_control_tower_e2e_a`) | Qua sach, khong canh bao `ssr: false`/"should be awaited"/"sync dynamic APIs" |
 | `npm run build` (font THAT, `NODE_EXTRA_CA_CERTS`, DB tam) | Qua sach - dung de kiem giao dien bang trinh duyet that (muc 3) |
-| `npm run test:e2e:a` (cong 3010, DB tam, tat truoc moi server o 3000/3010 cua A) | **79/79 xanh** (74 spec cu + 5 test moi trong `e2e/12-locale-redirect-cookie.spec.ts`), khong dung toi tien trinh cua B/C (cong 3001/3003) |
+| `npm run test:e2e:a` (cong 3010, DB tam, tat truoc moi server o 3000/3010 cua A) | **79/79 xanh** (74 spec cu + 5 test moi trong `e2e/13-locale-redirect-cookie.spec.ts`), khong dung toi tien trinh cua B/C (cong 3001/3003) |
 
 Khong sua bat ky file san pham nao trong qua trinh kiem; `git status` cuoi phien chi con file test moi
-(`e2e/12-locale-redirect-cookie.spec.ts`), khong con file .png/tam nao sot lai.
+(`e2e/13-locale-redirect-cookie.spec.ts`), khong con file .png/tam nao sot lai.
 
 ## 2. Soi rieng cac diem duoc yeu cau
 
@@ -117,7 +117,7 @@ CHI dung de doi chieu, da xoa sau khi kiem xong (khong commit, dung quy uoc "chi
 Ke hoach danh dau 2 truong hop bien Task 3 ("cookie locale ~1 nam", "khong open redirect") la "kiem o
 Task 5 bang trinh duyet/e2e" nhung coder chi kiem thu cong (curl/trinh duyet), **chua co test tu dong**
 nao khoa lai 2 hanh vi bao mat nay (dung dong luc nang next-intl 4 - va GHSA-8f24-v5vv-gm5j open redirect).
-Da viet file moi **`e2e/12-locale-redirect-cookie.spec.ts`** (5 test, dung `APIRequestContext` giong quy
+Da viet file moi **`e2e/13-locale-redirect-cookie.spec.ts`** (5 test, dung `APIRequestContext` giong quy
 uoc cua `e2e/09-chan-chua-dang-nhap.spec.ts`):
 
 1. **Duong chay thuan loi**: `GET /` khong cookie -> redirect `/vi` (locale mac dinh).
@@ -144,7 +144,7 @@ cu khong doi + 5 test moi), khong tut mot spec nao.
 ## 5. Ket luan
 
 Khong test nao rot trong lan chay cuoi cung (sau khi sua xong 3 loi tu viet test cua chinh toi trong luc
-soan `e2e/12-locale-redirect-cookie.spec.ts` - da ghi lai qua trinh dieu tra/sua trong muc 4, khong phai
+soan `e2e/13-locale-redirect-cookie.spec.ts` - da ghi lai qua trinh dieu tra/sua trong muc 4, khong phai
 loi cua coder). Moi cong (`tsc`, `npm test`, `npm run build` x2, `npm run test:e2e:a`) deu xanh, doc lap
 voi bao cao cua coder va khop so lieu. Da kiem bang trinh duyet that (khong chi doc snapshot) o 1440/390,
 soi rieng diem `toPass` 15s (khong che loi that) va cac bien Task 2/3 theo dung yeu cau.
