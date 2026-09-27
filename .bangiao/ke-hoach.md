@@ -503,7 +503,8 @@ Sửa comment `JobRun.jobName` thành `// 'alerts_daily'` và comment đầu mod
 - Produces: `export type AdminUserRow = Omit<UserAccount, 'passwordHash'> & { hasPassword: boolean };`
 - `prismaAuthStore.getAccountState` PHẢI dùng `prisma.userRole.findUnique({ where: { email } })` (test cũ mock đúng hàm này); trường mới thiếu thì coi `failedLoginCount ?? 0`, `lockedAt ?? null`, `passwordChangedAt ?? null`.
 - `registerFailedLogin`: `prisma.userRole.update({ data: { failedLoginCount: { increment: 1 } } })` (không có dòng -> bắt `P2025` trả null), rồi nếu `count >= threshold`: `updateMany({ where: { email, lockedAt: null }, data: { lockedAt: now } })`, `justLocked = count === 1`.
-- `consumeResetToken`, `replaceResetToken`: dùng `prisma.$transaction(async (tx) => ...)`, luật ở Task 4 mục Interfaces.
+- **`resetFailedLogin` (L3, vòng sửa bảo mật 1 - `.bangiao/bao-mat.md`)**: interface đổi từ `Promise<void>` sang `Promise<boolean>` - PHẢI nguyên tử, ví dụ `updateMany({ where: { email, lockedAt: null }, data: { failedLoginCount: 0 } })`, trả `false` khi `count === 0` (đã bị khoá bởi request khác); đọc kỹ JSDoc trong `types.ts`.
+- `consumeResetToken`, `replaceResetToken`: dùng `prisma.$transaction(async (tx) => ...)`, luật ở Task 4 mục Interfaces. **L5**: `consumeResetToken` phải kiểm `isActive`/`passwordHash !== ''` NGAY TRONG câu `UPDATE`/điều kiện của transaction (không chỉ tin token còn hạn), giống `peekResetToken`; FK cascade `PasswordResetToken.user` (đã có trong schema dưới) đảm bảo xoá tài khoản thì token cũ mất theo.
 
 - [ ] 5.1 Sửa `schema.prisma` như trên; `npx prisma format`.
 - [ ] 5.2 Tạo migration: `npx prisma migrate dev --create-only --name p3e_dang_nhap_bo_anh` trên DB `ddc_control_tower` (DB đã deploy tới mới nhất); đổi tên thư mục theo mẫu timestamp của repo nếu cần; đọc lại SQL: chỉ có ADD COLUMN x3 (có DEFAULT cho `failedLoginCount`), CREATE TABLE x2 + index + FK cascade, DROP TABLE `project_photos`.

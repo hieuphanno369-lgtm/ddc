@@ -52,11 +52,24 @@ describe('registerFailedLogin', () => {
 });
 
 describe('resetFailedLogin / unlockAccount', () => {
-  it('resetFailedLogin dua bo dem ve 0, khong dung lockedAt', async () => {
+  it('resetFailedLogin dua bo dem ve 0, khong dung lockedAt, tra true khi thanh cong', async () => {
     await store.registerFailedLogin('a@daidung.com.vn', 5, '2026-09-27T00:01:00.000Z');
-    await store.resetFailedLogin('a@daidung.com.vn');
+    expect(await store.resetFailedLogin('a@daidung.com.vn')).toBe(true);
     const state = await store.getAccountState('a@daidung.com.vn');
     expect(state?.failedLoginCount).toBe(0);
+  });
+
+  it('L3: tai khoan da bi khoa -> resetFailedLogin tra false, KHONG dua bo dem ve 0 (khong dua vao ban chup cu)', async () => {
+    for (let i = 1; i <= 5; i++) await store.registerFailedLogin('a@daidung.com.vn', 5, `2026-09-27T00:0${i}:00.000Z`);
+    const ok = await store.resetFailedLogin('a@daidung.com.vn');
+    expect(ok).toBe(false);
+    const state = await store.getAccountState('a@daidung.com.vn');
+    expect(state?.failedLoginCount).toBe(5);
+    expect(state?.lockedAt).not.toBeNull();
+  });
+
+  it('khong co tai khoan -> resetFailedLogin tra false', async () => {
+    expect(await store.resetFailedLogin('khong-co@daidung.com.vn')).toBe(false);
   });
 
   it('unlockAccount xoa khoa + bo dem; false neu khong co tai khoan', async () => {
@@ -104,6 +117,22 @@ describe('replaceResetToken / peekResetToken / consumeResetToken', () => {
 
     expect(await store.peekResetToken('hash-y', afterExpiry)).toBe(false);
     expect(await store.consumeResetToken('hash-y', 'hash-moi', afterExpiry)).toEqual({ ok: false });
+  });
+
+  it('L5: tai khoan bi TAT sau khi cap token (truoc khi tieu) -> consume ok:false, giong peek', async () => {
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-tat', '2026-09-27T01:00:00.000Z', '1.2.3.4');
+    accounts[0].isActive = false; // admin tat tai khoan sau khi token da cap
+
+    expect(await store.peekResetToken('hash-tat', '2026-09-27T00:00:00.000Z')).toBe(false);
+    expect(await store.consumeResetToken('hash-tat', 'hash-moi', '2026-09-27T00:00:00.000Z')).toEqual({ ok: false });
+  });
+
+  it('L5: tai khoan chuyen sang CHI GOOGLE (passwordHash rong) sau khi cap token -> consume ok:false', async () => {
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-goog', '2026-09-27T01:00:00.000Z', '1.2.3.4');
+    accounts[0].passwordHash = ''; // admin xoa mat khau, chuyen thanh tai khoan chi Google
+
+    expect(await store.peekResetToken('hash-goog', '2026-09-27T00:00:00.000Z')).toBe(false);
+    expect(await store.consumeResetToken('hash-goog', 'hash-moi', '2026-09-27T00:00:00.000Z')).toEqual({ ok: false });
   });
 
   it('tai khoan dang khoa: consume van ok, giu nguyen khoa + bo dem (K10)', async () => {

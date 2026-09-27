@@ -80,10 +80,14 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
     },
 
     async resetFailedLogin(email) {
+      // L3 - nguyên tử theo tinh thần "chỉ reset khi locked_at IS NULL": đọc + ghi trong cùng 1
+      // lượt đồng bộ của hàm này (không có await xen giữa), khớp với luật Prisma sẽ dùng ở Task 5.
       const key = findEmail(email);
-      if (!key) return;
+      if (!key) return false;
       const c = countersFor(key);
+      if (c.lockedAt !== null) return false;
       counters.set(key, { ...c, failedLoginCount: 0 });
+      return true;
     },
 
     async unlockAccount(email) {
@@ -131,7 +135,9 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
       const t = resetTokens.find((x) => x.tokenHash === tokenHash && x.usedAt === null && nowIso <= x.expiresAt);
       if (!t) return { ok: false };
       const account = source.findAccount(t.email);
-      if (!account) return { ok: false };
+      // L5 - kiểm CÙNG điều kiện với `peekResetToken` tại thời điểm tiêu token (không chỉ lúc cấp):
+      // tài khoản có thể đã bị tắt hoặc chuyển sang chỉ-Google sau khi token được cấp.
+      if (!account || account.passwordHash === '' || !account.isActive) return { ok: false };
       // Vô hiệu mọi token còn dùng được của email (kể cả chính token này).
       for (const row of resetTokens) {
         if (row.email === t.email && row.usedAt === null) row.usedAt = nowIso;

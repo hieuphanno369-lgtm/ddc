@@ -598,7 +598,15 @@ export interface AuthStore {
     threshold: number,
     nowIso: string,
   ): Promise<{ count: number; locked: boolean; justLocked: boolean } | null>;
-  resetFailedLogin(email: string): Promise<void>;
+  /**
+   * L3 (bao-mat.md) - NGUYÊN TỬ, phải tự kiểm lại tại thời điểm ghi, KHÔNG dựa vào bất kỳ giá trị
+   * đọc trước đó (chống race TOCTOU khi nhiều yêu cầu đăng nhập chạy đồng thời): chỉ đặt bộ đếm sai
+   * về 0 khi tài khoản CHƯA bị khoá (`locked_at IS NULL`) NGAY tại thời điểm ghi; ví dụ Prisma:
+   * `UPDATE user_roles SET failed_login_count = 0 WHERE email = $1 AND locked_at IS NULL`.
+   * Trả `false` khi không đặt được (đã bị khoá bởi 1 yêu cầu sai khác vừa chạy xong, hoặc không có
+   * tài khoản) - bên gọi PHẢI coi `false` là "đã khoá", KHÔNG được coi là đăng nhập thành công.
+   */
+  resetFailedLogin(email: string): Promise<boolean>;
   /** Xoá khoá + bộ đếm; false nếu không có tài khoản. */
   unlockAccount(email: string): Promise<boolean>;
   /** Đổi mật khẩu; bumpChangedAt = true thì passwordChangedAt = now. */
@@ -609,7 +617,13 @@ export interface AuthStore {
   replaceResetToken(email: string, tokenHash: string, expiresAtIso: string, requestIp: string): Promise<void>;
   /** Token còn dùng được (chưa dùng, chưa hết hạn, tài khoản còn, có mật khẩu, isActive)? */
   peekResetToken(tokenHash: string, nowIso: string): Promise<boolean>;
-  /** Nguyên tử: đánh dấu token đã dùng + đặt mật khẩu + passwordChangedAt = now + bộ đếm về 0 nếu chưa khoá + vô hiệu token khác của email. */
+  /**
+   * Nguyên tử: đánh dấu token đã dùng + đặt mật khẩu + passwordChangedAt = now + bộ đếm về 0 nếu
+   * chưa khoá + vô hiệu token khác của email. L5 (bao-mat.md) - phải kiểm CÙNG điều kiện tài khoản
+   * như `peekResetToken` tại thời điểm tiêu token (`isActive` và `passwordHash !== ''`), không chỉ
+   * lúc `peek`: tài khoản có thể đã bị tắt hoặc chuyển sang chỉ-Google SAU khi token được cấp,
+   * trước khi token bị tiêu - lúc đó phải trả `{ ok: false }`, không cho đổi mật khẩu.
+   */
   consumeResetToken(
     tokenHash: string,
     passwordHash: string,

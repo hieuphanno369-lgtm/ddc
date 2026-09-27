@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryAuthStore, type MemoryAccountSource } from './repo/mock-repo-auth';
-import type { UserAccount } from './repo/types';
+import type { AuthAccountState, AuthStore, UserAccount } from './repo/types';
 import { hashPassword } from '@/lib/password';
 import * as passwordLib from '@/lib/password';
 
@@ -108,13 +108,97 @@ describe('checkCredentials - email la (K6)', () => {
   });
 });
 
-describe('checkCredentials - tai khoan chi Google hoac bi tat', () => {
-  it('chi Google (passwordHash rong) nhap mat khau -> invalid, bo dem tang', async () => {
-    const store = createMemoryAuthStore(makeSource([account({ passwordHash: '' })]));
-    const r = await checkCredentials(store, { email: 'a@daidung.com.vn', password: 'bat-ky', ip: '' }, at(0));
-    expect(r).toEqual({ ok: false, reason: 'invalid' });
+describe('checkCredentials - L1: nhanh da khoa cung chay bcrypt gia (timing oracle)', () => {
+  it('so lan goi verifyPassword giua nhanh "da khoa" va nhanh "email la" phai bang nhau (deu > 0)', async () => {
+    const store = createMemoryAuthStore(makeSource([account()]));
+    for (let i = 0; i < 5; i++) {
+      await checkCredentials(store, { email: 'a@daidung.com.vn', password: 'sai', ip: '' }, at(i * 1000));
+    }
+    const locked = await store.getAccountState('a@daidung.com.vn');
+    expect(locked?.lockedAt).not.toBeNull(); // xac nhan da khoa truoc khi do
+
+    const spy = vi.spyOn(passwordLib, 'verifyPassword');
+    spy.mockClear();
+    await checkCredentials(store, { email: 'a@daidung.com.vn', password: 'bat-ky', ip: '' }, at(6000));
+    const lockedCalls = spy.mock.calls.length;
+
+    spy.mockClear();
+    await checkCredentials(store, { email: 'email-hoan-toan-la@daidung.com.vn', password: 'bat-ky', ip: '' }, at(7000));
+    const unknownCalls = spy.mock.calls.length;
+
+    expect(lockedCalls).toBeGreaterThan(0);
+    expect(lockedCalls).toBe(unknownCalls);
+  });
+});
+
+describe('checkCredentials - L3: xac nhan nguyen tu chong TOCTOU khi doan mat khau song song', () => {
+  it('store bao da khoa (resetFailedLogin tra false) tai thoi diem xac nhan -> khong duoc coi la dang nhap thanh cong, du ban chup account doc truoc do chua khoa', async () => {
+    // Mo phong co kiem soat dung "ban chup cu": store tra ve account CHUA khoa luc doc (buoc 1),
+    // nhung "vua bi 1 yeu cau sai khac khoa xong" ngay truoc khi ham nay xac nhan nguyen tu (buoc
+    // cuoi) - dung dung tinh huong bao-mat.md mo ta (khong dua vao suy doan thu tu Promise.all,
+    // ep thang canh tranh de test on dinh, khong chap chon).
+    const accountSnapshot: AuthAccountState = {
+      email: 'a@daidung.com.vn',
+      name: 'A',
+      passwordHash: hashPassword(REAL_PW),
+      role: 'viewer',
+      canViewFinance: false,
+      isActive: true,
+      failedLoginCount: 0,
+      lockedAt: null, // ban chup CU: chua khoa luc doc
+      passwordChangedAt: null,
+    };
+    const resetFailedLogin = vi.fn().mockResolvedValue(false);
+    const store: AuthStore = {
+      async getAccountState() {
+        return accountSnapshot;
+      },
+      countThrottle: vi.fn().mockResolvedValue(0),
+      recordThrottle: vi.fn().mockResolvedValue(undefined),
+      resetFailedLogin,
+      registerFailedLogin: vi.fn(),
+      unlockAccount: vi.fn(),
+      setPassword: vi.fn(),
+      replaceResetToken: vi.fn(),
+      peekResetToken: vi.fn(),
+      consumeResetToken: vi.fn(),
+      pruneAuthData: vi.fn(),
+    };
+
+    const r = await checkCredentials(store, { email: 'a@daidung.com.vn', password: REAL_PW, ip: '' }, at(0));
+
+    expect(resetFailedLogin).toHaveBeenCalledTimes(1); // luon xac nhan, khong bo qua vi ban chup cu
+    expect(r).toEqual({ ok: false, reason: 'locked' }); // KHONG duoc tra ok:true
+  });
+
+  it('thuc te tren kho bo nho (Promise.all): N sai dong thoi khong lam mat lan tang bo dem nao (khong ket qua bi de len nhau)', async () => {
+    // Best-effort voi concurrency THAT cua JS (khong ep thu tu) - kiem bat bien chung: khoa dung 1
+    // lan, khong mat cap nhat nao (lost update) khi N yeu cau sai chay dong thoi.
+    const store = createMemoryAuthStore(makeSource([account()]));
+    const N = 10;
+    const calls = Array.from({ length: N }, () =>
+      checkCredentials(store, { email: 'a@daidung.com.vn', password: 'sai', ip: '' }, at(0)),
+    );
+    await Promise.all(calls);
+
     const state = await store.getAccountState('a@daidung.com.vn');
-    expect(state?.failedLoginCount).toBe(1);
+    expect(state?.failedLoginCount).toBe(N); // khong mat cap nhat nao du chay dong thoi
+    expect(state?.lockedAt).not.toBeNull(); // da vuot LOGIN_LOCK_THRESHOLD (5) nen phai khoa
+  });
+});
+
+describe('checkCredentials - tai khoan chi Google hoac bi tat', () => {
+  it('L7 (quyet dinh chu du an): chi Google (passwordHash rong) nhap mat khau sai nhieu lan -> invalid, KHONG tang bo dem, KHONG bi khoa', async () => {
+    const store = createMemoryAuthStore(makeSource([account({ passwordHash: '' })]));
+    const spy = vi.spyOn(passwordLib, 'verifyPassword');
+    for (let i = 0; i < 10; i++) {
+      const r = await checkCredentials(store, { email: 'a@daidung.com.vn', password: 'bat-ky', ip: '' }, at(i * 1000));
+      expect(r).toEqual({ ok: false, reason: 'invalid' });
+    }
+    expect(spy).toHaveBeenCalled(); // van chay bcrypt gia, khong lo timing tai khoan chi Google
+    const state = await store.getAccountState('a@daidung.com.vn');
+    expect(state?.failedLoginCount).toBe(0);
+    expect(state?.lockedAt).toBeNull();
   });
 
   it('isActive=false nhap dung mat khau -> invalid, bo dem tang', async () => {
