@@ -150,8 +150,18 @@ export const authOptions: NextAuthOptions = {
         if (decision !== 'allow') {
           // L8 (bao-mat.md) - ghi lại lần bị từ chối kèm lý do, để admin thấy được ai đã thử vào
           // bằng Google không hợp lệ. KHÔNG ghi token/link nào (decision chỉ là 1 trong 5 giá trị cố định).
+          // R7 (bao-mat.md vòng 2) - nhánh `unverified` nghĩa là Google CHƯA xác minh email, nên
+          // toàn bộ `profile`/`user` (kể cả `name`) là dữ liệu KHÔNG đáng tin (ai đó có thể tự khai
+          // tên bất kỳ); dùng tên CỐ ĐỊNH thay vì `user.name` để admin không hiểu nhầm là tên thật.
+          // R7 (chưa làm, để Task 5) - báo cáo bảo mật đề nghị giới hạn tần suất ghi
+          // `login_google_denied`; callback này KHÔNG có `AuthStore`/bảng đếm nào để tiêm vào (khác
+          // `checkCredentials`), và không được đụng `schema.prisma` ở vòng sửa này - Task 5 nối bảng
+          // `auth_throttle` vào đây (ví dụ `reserveThrottle('login_fail_unknown_email', email, ...)`
+          // trước khi ghi log) thay vì tự chế 1 bộ đếm trong tiến trình (không sống sót qua restart,
+          // không đúng với nhiều instance).
+          const who = decision === 'unverified' ? { name: '(email chua xac minh)', email } : { name: user.name ?? email, email };
           try {
-            await logActivity({ name: user.name ?? email, email }, 'login_google_denied', decision);
+            await logActivity(who, 'login_google_denied', decision);
           } catch {
             /* ignore */
           }

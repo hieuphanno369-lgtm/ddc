@@ -386,7 +386,15 @@ export const resetMailer: ResetMailer; // compose dùng getTranslations({ locale
 `Locale` import từ `@/i18n/routing`; `SmtpConfig` từ `@/server/notify/email`.
 
 **Luật `checkCredentials` (đúng thứ tự):**
-1. `ip !== ''` và `countThrottle('login_fail_ip', ip, now - IP_FAIL_WINDOW_MS) >= IP_FAIL_LIMIT` -> `ip_limited` (không kiểm mật khẩu).
+1. [SỬA ở vòng bảo mật 2, R2+R3 - `.bangiao/bao-mat.md`] `ipKey = ip.trim() || 'unknown'` (không còn IP
+   rỗng nào bỏ qua giới hạn); `reserveThrottle('login_fail_ip', ipKey, now, now - IP_FAIL_WINDOW_MS, IP_FAIL_LIMIT)`
+   NGUYÊN TỬ (đếm + ghi trong CÙNG 1 lượt, không còn "đếm rồi ghi" tách rời - đóng race TOCTOU khi
+   nhiều yêu cầu chạy đồng thời); hết chỗ -> `ip_limited` (không kiểm mật khẩu). Đúng mật khẩu thì
+   `releaseThrottle` rút lại chỗ đã đặt (không tính lượt đúng vào giới hạn IP). **Task 5 (Prisma) bắt
+   buộc làm `reserveThrottle`/`releaseThrottle` thật NGUYÊN TỬ** (ví dụ 1 câu `INSERT INTO
+   auth_throttle ... SELECT ... WHERE (SELECT count(*) ...) < $limit RETURNING 1`, hoặc transaction có
+   khoá dòng) - không được cài lại kiểu "đếm 1 câu SELECT rồi ghi 1 câu INSERT riêng" vì mất đúng tính
+   nguyên tử đã sửa ở vòng 2, xem JSDoc `AuthStore.reserveThrottle` trong `types.ts`.
 2. `account = getAccountState(email)`.
 3. `account === null`: gọi `verifyPassword(password, DUMMY_HASH)` (hằng bcrypt cost 10 sinh sẵn 1 lần ở module), `recordThrottle('login_fail_unknown_email', email)`, ghi IP sai (nếu có IP); nếu `countThrottle('login_fail_unknown_email', email, now - UNKNOWN_EMAIL_WINDOW_MS) >= LOGIN_LOCK_THRESHOLD` -> `locked`, ngược lại `invalid`.
 4. `account.lockedAt !== null` -> ghi IP sai, trả `locked` (không nói mật khẩu đúng hay sai).
@@ -415,7 +423,10 @@ Log: `logActivity(who, 'password_reset_request', detail)` với `who = { name: e
   email lạ: spy `verifyPassword` được gọi; 5 lần -> `locked`; sau 24 giờ + 1ms -> `invalid`;
   tài khoản chỉ Google hoặc `isActive=false` nhập mật khẩu -> `invalid` và bộ đếm tăng;
   20 lần sai từ 1 IP (nhiều email khác nhau) -> lần 21 `ip_limited` kể cả mật khẩu đúng của tài khoản khác; sau 15 phút + 1ms -> kiểm bình thường;
-  `ip = ''` -> không bao giờ `ip_limited`.
+  [SỬA ở vòng bảo mật 2, R3] `ip = ''` gom vào khoá `'unknown'` - VẪN bị giới hạn như 1 IP thật (KHÔNG
+  còn "không bao giờ `ip_limited`" như bản đầu, đó chính là lỗ hổng fail-open R3 mô tả trong
+  `bao-mat.md`); thêm test R2: `Promise.all` 30 request sai đồng thời từ 1 IP -> số lần gọi bcrypt
+  (`verifyPassword`) phải `<= IP_FAIL_LIMIT`.
 - [ ] 4.5 Test đỏ `password-reset.test.ts` (mailer giả ghi lại lệnh gửi, mock `@/lib/activity`):
   kết quả trả về của email có tài khoản, email lạ, chỉ Google, bị tắt, bị giới hạn là `toEqual` nhau (`{ status: 'accepted' }`);
   thiếu SMTP hoặc thiếu `baseUrl` -> `smtp_missing` với mọi email và không ghi throttle;
@@ -643,7 +654,7 @@ Không đặt tên `resetPasswordAction` (đã có hàm admin trùng tên trong 
 - [ ] 8.1 Tìm lại trong `src/`, `app/`, `scripts/`, `e2e/`: `ROLE_SEED`, `isAllowedDomain` (nếu Q3=a), `projectPhoto`, `ProjectPhoto`, `photo-upload`, `/api/photos`, `rates_monthly`, `VCB_RATE_URL`: không còn.
 - [ ] 8.2 `src/server/api-routes-guard.test.ts`: danh sách route khớp đúng 6 route còn lại (`auth/[...nextauth]`, `health`, `cron/[job]`, `export`, `report/export`, `templates/daily-resources`).
 - [ ] 8.3 `.env.example` cuối cùng: không có `VCB_RATE_URL`, `ROLE_SEED` (và `ALLOWED_EMAIL_DOMAINS` nếu Q3=a); comment `NEXTAUTH_URL` ghi "dùng để dựng link đặt lại mật khẩu, phải là URL thật khi deploy".
-- [ ] 8.4 Viết `.bangiao/thay-doi.md`: danh sách file, kết quả cổng kiểm (dán output), kết quả diễn tập rollback, giới hạn đã biết (K6, K12, K13), câu hỏi còn chờ, mục "Việc cho tài liệu deploy (C, T17)": Google OAuth Client theo `docs/HUONG_DAN_GOOGLE_OAUTH.md`, SMTP bắt buộc, `NEXTAUTH_URL` đúng domain, proxy ghi đè `X-Forwarded-For`, lệnh `npm run unlock-account -- <email>`, cron chỉ `alerts_daily`, không còn thư mục ảnh cần backup.
+- [ ] 8.4 Viết `.bangiao/thay-doi.md`: danh sách file, kết quả cổng kiểm (dán output), kết quả diễn tập rollback, giới hạn đã biết (K6, K12, K13), câu hỏi còn chờ, mục "Việc cho tài liệu deploy (C, T17)": Google OAuth Client theo `docs/HUONG_DAN_GOOGLE_OAUTH.md`, SMTP bắt buộc, `NEXTAUTH_URL` đúng domain, **reverse proxy BẮT BUỘC tự NỐI THÊM (append, không ghi đè) IP khách vào `X-Forwarded-For` đúng `TRUSTED_PROXY_HOPS` tầng khai trong `.env.example` (R4/R5, `.bangiao/bao-mat.md` vòng 2) - thiếu bước này thì mọi người dùng rơi vào khoá `'unknown'` dùng chung, có thể tự khoá lẫn nhau; kiểm nhanh sau deploy bằng `GET /api/health` -> `clientIpResolved` phải là `true`, `false` thì soi lại cấu hình proxy**, lệnh `npm run unlock-account -- <email>`, cron chỉ `alerts_daily`, không còn thư mục ảnh cần backup.
 - [ ] 8.5 Cổng kiểm đầy đủ + `npm run test:e2e:a` toàn bộ (không lọc spec); đỏ thì sửa, chập chờn thì tìm gốc.
 - [ ] 8.6 Commit `chore(p3e): kiem tong, cap nhat ho so ban giao`.
 

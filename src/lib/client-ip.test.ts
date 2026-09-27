@@ -52,3 +52,27 @@ describe('clientIpFrom', () => {
     }
   });
 });
+
+describe("clientIpFrom - R4: canh bao console.warn toi da 1 lan/cua so khi 'unknown' o production", () => {
+  it('production + khong xac dinh duoc IP -> warn dung 1 lan, goi lai ngay sau khong warn them', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      expect(clientIpFrom(headersOf({}))).toBe('unknown');
+      expect(clientIpFrom(headersOf({}))).toBe('unknown');
+      expect(spy).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("khong phai production -> khong warn du 'unknown'", () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      expect(clientIpFrom(headersOf({}))).toBe('unknown');
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});

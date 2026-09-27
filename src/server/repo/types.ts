@@ -578,6 +578,13 @@ export interface SapQueueItem {
 
 export type ThrottleKind = 'login_fail_ip' | 'login_fail_unknown_email' | 'reset_req_email' | 'reset_req_ip';
 
+/**
+ * R1 (bao-mat.md vòng 2) - `login_fail_unknown_email` (khoá theo `email`, cửa sổ 24h) dùng CHUNG cho
+ * cả email không có tài khoản LẪN tài khoản CHỈ Google (`passwordHash === ''`) sai ở form mật khẩu:
+ * cả 2 phải trả `reason` GIỐNG HỆT nhau qua từng lần sai (không lộ "email này là tài khoản chỉ
+ * Google" qua khác biệt reason/`lockedAt`), xem `login-guard.ts`.
+ */
+
 export interface AuthAccountState {
   email: string;
   name: string;
@@ -613,6 +620,26 @@ export interface AuthStore {
   setPassword(email: string, passwordHash: string, bumpChangedAt: boolean, nowIso: string): Promise<boolean>;
   recordThrottle(kind: ThrottleKind, key: string, nowIso: string): Promise<void>;
   countThrottle(kind: ThrottleKind, key: string, sinceIso: string): Promise<number>;
+  /**
+   * R2 (bao-mat.md vòng 2) - "đếm rồi ghi" (`countThrottle` trước, `recordThrottle` sau) có khoảng
+   * hở TOCTOU: N yêu cầu chạy đồng thời qua `Promise.all` đều đọc thấy số đếm CŨ (chưa ai kịp ghi)
+   * rồi đều được coi là hợp lệ, vượt hẳn ngưỡng. `reserveThrottle` gộp "đếm cửa sổ [sinceIso, nay]"
+   * và "ghi thêm 1 dòng nếu còn chỗ" thành 1 lời gọi NGUYÊN TỬ: đếm xong ghi ngay trong CÙNG 1 lượt,
+   * không có `await` nào xen giữa - ở Prisma (Task 5) tương đương 1 câu SQL kiểu
+   * `INSERT INTO auth_throttle ... SELECT ... WHERE (SELECT count(*) ...) < $limit RETURNING 1`
+   * hoặc transaction có khoá dòng; ở kho bộ nhớ, thân hàm không có `await` nội bộ nên tự nguyên tử
+   * theo đúng nghĩa JS đơn luồng (xem ghi chú Promise.all ở `login-guard.ts`).
+   * Trả `true` và đã ghi thêm 1 dòng `nowIso` nếu số dòng trong cửa sổ (TRƯỚC khi ghi) < `limit`;
+   * trả `false` (KHÔNG ghi thêm) nếu đã đủ `limit` - giữ đúng hành vi cũ "vượt ngưỡng thì không ghi
+   * thêm dòng nào" (không để bộ đếm phình vô hạn khi bị spam).
+   */
+  reserveThrottle(kind: ThrottleKind, key: string, nowIso: string, sinceIso: string, limit: number): Promise<boolean>;
+  /**
+   * Rút lại đúng 1 dòng đã ghi bởi `reserveThrottle(kind, key, nowIso, ...)` - dùng khi cuối cùng
+   * lượt đó KHÔNG được tính là 1 lần sai (ví dụ đăng nhập bằng đúng mật khẩu sau khi đã "đặt chỗ"
+   * ở đầu `checkCredentials`, xem `login-guard.ts`). Không có dòng nào khớp thì không làm gì.
+   */
+  releaseThrottle(kind: ThrottleKind, key: string, nowIso: string): Promise<void>;
   /** Xoá mọi token cũ của email rồi tạo token mới (1 transaction). */
   replaceResetToken(email: string, tokenHash: string, expiresAtIso: string, requestIp: string): Promise<void>;
   /** Token còn dùng được (chưa dùng, chưa hết hạn, tài khoản còn, có mật khẩu, isActive)? */

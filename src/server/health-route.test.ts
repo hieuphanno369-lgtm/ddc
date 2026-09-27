@@ -4,15 +4,33 @@ import { GET } from '../../app/api/health/route';
 
 /**
  * P3D-B: /api/health khong kiem phien (theo thiet ke, dung de kiem tra song/chet) nhung phai
- * CHI tra trang thai, khong lo them field nao khac.
+ * CHI tra trang thai + thoi gian + co (khong lo IP that hay bat ky metadata mang nao khac).
+ * R4 (bao-mat.md vong 2) - them `clientIpResolved` (boolean) de giam sat trien khai phat hien
+ * thieu cau hinh reverse proxy (moi nguoi dung chung khoa 'unknown'), KHONG lo IP that ra ngoai.
  */
 describe('GET /api/health', () => {
-  it('tra 200 va chi co status + time', async () => {
+  it('tra 200, status/time/clientIpResolved, khong lo them field nao khac', async () => {
     const res = await GET(new NextRequest('http://localhost/api/health'));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(Object.keys(body).sort()).toEqual(['status', 'time']);
+    expect(Object.keys(body).sort()).toEqual(['clientIpResolved', 'status', 'time']);
     expect(body.status).toBe('ok');
+  });
+
+  it("R4: khong xac dinh duoc IP (khong header nao) -> clientIpResolved = false, KHONG lo chuoi 'unknown' hay IP that", async () => {
+    const res = await GET(new NextRequest('http://localhost/api/health'));
+    const body = await res.json();
+    expect(body.clientIpResolved).toBe(false);
+    expect(JSON.stringify(body)).not.toContain('unknown');
+  });
+
+  it("R4: co X-Forwarded-For -> clientIpResolved = true, khong lo gia tri IP that trong body", async () => {
+    const res = await GET(
+      new NextRequest('http://localhost/api/health', { headers: { 'x-forwarded-for': '203.0.113.9' } }),
+    );
+    const body = await res.json();
+    expect(body.clientIpResolved).toBe(true);
+    expect(JSON.stringify(body)).not.toContain('203.0.113.9');
   });
 });
 

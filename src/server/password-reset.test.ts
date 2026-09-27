@@ -193,6 +193,95 @@ describe('requestPasswordReset - khong lo email ton tai (S3)', () => {
     expect(queued).toHaveLength(RESET_IP_LIMIT);
   });
 
+  it('R2: Promise.all 30 yeu cau xin dat lai dong thoi tu 1 IP -> so thu gui KHONG VUOT RESET_IP_LIMIT', async () => {
+    const store = createMemoryAuthStore(makeSource(
+      Array.from({ length: 30 }, (_, i) => account({ email: `r2-reset-${i}@daidung.com.vn` })),
+    ));
+    const { mailer, queued } = makeMailer();
+    const IP = '6.6.6.6';
+
+    const calls = Array.from({ length: 30 }, (_, i) =>
+      requestPasswordReset(store, mailer, { email: `r2-reset-${i}@daidung.com.vn`, ip: IP, locale: 'vi', baseUrl: BASE_URL }, at(0)),
+    );
+    await Promise.all(calls);
+    await __resetRequestQueueIdleForTest();
+
+    expect(queued.length).toBeLessThanOrEqual(RESET_IP_LIMIT);
+  });
+
+  it("R3: ip = '' gom vao khoa 'unknown', VAN bi gioi han nhu 1 IP that", async () => {
+    const store = createMemoryAuthStore(makeSource(
+      Array.from({ length: RESET_IP_LIMIT + 1 }, (_, i) => account({ email: `r3-${i}@daidung.com.vn` })),
+    ));
+    const { mailer, queued } = makeMailer();
+
+    for (let i = 0; i < RESET_IP_LIMIT; i++) {
+      await requestPasswordReset(store, mailer, { email: `r3-${i}@daidung.com.vn`, ip: '', locale: 'vi', baseUrl: BASE_URL }, at(i * 100));
+    }
+    await __resetRequestQueueIdleForTest();
+    expect(queued).toHaveLength(RESET_IP_LIMIT);
+
+    await requestPasswordReset(
+      store,
+      mailer,
+      { email: `r3-${RESET_IP_LIMIT}@daidung.com.vn`, ip: '', locale: 'vi', baseUrl: BASE_URL },
+      at(RESET_IP_LIMIT * 100),
+    );
+    await __resetRequestQueueIdleForTest();
+    expect(queued).toHaveLength(RESET_IP_LIMIT); // van bi khoa 'unknown' chan, khong con fail-open
+  });
+
+  it('R6: viec dau NEM LOI khong chan viec SAU chay, log khong chua token/email', async () => {
+    const store = createMemoryAuthStore(makeSource([
+      account({ email: 'r6-loi@daidung.com.vn' }),
+      account({ email: 'r6-sau@daidung.com.vn' }),
+    ]));
+    const { mailer, queued } = makeMailer();
+    const realGetAccountState = store.getAccountState.bind(store);
+    const spy = vi.spyOn(store, 'getAccountState').mockImplementation(async (email: string) => {
+      if (email === 'r6-loi@daidung.com.vn') throw new Error('loi gia lap');
+      return realGetAccountState(email);
+    });
+
+    await requestPasswordReset(store, mailer, { email: 'r6-loi@daidung.com.vn', ip: '', locale: 'vi', baseUrl: BASE_URL }, at(0));
+    await requestPasswordReset(store, mailer, { email: 'r6-sau@daidung.com.vn', ip: '', locale: 'vi', baseUrl: BASE_URL }, at(1000));
+    await __resetRequestQueueIdleForTest();
+
+    expect(queued.some((q) => q.to === 'r6-sau@daidung.com.vn')).toBe(true);
+    const mock = logActivity as unknown as { mock: { calls: unknown[][] } };
+    for (const call of mock.mock.calls) {
+      expect(JSON.stringify(call)).not.toMatch(/token=/);
+    }
+    spy.mockRestore();
+  });
+
+  it('R6: viec dau bi TREO (khong bao gio resolve/reject) khong chan viec SAU chay (co timeout)', async () => {
+    vi.useFakeTimers();
+    try {
+      const store = createMemoryAuthStore(makeSource([
+        account({ email: 'r6-treo@daidung.com.vn' }),
+        account({ email: 'r6-sau2@daidung.com.vn' }),
+      ]));
+      const { mailer, queued } = makeMailer();
+      const realGetAccountState = store.getAccountState.bind(store);
+      const spy = vi.spyOn(store, 'getAccountState').mockImplementation(async (email: string) => {
+        if (email === 'r6-treo@daidung.com.vn') return new Promise(() => {}); // treo mai mai
+        return realGetAccountState(email);
+      });
+
+      await requestPasswordReset(store, mailer, { email: 'r6-treo@daidung.com.vn', ip: '', locale: 'vi', baseUrl: BASE_URL }, at(0));
+      await requestPasswordReset(store, mailer, { email: 'r6-sau2@daidung.com.vn', ip: '', locale: 'vi', baseUrl: BASE_URL }, at(1000));
+
+      await vi.advanceTimersByTimeAsync(30_000);
+      await __resetRequestQueueIdleForTest();
+
+      expect(queued.some((q) => q.to === 'r6-sau2@daidung.com.vn')).toBe(true);
+      spy.mockRestore();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('khong loi goi logActivity nao co tham so chua token', async () => {
     const store = createMemoryAuthStore(makeSource([account()]));
     const { mailer, composed } = makeMailer();

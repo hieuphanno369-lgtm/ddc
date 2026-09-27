@@ -148,6 +148,7 @@ Lượt rà sau (sau Task 5-8) cần kiểm lại S1 (schema), S2, S4-S6 trên P
 
 - L7 = (b): tài khoản chỉ Google (không có mật khẩu) KHÔNG tăng bộ đếm sai và KHÔNG bị khoá vì nhập sai ở form mật khẩu.
 - L2: thêm cấu hình số tầng proxy tin cậy (`TRUSTED_PROXY_HOPS`, mặc định 1), lấy IP từ phải của `X-Forwarded-For`; không xác định được IP thì gom vào khoá `'unknown'` chứ không bỏ giới hạn; dùng chung hàm cho `activity.ts`, `export`, `health`. Thay cho ghi chú K13.
+- R4 (vòng 2) = (a): giữ gom khoá `'unknown'` khi không xác định được IP; ở production `console.warn` tối đa 1 lần mỗi cửa sổ 15 phút khi gặp `'unknown'`; `/api/health` trả thêm cờ `clientIpResolved` (boolean, không lộ IP thật); ghi yêu cầu "bắt buộc reverse proxy nối X-Forwarded-For" vào checklist deploy (Task 8.4, `ke-hoach.md`) và `.env.example`.
 
 ---
 

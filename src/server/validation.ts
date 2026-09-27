@@ -207,7 +207,9 @@ export const createAccountSchema = z.object({
 });
 
 export const resetPasswordSchema = z.object({
-  email: z.string().email(),
+  // Ghi chú vòng sửa bảo mật 2 (bao-mat.md): thêm trim - trước đây khoảng trắng đầu/cuối làm zod
+  // báo lỗi định dạng email thay vì lỗi đúng nguyên nhân.
+  email: z.string().trim().email(),
   newPassword: z.string().min(8),
 });
 

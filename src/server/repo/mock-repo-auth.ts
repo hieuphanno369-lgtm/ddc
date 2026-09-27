@@ -117,6 +117,19 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
       return throttle.filter((t) => t.kind === kind && t.key === key && t.createdAt >= sinceIso).length;
     },
 
+    async reserveThrottle(kind, key, nowIso, sinceIso, limit) {
+      // R2 - dem + ghi trong CUNG 1 loi goi, khong co await nao xen giua (xem chu thich types.ts).
+      const count = throttle.filter((t) => t.kind === kind && t.key === key && t.createdAt >= sinceIso).length;
+      if (count >= limit) return false;
+      throttle.push({ kind, key, createdAt: nowIso });
+      return true;
+    },
+
+    async releaseThrottle(kind, key, nowIso) {
+      const idx = throttle.findIndex((t) => t.kind === kind && t.key === key && t.createdAt === nowIso);
+      if (idx !== -1) throttle.splice(idx, 1);
+    },
+
     async replaceResetToken(email, tokenHash, expiresAtIso, requestIp) {
       const e = email.toLowerCase();
       resetTokens = resetTokens.filter((t) => t.email !== e);

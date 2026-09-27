@@ -85,6 +85,30 @@ describe('authOptions.callbacks.signIn - Google, L8 ghi nhat ky khi bi tu choi',
     );
   });
 
+  it('R7 (vong sua bao mat 2): email chua xac minh -> name GHI CO DINH, KHONG dung ten tuy y tu profile (chua xac minh nen khong dang tin)', async () => {
+    findUniqueMock.mockResolvedValue(row({ email: 'a@daidung.com.vn' }));
+    const params = googleParams('a@daidung.com.vn', false);
+    (params.user as { name: string }).name = 'Ten Tuy Y Ke Tan Cong Khai';
+    await signIn(params as never);
+    expect(logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'a@daidung.com.vn', name: expect.not.stringContaining('Ten Tuy Y') }),
+      'login_google_denied',
+      'unverified',
+    );
+  });
+
+  it('R7: not_found (email da xac minh that boi Google) van dung ten that tu profile', async () => {
+    findUniqueMock.mockResolvedValue(null);
+    const params = googleParams('la@daidung.com.vn');
+    (params.user as { name: string }).name = 'Ten That Tu Google';
+    await signIn(params as never);
+    expect(logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'la@daidung.com.vn', name: 'Ten That Tu Google' }),
+      'login_google_denied',
+      'not_found',
+    );
+  });
+
   it('email khong co trong danh sach -> detail not_found', async () => {
     findUniqueMock.mockResolvedValue(null);
     await signIn(googleParams('la@daidung.com.vn') as never);

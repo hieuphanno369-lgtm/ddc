@@ -36,6 +36,30 @@ export function __resetRequestQueueIdleForTest(): Promise<void> {
   );
 }
 
+/**
+ * R6 (bao-mat.md vòng 2) - việc nền dùng `.catch()` nên 1 việc NÉM LỖI không chặn việc sau (chuỗi
+ * `.then()` vẫn tiếp tục vì `.catch()` biến kết quả thành "đã xong"); nhưng 1 việc bị TREO (không
+ * bao giờ resolve/reject - ví dụ SMTP treo mạng) thì `.then()` của việc sau sẽ chờ mãi mãi, chặn cả
+ * hàng đợi. `withTimeout` ép việc quá `ms` bị coi là lỗi để hàng đợi không bị treo theo.
+ */
+const RESET_JOB_TIMEOUT_MS = 30_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`qua han ${ms}ms`)), ms);
+    promise.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
+
 async function finishPasswordResetRequest(
   store: AuthStore,
   mailer: ResetMailer,
@@ -72,14 +96,18 @@ async function finishPasswordResetRequest(
 }
 
 /**
- * Luật (K3, K5, K6, K8, K9, K11, S1-S4, L4, L6 - ke-hoach.md + bao-mat.md), đúng thứ tự:
+ * Luật (K3, K5, K6, K8, K9, K11, S1-S4, L4, L6, R2, R3, R6 - ke-hoach.md + bao-mat.md), đúng thứ tự:
  * 1. Chưa cấu hình gửi email (thiếu SMTP hoặc `NEXTAUTH_URL`) -> `smtp_missing`, TRƯỚC mọi xử lý
  *    theo email (không nói riêng cho từng email).
  * 2. Email không hợp lệ -> `accepted` (không lộ định dạng email nào được chấp nhận).
- * 3. Giới hạn theo IP (10/giờ) hoặc theo email (3/giờ) -> `accepted`, KHÔNG ghi log (L4 - nhánh này
- *    có thể bị spam liên tục khi đã lộ giới hạn, ghi log mỗi lần sẽ phình `activity_log` vô ích).
- * 4. Ghi throttle rồi trả `accepted` NGAY (L6) - phần còn lại (đọc tài khoản, sinh token, gửi mail)
- *    chạy nền, xem `finishPasswordResetRequest`:
+ * 3. `ipKey = ip.trim() || 'unknown'` (R3 - không còn IP rỗng nào bỏ qua giới hạn), rồi "đặt chỗ"
+ *    NGUYÊN TỬ (R2 - đếm + ghi trong CÙNG 1 lượt, đóng race TOCTOU khi nhiều yêu cầu chạy đồng thời)
+ *    cho CẢ email (3/giờ) lẫn IP (10/giờ); hết chỗ ở CHIỀU NÀO cũng -> `accepted`, KHÔNG ghi log
+ *    (L4 - nhánh này có thể bị spam liên tục khi đã lộ giới hạn, ghi log mỗi lần sẽ phình
+ *    `activity_log` vô ích).
+ * 4. Còn chỗ cả 2 chiều -> trả `accepted` NGAY (L6) - phần còn lại (đọc tài khoản, sinh token, gửi
+ *    mail) chạy NỀN có timeout (R6 - 1 việc bị treo không chặn việc sau), xem
+ *    `finishPasswordResetRequest`:
  *    - Không có tài khoản, tài khoản chỉ Google, hoặc bị tắt -> ghi log, không tạo token (K9).
  *    - Sinh token, xoá token cũ của email (K3), gửi link dựng từ `baseUrl` (K11 - không bao giờ từ
  *      header Host) - kể cả khi tài khoản đang khoá (đặt lại xong vẫn khoá, không mở khoá qua đây).
@@ -98,20 +126,22 @@ export async function requestPasswordReset(
   if (!email) return { status: 'accepted' };
 
   const { ip, locale, baseUrl } = input;
+  // R3 - ip rỗng (không xác định được IP thật) LUÔN gom vào khoá 'unknown', không còn bỏ qua giới hạn.
+  const ipKey = ip.trim() || 'unknown';
+  const nowIso = now.toISOString();
   const sinceIso = new Date(now.getTime() - RESET_WINDOW_MS).toISOString();
-  const ipLimited = ip !== '' && (await store.countThrottle('reset_req_ip', ip, sinceIso)) >= RESET_IP_LIMIT;
-  const emailLimited = (await store.countThrottle('reset_req_email', email, sinceIso)) >= RESET_EMAIL_LIMIT;
-  if (ipLimited || emailLimited) {
+  // R2 - "đặt chỗ" NGUYÊN TỬ (đếm cửa sổ + ghi thêm 1 dòng nếu còn chỗ, trong CÙNG 1 lời gọi) cho cả
+  // 2 chiều - đóng TOCTOU khi nhiều yêu cầu xin đặt lại chạy đồng thời cùng đọc số đếm cũ.
+  const emailReserved = await store.reserveThrottle('reset_req_email', email, nowIso, sinceIso, RESET_EMAIL_LIMIT);
+  const ipReserved = await store.reserveThrottle('reset_req_ip', ipKey, nowIso, sinceIso, RESET_IP_LIMIT);
+  if (!emailReserved || !ipReserved) {
     // L4 - KHÔNG ghi activity_log ở nhánh bị giới hạn (tránh phình dữ liệu khi bị spam).
     return { status: 'accepted' };
   }
-  const nowIso = now.toISOString();
-  await store.recordThrottle('reset_req_email', email, nowIso);
-  if (ip !== '') await store.recordThrottle('reset_req_ip', ip, nowIso);
 
-  // L6 - phần còn lại chạy nền, trả `accepted` ngay sau khi ghi throttle.
+  // L6/R6 - phần còn lại chạy nền có timeout, trả `accepted` ngay sau khi đặt chỗ throttle.
   resetRequestQueueTail = resetRequestQueueTail
-    .then(() => finishPasswordResetRequest(store, mailer, smtp, email, ip, locale, baseUrl, now))
+    .then(() => withTimeout(finishPasswordResetRequest(store, mailer, smtp, email, ip, locale, baseUrl, now), RESET_JOB_TIMEOUT_MS))
     .catch((e) => {
       console.error('[password-reset] loi xu ly nen', e instanceof Error ? e.message : String(e));
     });

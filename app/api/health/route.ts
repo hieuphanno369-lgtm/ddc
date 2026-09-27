@@ -9,5 +9,8 @@ export async function GET(req: NextRequest) {
   const ip = clientIpFrom(req.headers);
   const rl = rateLimit(`health:${ip}`, 120, 60_000);
   if (!rl.ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
-  return NextResponse.json({ status: 'ok', time: new Date().toISOString() });
+  // R4 (bao-mat.md vòng 2) - CHỈ cờ đúng/sai, KHÔNG trả IP thật: cho phép giám sát triển khai phát
+  // hiện thiếu cấu hình reverse proxy (mọi request rơi vào khoá `'unknown'` dùng chung) mà không lộ
+  // thông tin mạng của người gọi.
+  return NextResponse.json({ status: 'ok', time: new Date().toISOString(), clientIpResolved: ip !== 'unknown' });
 }

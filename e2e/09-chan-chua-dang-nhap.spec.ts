@@ -98,6 +98,7 @@ test.describe('09 - chan truy cap khi chua dang nhap (S-1)', () => {
     expect([401, 503]).toContain((await api.post('/api/cron/alerts_daily', { maxRedirects: 0 })).status());
     const health = await api.get('/api/health');
     expect(health.status()).toBe(200);
-    expect(Object.keys(await health.json()).sort()).toEqual(['status', 'time']);
+    // R4 (bao-mat.md vong 2) - them co `clientIpResolved` (boolean, khong lo IP that).
+    expect(Object.keys(await health.json()).sort()).toEqual(['clientIpResolved', 'status', 'time']);
   });
 });

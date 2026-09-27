@@ -348,7 +348,9 @@ export async function createAccountAction(email: string, name: string, role: Rol
   if (!user) return { ok: false, error: 'Forbidden' };
   const parsed = createAccountSchema.safeParse({ email, name, role, password });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
-  const normEmail = parsed.data.email.toLowerCase();
+  // Ghi chú vòng sửa bảo mật 2 (bao-mat.md): `.toLowerCase()` thừa - `createAccountSchema.email` đã
+  // `.trim().toLowerCase()` khi `safeParse`, `parsed.data.email` đã chắc chắn là chữ thường.
+  const normEmail = parsed.data.email;
   if (await repo.findAccount(normEmail)) return { ok: false, error: 'duplicate' };
   const now = new Date().toISOString();
   try {

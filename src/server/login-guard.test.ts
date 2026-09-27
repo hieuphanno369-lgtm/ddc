@@ -3,6 +3,7 @@ import { createMemoryAuthStore, type MemoryAccountSource } from './repo/mock-rep
 import type { AuthAccountState, AuthStore, UserAccount } from './repo/types';
 import { hashPassword } from '@/lib/password';
 import * as passwordLib from '@/lib/password';
+import { IP_FAIL_LIMIT } from '@/lib/login-policy';
 
 vi.mock('@/lib/activity', () => ({ logActivity: vi.fn() }));
 
@@ -155,6 +156,8 @@ describe('checkCredentials - L3: xac nhan nguyen tu chong TOCTOU khi doan mat kh
       },
       countThrottle: vi.fn().mockResolvedValue(0),
       recordThrottle: vi.fn().mockResolvedValue(undefined),
+      reserveThrottle: vi.fn().mockResolvedValue(true),
+      releaseThrottle: vi.fn().mockResolvedValue(undefined),
       resetFailedLogin,
       registerFailedLogin: vi.fn(),
       unlockAccount: vi.fn(),
@@ -188,17 +191,52 @@ describe('checkCredentials - L3: xac nhan nguyen tu chong TOCTOU khi doan mat kh
 });
 
 describe('checkCredentials - tai khoan chi Google hoac bi tat', () => {
-  it('L7 (quyet dinh chu du an): chi Google (passwordHash rong) nhap mat khau sai nhieu lan -> invalid, KHONG tang bo dem, KHONG bi khoa', async () => {
+  it('R1 (vong sua bao mat 2): chi Google (passwordHash rong) sai nhieu lan -> giong het nhanh email la (4 lan invalid, tu lan 5 locked), KHONG tang bo dem tai khoan, KHONG dat lockedAt', async () => {
     const store = createMemoryAuthStore(makeSource([account({ passwordHash: '' })]));
     const spy = vi.spyOn(passwordLib, 'verifyPassword');
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 4; i++) {
       const r = await checkCredentials(store, { email: 'a@daidung.com.vn', password: 'bat-ky', ip: '' }, at(i * 1000));
       expect(r).toEqual({ ok: false, reason: 'invalid' });
     }
+    for (let i = 4; i < 10; i++) {
+      const r = await checkCredentials(store, { email: 'a@daidung.com.vn', password: 'bat-ky', ip: '' }, at(i * 1000));
+      expect(r).toEqual({ ok: false, reason: 'locked' });
+    }
     expect(spy).toHaveBeenCalled(); // van chay bcrypt gia, khong lo timing tai khoan chi Google
     const state = await store.getAccountState('a@daidung.com.vn');
+    // Khong anh huong dang nhap Google that: KHONG tang bo dem tai khoan, KHONG dat lockedAt.
     expect(state?.failedLoginCount).toBe(0);
     expect(state?.lockedAt).toBeNull();
+  });
+
+  it('R1: bang so reason qua 6 lan sai cua 3 loai email (la, chi Google, that sai mat khau) phai GIONG HET nhau', async () => {
+    const cases = [
+      { label: 'email la', store: createMemoryAuthStore(makeSource([])), email: 'r1-la@daidung.com.vn' },
+      {
+        label: 'chi Google',
+        store: createMemoryAuthStore(makeSource([account({ email: 'r1-google@daidung.com.vn', passwordHash: '' })])),
+        email: 'r1-google@daidung.com.vn',
+      },
+      {
+        label: 'tai khoan that (sai mat khau)',
+        store: createMemoryAuthStore(makeSource([account({ email: 'r1-that@daidung.com.vn' })])),
+        email: 'r1-that@daidung.com.vn',
+      },
+    ];
+
+    const table: (string | boolean)[][] = [];
+    for (const { store, email } of cases) {
+      const reasons: (string | boolean)[] = [];
+      for (let i = 0; i < 6; i++) {
+        const r = await checkCredentials(store, { email, password: 'chac-chan-sai', ip: '' }, at(i * 1000));
+        reasons.push(r.ok ? true : r.reason);
+      }
+      table.push(reasons);
+    }
+
+    expect(table[0]).toEqual(['invalid', 'invalid', 'invalid', 'invalid', 'locked', 'locked']);
+    expect(table[1]).toEqual(table[0]);
+    expect(table[2]).toEqual(table[0]);
   });
 
   it('isActive=false nhap dung mat khau -> invalid, bo dem tang', async () => {
@@ -226,11 +264,32 @@ describe('checkCredentials - gioi han theo IP', () => {
     expect(r22.ok).toBe(true);
   });
 
-  it("ip = '' -> khong bao gio ip_limited", async () => {
+  it("R3: ip = '' gom vao khoa 'unknown', VAN bi gioi han nhu 1 IP that (khong con fail-open)", async () => {
     const store = createMemoryAuthStore(makeSource([account()]));
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < IP_FAIL_LIMIT; i++) {
       const r = await checkCredentials(store, { email: `khac-${i}@daidung.com.vn`, password: 'sai', ip: '' }, at(i * 100));
       expect(r.ok === false && r.reason).not.toBe('ip_limited');
     }
+    const r = await checkCredentials(
+      store,
+      { email: 'mot-email-khac@daidung.com.vn', password: 'sai', ip: '' },
+      at(IP_FAIL_LIMIT * 100),
+    );
+    expect(r).toEqual({ ok: false, reason: 'ip_limited' });
+  });
+
+  it('R2: Promise.all 30 request sai dong thoi tu 1 IP -> so lan goi bcrypt <= IP_FAIL_LIMIT, phan con lai ip_limited', async () => {
+    const store = createMemoryAuthStore(makeSource([account()]));
+    const spy = vi.spyOn(passwordLib, 'verifyPassword');
+    spy.mockClear();
+    const IP = '7.7.7.7';
+    const calls = Array.from({ length: 30 }, (_, i) =>
+      checkCredentials(store, { email: `r2-${i}@daidung.com.vn`, password: 'sai', ip: IP }, at(0)),
+    );
+    const results = await Promise.all(calls);
+
+    expect(spy.mock.calls.length).toBeLessThanOrEqual(IP_FAIL_LIMIT);
+    const limited = results.filter((r) => !r.ok && r.reason === 'ip_limited').length;
+    expect(limited).toBe(30 - IP_FAIL_LIMIT);
   });
 });

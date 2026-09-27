@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createAccountSchema,
   createProjectSchema,
+  resetPasswordSchema,
   saveKeyMilestonesSchema,
   saveMonthlyDataSchema,
 } from './validation';
@@ -29,6 +30,15 @@ describe('createAccountSchema - email trim + thong bao tieng Viet', () => {
     });
     expect(r.success).toBe(false);
     if (!r.success) expect(r.error.issues[0]?.message).toBe('Email không hợp lệ');
+  });
+});
+
+/** Ghi chú vòng sửa bảo mật 2 (bao-mat.md) - email co khoang trang truoc do bao loi "too_short" sai nguyen nhan. */
+describe('resetPasswordSchema - email trim (vong sua bao mat 2)', () => {
+  it('email co khoang trang dau/cuoi -> trim truoc khi kiem dinh dang', () => {
+    const r = resetPasswordSchema.safeParse({ email: '  a@daidung.com.vn  ', newPassword: 'MatKhauMoi1' });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.email).toBe('a@daidung.com.vn');
   });
 });
 

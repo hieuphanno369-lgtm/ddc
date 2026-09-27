@@ -203,3 +203,79 @@ Toàn bộ module ở Task này CHƯA được nối vào luồng đăng nhập/
 
 - `prisma-repo-auth.ts`: cài `resetFailedLogin` nguyên tử (`updateMany` với `where: { email, lockedAt: null }`), `consumeResetToken` kiểm `isActive`/`passwordHash` trong cùng transaction - đã ghi rõ hợp đồng trong `types.ts` + ghi chú thêm trong `ke-hoach.md` mục Task 5.
 - Kiểm concurrency THẬT (nhiều kết nối Postgres song song) cho L3 - phần mock chỉ mô phỏng có kiểm soát, chưa phải bằng chứng cho database thật.
+
+---
+
+## Vòng sửa bảo mật 2 (sau security-reviewer KHÔNG ĐẠT lần 2, `.bangiao/bao-mat.md` mục "Vòng 2", R1-R7)
+
+Mỗi mục đều làm test đỏ trước (xác nhận bằng `git stash push` chỉ phần code sửa, giữ nguyên test, chạy đỏ đúng mô tả, rồi `git stash pop` xanh lại) rồi mới sửa code.
+
+### R1 - Bản sửa L7 mở đường lộ email mới: tài khoản chỉ Google không bao giờ báo `locked` (KHẮC PHỤC)
+
+- `src/server/login-guard.ts`: nhánh `isGoogleOnly` giờ đi Y HỆT nhánh "email lạ" - ghi/đếm CHUNG 1 kho theo email (`recordThrottle`/`countThrottle` kind `login_fail_unknown_email`, cửa sổ 24h, ngưỡng `LOGIN_LOCK_THRESHOLD`), trả `locked` từ lần sai thứ 5 giống hệt nhánh email lạ; vẫn KHÔNG gọi `registerFailedLogin`, KHÔNG đặt `lockedAt` (giữ đúng quyết định L7 = (b): không ảnh hưởng đăng nhập Google thật, không khoá tài khoản qua form mật khẩu).
+- Sửa docstring `AuthStore`/`ThrottleKind` (`types.ts`) ghi rõ `login_fail_unknown_email` dùng chung cho cả 2 trường hợp.
+- Test đỏ trước: sửa lại test cũ đã khoá cứng hành vi sai (`login-guard.test.ts` mục "tai khoan chi Google...") - 10 lần sai giờ kỳ vọng 4 lần đầu `invalid`, từ lần 5 `locked` (trước đây luôn `invalid`); `failedLoginCount` vẫn 0, `lockedAt` vẫn `null`. Thêm test MỚI "bảng so reason" chạy 6 lần sai cho 3 loại email (lạ / chỉ Google / tài khoản thật sai mật khẩu) trên 3 kho riêng, xác nhận dãy `reason` GIỐNG HỆT nhau (`invalid,invalid,invalid,invalid,locked,locked`) - không còn cách nào phân biệt loại email qua `reason`.
+
+### R2 - Giới hạn IP/email "đếm rồi ghi" (không nguyên tử), bắn song song vượt ngưỡng (KHẮC PHỤC)
+
+- Thêm 2 hàm mới vào `AuthStore` (`types.ts`, cài ở `mock-repo-auth.ts`): `reserveThrottle(kind, key, nowIso, sinceIso, limit)` - đếm cửa sổ + ghi thêm 1 dòng nếu còn chỗ, TRONG CÙNG 1 lời gọi (không có `await` nào xen giữa đếm và ghi, nên atomic đúng nghĩa JS đơn luồng khi nhiều lời gọi `checkCredentials`/`requestPasswordReset` chạy đồng thời qua `Promise.all` - xem JSDoc trong `types.ts` giải thích vì sao `Array.from(... , () => fn())` rồi `Promise.all` chạy phần đồng bộ của mỗi lời gọi TUẦN TỰ, không interleave); `releaseThrottle(kind, key, nowIso)` - rút lại đúng 1 dòng vừa ghi.
+- `src/server/login-guard.ts`: `checkCredentials` giờ "đặt chỗ" IP (`reserveThrottle('login_fail_ip', ...)`) NGAY ĐẦU HÀM, TRƯỚC bcrypt và trước khi biết mật khẩu đúng/sai (trước đây đếm trước, ghi SAU khi đã chạy xong toàn bộ nhánh xử lý - N yêu cầu đồng thời đều đọc thấy số đếm cũ). Nếu cuối cùng mật khẩu ĐÚNG thì `releaseIpSlot()` rút lại chỗ đã đặt (không tính lượt đúng vào giới hạn IP).
+- `src/server/password-reset.ts`: `requestPasswordReset` thay `countThrottle` + `recordThrottle` tách rời bằng `reserveThrottle` cho CẢ email lẫn IP, cùng nguyên tắc.
+- **Bắt buộc cho Task 5:** `ke-hoach.md` mục Task 4 (luật `checkCredentials`) + JSDoc `AuthStore.reserveThrottle` trong `types.ts` đã ghi rõ: Prisma phải cài `reserveThrottle`/`releaseThrottle` THẬT NGUYÊN TỬ (ví dụ 1 câu `INSERT ... SELECT ... WHERE (SELECT count(*) ...) < $limit RETURNING 1`, hoặc transaction có khoá dòng) - không được quay lại kiểu "1 câu SELECT đếm rồi 1 câu INSERT riêng".
+- Test đỏ trước: `mock-repo-auth.test.ts` 3 test mới cho `reserveThrottle`/`releaseThrottle`; `login-guard.test.ts` thêm test "R2" (`Promise.all` 30 request sai đồng thời từ 1 IP, xác nhận số lần gọi `verifyPassword` <= `IP_FAIL_LIMIT` và đúng 10 request còn lại là `ip_limited`); `password-reset.test.ts` thêm test "R2" tương tự cho `reset_req_ip` (30 request đồng thời, số thư gửi <= `RESET_IP_LIMIT`).
+
+### R3 - IP rỗng vẫn bỏ giới hạn (KHẮC PHỤC)
+
+- `src/server/login-guard.ts`, `src/server/password-reset.ts`: `ipKey = ip.trim() || 'unknown'`, LUÔN đếm LUÔN ghi qua `ipKey` (không còn `if (ip !== '')` nào bỏ qua giới hạn IP như trước - đây chính là lỗ hổng fail-open cũ).
+- Sửa test cũ đã khoá cứng hành vi sai: `login-guard.test.ts:229` ("ip = '' -> khong bao gio ip_limited") đổi thành "R3: ip = '' gom vào khoá 'unknown', VẪN bị giới hạn như 1 IP thật" (20 lần sai từ nhiều email khác nhau với `ip:''` thì lần 21 phải `ip_limited`). Thêm test tương tự cho `password-reset.test.ts`.
+- `ke-hoach.md` dòng ~389 (luật `checkCredentials` bước 1) và dòng ~426 (mục 4.4 mô tả test `login-guard.test.ts`) đã sửa lại theo hành vi mới, đánh dấu rõ "[SỬA ở vòng bảo mật 2, R2/R3]".
+
+### R4 - Khoá chung `'unknown'` có thể tự khoá lẫn nhau khi thiếu reverse proxy (quyết định chủ dự án = (a))
+
+- `src/lib/client-ip.ts`: thêm `warnUnknownIpOnce()` - ở `NODE_ENV=production`, gặp `'unknown'` thì `console.warn` TỐI ĐA 1 LẦN mỗi cửa sổ 15 phút (không spam log mỗi request); không cảnh báo ở dev/test.
+- `app/api/health/route.ts`: thêm trường `clientIpResolved: boolean` (`ip !== 'unknown'`) vào JSON trả về - KHÔNG lộ IP thật, chỉ 1 cờ đúng/sai để giám sát triển khai phát hiện thiếu cấu hình proxy.
+- `.env.example` (mục `TRUSTED_PROXY_HOPS`) và `.bangiao/ke-hoach.md` mục Task 8.4 (checklist bàn giao deploy): ghi rõ reverse proxy BẮT BUỘC tự nối `X-Forwarded-For`, kiểm nhanh sau deploy bằng `GET /api/health` -> `clientIpResolved` phải `true`.
+- Ghi quyết định vào `.bangiao/bao-mat.md` mục "Quyết định của chủ dự án": thêm dòng `R4 (vòng 2) = (a)`.
+- **Sửa vỡ 1 test đang có sẵn:** `src/server/health-route.test.ts` (P3D-B) trước đây khoá cứng `/api/health` CHỈ có 2 trường `status`/`time` - đã cập nhật lại (đổi tên mô tả, thêm 2 test mới cho `clientIpResolved`); `e2e/09-chan-chua-dang-nhap.spec.ts` dòng 101 cũng khoá cứng y hệt, đã sửa theo (bị đỏ khi chạy e2e bắt buộc, đã tìm ra và sửa trước khi bàn giao).
+- Test đỏ trước: `client-ip.test.ts` 2 test mới (production + unknown -> warn đúng 1 lần; không phải production -> không warn).
+
+### R5 - Proxy chỉ đặt `X-Real-IP` thì XFF do client gửi vẫn thắng (đã sửa chú thích, KHÔNG thêm `CLIENT_IP_HEADER`)
+
+- `src/lib/client-ip.ts`: sửa docstring nói rõ proxy PHẢI tự NỐI THÊM (`proxy_add_x_forwarded_for`), không phải GHI ĐÈ (`proxy_set_header ... $remote_addr`) vào `X-Forwarded-For`; chỉ đặt `X-Real-Ip` là KHÔNG ĐỦ vì hàm ưu tiên đọc XFF trước.
+- **Đã cân nhắc và CHỌN KHÔNG thêm** biến `CLIENT_IP_HEADER` (chọn hẳn 1 trong 2 header): rủi ro mức Thấp, chỉ xảy ra khi proxy hoàn toàn không xử lý XFF; thêm 1 biến cấu hình mới cho 1 rủi ro hiếm làm phình bề mặt cấu hình không cần thiết. Ghi rõ yêu cầu triển khai (Task 8 checklist + `.env.example`) là đủ giảm rủi ro thực tế.
+- Không cần test riêng (chỉ đổi chú thích/tài liệu).
+
+### R6 - Hàng đợi nền quên mật khẩu bị TREO thì chặn việc sau (KHẮC PHỤC)
+
+- `src/server/password-reset.ts`: thêm `withTimeout()` (30 giây) bọc quanh `finishPasswordResetRequest` trong chuỗi `resetRequestQueueTail`. Việc NÉM LỖI (throw) đã được `.catch()` xử lý đúng từ vòng 1 (chuỗi vẫn tiếp tục); lỗ hổng CÒN LẠI là việc bị TREO (không bao giờ resolve/reject, ví dụ SMTP treo mạng) - khi đó `.then()` của việc sau chờ mãi mãi vì Promise không có cơ chế huỷ. `withTimeout` ép việc quá 30 giây bị coi là lỗi để hàng đợi không treo theo.
+- Test đỏ trước: `password-reset.test.ts` thêm 2 test "R6" - (1) việc đầu NÉM LỖI (xác nhận hành vi đã đúng từ vòng 1, không log token/email); (2) việc đầu bị TREO (`vi.useFakeTimers()` + `vi.advanceTimersByTimeAsync(30_000)`) - việc sau vẫn được gửi.
+
+### R7 - Log Google chưa xác minh: `name` tuỳ ý, không giới hạn độ dài (KHẮC PHỤC PHẦN 1+2, PHẦN 3 để Task 5)
+
+- `src/lib/activity.ts`: `logActivity` giờ CẮT ĐỘ DÀI trước khi ghi (`userEmail` <= 254, `userName` <= 100, `userAgent` <= 256, `detail` <= 500) - áp dụng cho MỌI lời gọi, không chỉ nhánh Google (dữ liệu đầu vào không đáng tin tuyệt đối, cắt ở 1 chỗ chung thay vì từng nơi gọi tự kiểm). File test mới `activity.test.ts` (5 test, file `activity.ts` trước đây chưa có test riêng).
+- `src/lib/auth.ts`: callback `signIn` nhánh `decision === 'unverified'` (Google CHƯA xác minh email, nên `profile`/`user.name` KHÔNG đáng tin) giờ ghi `name` CỐ ĐỊNH (`'(email chua xac minh)'`) thay vì `user.name` tuỳ ý; 3 nhánh còn lại (`not_found`/`inactive`/`locked`, email ĐÃ được Google xác minh) vẫn dùng tên thật.
+- **Phần 3 (chưa làm, để Task 5):** giới hạn tần suất ghi `login_google_denied` - đã ghi rõ lý do trong comment `auth.ts`: callback này không có `AuthStore`/bảng đếm nào để tiêm vào (khác `checkCredentials`), và không được đụng `schema.prisma` ở vòng sửa này; Task 5 nối bảng `auth_throttle` vào đây (ví dụ gọi `reserveThrottle('login_fail_unknown_email', email, ...)` trước khi ghi log) thay vì tự chế 1 bộ đếm trong tiến trình (không sống sót qua restart, sai khi chạy nhiều instance).
+- Test đỏ trước: `activity.test.ts` (4 test cắt độ dài); `auth-google.test.ts` thêm 2 test "R7" - nhánh `unverified` với `name` tuỳ ý bị kẻ tấn công khai vẫn ghi tên cố định; nhánh `not_found` (email thật) vẫn ghi đúng tên thật.
+
+### Ghi chú nhỏ đính kèm theo yêu cầu
+
+- `src/server/actions.ts:351`: bỏ `.toLowerCase()` thừa trong `createAccountAction` - `createAccountSchema.email` đã `.trim().toLowerCase()` lúc `safeParse`, gọi lại là thừa (không phải lỗi, chỉ dọn).
+- `src/server/validation.ts`: `resetPasswordSchema.email` thêm `.trim()` (trước đây khoảng trắng đầu/cuối làm báo lỗi định dạng thay vì lỗi đúng nguyên nhân). Test mới trong `validation.test.ts`.
+
+### Cổng kiểm cuối vòng sửa bảo mật 2
+
+- `npx tsc --noEmit`: sạch.
+- `npm test`: **218 file / 2429 test xanh** (mốc trước vòng sửa: 217/2408; +1 file mới `src/lib/activity.test.ts`, +21 test, không xoá/skip test nào).
+- `npm run build` (font mock): qua sạch, không cảnh báo mới.
+- `npm run test:e2e:a -- e2e/01-login.spec.ts e2e/07-admin.spec.ts e2e/20-dang-nhap-google.spec.ts e2e/09-chan-chua-dang-nhap.spec.ts`: **54/54 xanh** (phát hiện + sửa 1 chỗ vỡ do R4: `e2e/09-chan-chua-dang-nhap.spec.ts` dòng 101 khoá cứng shape `/api/health`).
+
+### File nóng đụng tới trong vòng sửa bảo mật 2
+
+- `src/server/actions.ts`: chỉ 2 dòng (bỏ `.toLowerCase()` thừa) - đã kiểm `phien-B.md`/`phien-C.md` trước khi sửa (không ai giữ), ghi giữ vào `phien-A.md`, nhả ngay sau commit.
+- Không đụng `prisma-repo.ts`, `vi.json`, `en.json`, `queries.ts`, `project-queries.ts`, `schema.prisma`, `prisma/migrations/`, `globals.css` (không cần cho vòng sửa này - phần cắt độ dài R7 đặt ở `logActivity` chung theo đúng yêu cầu, không đụng repo).
+
+### Việc còn lại (để Task 5, khi C nhả khoá schema)
+
+- `reserveThrottle`/`releaseThrottle` (Prisma) - PHẢI nguyên tử thật (xem ghi chú R2 ở trên + JSDoc `types.ts`).
+- R7 phần 3: giới hạn tần suất ghi `login_google_denied` bằng bảng `auth_throttle`.
+- (Kế thừa từ vòng 1) `resetFailedLogin`, `consumeResetToken` Prisma nguyên tử; kiểm concurrency THẬT trên Postgres.
