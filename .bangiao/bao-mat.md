@@ -148,3 +148,84 @@ Lượt rà sau (sau Task 5-8) cần kiểm lại S1 (schema), S2, S4-S6 trên P
 
 - L7 = (b): tài khoản chỉ Google (không có mật khẩu) KHÔNG tăng bộ đếm sai và KHÔNG bị khoá vì nhập sai ở form mật khẩu.
 - L2: thêm cấu hình số tầng proxy tin cậy (`TRUSTED_PROXY_HOPS`, mặc định 1), lấy IP từ phải của `X-Forwarded-For`; không xác định được IP thì gom vào khoá `'unknown'` chứ không bỏ giới hạn; dùng chung hàm cho `activity.ts`, `export`, `health`. Thay cho ghi chú K13.
+
+---
+
+# Vòng 2 - rà lại bản sửa L1-L8 (commit `33642e9..236da72`)
+
+KET LUAN: KHONG DAT
+
+Người rà: security-reviewer (chỉ đọc); điều phối viên ghi lại báo cáo.
+Test đã chạy: 10 file liên quan, 104/104 xanh.
+Lý do KHÔNG ĐẠT: bản sửa L7 mở đường lộ email mới (R1), và phần đếm theo IP của L3 vẫn còn race (R2).
+
+## Trạng thái lỗi vòng 1
+
+| Lỗi | Trạng thái |
+|---|---|
+| L1 | Đã đóng (`login-guard.ts:73`); chênh 2 thao tác DB giữa 2 nhánh, không đáng kể. |
+| L2 | Đóng một phần: cách lấy IP đúng, dùng chung hàm; còn R3, R4, R5. |
+| L3 | Đóng một phần: phần tài khoản đúng, `checkCredentials` chỉ có 1 đường `ok: true` (`login-guard.ts:101`) và luôn qua `resetFailedLogin`; phần IP còn R2. |
+| L4 | Đã đóng. |
+| L5 | Đã đóng ở mock và interface; bản Prisma và FK cascade: chưa tới lượt. |
+| L6 | Đã đóng; góp ý R6. |
+| L7 | Đúng quyết định (b) nhưng mở R1. |
+| L8 | Đã đóng; góp ý R7. |
+| 0509cde | Không có vấn đề bảo mật; chỉ dùng ở `createAccountAction` (có `requireRole`), khớp `normalizeEmail`. Ghi chú: `actions.ts:351` gọi `.toLowerCase()` thừa; `resetPasswordSchema` không trim nên báo `too_short` sai lý do. |
+
+## Lỗi còn lại
+
+**R1. [Trung bình] Bản sửa L7: tài khoản chỉ Google không bao giờ báo `locked`, email lạ thì báo, nên lộ email tồn tại**
+
+- File: `src/server/login-guard.ts:78-85`; test "L7 ... 10 lần -> invalid" đang khoá cứng hành vi này.
+- K6 yêu cầu email lạ sai 5 lần cũng báo "đã khoá" như tài khoản thật; hiện email lạ và tài khoản có mật khẩu báo `locked` từ lần 5, tài khoản chỉ Google báo `invalid` mãi.
+- Khai thác: sai 5 lần cho email X, lần 6 vẫn `invalid` thì X là tài khoản thật loại chỉ Google.
+- Sửa (giữ L7 b): nhánh chỉ Google đi y hệt nhánh email lạ (ghi throttle theo email, `recordIpFail()`, đếm cùng cửa sổ, đủ 5 thì trả `locked`), KHÔNG gọi `registerFailedLogin`, KHÔNG đặt `lockedAt`.
+- Test: lần 1-4 `invalid`, lần 5 `locked`, `failedLoginCount` 0, `lockedAt` null, `googleAccessDecision` vẫn `allow`; thêm test bảng so `reason` của 3 loại email qua 6 lần sai phải giống nhau.
+
+**R2. [Trung bình] Giới hạn IP đếm xong mới ghi, bắn song song vượt ngưỡng 20/15 phút**
+
+- File: `src/server/login-guard.ts:48-57`; cùng lỗi ở `password-reset.ts:102-110`.
+- Khai thác: 1 IP bắn cùng lúc 1000 request cho khoảng 250 email, mỗi email 4 mật khẩu; mọi request đọc count < 20 trước khi ghi.
+- Sửa: ghi trước, đếm sau (đếm cả dòng vừa ghi); hoặc bộ đếm nguyên tử `INSERT ... ON CONFLICT DO UPDATE SET n = n + 1 RETURNING n` ở Prisma store (Task 5). Reset làm tương tự.
+- Test: `Promise.all` 30 request sai từ 1 IP, số request tới bcrypt phải <= 20.
+
+**R3. [Thấp, bắt buộc trước Task 6/7] Lõi vẫn bỏ giới hạn IP khi `ip === ''`**
+
+- File: `login-guard.ts:48`, `:56`; `password-reset.ts:102`, `:110`; test `login-guard.test.ts:229`; plan dòng 389 và 418 còn luật cũ.
+- Bên gọi ở Task 6/7 truyền `''` là quay lại fail-open.
+- Sửa: `const ipKey = ip.trim() || 'unknown'`, luôn đếm, luôn ghi; sửa test và plan.
+
+**R4. [Thấp, trung bình nếu deploy không có reverse proxy] Khoá chung `'unknown'` thành cách DoS toàn hệ thống**
+
+- File: `src/lib/client-ip.ts:32` phối hợp `login-guard.ts:50` (20/15 phút) và `password-reset.ts:102` (10/giờ).
+- Không có proxy thì mọi người dùng chung khoá `'unknown'`: 20 lần sai là cả công ty bị chặn 15 phút; kẻ tấn công lại né được bằng XFF tự gửi.
+- Là rủi ro theo cấu hình; chờ chủ dự án chọn: (a) cảnh báo + checklist deploy bắt buộc có proxy + cờ `clientIpResolved` ở `/api/health` (đề xuất); (b) ngưỡng riêng cao hơn cho `'unknown'`; (c) `TRUSTED_PROXY_HOPS=0` tắt giới hạn IP có chủ đích.
+
+**R5. [Thấp] Proxy chỉ đặt `X-Real-IP` thì XFF do client gửi được tin trước**
+
+- File: `src/lib/client-ip.ts:17-31`.
+- Sửa: thêm `CLIENT_IP_HEADER=xff|x-real-ip` (mặc định `xff`), hoặc ghi rõ trong `.env.example` và checklist deploy rằng proxy bắt buộc nối `X-Forwarded-For`; sửa chú thích `client-ip.ts:9-10`.
+
+**R6. [Thấp] Hàng đợi nền quên mật khẩu chạy nối tiếp, một việc treo thì chặn mọi việc sau; chưa có test lỗi nền**
+
+- File: `src/server/password-reset.ts:111-116`.
+- Sửa: timeout (ví dụ 30 giây) hoặc bỏ nối tiếp, mỗi việc chạy độc lập kèm `.catch`; test việc đầu ném lỗi thì việc sau vẫn gửi, log không chứa token hay email.
+
+**R7. [Thấp] L8 ghi dữ liệu Google chưa xác minh vào `activity_log`, không giới hạn độ dài và tần suất**
+
+- File: `src/lib/auth.ts:152`, `src/lib/activity.ts:13-17`, `prisma-repo.ts:664-667`.
+- Nhánh `unverified` cho phép khai email người khác, admin dễ hiểu nhầm; `name` tuỳ ý; không trần số dòng. React đã escape nên không có XSS.
+- Sửa: cắt `userEmail` <= 254, `userName` <= 100, `userAgent` <= 256, `detail` <= 500 trong `logActivity`; nhánh `unverified` đặt `name` cố định; giới hạn ghi `login_google_denied` (dùng `auth_throttle` khi Task 5 có bảng).
+
+## Chưa tới lượt (Task 5-8)
+
+- Prisma store: `resetFailedLogin` có điều kiện, `registerFailedLogin` nguyên tử, `consumeResetToken` kiểm `isActive`/hash, FK cascade token.
+- `googleAccessDecision` nhận `lockedAt` thật; `authorize` nối `checkCredentials`; action quên mật khẩu lấy IP qua `clientIpFrom`.
+- Checklist deploy về proxy (R4, R5); kiểm lại S1, S2, S4-S6 trên Prisma, S8, S11, S12, S15, e2e 21 và 22.
+
+## Việc cần coder sửa ở vòng 2
+
+Bắt buộc: R1, R2, R3.
+Nên sửa: R6, R7, R5.
+Chờ chủ dự án chọn: R4.
