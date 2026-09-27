@@ -1,8 +1,85 @@
-PHAN QUYET: CAN SUA
+PHAN QUYET: CHOT
 
 # Đánh giá cuối (reviewer) - nâng Next 15.5.26 / React 19.3.0 / next-intl 4.14.7 / next-auth 4.24.15 / recharts 2.15.4
 
 (File do điều phối viên chép nguyên văn từ báo cáo của reviewer, vì agent này không có công cụ ghi file.)
+
+## Vòng 2
+
+Skill đã dùng: `ddc-tower:code-review` (tải xong ngay, là hướng dẫn soi chuẩn; phần rà diff là rà tay theo checklist của skill).
+Phạm vi: `git diff d66e5bd..HEAD` (commit `38d7f0d` sửa theo reviewer, `14b06be` kết quả tester vòng 2).
+Đã đọc lại `danh-gia.md` vòng 1, `danh-gia-bao-mat.md` (gồm mục "Vòng 2", giữ DAT), `ket-qua-test.md` mục "Vòng 2", `thay-doi.md` mục "Vòng sửa 1 theo reviewer", `hieu-nang.md`.
+Reviewer tự chạy lại: `npx tsc --noEmit` exit 0; `npm test` 210 file / 2409 test xanh.
+Reviewer không chạy lại e2e, dựa vào số 79/79 của tester vòng 2.
+
+### Diff vòng này chạm những gì
+
+- Chỉ 1 file code: `e2e/12-locale-redirect-cookie.spec.ts` đổi tên thành `e2e/13-locale-redirect-cookie.spec.ts` (git nhận là rename, similarity 66%).
+- Còn lại là hồ sơ `.bangiao/` (`thay-doi.md`, `hieu-nang.md`, `ket-qua-test.md`, `danh-gia.md`, `danh-gia-bao-mat.md`).
+- Không đụng `src/`, `app/`, `middleware.ts`, cấu hình, file nóng, `PROGRESS.md`, `.serena/`.
+- Không làm ngoài phạm vi.
+- Không có em dash hay en dash trong diff (đã đếm bằng grep, kết quả 0).
+- 2 commit đều tiếng Việt không dấu, có dòng `Co-Authored-By`.
+
+### Xác nhận từng mục bắt buộc của vòng 1
+
+1. Mục 1 (test khoá nhầm L-1): đã sửa đúng.
+   - `e2e/13-locale-redirect-cookie.spec.ts:100` nay là `expect([200, 404]).toContain(res.status())`.
+   - Dòng 101-103: khi 200 thì bắt buộc `pathname` là `/vi/login`.
+   - Dòng 99 vẫn khoá điều cốt lõi: host cuối luôn là host của ứng dụng.
+   - Tên test dòng 90 đổi thành "bien: ... khong ra host la, khong lo du lieu".
+   - Comment dòng 91-97 nói rõ 404 là hành vi của L-1 và sẽ đổi khi vá.
+   - Dòng 105 đổi kiểm yếu `projectName` thành `not.toContain('href="/vi/projects/')`.
+     Chuỗi này đúng là dạng HTML mà `Link` của next-intl render ra ở `TopPriorityList.tsx` và `ProjectTable.tsx`, nên nếu một trang bảo vệ lộ ra thì test bắt được.
+   - Tester đã giả lập vá L-1 (đổi matcher theo đề xuất của security, rồi phục hồi `middleware.ts`, `git status` sạch).
+     Khi đó spec 13 vẫn 8/8 xanh, nhánh 200 tới `/vi/login` được chạy thật.
+     Đây là bằng chứng test không còn đỏ oan khi vá L-1.
+2. Mục 2 (đổi số file): đã sửa đúng.
+   - File mới là `e2e/13-locale-redirect-cookie.spec.ts`, nhãn describe dòng 39 là `'13 - ...'`.
+   - `ket-qua-test.md` mục 4 và `danh-gia-bao-mat.md` mục I-5 đã trỏ tên mới.
+   - Các chỗ còn chữ `12-locale-...` (`danh-gia.md` vòng 1, `thay-doi.md:299`, `ket-qua-test.md:167`) đều đang kể lại việc đổi tên, là lịch sử, đúng.
+   - Trên nhánh A tạm thời trống số 12 trong `e2e/`, đúng chủ ý: số 12 để cho `e2e/12-chuoi-gia-tri.spec.ts` của nhánh C.
+
+### Xác nhận các mục nên làm của vòng 1
+
+- `isOpenRedirectLocation` (dòng 26-37) đã coi `/\` là open redirect.
+- `fresh.dispose()` đã nằm trong `finally` (dòng 70-87).
+- Đã bỏ tham chiếu "xem thay-doi.md" ở comment đầu file (dòng 10-13).
+- Câu chữ về nguyên nhân `02-overview` trong `thay-doi.md` (mục Bước 3 và bảng test sửa kỳ vọng) và `hieu-nang.md` dòng 65-78 đã bỏ khẳng định sai về mốc 5s.
+  Nay ghi đúng là `.count()` đọc DOM một lần, còn nguyên nhân sâu hơn là giả thuyết chưa kiểm chứng.
+- Mục nhắc lúc merge (Q2, 10 khối `dynamic({ ssr: false })` của nhánh C) vẫn giữ nguyên giá trị, xem phần lịch sử bên dưới.
+
+### Test có giá trị thật không
+
+- Có.
+  Test biên nay khoá đúng bất biến bảo mật (không ra host lạ, không lộ HTML dự án), không khoá mã trạng thái sẽ đổi.
+  Tester đã chứng minh test vẫn xanh khi giả lập vá L-1.
+- Ý T-1 của security (DB rỗng thì kiểm âm tính không chứng minh gì): e2e của A chạy trên DB tạm `ddc_control_tower_e2e_a` đã seed 17 dự án.
+  Trang Tổng quan của DB đó thật sự render `href="/vi/projects/...`, nên kiểm âm tính ở dòng 105 có ý nghĩa.
+  Không cần làm thêm.
+- Ý T-2 của security (bắt thêm `Location` bắt đầu bằng `\`): đồng ý, mức thấp.
+  Đưa vào cùng việc vá L-1 ở phase sau, không chặn.
+
+### Bảo mật, hiệu năng, tính đúng đắn
+
+- Bảo mật: `danh-gia-bao-mat.md` vòng 2 giữ DAT, reviewer đồng ý.
+  Vòng này không đổi hành vi chạy thật.
+- Hiệu năng: không đổi so với vòng 1.
+- Tính đúng đắn: không thấy lỗi logic mới trong spec.
+  `api.get` đi theo redirect mặc định nên `res.url()` là URL cuối, kiểm host và pathname là đúng chỗ.
+
+### Việc còn lại trước khi merge (không phải sửa code)
+
+- `.bangiao/danh-gia-bao-mat.md` đang sửa mà chưa commit (mục "Vòng 2" của security): commit cùng `danh-gia.md` này.
+- Theo CLAUDE.md mục 4: chuyển toàn bộ hồ sơ `.bangiao/` vào `.bangiao/archive/nang-next15-<yyyy-mm-dd>/` trước khi merge `main`.
+- Lúc merge: B và C làm theo hướng dẫn ở cuối `thay-doi.md` (`npm install`, xoá `.next`); bên merge sau giải xung đột `projects/[id]/page.tsx` theo mục nên làm cuối cùng của vòng 1.
+- Nợ phase sau (không chặn): L-1 (kèm T-2 và e2e cho đường dẫn có dấu chấm), L-2, rate-limit đăng nhập, gỡ `xlsx`, L-3.
+
+---
+
+## Vòng 1 (lịch sử)
+
+PHAN QUYET vòng 1: CAN SUA
 
 Skill đã dùng: `code-review` (gọi ở mức high trên `54ac9bf..HEAD`, chạy nền, chưa trả kết quả trước lúc chốt; phán quyết dựa trên phần rà tay của reviewer).
 Nhánh `feature/nang-next15`, gốc `main` @ `54ac9bf`, HEAD `d66e5bd`.
@@ -10,7 +87,7 @@ Nhánh `feature/nang-next15`, gốc `main` @ `54ac9bf`, HEAD `d66e5bd`.
 Reviewer tự chạy lại: `npx tsc --noEmit` exit 0; `npm test` 210 file / 2409 test xanh.
 Reviewer không chạy lại e2e (dựa vào số 79/79 của tester).
 
-## 1. Code có khớp kế hoạch không
+### 1. Code có khớp kế hoạch không
 
 Có, khớp và đủ.
 
@@ -35,7 +112,7 @@ Có, khớp và đủ.
   - 6 commit đều tiếng Việt không dấu, có dòng `Co-Authored-By`.
   - `next-env.d.ts` nằm trong gitignore nên đúng là không commit.
 
-## 2. Test có giá trị thật không
+### 2. Test có giá trị thật không
 
 Nhìn chung có giá trị thật.
 
@@ -55,7 +132,7 @@ Nhìn chung có giá trị thật.
 - `e2e/12-locale-redirect-cookie.spec.ts`: test cookie 1 năm có làm RED-GREEN, đây là test có giá trị nhất.
   Test "phải thất bại" thì đang khoá sai điều cần khoá (xem mục cần sửa 1).
 
-## 3. Bảo mật, hiệu năng, tính đúng đắn
+### 3. Bảo mật, hiệu năng, tính đúng đắn
 
 - Bảo mật: `danh-gia-bao-mat.md` = DAT.
   Reviewer đồng ý: advisory của `next`, `next-intl`, `cookie` đã hết; chốt đăng nhập đứng trước mọi lần đọc dữ liệu.
@@ -65,7 +142,7 @@ Nhìn chung có giá trị thật.
 - Tính đúng đắn: comment `requestMemo` ở `queries.ts` đúng với React 19; code không đổi.
   Không thấy lỗi logic trong diff.
 
-## Cần sửa (bắt buộc trước khi CHOT)
+### Cần sửa (bắt buộc trước khi CHOT)
 
 1. `e2e/12-locale-redirect-cookie.spec.ts:94` `expect(res.status()).toBe(404);` đang khoá hành vi của lỗ hổng L-1 (middleware bỏ qua đường dẫn có dấu chấm) như một kỳ vọng.
    Bảng bảo mật xếp việc vá L-1 đứng đầu cho phase sau.
@@ -86,7 +163,7 @@ Nhìn chung có giá trị thật.
 Sau 2 mục trên: chạy lại riêng spec mới (`npm run test:e2e:a -- e2e/13-locale-redirect-cookie.spec.ts`), rồi `npx tsc --noEmit`.
 Không cần chạy lại toàn bộ dây chuyền.
 
-## Nên làm (không chặn)
+### Nên làm (không chặn)
 
 - `e2e/12-locale-redirect-cookie.spec.ts:26-36` `isOpenRedirectLocation`: coi thêm `location.startsWith('/\\')` là open redirect, vì trình duyệt hiểu `/\host` như `//host`.
 - `e2e/12-locale-redirect-cookie.spec.ts:68-83`: đặt `fresh.dispose()` trong `try/finally` để assert đỏ không bỏ lại context.

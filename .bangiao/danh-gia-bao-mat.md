@@ -139,3 +139,29 @@ Không có phát hiện nào do phase này gây ra.
 2. L-2: thêm header bảo mật và `poweredByHeader: false`.
 3. Rate-limit đăng nhập (tồn đọng).
 4. Gỡ `xlsx` không dùng; L-3 thêm `secure` cho cookie locale.
+
+## Vòng 2
+
+Skill đã dùng: `security-review`.
+Phạm vi: `git diff d66e5bd..HEAD` (commit 38d7f0d và 14b06be).
+Diff chỉ đổi `e2e/13-locale-redirect-cookie.spec.ts` (đổi tên từ 12) và hồ sơ `.bangiao`, không đụng `src/`, middleware, auth hay cấu hình.
+Không có thay đổi hành vi chạy thật nên không phát sinh bề mặt tấn công mới.
+Hồ sơ `.bangiao` mới thêm không chứa giá trị secret, chỉ nhắc tên biến `CRON_SECRET` và tên cookie.
+
+### Test mới khoá hành vi chống open redirect
+- `isOpenRedirectLocation` (dòng 26-37) nay coi thêm `Location` bắt đầu bằng `/\` là open redirect, vì trình duyệt hiểu `/\host` như `//host`, nên test chặt hơn vòng 1.
+- Hai test `"/vi//evil.com"` và `"//evil.com/vi"` (dòng 47-60) vẫn giữ `maxRedirects: 0` và kiểm `Location` không ra host lạ, đúng hành vi cần khoá.
+- `fresh.dispose()` được đưa vào `finally`, chỉ ảnh hưởng độ sạch của test, không ảnh hưởng bảo mật.
+
+### Không khoá nhầm L-1
+- Test "giả mạo open-redirect vào trang bảo vệ" (dòng 90-106) nay chấp nhận 404 (hiện tại) hoặc 200, và khi 200 thì bắt buộc pathname là `/vi/login`.
+- Như vậy test không cố định hành vi lỗi của L-1, và khi L-1 được vá (middleware chạy, chuyển về trang đăng nhập) test vẫn xanh.
+- Điều kiện bảo mật cốt lõi vẫn bị khoá: host cuối luôn là host của ứng dụng.
+
+### Ghi chú mức thấp (không chặn)
+- T-1 (thấp): kiểm lộ dữ liệu đổi từ `projectName` sang `href="/vi/projects/` (dòng 104-105), nhưng DB A đang rỗng nên cả hai dạng đều pass mà không chứng minh gì. Khi vá L-1, nên chạy test này trên DB tạm có ít nhất 1 dự án để khẳng định âm tính thật.
+- T-2 (thấp): `isOpenRedirectLocation` chưa bắt `Location` bắt đầu bằng `\host` (trình duyệt cũng hiểu như `//host`). Nên bổ sung `location.startsWith('\\')` khi vá L-1.
+
+Kết luận vòng 2: giữ `KET LUAN BAO MAT: DAT`.
+
+(Ghi chú của điều phối viên: e2e của A chạy trên DB tạm `ddc_control_tower_e2e_a` đã seed 17 dự án, không phải DB A rỗng; reviewer xét lại ý T-1 theo thực tế này.)
