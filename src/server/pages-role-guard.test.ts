@@ -14,6 +14,9 @@ vi.mock('next/navigation', () => ({
     redirectCalls.push(url);
     throw new Error(`REDIRECT:${url}`);
   },
+  // next-intl 4 (createNavigation, dùng bởi @/i18n/navigation cho <Link>) doc permanentRedirect tu
+  // 'next/navigation' ngay luc nap module - khong dung trong test nay nhung phai co de mock khong throw.
+  permanentRedirect: vi.fn(),
 }));
 vi.mock('next-intl/server', () => ({
   getLocale: vi.fn(async () => 'vi'),

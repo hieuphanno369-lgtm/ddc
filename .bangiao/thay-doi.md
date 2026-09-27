@@ -105,7 +105,28 @@ Nhánh `feature/nang-next15`, từ `main` @ `54ac9bf` (**BASE**, dùng để rol
 
 ## Task 3: nâng next-intl 4.x
 
-(cập nhật khi hoàn thành)
+- `npm install --save-exact next-intl@4.14.7`.
+- `src/i18n/routing.ts`: thêm `localeCookie: { maxAge: 60 * 60 * 24 * 365 }` để giữ cookie locale 1 năm như
+  bản 3 (v4 mặc định cookie phiên).
+- `npx tsc --noEmit`: 1 lỗi ICU tại `src/components/form/ProjectForm.tsx:244`
+  (`t('projectForm.err.generic', { msg: res.error })` - `res.error` kiểu `string | undefined`, next-intl 4 cấm
+  `undefined` làm tham số ICU) → sửa thành `msg: res.error ?? ''` (chuỗi hiển thị không đổi so với trước, chỉ
+  khác khi `res.error` chính nó là `undefined`, một nhánh lỗi hiếm khi không khớp `t.has(key)`).
+- `npm test`: 1 file lỗi `src/server/pages-role-guard.test.ts` kiểu `Cannot find module 'next/navigation'`
+  từ `node_modules/next-intl/dist/esm/.../createNavigation.js` (next-intl 4 chỉ phát hành ESM) → thêm
+  `server: { deps: { inline: ['next-intl'] } }` vào `vitest.config.ts` (đúng theo kế hoạch, không cần vì
+  file nào khác). Sau đó lộ tiếp 1 lỗi khác cùng file: mock `next/navigation` của
+  `pages-role-guard.test.ts` chỉ có `redirect`, thiếu `permanentRedirect` mà `createNavigation` (next-intl 4,
+  dùng ở `@/i18n/navigation` cho `<Link>`) đọc ngay lúc nạp module → thêm `permanentRedirect: vi.fn()` vào
+  mock của đúng 1 file này (23 file khác cũng mock `next/navigation` nhưng không đụng `@/i18n/navigation`
+  thật nên không cần sửa).
+- `npm run build` (font mock + DB tạm): qua, chỉ có cảnh báo webpack cache vô hại của
+  `next-intl/dist/esm/production/extractor/format/index.js` ("Parsing ... for build dependencies failed"),
+  không phải lỗi/cảnh báo của app.
+- `npm audit --omit=dev`: hết advisory của `next`, `next-intl`, `cookie`. `npm ls cookie` → `cookie@0.7.2`
+  (>= 0.7). Còn lại `deepmerge-ts`/`prisma`, `postcss` (bundle trong `next`, chỉ hết khi lên next 16),
+  `uuid`/`exceljs`, `xlsx` - ngoài phạm vi (xem mục "Còn lại, ngoài phạm vi" ở Task 4).
+- Kết quả cổng: `npx tsc --noEmit` sạch, `npm test` 210 file / 2409 test xanh (bằng mốc), build xanh.
 
 ## Task 4: cổng đầy đủ + kiểm trình duyệt
 
