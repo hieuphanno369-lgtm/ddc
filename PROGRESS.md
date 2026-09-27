@@ -3,6 +3,16 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P7-C2 - Chuỗi giá trị quản lý dự án: giai đoạn động, cột trái/phải, thêm "Thanh quyết toán" (Tài khoản C) - CHỐT + ĐÃ MERGE vào `main` (2026-09-28)
+Nhánh `feature/p7-c2-chuoi-gia-tri`; hồ sơ `.bangiao/archive/p7-c2-chuoi-gia-tri-2026-09-28/`. 219 file / 2519 test; e2e 83/83 trên cổng 3003 + DB `ddc_control_tower_c` (lượt tester vòng 1).
+Coder (9 task) -> tester ĐẠT -> security ĐẠT (4 thấp T-1..T-4) -> vá T-1..T-4 + tester vòng 2 -> reviewer CHỐT (0 bắt buộc, 4 nên làm) -> sửa 4 mục -> tester vòng 3 ĐẠT (1 bản sửa nhỏ, chưa qua reviewer, chủ dự án đồng ý merge).
+- **Có migration** `20260927100000_p7_c2_stage_side` (kèm `.down.sql`): `dim_stage` thêm cột `side` (trái/phải) và `isActive`, thêm giai đoạn "Thanh quyết toán" / "Settlement". A và B: `npx prisma migrate deploy` sau khi `git merge main`.
+- Danh sách giai đoạn chuyển từ hằng số trong code sang `dim_stage` (`repo.getStages()`); tên hiển thị theo locale từ DB. Thẻ đổi tên "Chuỗi giá trị quản lý dự án" / "Project Management Value Chain".
+- Màn quản trị giai đoạn ở `/admin` (thêm, sửa bên/thứ tự/tên, "Ngừng dùng"/"Dùng lại", không có nút xoá); chỉ ngừng được khi không dự án nào đặt trọng số lớn hơn 0%.
+- Quyết định chủ dự án Q1-Q5 = (a): Thanh quyết toán 2% (lấy 2 từ Lắp dựng, cả 8 bộ theo loại dự án), dự án chỉ "Hoàn thành" khi quyết toán xong, tìm khâu nghẽn bỏ qua giai đoạn 0% hoặc tắt "Áp dụng".
+- Server kiểm tập giai đoạn gửi lên phải đúng tập đang dùng (lỗi `stages_changed`); ghi giai đoạn và trọng số trong transaction có khoá advisory `dim_stage`; giữ trọng số của giai đoạn ngừng dùng, dùng lại thì bù 0% cho dự án thiếu dòng.
+- Tạo dự án bắt buộc có trọng số giai đoạn (`weights_required`) và ghi dự án cùng trọng số trong một transaction.
+
 ### ✅ Nâng Next 15.5.26 (Tài khoản A) - CHỐT + ĐÃ MERGE vào `main` (2026-09-27)
 Nhánh `feature/nang-next15`; hồ sơ `.bangiao/archive/nang-next15-2026-09-27/`. 210 file / 2409 test; e2e 79/79 trên cổng 3010 + DB tạm; không có migration.
 next 14.2.35 -> 15.5.26, react/react-dom 18.3.1 -> 19.3.0, next-intl 3.26.3 -> 4.14.7, next-auth 4.24.7 -> 4.24.15, recharts 2.12.7 -> 2.15.4 (+ override `react-is` 19.3.0); phiên bản ghim chính xác.
