@@ -9,6 +9,7 @@ vi.mock('@/server/db', () => ({ prisma: { userRole: { findUnique: findUniqueMock
 vi.mock('@/lib/activity');
 
 import { authOptions, ACCESS_RECHECK_INTERVAL_MS } from './auth';
+import { logActivity } from '@/lib/activity';
 
 const signIn = authOptions.callbacks!.signIn!;
 const jwt = authOptions.callbacks!.jwt!;
@@ -27,6 +28,7 @@ const row = (over: Partial<Record<string, unknown>> = {}) => ({
 
 beforeEach(() => {
   findUniqueMock.mockReset();
+  vi.mocked(logActivity).mockClear();
   vi.stubEnv('DATABASE_URL', 'postgres://x');
 });
 afterEach(() => vi.unstubAllEnvs());
@@ -62,6 +64,58 @@ describe('authOptions.callbacks.signIn - Google', () => {
     vi.stubEnv('ALLOWED_EMAIL_DOMAINS', 'daidung.com.vn');
     findUniqueMock.mockResolvedValue(row({ email: 'ca-nhan@gmail.com' }));
     expect(await signIn(googleParams('ca-nhan@gmail.com') as never)).toBe(true);
+  });
+});
+
+/** L8 (bao-mat.md) - moi lan Google bi tu choi phai ghi lai kem ly do (decision), khong ghi token. */
+describe('authOptions.callbacks.signIn - Google, L8 ghi nhat ky khi bi tu choi', () => {
+  const googleParams = (email: string, emailVerified = true) => ({
+    user: { email, name: 'A' },
+    account: { provider: 'google' },
+    profile: { email, email_verified: emailVerified },
+  });
+
+  it('email chua xac minh -> ghi login_google_denied voi detail unverified', async () => {
+    findUniqueMock.mockResolvedValue(row({ email: 'a@daidung.com.vn' }));
+    await signIn(googleParams('a@daidung.com.vn', false) as never);
+    expect(logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'a@daidung.com.vn' }),
+      'login_google_denied',
+      'unverified',
+    );
+  });
+
+  it('email khong co trong danh sach -> detail not_found', async () => {
+    findUniqueMock.mockResolvedValue(null);
+    await signIn(googleParams('la@daidung.com.vn') as never);
+    expect(logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'la@daidung.com.vn' }),
+      'login_google_denied',
+      'not_found',
+    );
+  });
+
+  it('tai khoan tat -> detail inactive', async () => {
+    findUniqueMock.mockResolvedValue(row({ email: 'a@daidung.com.vn', isActive: false }));
+    await signIn(googleParams('a@daidung.com.vn') as never);
+    expect(logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'a@daidung.com.vn' }),
+      'login_google_denied',
+      'inactive',
+    );
+  });
+
+  it('duoc chap nhan -> KHONG ghi login_google_denied', async () => {
+    findUniqueMock.mockResolvedValue(row({ email: 'a@daidung.com.vn' }));
+    await signIn(googleParams('a@daidung.com.vn') as never);
+    expect(logActivity).not.toHaveBeenCalledWith(expect.anything(), 'login_google_denied', expect.anything());
+  });
+
+  it('khong ghi token/link nao trong log', async () => {
+    findUniqueMock.mockResolvedValue(null);
+    await signIn(googleParams('la@daidung.com.vn') as never);
+    const calls = vi.mocked(logActivity).mock.calls;
+    for (const call of calls) expect(JSON.stringify(call)).not.toMatch(/token|http/i);
   });
 });
 

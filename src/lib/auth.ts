@@ -147,7 +147,16 @@ export const authOptions: NextAuthOptions = {
           profile as GoogleProfileLite,
           found ? { isActive: found.isActive, lockedAt: null } : null,
         );
-        if (decision !== 'allow') return false;
+        if (decision !== 'allow') {
+          // L8 (bao-mat.md) - ghi lại lần bị từ chối kèm lý do, để admin thấy được ai đã thử vào
+          // bằng Google không hợp lệ. KHÔNG ghi token/link nào (decision chỉ là 1 trong 5 giá trị cố định).
+          try {
+            await logActivity({ name: user.name ?? email, email }, 'login_google_denied', decision);
+          } catch {
+            /* ignore */
+          }
+          return false;
+        }
       }
       try {
         await logActivity({ name: user.name ?? email, email }, 'login');

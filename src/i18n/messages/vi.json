@@ -595,7 +595,8 @@
     "set_can_view_finance": "Đổi quyền xem tài chính",
     "notify_channel_save": "Lưu kênh thông báo",
     "notify_test": "Gửi thử kênh thông báo",
-    "save_manpower_plan": "Lưu kế hoạch nhân lực tháng"
+    "save_manpower_plan": "Lưu kế hoạch nhân lực tháng",
+    "login_google_denied": "Từ chối đăng nhập Google"
   },
   "dataGuard": {
     "import": {

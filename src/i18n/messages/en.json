@@ -595,7 +595,8 @@
     "set_can_view_finance": "Change finance view permission",
     "notify_channel_save": "Save notification channel",
     "notify_test": "Send notification channel test",
-    "save_manpower_plan": "Save monthly manpower plan"
+    "save_manpower_plan": "Save monthly manpower plan",
+    "login_google_denied": "Google sign-in denied"
   },
   "dataGuard": {
     "import": {
