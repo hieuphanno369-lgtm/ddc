@@ -115,4 +115,39 @@ describe.skipIf(!hasDb)('prismaAuthStore tren Postgres that (DB _c)', () => {
 
     await prisma.userRole.update({ where: { email: EMAIL_A }, data: { passwordHash: 'x' } });
   });
+
+  // Tester (soi lai ke hoach): 2 test them - chua co trong ban giao cua coder.
+  it('L5 (them) - consumeResetToken tra { ok: false } khi tai khoan da bi tat (isActive=false) du token con han', async () => {
+    const nowIso = new Date().toISOString();
+    const expiresAtIso = new Date(Date.now() + 30 * 60_000).toISOString();
+    await prismaAuthStore.replaceResetToken(EMAIL_A, 'hash-real-db-inactive', expiresAtIso, '1.2.3.4');
+    await prisma.userRole.update({ where: { email: EMAIL_A }, data: { isActive: false } });
+
+    const result = await prismaAuthStore.consumeResetToken('hash-real-db-inactive', 'hash-moi', nowIso);
+    expect(result).toEqual({ ok: false });
+
+    const row = await prisma.passwordResetToken.findUnique({ where: { tokenHash: 'hash-real-db-inactive' } });
+    expect(row?.usedAt).toBeNull();
+
+    await prisma.userRole.update({ where: { email: EMAIL_A }, data: { isActive: true } });
+  });
+
+  it('K4 (them) - consumeResetToken: 2 request dong thoi CUNG 1 token, chi 1 cai thang', async () => {
+    const nowIso = new Date().toISOString();
+    const expiresAtIso = new Date(Date.now() + 30 * 60_000).toISOString();
+    await prismaAuthStore.replaceResetToken(EMAIL_B, 'hash-real-db-race', expiresAtIso, '1.2.3.4');
+
+    const [r1, r2] = await Promise.all([
+      prismaAuthStore.consumeResetToken('hash-real-db-race', 'hash-moi-1', nowIso),
+      prismaAuthStore.consumeResetToken('hash-real-db-race', 'hash-moi-2', nowIso),
+    ]);
+
+    const wins = [r1, r2].filter((r) => r.ok);
+    const loses = [r1, r2].filter((r) => !r.ok);
+    expect(wins).toHaveLength(1);
+    expect(loses).toHaveLength(1);
+
+    const row = await prisma.passwordResetToken.findUnique({ where: { tokenHash: 'hash-real-db-race' } });
+    expect(row?.usedAt).not.toBeNull();
+  });
 });
