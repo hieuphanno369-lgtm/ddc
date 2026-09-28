@@ -272,7 +272,7 @@ describe('revokeSessions - R4-1a (bao-mat.md vong 4, Trung, chot chu du an 2026-
 
 describe('reserveAccountGuess - R5-1 (bao-mat.md vong 5, Thap)', () => {
   it('con cho (failedLoginCount + held < threshold) -> ghi + tra id', async () => {
-    const id = await store.reserveAccountGuess('login_fail_account', 'a@daidung.com.vn', 't0', '2000-01-01T00:00:00.000Z', 5);
+    const id = await store.reserveAccountGuess('a@daidung.com.vn', 't0', '2000-01-01T00:00:00.000Z', 5);
     expect(typeof id).toBe('number');
   });
 
@@ -280,21 +280,21 @@ describe('reserveAccountGuess - R5-1 (bao-mat.md vong 5, Thap)', () => {
     // 4 cho dang giu (chua releaseThrottle) + failedLoginCount = 1 (tu 1 lan sai that) = 5 >= 5.
     await store.registerFailedLogin('a@daidung.com.vn', 5, '2026-09-27T00:01:00.000Z');
     for (let i = 0; i < 4; i++) {
-      const id = await store.reserveAccountGuess('login_fail_account', 'a@daidung.com.vn', `t${i}`, '2000-01-01T00:00:00.000Z', 5);
+      const id = await store.reserveAccountGuess('a@daidung.com.vn', `t${i}`, '2000-01-01T00:00:00.000Z', 5);
       expect(id).not.toBeNull();
     }
-    const over = await store.reserveAccountGuess('login_fail_account', 'a@daidung.com.vn', 't4', '2000-01-01T00:00:00.000Z', 5);
+    const over = await store.reserveAccountGuess('a@daidung.com.vn', 't4', '2000-01-01T00:00:00.000Z', 5);
     expect(over).toBeNull();
   });
 
   it('tai khoan dang bi khoa (lockedAt khac null) -> null ngay, du chua co cho nao dang giu', async () => {
     for (let i = 1; i <= 5; i++) await store.registerFailedLogin('a@daidung.com.vn', 5, `2026-09-27T00:0${i}:00.000Z`);
-    const id = await store.reserveAccountGuess('login_fail_account', 'a@daidung.com.vn', 't0', '2000-01-01T00:00:00.000Z', 5);
+    const id = await store.reserveAccountGuess('a@daidung.com.vn', 't0', '2000-01-01T00:00:00.000Z', 5);
     expect(id).toBeNull();
   });
 
   it('khong co tai khoan -> null', async () => {
-    const id = await store.reserveAccountGuess('login_fail_account', 'khong-co@daidung.com.vn', 't0', '2000-01-01T00:00:00.000Z', 5);
+    const id = await store.reserveAccountGuess('khong-co@daidung.com.vn', 't0', '2000-01-01T00:00:00.000Z', 5);
     expect(id).toBeNull();
   });
 
@@ -302,22 +302,22 @@ describe('reserveAccountGuess - R5-1 (bao-mat.md vong 5, Thap)', () => {
     const T0 = '2026-09-28T00:00:00.000Z';
     for (let i = 0; i < 5; i++) {
       const sinceIso = new Date(Date.parse(T0) - ACCOUNT_GUESS_WINDOW_MS).toISOString();
-      const id = await store.reserveAccountGuess('login_fail_account', 'a@daidung.com.vn', T0, sinceIso, 5);
+      const id = await store.reserveAccountGuess('a@daidung.com.vn', T0, sinceIso, 5);
       expect(id).not.toBeNull();
     }
     const after6s = new Date(Date.parse(T0) + 6_000).toISOString();
     const sinceIso6s = new Date(Date.parse(after6s) - ACCOUNT_GUESS_WINDOW_MS).toISOString();
-    const id6 = await store.reserveAccountGuess('login_fail_account', 'a@daidung.com.vn', after6s, sinceIso6s, 5);
+    const id6 = await store.reserveAccountGuess('a@daidung.com.vn', after6s, sinceIso6s, 5);
     expect(id6).toBeNull();
   });
 
   it('R5-1 - releaseThrottle rut dung cho vua giu, cho lan sau lai con', async () => {
-    const id = await store.reserveAccountGuess('login_fail_account', 'a@daidung.com.vn', 't0', '2000-01-01T00:00:00.000Z', 1);
+    const id = await store.reserveAccountGuess('a@daidung.com.vn', 't0', '2000-01-01T00:00:00.000Z', 1);
     expect(id).not.toBeNull();
-    const blocked = await store.reserveAccountGuess('login_fail_account', 'a@daidung.com.vn', 't1', '2000-01-01T00:00:00.000Z', 1);
+    const blocked = await store.reserveAccountGuess('a@daidung.com.vn', 't1', '2000-01-01T00:00:00.000Z', 1);
     expect(blocked).toBeNull(); // het cho (threshold=1, da giu 1)
     await store.releaseThrottle(id as number);
-    const freedUp = await store.reserveAccountGuess('login_fail_account', 'a@daidung.com.vn', 't2', '2000-01-01T00:00:00.000Z', 1);
+    const freedUp = await store.reserveAccountGuess('a@daidung.com.vn', 't2', '2000-01-01T00:00:00.000Z', 1);
     expect(freedUp).not.toBeNull();
   });
 });

@@ -667,3 +667,24 @@ Làm TDD: viết test đỏ trước (tái hiện đúng kịch bản trong `bao
 2. **R5-3 (gộp nhánh hết chỗ với nhánh đã khoá)** - kiểm lại bằng đo thời gian thực tế (không chỉ đếm số lượt gọi DB) nếu có công cụ đo timing side-channel, giống lưu ý đã ghi ở vòng 1 cho S-3.
 3. **R5-5** - xác nhận với chủ dự án: hành vi mới (đăng xuất phiên đang thao tác MỖI LẦN gọi `changePasswordAction` trên 1 tài khoản đã khoá, không chỉ lần đầu) có gây khó chịu cho người dùng hợp lệ hay không (ví dụ trình duyệt tự động gọi lại action do lỗi mạng) - hiện ưu tiên an toàn hơn trải nghiệm.
 4. **R5-6** - so sánh chuỗi ISO 8601 bằng toán tử `<`/`<lt>` (Prisma) đúng thứ tự thời gian vì định dạng cố định (luôn có mili giây, luôn `Z`) - nếu sau này có nơi khác ghi `passwordChangedAt` bằng định dạng khác (không qua `toISOString()`), phép so này có thể sai; nên rà soát nếu phát hiện điểm ghi mới.
+
+## Vòng sửa bảo mật 6 (bao-mat.md vòng 6: R6-1, R6-4; phiên điều phối C tự sửa)
+
+- **R6-1 (lệch chốt R3-2 + R4-2).**
+  `AuthStore.reserveAccountGuess(email, nowIso, sinceIso, threshold)` bỏ tham số `kind`, luôn dùng 1 kind chung `account_guess` (Prisma: advisory lock và đếm theo `account_guess:email`; bộ nhớ tương đương).
+  `ThrottleKind` thay `login_fail_account` + `change_pwd_fail_account` bằng `account_guess`.
+  Lý do chọn bỏ tham số thay vì chỉ đổi giá trị truyền vào: không nơi gọi nào có thể tách bộ đếm được nữa.
+- **R6-4 (ghi nhận, sửa luôn vì rẻ và khớp chốt R5-5).**
+  `changePasswordAction`: nhánh hết chỗ đọc lại `getAccountState`, tài khoản đã khoá thì `invalidateCurrentSessionCookie`; nhánh `resetFailedLogin` trả `false` thì đá phiên.
+- **R6-2, R6-3, R6-5:** ghi nhận, không sửa (R6-2 được bù bằng test tích hợp chéo màn bên dưới).
+
+### Test mới (vòng sửa bảo mật 6)
+
+- `actions-change-password-lock.test.ts`: R6-1 (5 lượt `checkCredentials` sai đang giữ chỗ với bcrypt treo, `changePasswordAction` không được chạy bcrypt thật, trả `locked`; đỏ trên `d467732`: 6 lượt), R6-4 (3 ca: khoá xen giữa thì đá, hết chỗ mà chưa khoá thì không đá, `resetFailedLogin` false thì đá; 2 ca đỏ trên `d467732`).
+- Test kho mock/prisma/real-db đổi theo chữ ký mới.
+
+### Cổng kiểm (vòng sửa bảo mật 6)
+
+- `npx tsc --noEmit`: sạch.
+- `npm test`: 2699 xanh + 15 skip.
+- Real-db: 15/15 xanh (chạy trước khi thêm R6-4, R6-4 không đổi kho).

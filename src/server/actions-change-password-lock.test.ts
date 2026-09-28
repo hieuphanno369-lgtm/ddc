@@ -44,6 +44,7 @@ import { getCurrentUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
 import { repo } from '@/server/repo/mock-repo';
 import { changePasswordAction } from '@/server/actions';
+import { checkCredentials } from '@/server/login-guard';
 
 const EMAIL = 'khoa-doi-mk@daidung.com.vn';
 const REAL_PW = 'MatKhauThat1';
@@ -118,6 +119,60 @@ describe('changePasswordAction - R3-2 khoa tai khoan sau 5 lan sai mat khau hien
     expect(state?.failedLoginCount).toBe(0);
     expect(state?.lockedAt).toBeNull();
     expect(reissueSessionCookieMock).toHaveBeenCalledWith(EMAIL, expect.any(String));
+  });
+});
+
+describe('R6-1 (bao-mat.md vong 6) - Dang nhap va Doi mat khau dung CHUNG cho giu luot doan theo tai khoan', () => {
+  it('5 luot dang nhap sai dang giu cho (bcrypt treo) -> doi mat khau KHONG duoc chay bcrypt that tren hash that', async () => {
+    let open!: () => void;
+    const gate = new Promise<void>((r) => (open = r));
+    const realVerify = passwordLib.verifyPassword;
+    const spy = vi.spyOn(passwordLib, 'verifyPassword').mockImplementation(async (raw: string, hash: string) => {
+      await gate;
+      return realVerify(raw, hash);
+    });
+    const realCalls = () => spy.mock.calls.filter((c) => c[1] === REAL_HASH).length;
+
+    const logins = Array.from({ length: 5 }, (_, i) =>
+      checkCredentials(store, { email: EMAIL, password: 'sai-mk', ip: `10.0.0.${i + 1}` }),
+    );
+    await vi.waitFor(() => expect(realCalls()).toBe(5));
+
+    const pending = changePasswordAction('sai-mk', 'MatKhauMoiTuDoi1');
+    // Cho doi mat khau di het phan dat cho truoc khi mo cong bcrypt.
+    await new Promise((r) => setTimeout(r, 50));
+    open();
+    const r = await pending;
+    await Promise.all(logins);
+
+    expect(realCalls()).toBe(5);
+    expect(r).toEqual({ ok: false, error: 'locked' });
+  });
+});
+
+describe('R6-4 (bao-mat.md vong 6) - nhanh locked do race van da phien khi tai khoan that su da khoa (chot R5-5)', () => {
+  it('tai khoan bi khoa (qua man Dang nhap) xen giua luc doc va luc giu cho -> locked + da phien', async () => {
+    vi.spyOn(store, 'reserveAccountGuess').mockImplementationOnce(async () => {
+      for (let i = 0; i < 5; i++) await store.registerFailedLogin(EMAIL, 5, new Date().toISOString());
+      return null;
+    });
+    const r = await changePasswordAction(REAL_PW, 'MatKhauMoiTuDoi1');
+    expect(r).toEqual({ ok: false, error: 'locked' });
+    expect(invalidateCurrentSessionCookieMock).toHaveBeenCalledWith(EMAIL);
+  });
+
+  it('het cho vi luot song song (tai khoan CHUA khoa) -> locked, KHONG da phien', async () => {
+    vi.spyOn(store, 'reserveAccountGuess').mockResolvedValueOnce(null);
+    const r = await changePasswordAction(REAL_PW, 'MatKhauMoiTuDoi1');
+    expect(r).toEqual({ ok: false, error: 'locked' });
+    expect(invalidateCurrentSessionCookieMock).not.toHaveBeenCalled();
+  });
+
+  it('dung mat khau nhung resetFailedLogin tra false (vua bi khoa xen giua) -> locked + da phien', async () => {
+    vi.spyOn(store, 'resetFailedLogin').mockResolvedValueOnce(false);
+    const r = await changePasswordAction(REAL_PW, 'MatKhauMoiTuDoi1');
+    expect(r).toEqual({ ok: false, error: 'locked' });
+    expect(invalidateCurrentSessionCookieMock).toHaveBeenCalledWith(EMAIL);
   });
 });
 

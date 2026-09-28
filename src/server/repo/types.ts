@@ -616,10 +616,10 @@ export type ThrottleKind =
   | 'google_denied'
   | 'change_pwd_fail_ip'
   // R4-2 (bao-mat.md vòng 4, Thấp) - "giữ chỗ" nguyên tử THEO TÀI KHOẢN (email) trước bcrypt, xem
-  // `ACCOUNT_GUESS_WINDOW_MS` (login-policy.ts) - tách riêng đăng nhập/đổi mật khẩu để không lẫn số
-  // đếm giữa 2 màn hình khác nhau.
-  | 'login_fail_account'
-  | 'change_pwd_fail_account';
+  // `ACCOUNT_GUESS_WINDOW_MS` (login-policy.ts). R6-1 (bao-mat.md vòng 6) - 1 kind DUY NHẤT dùng chung
+  // cho Đăng nhập và Đổi mật khẩu (chốt R3-2: 2 màn tính chung bộ đếm 5 lần), chỉ `reserveAccountGuess`
+  // ghi kind này.
+  | 'account_guess';
 
 export interface AuthAccountState {
   email: string;
@@ -726,7 +726,6 @@ export interface AuthStore {
    * `threshold`.
    */
   reserveAccountGuess(
-    kind: ThrottleKind,
     email: string,
     nowIso: string,
     sinceIso: string,

@@ -216,3 +216,24 @@ Ghi chu: security-reviewer chi co quyen doc, phien dieu phoi (C) ghi lai tu bao 
 ### Chot cua chu du an vong 5 (2026-09-28)
 - R5-5: phien co doi mat khau tren tai khoan DA KHOA thi bi dang xuat ngay (invalidateCurrentSessionCookie o nhanh lockedAt cua changePasswordAction); Q1=a o man Dang nhap giu nguyen.
 - He qua phu R4-1b: DONG Y phien da vo hieu khong tu song lai khi admin mo khoa/bat lai tai khoan (phai dang nhap lai).
+
+## Vong 6 (security-reviewer, commit d467732)
+
+CAN SUA - R5-1 dat trong tung man; chot R3-2 + R4-2 chua dat khi goi cheo 2 man (R6-1). R5-2..R5-6 dat; khong hoi quy R2-1, R3-1, R3-2, R4-1..R4-4.
+Ghi chu: security-reviewer chi co quyen doc, phien dieu phoi (C) ghi lai tu bao cao cua no.
+
+### R6-1 (Thap, lech chot chu du an) - Cho giu tach theo kind, 2 man dem rieng, tong toi 10 luot bcrypt truoc khi khoa
+- File: login-guard.ts:139; actions.ts:418-424; prisma-repo-auth.ts:146,149; mock-repo-auth.ts:163.
+- Cach va: 2 man dung chung 1 kind (`account_guess`), test cheo man (kho bo nho, real-db, tich hop).
+
+### R6-2 (Thap, ghi nhan) - Ca B cua login-guard khong tai hien kich ban "doc cu"; man Doi mat khau thieu ca A/B.
+
+### R6-3 (Thap, ghi nhan) - Nhanh het cho o Dang nhap chay them 1 giao dich DB so voi nhanh da khoa/email la (chenh vai round-trip, nho so voi bcrypt; muon cham phai tu khoa tai khoan).
+
+### R6-4 (Thap, ghi nhan) - 2 nhanh tra locked do race (reserveAccountGuess null, resetFailedLogin false) khong da cookie; lan goi ke tiep bi da.
+
+### R6-5 (Thap, ghi nhan) - createdAt/sinceIso theo dong ho app; chi sai khi lech dong ho giua instance > 5 phut.
+
+### Diem DAT
+- Bat bien trong 1 man dung (advisory lock, doc tuoi, try/finally); registerFailedLogin khong lay lock van an toan (nghieng ve chat hon).
+- R5-2..R5-6 dat; chot R4-1b dat; khong SQL noi chuoi, khong secret, log sach.

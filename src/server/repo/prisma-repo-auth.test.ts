@@ -251,28 +251,28 @@ describe('reserveAccountGuess - R5-1 (bao-mat.md vong 5, Thap)', () => {
     userRoleFindUnique.mockResolvedValueOnce({ failedLoginCount: 3, lockedAt: null });
     authThrottleCount.mockResolvedValueOnce(1); // 1 cho dang giu
     authThrottleCreate.mockResolvedValueOnce({ id: 99 });
-    const id = await prismaAuthStore.reserveAccountGuess('login_fail_account', 'a@daidung.com.vn', NOW_ISO, '2026-09-27T23:55:00.000Z', 5);
+    const id = await prismaAuthStore.reserveAccountGuess('a@daidung.com.vn', NOW_ISO, '2026-09-27T23:55:00.000Z', 5);
     expect(id).toBe(99);
     expect(executeRaw).toHaveBeenCalled();
     expect(authThrottleCount).toHaveBeenCalledWith({
-      where: { kind: 'login_fail_account', key: 'a@daidung.com.vn', createdAt: { gte: new Date('2026-09-27T23:55:00.000Z') } },
+      where: { kind: 'account_guess', key: 'a@daidung.com.vn', createdAt: { gte: new Date('2026-09-27T23:55:00.000Z') } },
     });
     expect(authThrottleCreate).toHaveBeenCalledWith({
-      data: { kind: 'login_fail_account', key: 'a@daidung.com.vn', createdAt: new Date(NOW_ISO) },
+      data: { kind: 'account_guess', key: 'a@daidung.com.vn', createdAt: new Date(NOW_ISO) },
     });
   });
 
   it('failedLoginCount + held >= threshold -> null, khong tao dong moi', async () => {
     userRoleFindUnique.mockResolvedValueOnce({ failedLoginCount: 3, lockedAt: null });
     authThrottleCount.mockResolvedValueOnce(2); // 3 + 2 = 5 >= 5
-    const id = await prismaAuthStore.reserveAccountGuess('login_fail_account', 'a@daidung.com.vn', NOW_ISO, '2026-09-27T23:55:00.000Z', 5);
+    const id = await prismaAuthStore.reserveAccountGuess('a@daidung.com.vn', NOW_ISO, '2026-09-27T23:55:00.000Z', 5);
     expect(id).toBeNull();
     expect(authThrottleCreate).not.toHaveBeenCalled();
   });
 
   it('tai khoan dang bi khoa (lockedAt khac null) -> null ngay, khong dem held', async () => {
     userRoleFindUnique.mockResolvedValueOnce({ failedLoginCount: 1, lockedAt: new Date(NOW_ISO) });
-    const id = await prismaAuthStore.reserveAccountGuess('login_fail_account', 'a@daidung.com.vn', NOW_ISO, '2026-09-27T23:55:00.000Z', 5);
+    const id = await prismaAuthStore.reserveAccountGuess('a@daidung.com.vn', NOW_ISO, '2026-09-27T23:55:00.000Z', 5);
     expect(id).toBeNull();
     expect(authThrottleCount).not.toHaveBeenCalled();
     expect(authThrottleCreate).not.toHaveBeenCalled();
@@ -280,7 +280,7 @@ describe('reserveAccountGuess - R5-1 (bao-mat.md vong 5, Thap)', () => {
 
   it('khong co tai khoan -> null', async () => {
     userRoleFindUnique.mockResolvedValueOnce(null);
-    const id = await prismaAuthStore.reserveAccountGuess('login_fail_account', 'khong-co@daidung.com.vn', NOW_ISO, '2026-09-27T23:55:00.000Z', 5);
+    const id = await prismaAuthStore.reserveAccountGuess('khong-co@daidung.com.vn', NOW_ISO, '2026-09-27T23:55:00.000Z', 5);
     expect(id).toBeNull();
   });
 });

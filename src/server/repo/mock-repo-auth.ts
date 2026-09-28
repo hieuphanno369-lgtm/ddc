@@ -155,15 +155,16 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
     // R5-1 (bao-mat.md vong 5, Thap) - xem JSDoc AuthStore.reserveAccountGuess (types.ts). Doc
     // failedLoginCount/lockedAt TUOI (qua countersFor, khong dua vao ban chup cu ben ngoai) + dem so
     // cho DANG GIU (chua releaseThrottle) trong cua so sinceIso, roi moi quyet dinh.
-    async reserveAccountGuess(kind, email, nowIso, sinceIso, threshold) {
+    // R6-1 - 1 kind chung `account_guess` cho ca 2 man (khong nhan kind tu ngoai).
+    async reserveAccountGuess(email, nowIso, sinceIso, threshold) {
       const key = findEmail(email);
       if (!key) return null;
       const c = countersFor(key);
       if (c.lockedAt !== null) return null;
-      const held = throttle.filter((t) => t.kind === kind && t.key === key && t.createdAt >= sinceIso).length;
+      const held = throttle.filter((t) => t.kind === 'account_guess' && t.key === key && t.createdAt >= sinceIso).length;
       if (c.failedLoginCount + held >= threshold) return null;
       const id = nextThrottleId++;
-      throttle.push({ id, kind, key, createdAt: nowIso });
+      throttle.push({ id, kind: 'account_guess', key, createdAt: nowIso });
       return id;
     },
 

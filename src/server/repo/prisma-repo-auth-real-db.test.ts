@@ -150,7 +150,7 @@ describe.skipIf(!hasDb)('prismaAuthStore tren Postgres that (DB _c)', () => {
     const since = new Date(Date.now() - 60_000).toISOString();
 
     const results = await Promise.all(
-      Array.from({ length: 10 }, () => prismaAuthStore.reserveAccountGuess('login_fail_account', EMAIL_B, nowIso, since, 5)),
+      Array.from({ length: 10 }, () => prismaAuthStore.reserveAccountGuess(EMAIL_B, nowIso, since, 5)),
     );
     const ok = results.filter((r) => r !== null);
     const blocked = results.filter((r) => r === null);
@@ -166,7 +166,7 @@ describe.skipIf(!hasDb)('prismaAuthStore tren Postgres that (DB _c)', () => {
     const nowIso = new Date().toISOString();
     const since = new Date(Date.now() - 60_000).toISOString();
 
-    const id = await prismaAuthStore.reserveAccountGuess('login_fail_account', EMAIL_B, nowIso, since, 5);
+    const id = await prismaAuthStore.reserveAccountGuess(EMAIL_B, nowIso, since, 5);
 
     expect(id).toBeNull();
     await prismaAuthStore.unlockAccount(EMAIL_B);

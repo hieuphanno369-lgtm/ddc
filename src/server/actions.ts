@@ -415,8 +415,8 @@ export async function changePasswordAction(currentPassword: string, newPassword:
   // chỗ, đếm đúng số chỗ ĐANG GIỮ chứ không phải số dòng trong 1 cửa sổ thời gian) - xem JSDoc ở
   // `types.ts`.
   const sinceAccountIso = new Date(now.getTime() - ACCOUNT_GUESS_WINDOW_MS).toISOString();
+  // R6-1 - dùng CHUNG chỗ giữ với màn Đăng nhập (chốt R3-2: tính chung bộ đếm 5 lần).
   const accountReserved = await store.reserveAccountGuess(
-    'change_pwd_fail_account',
     user.email,
     nowIso,
     sinceAccountIso,
@@ -426,6 +426,11 @@ export async function changePasswordAction(currentPassword: string, newPassword:
     // Đã đủ (hoặc đang đủ, do các lượt song song khác) lượt đoán đồng thời cho tài khoản này - coi
     // như đã khoá, KHÔNG chạy bcrypt thật (giữ chỗ IP đã đặt, tính là 1 lượt sai theo IP). R5-3 - màn
     // Đổi mật khẩu không có kiểu bcrypt-giả cân thời gian như màn Đăng nhập nên không cần thêm gì.
+    // R6-4 (bao-mat.md vòng 6) - nếu `null` là do tài khoản vừa bị khoá xen giữa (vd qua màn Đăng
+    // nhập) thì vẫn đá phiên như nhánh `lockedAt` ở trên (chốt R5-5); hết chỗ vì lượt song song mà
+    // tài khoản chưa khoá thì không đá.
+    const fresh = await store.getAccountState(user.email);
+    if (fresh?.lockedAt != null) await invalidateCurrentSessionCookie(user.email);
     return { ok: false, error: 'locked' };
   }
 
@@ -468,7 +473,11 @@ export async function changePasswordAction(currentPassword: string, newPassword:
     // như đăng nhập thành công (L3 - nguyên tử, luôn gọi).
     await store.releaseThrottle(ipReserved);
     const confirmed = await store.resetFailedLogin(user.email);
-    if (!confirmed) return { ok: false, error: 'locked' };
+    if (!confirmed) {
+      // R6-4 - `false` nghĩa là tài khoản vừa bị khoá xen giữa: đá phiên như nhánh `lockedAt` (R5-5).
+      await invalidateCurrentSessionCookie(user.email);
+      return { ok: false, error: 'locked' };
+    }
 
     // R3-1 - compare-and-swap: chỉ ghi khi passwordHash trong DB vẫn đúng bằng `oldHash` vừa kiểm ở trên.
     const changedAtIso = new Date().toISOString();

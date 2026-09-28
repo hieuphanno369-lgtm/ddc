@@ -141,7 +141,10 @@ export const prismaAuthStore: AuthStore = {
   // R5-1 (bao-mat.md vòng 5, Thấp) - xem JSDoc `AuthStore.reserveAccountGuess` (types.ts). Advisory
   // lock theo `kind:email` rồi đọc `failedLoginCount`/`lockedAt` TƯƠI trong CÙNG giao dịch (khác
   // `reserveThrottle` vòng 4 - không đọc lại tài khoản, chỉ đếm dòng trong cửa sổ thời gian).
-  async reserveAccountGuess(kind, email, nowIso, sinceIso, threshold) {
+  // R6-1 (bao-mat.md vòng 6) - 1 kind chung `account_guess` cho Đăng nhập và Đổi mật khẩu, không nhận
+  // kind từ bên gọi (tránh 2 màn đếm riêng, vượt tổng 5 lượt).
+  async reserveAccountGuess(email, nowIso, sinceIso, threshold) {
+    const kind = 'account_guess';
     return prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${kind} || ':' || ${email}))`;
       const account = await tx.userRole.findUnique({ where: { email }, select: { failedLoginCount: true, lockedAt: true } });

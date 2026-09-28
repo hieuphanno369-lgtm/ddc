@@ -136,7 +136,7 @@ export async function checkCredentials(
   // `types.ts` vì sao cách cũ có thể để lọt quá `LOGIN_LOCK_THRESHOLD` lượt bcrypt thật khi có nhiều
   // yêu cầu chạy chồng chéo phức tạp (không chỉ đơn thuần `Promise.all` đồng loạt).
   const sinceAccountIso = new Date(now.getTime() - ACCOUNT_GUESS_WINDOW_MS).toISOString();
-  const accountReserved = await store.reserveAccountGuess('login_fail_account', email, nowIso, sinceAccountIso, LOGIN_LOCK_THRESHOLD);
+  const accountReserved = await store.reserveAccountGuess(email, nowIso, sinceAccountIso, LOGIN_LOCK_THRESHOLD);
   if (accountReserved === null) {
     // R5-3 (bao-mat.md vòng 5, Thấp) - TRƯỚC ĐÂY nhánh hết chỗ trả `locked` NGAY (không bcrypt), lộ
     // ra thời gian phản hồi khác nhánh "đã khoá thật" (có bcrypt giả) - đo được khi 1 tài khoản THẬT
