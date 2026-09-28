@@ -99,3 +99,29 @@ Nên merge sớm vì nhánh đang sửa file nóng `vi.json`, `en.json`, `action
 - Task 6: nối `checkCredentials` vào `authorize`, `lockedAt` thật cho Google, trang quản trị mở khoá, dọn `rates_monthly` ở `admin/page.tsx`.
 - Task 7: trang quên và đặt lại mật khẩu, `pwdAt`, key `mailSubject`/`mailBody`.
 - Lượt bảo mật sau Task 5-8 phải kiểm lại S1, S2, S4-S6 trên Prisma, S8, S11, S12, S15, e2e 21 và 22.
+
+## Đối chiếu lại (2026-09-28)
+
+PHAN QUYET: CHOT
+
+Phạm vi: đối chiếu mục 5.1-5.7 với commit `c864afb` (diff `0fb65f3..HEAD`); commit này chỉ sửa tài liệu, JSDoc, comment và một chỗ dọn code.
+Kết luận: **CHỐT cho phạm vi Task 1-4**, đủ điều kiện dừng ở đây chờ Task 5 và đủ điều kiện merge `main` theo đồng ý của chủ dự án (2026-09-28).
+Cổng kiểm reviewer tự chạy: `npx tsc --noEmit` exit 0; `npm test` 218 file / 2434 test xanh.
+
+### Đối chiếu từng mục
+
+- 5.1 Đạt: hợp đồng Prisma cho `reserveThrottle`/`releaseThrottle` đã có trong Interfaces Task 5; bước 5.5 có test DB thật.
+- 5.2 Đạt: `'google_denied'` có ở K5, danh sách File Task 5 và bước 6.3; comment `auth.ts` đã bỏ gợi ý dùng chung kind; ngưỡng đề xuất 5 lần / 24 giờ, chủ dự án có thể đổi trước Task 5.
+- 5.3 Đạt: G5 ở bước 6.2 và hai action Task 7; R6 có dòng Modify `password-reset.ts` trong Task 5.
+- 5.4 Đạt: khối `AuthStore` lỗi thời đã thay bằng đoạn trỏ về `types.ts`.
+- 5.5 Đạt: JSDoc `types.ts` đã đủ; khối R1 đã chuyển lên trên `ThrottleKind`.
+- 5.6 Đạt phần chính; 5.7 Đạt.
+- Dọn code `ipSlotReleased` không đổi hành vi.
+
+### Ghi chú không chặn (điều phối viên đã sửa ngay trong lượt này)
+
+- `ke-hoach.md:91`: "GHI ĐÈ `X-Forwarded-For`" đổi thành "NỐI THÊM (hoặc ghi đè bằng IP thật), xem bước 8.4".
+- `ke-hoach.md:314`: chú thích `clientIpFrom` đổi `''` thành `'unknown'`.
+- `types.ts` JSDoc trên `AuthStore`: đổi thành "bên gọi KHÔNG được dựa vào việc implementation tự chuẩn hoá" (kho bộ nhớ vẫn hạ chữ thường).
+- `types.ts` JSDoc `registerFailedLogin`: `justLocked` đúng 1 lời gọi, không nhất thiết lời gọi có `count === threshold`.
+- `ke-hoach.md` bước 6.6: thêm yêu cầu chuẩn hoá email bằng `normalizeEmail` trước `unlockAccount`, kèm test.

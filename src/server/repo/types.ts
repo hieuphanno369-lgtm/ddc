@@ -599,9 +599,9 @@ export interface AuthAccountState {
 /**
  * Mọi tham số `email` của các hàm dưới đây đều đã được BÊN GỌI chuẩn hoá (`trim().toLowerCase()`,
  * qua `normalizeEmail()` ở `src/lib/login-policy.ts` hoặc chuẩn hoá thủ công cùng công thức trong
- * `login-guard.ts`) TRƯỚC khi gọi vào `AuthStore` - implementation (`mock-repo-auth.ts`,
- * `prisma-repo-auth.ts`) KHÔNG tự chuẩn hoá lại, chỉ dùng `email` đúng như nhận được làm khoá tra
- * cứu/khoá throttle.
+ * `login-guard.ts`) TRƯỚC khi gọi vào `AuthStore`. Bên gọi KHÔNG được dựa vào việc implementation
+ * (`mock-repo-auth.ts`, `prisma-repo-auth.ts`) tự chuẩn hoá: kho bộ nhớ có hạ chữ thường nhưng bản
+ * Prisma có thể dùng `email` đúng như nhận được làm khoá tra cứu/khoá throttle.
  */
 export interface AuthStore {
   getAccountState(email: string): Promise<AuthAccountState | null>;
@@ -609,7 +609,7 @@ export interface AuthStore {
    * +1 bộ đếm sai; đạt `threshold` VÀ chưa khoá thì khoá luôn trong CÙNG lần ghi - PHẢI NGUYÊN TỬ:
    * tăng bằng `increment` rồi khoá bằng điều kiện `lockedAt IS NULL` tại thời điểm ghi (không dựa vào
    * giá trị đọc trước đó), để nhiều lời gọi song song cho CÙNG 1 email chỉ có đúng 1 lời gọi thấy
-   * `justLocked: true` (lời gọi đưa bộ đếm chạm `threshold` đầu tiên), các lời gọi khác (kể cả đến
+   * `justLocked: true` cho ĐÚNG 1 lời gọi (không nhất thiết là lời gọi có `count === threshold`), các lời gọi khác (kể cả đến
    * sau khi đã khoá) vẫn tăng bộ đếm nhưng `justLocked: false`. `null` nếu không có tài khoản.
    */
   registerFailedLogin(

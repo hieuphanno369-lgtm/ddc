@@ -88,7 +88,7 @@ Chữ cũ nói "Tự lấy tỷ giá Vietcombank mỗi tháng", không còn đú
 - **K12 - Vô hiệu phiên cũ**: cột `passwordChangedAt`; JWT giữ `pwdAt` (ms) lúc đăng nhập; callback `jwt` so ở nhịp kiểm lại có sẵn `ACCESS_RECHECK_INTERVAL_MS` (5 phút, cơ chế T-5 đã được duyệt); trễ tối đa 5 phút, ghi vào `thay-doi.md`.
 - **K13 (ĐÃ THAY bởi L2, `.bangiao/bao-mat.md`) - IP khách**: `clientIpFrom(headers)` lấy phần tử đầu `x-forwarded-for`, rồi `x-real-ip`, cắt 64 ký tự (cùng quy ước `src/lib/activity.ts`); không lấy được IP thì bỏ qua giới hạn IP (không gộp mọi người vào 1 khoá chung).
   Hành vi hiện tại (L2): lấy theo `TRUSTED_PROXY_HOPS` (mặc định 1) tính từ PHẢI của `x-forwarded-for`, không có header nào thì gom khoá `'unknown'` (KHÔNG bỏ qua giới hạn) - xem `src/lib/client-ip.ts` và bước 4.2.
-  Reverse proxy lúc deploy phải GHI ĐÈ `X-Forwarded-For` bằng IP thật: ghi vào `thay-doi.md` mục "Việc cho tài liệu deploy (C, T17)".
+  Reverse proxy lúc deploy phải NỐI THÊM IP khách vào `X-Forwarded-For` (hoặc ghi đè bằng IP thật), xem bước 8.4: ghi vào `thay-doi.md` mục "Việc cho tài liệu deploy (C, T17)".
 - **K14 - Đóng L-11**: `resolveAccess` bỏ fallback `ROLE_SEED`/`viewer`; không có tài khoản hoặc DB lỗi thì trả `null` và phiên bị vô hiệu (fail-closed); quyền dựng thẳng từ 1 lần đọc tài khoản.
 - **K15 - Google chỉ vào khi `profile.email_verified === true`**, email Google (chữ thường) có trong `user_roles`, `isActive`, chưa khoá. Tên hiển thị lấy từ tài khoản DB nếu khác rỗng.
 - **K16 - Đăng nhập Google không đụng bộ đếm sai** (không tăng, không về 0).
@@ -311,7 +311,7 @@ export function hashResetToken(token: string): string;
 export function isWellFormedResetToken(token: unknown): token is string; // /^[A-Za-z0-9_-]{43}$/
 
 // src/lib/client-ip.ts
-export function clientIpFrom(h: Pick<Headers, 'get'>): string; // '' khi không có
+export function clientIpFrom(h: Pick<Headers, 'get'>): string; // 'unknown' khi không có
 
 // src/server/repo/types.ts
 // Nguồn sự thật DUY NHẤT cho ThrottleKind/AuthAccountState/AuthStore là chính file này, không chép lại
@@ -598,7 +598,7 @@ export async function unlockAccountCli(store: AuthStore, rawEmail: string, log: 
   (R7 phần 3, G4) Nhánh `decision !== 'allow'`: gọi `getAuthStore().reserveThrottle('google_denied', email, now, now - GOOGLE_DENIED_WINDOW_MS, GOOGLE_DENIED_LIMIT)` TRƯỚC `logActivity`; còn chỗ (`id` khác `null`) thì ghi log như cũ (không cần `releaseThrottle` - đây là đếm để hạn chế log, không có nhánh "đúng" để nhả lại); hết chỗ (`id === null`) thì VẪN trả `false` (từ chối đăng nhập Google) nhưng KHÔNG gọi `logActivity` (giống cách `requestPasswordReset` bỏ log khi hết chỗ IP - L4, tránh chính việc chặn spam log lại làm log bị spam). Test thêm "R7 phần 3": 5 lần từ chối liên tiếp cùng email ghi đủ 5 dòng `login_google_denied`, lần thứ 6 trả `false` nhưng không gọi `logActivity` thêm lần nào.
 - [ ] 6.4 (Chờ Q1) Q1=b: nhánh kiểm lại định kỳ của `jwt` coi `lockedAt !== null` là `token.invalid = true`, thêm test. Q1=a: không đổi, thêm test khẳng định phiên đang mở vẫn hợp lệ khi tài khoản bị khoá.
 - [ ] 6.5 `LoginForm.tsx`: `res.error === 'locked'` -> `t('authSecurity.locked')`; `'ip_limited'` -> `t('authSecurity.ipLimited')`; còn lại -> `t('auth.invalidCredentials')`.
-- [ ] 6.6 Test đỏ `actions-account-lock.test.ts` (mẫu `actions.test.ts` 13-34, mock `@/server/auth-store`): viewer/bod/data-entry -> Forbidden; email sai -> `Invalid input`; không có -> `Not found`; admin mở -> `lockedAt null`, bộ đếm 0, `logActivity` action `account_unlock`; `tempPassword` 1-7 ký tự -> `too_short`, không mở khoá; `tempPassword` hợp lệ -> mở khoá + đặt mật khẩu (`bumpChangedAt` theo Q2: b/c -> true, a -> false).
+- [ ] 6.6 Test đỏ `actions-account-lock.test.ts` (mẫu `actions.test.ts` 13-34, mock `@/server/auth-store`): viewer/bod/data-entry -> Forbidden; email sai -> `Invalid input`; không có -> `Not found`; email có chữ hoa/khoảng trắng được chuẩn hoá bằng `normalizeEmail` trước khi gọi `unlockAccount` (không trả `Not found` nhầm); admin mở -> `lockedAt null`, bộ đếm 0, `logActivity` action `account_unlock`; `tempPassword` 1-7 ký tự -> `too_short`, không mở khoá; `tempPassword` hợp lệ -> mở khoá + đặt mật khẩu (`bumpChangedAt` theo Q2: b/c -> true, a -> false).
   Cài đặt: dùng `requireRoleUser(['admin'])`, zod `{ email: z.string().email(), tempPassword: z.string().min(8).optional() }`, `revalidateTag(profileTag)`.
   `toAdminUserRow` bỏ `passwordHash`, `hasPassword = passwordHash !== ''`; test khẳng định object trả về không có khoá `passwordHash`.
 - [ ] 6.7 `UserEditor.tsx` nhận `users: AdminUserRow[]`:
