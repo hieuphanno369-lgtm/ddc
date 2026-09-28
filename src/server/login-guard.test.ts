@@ -3,7 +3,7 @@ import { createMemoryAuthStore, type MemoryAccountSource } from './repo/mock-rep
 import type { AuthAccountState, AuthStore, UserAccount } from './repo/types';
 import { hashPassword } from '@/lib/password';
 import * as passwordLib from '@/lib/password';
-import { IP_FAIL_LIMIT } from '@/lib/login-policy';
+import { IP_FAIL_LIMIT, LOGIN_LOCK_THRESHOLD } from '@/lib/login-policy';
 
 vi.mock('@/lib/activity', () => ({ logActivity: vi.fn() }));
 
@@ -201,6 +201,7 @@ describe('checkCredentials - L3: xac nhan nguyen tu chong TOCTOU khi doan mat kh
       unlockAccount: vi.fn(),
       setPassword: vi.fn(),
       setPasswordIfHash: vi.fn(),
+      revokeSessions: vi.fn(),
       replaceResetToken: vi.fn(),
       peekResetToken: vi.fn(),
       consumeResetToken: vi.fn(),
@@ -213,9 +214,13 @@ describe('checkCredentials - L3: xac nhan nguyen tu chong TOCTOU khi doan mat kh
     expect(r).toEqual({ ok: false, reason: 'locked' }); // KHONG duoc tra ok:true
   });
 
-  it('thuc te tren kho bo nho (Promise.all): N sai dong thoi khong lam mat lan tang bo dem nao (khong ket qua bi de len nhau)', async () => {
-    // Best-effort voi concurrency THAT cua JS (khong ep thu tu) - kiem bat bien chung: khoa dung 1
-    // lan, khong mat cap nhat nao (lost update) khi N yeu cau sai chay dong thoi.
+  it('R4-2 (bao-mat.md vong 4, Thap) - Promise.all N sai dong thoi: khoa DUNG 1 lan tai count = LOGIN_LOCK_THRESHOLD, khong mat cap nhat nao trong PHAM VI da duoc chap nhan bcrypt', async () => {
+    // Truoc R4-2: N=10 sai dong thoi deu doc duoc failedLoginCount CU (chua ai kip ghi) nen deu lot
+    // qua kiem lockedAt va deu chay bcrypt that (failedLoginCount cuoi cung = N = 10). Tu R4-2, "dat
+    // cho" nguyen tu theo tai khoan TRUOC bcrypt gioi han so luot CHAY DONG THOI khong vuot so luot
+    // con lai truoc nguong (5) - cac luot vuot cho bi tu choi NGAY, KHONG chay bcrypt, KHONG tang bo
+    // dem (xem test spy verifyPassword <= 5 lan o duoi). Bo dem cuoi cung phai DUNG BANG nguong khoa,
+    // khong hon khong kem (khong mat cap nhat trong so cac luot DA duoc chap nhan).
     const store = createMemoryAuthStore(makeSource([account()]));
     const N = 10;
     const calls = Array.from({ length: N }, () =>
@@ -224,8 +229,21 @@ describe('checkCredentials - L3: xac nhan nguyen tu chong TOCTOU khi doan mat kh
     await Promise.all(calls);
 
     const state = await store.getAccountState('a@daidung.com.vn');
-    expect(state?.failedLoginCount).toBe(N); // khong mat cap nhat nao du chay dong thoi
-    expect(state?.lockedAt).not.toBeNull(); // da vuot LOGIN_LOCK_THRESHOLD (5) nen phai khoa
+    expect(state?.failedLoginCount).toBe(LOGIN_LOCK_THRESHOLD);
+    expect(state?.lockedAt).not.toBeNull();
+  });
+
+  it('R4-2 - Promise.all 10 luot sai dong thoi (verifyPassword co do tre that cua bcrypt) -> verifyPassword goi <= LOGIN_LOCK_THRESHOLD lan', async () => {
+    const store = createMemoryAuthStore(makeSource([account()]));
+    const spy = vi.spyOn(passwordLib, 'verifyPassword');
+    spy.mockClear();
+    const N = 10;
+    const calls = Array.from({ length: N }, () =>
+      checkCredentials(store, { email: 'a@daidung.com.vn', password: 'sai', ip: '' }, at(0)),
+    );
+    await Promise.all(calls);
+
+    expect(spy.mock.calls.length).toBeLessThanOrEqual(LOGIN_LOCK_THRESHOLD);
   });
 });
 

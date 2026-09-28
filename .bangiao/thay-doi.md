@@ -579,3 +579,48 @@ lại mở ra 1 lỗ hổng MỚI mức Cao (R2-1). Phiên điều phối đã c
 - Real-db (`DATABASE_URL` trỏ `ddc_control_tower_c`): 8/8 xanh.
 - e2e 24 + 25 (kèm setup): 7/7 xanh; e2e 25 trước đó đỏ chủ đích, nay xanh nhờ portal.
 - Chưa chạy lại toàn bộ e2e và `npm run build` trong vòng này.
+
+## Vòng sửa bảo mật 4 (bao-mat.md vòng 4: R4-1 Trung; R4-2, R4-3, R4-4 Thấp; R4-5 chỉ ghi nhận)
+
+Làm TDD: viết test đỏ trước (tái hiện đúng kịch bản trong `bao-mat.md`), chạy thấy đỏ, rồi mới sửa.
+
+- **R4-1 (Trung) - khoá do đoán sai mật khẩu hiện tại phải vô hiệu MỌI phiên phía server, `invalid` phải "dính".**
+  Chốt của chủ dự án: khoá do đoán sai mật khẩu hiện tại đăng xuất MỌI phiên của tài khoản (thu hồi phía server bằng cách bump `passwordChangedAt`, không làm bảng thu hồi/`sid` riêng - phương án đơn giản nhất, tận dụng đúng cơ chế S8 sẵn có).
+  (a) `src/server/repo/types.ts` (`AuthStore`): thêm `revokeSessions(email, nowIso): Promise<boolean>` - bump `passwordChangedAt = nowIso`, KHÔNG đổi `passwordHash`. Cài ở `src/server/repo/prisma-repo-auth.ts` (`updateMany({ where: { email } })`) và `src/server/repo/mock-repo-auth.ts` (ghi lại `counters`). Chọn hàm RIÊNG thay vì gộp vào `registerFailedLogin` vì `registerFailedLogin` chạy ở CẢ đăng nhập lẫn đổi mật khẩu nhưng chỉ đổi mật khẩu mới cần thu hồi phiên - gộp chung sẽ vô tình bump `passwordChangedAt` mỗi lần đăng nhập sai (không đúng ý định, cũng không cần thiết vì đăng nhập sai không có phiên nào để giữ mà cần đá).
+  `src/server/actions.ts` (`changePasswordAction`): khi `result.justLocked` (đúng lượt khoá tài khoản, chỉ 1 lần) thì gọi thêm `store.revokeSessions(user.email, nowIso)` ngay cạnh `logActivity('login_locked', ...)` đã có, TRƯỚC `invalidateCurrentSessionCookie` (giữ nguyên - vẫn lo phần cookie của CHÍNH request đang chạy, `revokeSessions` lo các phiên KHÁC). Chỉ gọi khi `justLocked` (không gọi lặp lại ở các lượt đã khoá sẵn) - tránh ghi DB thừa, phiên khác vẫn bị đá đúng 1 lần là đủ.
+  (b) `src/lib/auth.ts` (callback `jwt`, nhánh kiểm định kỳ T-5): trước đây `applyAccountToToken(token, account)` có thể đặt lại `invalid = false` (dựa theo `isActive` hiện tại), rồi phép so `changedAtMs > pwdAt` MỚI đặt lại `true` nếu cần - nếu DB CHƯA (hoặc không) phản ánh lý do vô hiệu bằng `passwordChangedAt` thì `invalid` bị hạ nhầm về `false`. Sửa: chụp `wasInvalid = token.invalid === true` TRƯỚC khi gọi `applyAccountToToken`, cuối nhánh nếu `wasInvalid` thì ép lại `token.invalid = true` - nhánh này giờ CHỈ SIẾT, không bao giờ NỚI. Nhánh đăng nhập mới (`user?.email`) và nhánh `trigger === 'update'` (đã sticky từ vòng 3) không đổi.
+- **R4-2 (Thấp) - giới hạn theo TÀI KHOẢN trước bcrypt khi gọi song song.**
+  Vấn đề: nhiều yêu cầu chạy đồng thời (`Promise.all`) cho CÙNG 1 email đều đọc `failedLoginCount` CŨ (chưa ai kịp ghi `registerFailedLogin`, việc ghi chỉ xảy ra SAU khi bcrypt xong) nên đều lọt qua kiểm `lockedAt` và đều chạy bcrypt thật - vượt hẳn `LOGIN_LOCK_THRESHOLD` (5).
+  Lựa chọn kỹ thuật: dùng LẠI cơ chế `reserveThrottle` sẵn có (advisory lock theo `kind:key`, đã dùng cho khoá IP) với 2 `ThrottleKind` MỚI (`login_fail_account`, `change_pwd_fail_account`) thay vì phương án "tăng trước `failedLoginCount`" - lý do: tăng trước cột `failedLoginCount` thật sẽ khoá NHẦM một lượt đoán ĐANG chạy song song mà sau đó hoá ra ĐÚNG mật khẩu (ví dụ 2 tab gửi cùng lúc), vì lượt đó bị tính là "sai" trước khi biết kết quả; dùng `reserveThrottle` như một "chỗ giữ" tạm thời, RÚT LẠI NGAY (`finally`) sau khi bcrypt xong (dù đúng hay sai) thì không đụng tới bộ đếm khoá CHÍNH THỨC (`failedLoginCount`), chỉ giới hạn SỐ LƯỢT ĐANG CHẠY ĐỒNG THỜI không vượt quá số lượt còn lại trước ngưỡng (`LOGIN_LOCK_THRESHOLD - failedLoginCount` đọc tại đầu hàm). Hết chỗ thì coi như đã khoá, KHÔNG chạy bcrypt (kể cả bcrypt giả - đổi khác các nhánh "đã khoá" khác vì mục tiêu ở đây là giảm CPU thật khi bị dồn dập, không phải chống timing oracle).
+  `src/lib/login-policy.ts`: thêm hằng `ACCOUNT_GUESS_WINDOW_MS = 5_000` (cửa sổ ngắn, chỉ đủ bắt các lượt THỰC SỰ chồng nhau, không dùng để đếm dài hạn).
+  `src/server/login-guard.ts` (`checkCredentials`) và `src/server/actions.ts` (`changePasswordAction`): thêm gate giống nhau (đặt chỗ theo `kind` riêng cho từng màn, `limit = LOGIN_LOCK_THRESHOLD - failedLoginCount`) ngay trước lời gọi `verifyPassword` thật (không áp cho nhánh bcrypt giả/email lạ/chỉ-Google - các nhánh đó không tăng `failedLoginCount` nên không có gì cần giới hạn thêm).
+  `src/server/repo/types.ts`: `ThrottleKind` thêm `'login_fail_account'`, `'change_pwd_fail_account'` (cột `kind` là `String` trong Prisma, không cần migration; `pruneAuthData` xoá theo `createdAt` không liệt kê `kind` nên không cần sửa).
+- **R4-3 (Thấp) - `reissueSessionCookie` so theo hash thay vì mốc giờ.**
+  `src/lib/auth.ts` (`reissueSessionCookie`): đổi tham số thứ 2 từ `changedAtIso` sang `newHash` (hash mật khẩu vừa ghi) - so trực tiếp `account.passwordHash !== newHash` thay vì so `dbChangedAtMs > Date.parse(changedAtIso)`. So hash không lệ thuộc độ chính xác đồng hồ giữa nhiều instance hay 2 lần ghi trùng mili giây (điều mà so mốc giờ có thể bỏ lọt). `src/server/actions.ts` (`changePasswordAction`): gọi `reissueSessionCookie(user.email, newHash)` (biến `newHash` đã có sẵn từ bước `hashPassword`).
+- **R4-4 (Thấp) - tài khoản bị TẮT/KHOÁ không được đổi mật khẩu qua đường tự đổi.**
+  `src/server/actions.ts` (`changePasswordAction`): thêm `!account.isActive` vào điều kiện trả `current` sớm (gộp cùng nhánh chỉ-Google có sẵn).
+  `src/server/repo/types.ts`/`prisma-repo-auth.ts`/`mock-repo-auth.ts` (`setPasswordIfHash`): thêm điều kiện `isActive: true, lockedAt: null` vào `where` (Prisma) / kiểm tương đương trong bộ nhớ - tài khoản bị TẮT hoặc bị KHOÁ xen giữa lúc kiểm mật khẩu hiện tại và lúc ghi (ví dụ admin thao tác đồng thời) cũng phải làm CAS thua (trả `current`), không cho đổi mật khẩu "chui".
+- **R4-5 (Thấp)** - chỉ ghi nhận theo yêu cầu chủ dự án, không sửa code (khoá `'unknown'` dùng chung cho `change_pwd_fail_ip`, cùng loại R2-2/R4 đã chấp nhận).
+
+### Test mới/sửa (vòng sửa bảo mật 4)
+
+- `src/lib/auth-access-recheck.test.ts`: thêm 2 test R4-1b (token đã `invalid=true` + tua qua `ACCESS_RECHECK_INTERVAL_MS`, DB chưa/không bump `passwordChangedAt` -> vẫn `invalid=true`; lặp lại nhiều vòng kiểm định kỳ liên tiếp vẫn không hồi sinh).
+- `src/lib/auth-reissue-session-cookie.test.ts`: viết lại theo tham số `newHash` (so hash thay vì so mốc giờ), giữ đủ các ca cũ (không cookie, email khác, tài khoản bị xoá, race - hash khác nhau, không race - hash khớp).
+- `src/server/login-guard.test.ts`: thêm `revokeSessions: vi.fn()` vào `AuthStore` mock thủ công (lỗi tsc nếu thiếu); sửa test `Promise.all` N=10 cũ (trước đây kỳ vọng `failedLoginCount === 10`, nay đúng thiết kế R4-2 là dừng ở `LOGIN_LOCK_THRESHOLD`); thêm test spy `verifyPassword` gọi `<= LOGIN_LOCK_THRESHOLD` lần khi 10 lượt sai chạy song song.
+- `src/server/actions-change-password-lock.test.ts`: thêm test R4-1a (`revokeSessions` gọi đúng 1 lần lúc `justLocked`, không gọi thêm ở các lượt đã khoá sẵn), R4-2 (`Promise.all` 10 lượt sai, `verifyPassword` gọi `<= LOGIN_LOCK_THRESHOLD` lần), R4-4 (`isActive=false` -> `current`, không gọi `verifyPassword`).
+- `src/server/repo/mock-repo-auth.test.ts`, `src/server/repo/prisma-repo-auth.test.ts`: thêm test `revokeSessions` (bump `passwordChangedAt`, không đổi `passwordHash`, `false` khi không có tài khoản); cập nhật/thêm test `setPasswordIfHash` cho điều kiện `isActive`/`lockedAt` mới (R4-4).
+- `src/server/repo/prisma-repo-auth-real-db.test.ts`: thêm 4 ca DB thật - `revokeSessions` bump đúng cột, trả `false` khi không có tài khoản; `setPasswordIfHash` trả `false` khi tài khoản bị TẮT hoặc đang bị KHOÁ xen giữa (R4-4).
+
+### Cổng kiểm (vòng sửa bảo mật 4)
+
+- `npx tsc --noEmit`: sạch.
+- `npm test`: **239 file / 2690 test** (2678 xanh + 12 skip - đúng 12 ca real-db, tăng từ 8 vì thêm 4 ca mới ở mục R4-1a/R4-4).
+- Real-db (`DATABASE_URL` trỏ `ddc_control_tower_c`): `npx vitest run src/server/repo/prisma-repo-auth-real-db.test.ts` -> **12/12 xanh**.
+- e2e liên quan (`e2e/21*`, `22*`, `23*`, `24*`, `25*`, kèm 3 spec `auth.setup.ts`): **14/14 xanh**, không chập chờn (chạy 1 lần, không phải chạy lại).
+- Chưa chạy lại toàn bộ e2e (`npm run test:e2e`) và `npm run build` trong vòng này (ngoài phạm vi lệnh giao việc).
+
+### Cho Tester nên soi kỹ (bổ sung riêng cho vòng sửa bảo mật 4 này)
+
+1. **R4-1b (tính "dính" của `invalid`)** - đáng kiểm thêm kịch bản: tài khoản bị khoá rồi được ADMIN mở khoá lại (`unlockAccountAction`, không đổi mật khẩu) trong lúc phiên cũ vẫn đang `invalid=true` - phiên đó có nên tự hồi sinh không hay bắt buộc đăng nhập lại? Hiện tại `wasInvalid` khiến nó KHÔNG bao giờ hồi sinh (phải đăng nhập lại) - đây là lựa chọn an toàn hơn nhưng đáng xác nhận lại với chủ dự án có đúng ý muốn hay không (không nằm trong phạm vi R4-1 được giao, chỉ là hệ quả phụ của thiết kế "chỉ siết").
+2. **R4-2 (giới hạn theo tài khoản)** - cửa sổ `ACCOUNT_GUESS_WINDOW_MS = 5s` là ước lượng hợp lý cho môi trường hiện tại; nếu thấy nhiều lượt đăng nhập hợp lệ bị từ chối oan (hiếm, chỉ khi có ĐÚNG lúc `LOGIN_LOCK_THRESHOLD` lượt cùng tài khoản chạy trong vòng 5 giây) thì đây là nơi cần xem lại đầu tiên.
+3. **R4-4 (CAS thêm điều kiện `isActive`/`lockedAt`)** - kiểm lại `resetPasswordAction` (admin đặt mật khẩu qua trang quản trị) và `resetPasswordWithToken` (đặt lại qua email) KHÔNG bị ảnh hưởng - 2 đường đó dùng `setPassword` (không CAS), cố tình ghi đè vô điều kiện kể cả khi tài khoản đang khoá (admin/token được phép "cứu" tài khoản bị khoá), không nên thêm nhầm điều kiện `isActive`/`lockedAt` vào đó.

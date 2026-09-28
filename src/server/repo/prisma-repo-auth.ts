@@ -105,17 +105,30 @@ export const prismaAuthStore: AuthStore = {
   // R3-1 (bao-mat.md vòng 3, Trung) - compare-and-swap: chỉ `updateMany` khi `passwordHash` hiện tại
   // trong DB khớp `oldHash` (điều kiện `where`); `count === 0` nghĩa là ai đó đã ghi đè xen giữa lúc
   // verify và lúc gọi hàm này - KHÔNG ghi, KHÔNG huỷ token (giữ nguyên trạng thái của lần ghi đã thắng).
+  // R4-4 (bao-mat.md vòng 4, Thấp) - THÊM `isActive: true, lockedAt: null` vào `where`: tài khoản bị
+  // TẮT hoặc bị KHOÁ xen giữa lúc verify và lúc ghi (vd admin thao tác đồng thời) cũng phải làm CAS
+  // thua (count 0), không cho đổi mật khẩu "chui" qua đường tự đổi trong Cài đặt.
   async setPasswordIfHash(email, oldHash, newHash, nowIso) {
     const now = new Date(nowIso);
     return prisma.$transaction(async (tx) => {
       const result = await tx.userRole.updateMany({
-        where: { email, passwordHash: oldHash },
+        where: { email, passwordHash: oldHash, isActive: true, lockedAt: null },
         data: { passwordHash: newHash, passwordChangedAt: now },
       });
       if (result.count === 0) return false;
       await tx.passwordResetToken.updateMany({ where: { email, usedAt: null }, data: { usedAt: now } });
       return true;
     });
+  },
+
+  // R4-1a (bao-mat.md vòng 4, Trung, chốt chủ dự án 2026-09-28) - thu hồi mọi phiên: bump
+  // `passwordChangedAt`, KHÔNG đổi `passwordHash`. `count > 0` nghĩa là có tài khoản đó.
+  async revokeSessions(email, nowIso) {
+    const result = await prisma.userRole.updateMany({
+      where: { email },
+      data: { passwordChangedAt: new Date(nowIso) },
+    });
+    return result.count > 0;
   },
 
   async recordThrottle(kind, key, nowIso) {

@@ -614,7 +614,12 @@ export type ThrottleKind =
   | 'reset_req_ip'
   | 'reset_submit_ip'
   | 'google_denied'
-  | 'change_pwd_fail_ip';
+  | 'change_pwd_fail_ip'
+  // R4-2 (bao-mat.md vòng 4, Thấp) - "giữ chỗ" nguyên tử THEO TÀI KHOẢN (email) trước bcrypt, xem
+  // `ACCOUNT_GUESS_WINDOW_MS` (login-policy.ts) - tách riêng đăng nhập/đổi mật khẩu để không lẫn số
+  // đếm giữa 2 màn hình khác nhau.
+  | 'login_fail_account'
+  | 'change_pwd_fail_account';
 
 export interface AuthAccountState {
   email: string;
@@ -683,6 +688,17 @@ export interface AuthStore {
    * lại cookie phiên hay coi là đổi mật khẩu thành công.
    */
   setPasswordIfHash(email: string, oldHash: string, newHash: string, nowIso: string): Promise<boolean>;
+  /**
+   * R4-1a (bao-mat.md vòng 4, Trung, chốt chủ dự án 2026-09-28) - thu hồi MỌI phiên hiện có của tài
+   * khoản này ở PHÍA SERVER: bump `passwordChangedAt = nowIso`, KHÔNG đổi `passwordHash`. Mọi token
+   * đã cấp trước mốc này (`token.pwdAt` cũ hơn) sẽ bị đánh `invalid = true` ở lần kiểm định kỳ tiếp
+   * theo (S8, `ACCESS_RECHECK_INTERVAL_MS` - xem `src/lib/auth.ts`) - trễ tối đa khoảng đó, giống mọi
+   * cơ chế kiểm lại định kỳ khác, fail-closed sẵn. Dùng khi khoá tài khoản do đoán sai mật khẩu hiện
+   * tại đủ ngưỡng (`changePasswordAction`) - phiên hiện tại còn được đá NGAY qua
+   * `invalidateCurrentSessionCookie` (phía cookie), hàm này lo phần CÒN LẠI (các phiên khác, nếu có).
+   * `false` nếu không có tài khoản đó.
+   */
+  revokeSessions(email: string, nowIso: string): Promise<boolean>;
   recordThrottle(kind: ThrottleKind, key: string, nowIso: string): Promise<void>;
   countThrottle(kind: ThrottleKind, key: string, sinceIso: string): Promise<number>;
   /**

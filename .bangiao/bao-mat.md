@@ -144,3 +144,39 @@ Ghi chu: security-reviewer chi co quyen doc, phien dieu phoi (C) ghi lai tu bao 
 
 ### Chot cua chu du an (2026-09-28)
 - R3-2: sai mat khau hien tai o man Doi mat khau tinh CHUNG vao bo dem khoa 5 lan cua dang nhap (registerFailedLogin); du nguong thi khoa tai khoan, phien hien tai bi dang xuat, can admin mo khoa.
+
+## Vong 4 (security-reviewer, commit 61805e8)
+
+CAN SUA - R3-1 dong (con R4-3, R4-4 Thap); R3-2 thu tu kiem dung chot nhung viec da phien khong co hieu luc phia server (R4-1 Trung).
+Soi tinh `git diff df636b1..61805e8`. Ghi chu: security-reviewer chi co quyen doc, phien dieu phoi (C) ghi lai tu bao cao cua no; phien C da doi chieu R4-1 voi auth.ts:84.
+
+### R4-1 (Trung) - Khoa do doan mat khau hien tai khong da duoc phien ke tan cong
+- File: src/server/actions.ts:414; src/lib/auth.ts:76-87, 225-232, 331-336.
+- invalidateCurrentSessionCookie chi sua cookie phia client, server khong luu dau vet thu hoi; jwt/applyAccountToToken khong xet lockedAt (Q1=a).
+- Duong 1: ke tan cong bo qua Set-Cookie, giu cookie cu C0 -> van dung duoc toi 8h.
+- Duong 2: cookie C1 invalid=true, accessCheckedAt khong doi -> sau 5 phut nhanh kiem dinh ky goi applyAccountToToken dat invalid=false (auth.ts:84), vd qua GET /api/auth/session (middleware khong chan /api).
+- Cach va: (a) thu hoi phia server khi khoa (vd bump passwordChangedAt -> dang xuat moi phien; hoac sid + bang revoked_session chi da 1 phien) - can chu du an chot; (b) invalid "dinh": nhanh kiem dinh ky khong bao gio ha invalid.
+- Test do: cookie goc C0 sau 5 lan sai + tua qua 5 phut -> jwt tra invalid=true; token da invalid + tua qua 5 phut -> van invalid=true.
+
+### R4-2 (Thap) - Goi song song vuot nguong 5 lan truoc khi khoa
+- File: src/server/actions.ts:384-411 (cung mau login-guard.ts:78-126). lockedAt doc 1 lan truoc bcrypt, throttle chi theo IP (20/15 phut).
+- Cach va: dat cho theo email truoc bcrypt (reserveThrottle theo email, limit = LOGIN_LOCK_THRESHOLD), ap ca login-guard.
+
+### R4-3 (Thap) - Phat hien race trong reissueSessionCookie dua vao so moc gio
+- File: src/server/actions.ts:426-431; src/lib/auth.ts:319. Lech dong ho nhieu instance hoac trung mili giay co the bo sot.
+- Cach va: truyen newHash, invalid khi account.passwordHash !== newHash.
+
+### R4-4 (Thap) - CAS khong kem lockedAt: null / isActive: true; khong kiem isActive truoc khi doi
+- Cach va: tra 'current' khi !account.isActive; them isActive: true, lockedAt: null vao where cua setPasswordIfHash (Prisma + bo nho).
+
+### R4-5 (Thap, ghi nhan) - Khoa 'unknown' dung chung cho change_pwd_fail_ip (cung mau R2-2).
+
+### Diem DAT
+- R3-1: CAS o READ COMMITTED dung, khong ABA (bcrypt co salt), nhanh thua CAS khong cap cookie.
+- R3-2: thu tu locked -> throttle IP -> bcrypt -> registerFailedLogin / release + resetFailedLogin dung chot; tai khoan chi-Google khong dem (L7).
+- R3-4 dat; R3-3 ghi nhan chap nhan duoc.
+- ChangePasswordModal + createPortal: chi render sau thao tac client, khong cham document luc SSR, khong XSS.
+
+### Chot cua chu du an vong 4 (2026-09-28)
+- R4-1 (a): khoa do doan sai mat khau hien tai -> dang xuat MOI phien cua tai khoan (thu hoi phia server, bump passwordChangedAt), khong lam sid/bang thu hoi.
+- R4-2: sua CA 2 man (Doi mat khau va Dang nhap): giu cho luot doan theo tai khoan truoc bcrypt, nguong 5 dung ca khi goi song song.

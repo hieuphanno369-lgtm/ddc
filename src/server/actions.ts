@@ -10,7 +10,7 @@ import { logActivity } from '@/lib/activity';
 import { hashPassword, verifyPassword } from '@/lib/password';
 import { reissueSessionCookie, invalidateCurrentSessionCookie } from '@/lib/auth';
 import { clientIpFrom } from '@/lib/client-ip';
-import { IP_FAIL_LIMIT, IP_FAIL_WINDOW_MS, LOGIN_LOCK_THRESHOLD } from '@/lib/login-policy';
+import { ACCOUNT_GUESS_WINDOW_MS, IP_FAIL_LIMIT, IP_FAIL_WINDOW_MS, LOGIN_LOCK_THRESHOLD } from '@/lib/login-policy';
 import { calcChainPctActual, findCurrentStage, isSameStageSet, normPct, StagesChangedError, stageOrder, validateStageWeights } from '@/lib/stages';
 import { isReservedProjectCode, ProjectCodeTakenError } from '@/lib/project-code';
 import { cellText, type CellValue } from '@/lib/daily-import';
@@ -379,12 +379,14 @@ export async function changePasswordAction(currentPassword: string, newPassword:
   // cho lockedAt/failedLoginCount, giống `checkCredentials`), KHÔNG dùng `repo.findAccount` - kho bộ
   // nhớ (`mock-repo-auth.ts`) lưu lockedAt/passwordChangedAt TÁCH RIÊNG với `repo`, dùng nhầm nguồn
   // sẽ đọc lockedAt sai; `AuthAccountState` cũng KHÔNG bị alias/mutate ngầm như đối tượng `repo`
-  // trả về (mỗi lần `getAccountState` dựng object mới), an toàn để giữ làm "oldHash" cho CAS bên
+  // trả về (mỗi lần `getAccountState` dựng object mới), an toàn để giữ làm \"oldHash\" cho CAS bên
   // dưới dù có await xen giữa.
   const account = await store.getAccountState(user.email);
-  // Tài khoản chỉ Google (passwordHash rỗng) hoặc không còn tồn tại - tránh gọi verifyPassword với
-  // hash rỗng (bcrypt ném lỗi); không tính vào bộ đếm khoá (L7 - giống nhánh chỉ-Google ở đăng nhập).
-  if (!account || account.passwordHash === '') {
+  // Tài khoản chỉ Google (passwordHash rỗng), không còn tồn tại, HOẶC đã bị TẮT (R4-4, bao-mat.md
+  // vòng 4, Thấp - phiên có thể vẫn "hợp lệ" tới `ACCESS_RECHECK_INTERVAL_MS` sau khi bị tắt, T-5) -
+  // tránh gọi verifyPassword với hash rỗng (bcrypt ném lỗi); không tính vào bộ đếm khoá (L7 - giống
+  // nhánh chỉ-Google ở đăng nhập).
+  if (!account || account.passwordHash === '' || !account.isActive) {
     return { ok: false, error: 'current' };
   }
 
@@ -404,13 +406,45 @@ export async function changePasswordAction(currentPassword: string, newPassword:
   const ipReserved = await store.reserveThrottle('change_pwd_fail_ip', ipKey, nowIso, sinceIpIso, IP_FAIL_LIMIT);
   if (ipReserved === null) return { ok: false, error: 'ip_limited' };
 
-  if (!(await verifyPassword(currentPassword, oldHash))) {
+  // R4-2 (bao-mat.md vòng 4, Thấp) - "đặt chỗ" NGUYÊN TỬ theo TÀI KHOẢN (giống IP ở trên) TRƯỚC
+  // bcrypt: nhiều yêu cầu chạy đồng thời (Promise.all) cùng email đều đọc `account.failedLoginCount`
+  // CŨ (chưa ai kịp ghi `registerFailedLogin`) nên đều lọt qua kiểm `lockedAt` ở trên và đều chạy
+  // bcrypt thật - giới hạn số lượt ĐANG CHẠY ĐỒNG THỜI không vượt số lượt còn lại trước ngưỡng khoá;
+  // luôn rút lại ngay sau khi bcrypt xong (`finally`) - bộ đếm khoá CHÍNH THỨC vẫn là
+  // `registerFailedLogin`/`failedLoginCount`, chỗ đặt ở đây chỉ có tác dụng trong lúc bcrypt chạy.
+  const accountRemaining = LOGIN_LOCK_THRESHOLD - account.failedLoginCount;
+  const sinceAccountIso = new Date(now.getTime() - ACCOUNT_GUESS_WINDOW_MS).toISOString();
+  const accountReserved =
+    accountRemaining > 0
+      ? await store.reserveThrottle('change_pwd_fail_account', user.email, nowIso, sinceAccountIso, accountRemaining)
+      : null;
+  if (accountReserved === null) {
+    // Đã đủ (hoặc đang đủ, do các lượt song song khác) lượt đoán đồng thời cho tài khoản này - coi
+    // như đã khoá, KHÔNG chạy bcrypt thật (giữ chỗ IP đã đặt, tính là 1 lượt sai theo IP).
+    return { ok: false, error: 'locked' };
+  }
+
+  let passwordOk: boolean;
+  try {
+    passwordOk = await verifyPassword(currentPassword, oldHash);
+  } finally {
+    await store.releaseThrottle(accountReserved);
+  }
+
+  if (!passwordOk) {
     // R3-2 - sai mật khẩu hiện tại tính CHUNG vào bộ đếm khoá 5 lần của đăng nhập; đủ ngưỡng thì
     // khoá tài khoản VÀ đá luôn phiên hiện tại (khác đăng nhập sai - ở đây kẻ đoán mật khẩu đang giữ
     // chính phiên này).
     const result = await store.registerFailedLogin(user.email, LOGIN_LOCK_THRESHOLD, nowIso);
     if (result?.locked) {
-      if (result.justLocked) await logActivity(user, 'login_locked', String(result.count));
+      if (result.justLocked) {
+        await logActivity(user, 'login_locked', String(result.count));
+        // R4-1a (bao-mat.md vòng 4, Trung, chốt chủ dự án 2026-09-28) - khoá do đoán sai mật khẩu
+        // hiện tại phải đăng xuất MỌI phiên của tài khoản, không chỉ phiên hiện tại: thu hồi phía
+        // server bằng cách bump `passwordChangedAt` (S8 ở `src/lib/auth.ts` vô hiệu mọi token có
+        // `pwdAt` cũ hơn mốc này ở lần kiểm định kỳ tiếp theo, tối đa `ACCESS_RECHECK_INTERVAL_MS`).
+        await store.revokeSessions(user.email, nowIso);
+      }
       await invalidateCurrentSessionCookie(user.email);
     }
     return { ok: false, error: result?.locked ? 'locked' : 'current' };
@@ -428,7 +462,9 @@ export async function changePasswordAction(currentPassword: string, newPassword:
   const changed = await store.setPasswordIfHash(user.email, oldHash, newHash, changedAtIso);
   if (!changed) return { ok: false, error: 'current' };
 
-  await reissueSessionCookie(user.email, changedAtIso);
+  // R4-3 (bao-mat.md vòng 4, Thấp) - cấp lại cookie theo HASH mới ghi (`newHash`) thay vì mốc giờ:
+  // so hash trực tiếp không lệ thuộc độ chính xác đồng hồ (nhiều instance) hay trùng mili giây.
+  await reissueSessionCookie(user.email, newHash);
   await logActivity(user, 'change_password');
   return { ok: true };
 }

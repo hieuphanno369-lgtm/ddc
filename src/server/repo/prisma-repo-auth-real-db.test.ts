@@ -115,6 +115,47 @@ describe.skipIf(!hasDb)('prismaAuthStore tren Postgres that (DB _c)', () => {
     expect((await prismaAuthStore.getAccountState(EMAIL_A))?.passwordHash).toBe(state?.passwordHash);
   });
 
+  it('R4-1a (bao-mat.md vong 4, Trung) - revokeSessions bump passwordChangedAt, KHONG doi passwordHash', async () => {
+    await prisma.userRole.update({ where: { email: EMAIL_A }, data: { passwordHash: 'hash-truoc-revoke' } });
+    const nowIso = new Date().toISOString();
+
+    const ok = await prismaAuthStore.revokeSessions(EMAIL_A, nowIso);
+
+    expect(ok).toBe(true);
+    const state = await prismaAuthStore.getAccountState(EMAIL_A);
+    expect(state?.passwordChangedAt).toBe(new Date(nowIso).toISOString());
+    expect(state?.passwordHash).toBe('hash-truoc-revoke');
+  });
+
+  it('R4-1a - khong co tai khoan -> tra false', async () => {
+    expect(await prismaAuthStore.revokeSessions('khong-ton-tai-p3e@daidung.com.vn', new Date().toISOString())).toBe(false);
+  });
+
+  it('R4-4 (bao-mat.md vong 4, Thap) - setPasswordIfHash tra false khi tai khoan da bi TAT (isActive=false) xen giua, du oldHash con khop', async () => {
+    await prisma.userRole.update({ where: { email: EMAIL_A }, data: { passwordHash: 'hash-r4-4-active', isActive: false } });
+    const nowIso = new Date().toISOString();
+
+    const ok = await prismaAuthStore.setPasswordIfHash(EMAIL_A, 'hash-r4-4-active', 'hash-r4-4-moi', nowIso);
+
+    expect(ok).toBe(false);
+    const state = await prismaAuthStore.getAccountState(EMAIL_A);
+    expect(state?.passwordHash).toBe('hash-r4-4-active');
+    await prisma.userRole.update({ where: { email: EMAIL_A }, data: { isActive: true } });
+  });
+
+  it('R4-4 - setPasswordIfHash tra false khi tai khoan dang bi KHOA (lockedAt khac null), du oldHash con khop', async () => {
+    await prisma.userRole.update({ where: { email: EMAIL_A }, data: { passwordHash: 'hash-r4-4-locked' } });
+    await prismaAuthStore.registerFailedLogin(EMAIL_A, 1, new Date().toISOString()); // khoa ngay lan sai dau
+    const nowIso = new Date().toISOString();
+
+    const ok = await prismaAuthStore.setPasswordIfHash(EMAIL_A, 'hash-r4-4-locked', 'hash-r4-4-moi', nowIso);
+
+    expect(ok).toBe(false);
+    const state = await prismaAuthStore.getAccountState(EMAIL_A);
+    expect(state?.passwordHash).toBe('hash-r4-4-locked');
+    await prismaAuthStore.unlockAccount(EMAIL_A);
+  });
+
   it('L5 - consumeResetToken tra { ok: false } khi tai khoan da chuyen sang chi-Google du token con han', async () => {
     const nowIso = new Date().toISOString();
     const expiresAtIso = new Date(Date.now() + 30 * 60_000).toISOString();

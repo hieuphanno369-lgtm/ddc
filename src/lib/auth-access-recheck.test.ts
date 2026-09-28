@@ -110,6 +110,47 @@ describe('authOptions.callbacks.jwt - T-5 doc lai quyen dinh ky', () => {
 
     expect(token.invalid).toBe(true);
   });
+
+  it('R4-1b (bao-mat.md vong 4, Trung) - token DA invalid=true tu truoc, DB van isActive va CHUA bump passwordChangedAt -> nhanh kiem dinh ky KHONG duoc ha invalid ve false (invalid phai "dinh")', async () => {
+    findUniqueMock.mockResolvedValue({
+      role: 'bod', canViewFinance: true, isActive: true, passwordChangedAt: null,
+      email: 'bod@daidung.com.vn', name: 'BOD', passwordHash: 'x', createdAt: new Date(), lastLoginAt: null,
+    });
+    const staleToken = {
+      email: 'bod@daidung.com.vn',
+      role: 'bod',
+      canViewFinance: true,
+      pwdAt: 0,
+      invalid: true, // vd da bi invalidateCurrentSessionCookie danh dau vo hieu tu truoc
+      accessCheckedAt: Date.now() - ACCESS_RECHECK_INTERVAL_MS - 1,
+    };
+
+    const token = await jwt({ token: staleToken } as never);
+
+    expect(token.invalid).toBe(true);
+  });
+
+  it('R4-1b - token DA invalid=true tu truoc, sau NHIEU vong kiem dinh ky lien tiep (moi vong tua qua ACCESS_RECHECK_INTERVAL_MS) van khong bao gio ha ve false', async () => {
+    findUniqueMock.mockResolvedValue({
+      role: 'bod', canViewFinance: true, isActive: true, passwordChangedAt: null,
+      email: 'bod@daidung.com.vn', name: 'BOD', passwordHash: 'x', createdAt: new Date(), lastLoginAt: null,
+    });
+    let token: Record<string, unknown> = {
+      email: 'bod@daidung.com.vn',
+      role: 'bod',
+      canViewFinance: true,
+      pwdAt: 0,
+      invalid: true,
+      accessCheckedAt: Date.now() - ACCESS_RECHECK_INTERVAL_MS - 1,
+    };
+
+    for (let i = 0; i < 3; i++) {
+      token = (await jwt({ token } as never)) as Record<string, unknown>;
+      (token as { accessCheckedAt: number }).accessCheckedAt = Date.now() - ACCESS_RECHECK_INTERVAL_MS - 1;
+    }
+
+    expect(token.invalid).toBe(true);
+  });
 });
 
 /**

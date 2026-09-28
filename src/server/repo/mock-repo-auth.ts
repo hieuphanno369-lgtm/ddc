@@ -121,17 +121,30 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
     // R3-1 (bao-mat.md vong 3, Trung) - compare-and-swap: chi doi khi passwordHash HIEN TAI cua tai
     // khoan van dung bang oldHash (da kiem o buoc verify truoc do trong CUNG request) - mo phong dung
     // hanh vi WHERE ... AND passwordHash = oldHash cua ban Prisma.
+    // R4-4 (bao-mat.md vong 4, Thap) - tai khoan bi TAT hoac bi KHOA xen giua cung phai lam CAS thua,
+    // giong ban Prisma (them dieu kien isActive/lockedAt).
     async setPasswordIfHash(email, oldHash, newHash, nowIso) {
       const key = findEmail(email);
       if (!key) return false;
       const account = source.findAccount(key);
-      if (!account || account.passwordHash !== oldHash) return false;
-      source.changePassword(key, newHash);
+      if (!account || account.passwordHash !== oldHash || !account.isActive) return false;
       const c = countersFor(key);
+      if (c.lockedAt !== null) return false;
+      source.changePassword(key, newHash);
       counters.set(key, { ...c, passwordChangedAt: nowIso });
       for (const row of resetTokens) {
         if (row.email === key && row.usedAt === null) row.usedAt = nowIso;
       }
+      return true;
+    },
+
+    // R4-1a (bao-mat.md vong 4, Trung, chot chu du an 2026-09-28) - thu hoi moi phien: bump
+    // passwordChangedAt, KHONG doi passwordHash.
+    async revokeSessions(email, nowIso) {
+      const key = findEmail(email);
+      if (!key) return false;
+      const c = countersFor(key);
+      counters.set(key, { ...c, passwordChangedAt: nowIso });
       return true;
     },
 

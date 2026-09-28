@@ -43,6 +43,17 @@ export const GOOGLE_DENIED_WINDOW_MS = UNKNOWN_EMAIL_WINDOW_MS;
 export const RESET_SUBMIT_IP_LIMIT = 20;
 export const RESET_SUBMIT_IP_WINDOW_MS = 15 * 60_000;
 
+/**
+ * R4-2 (bao-mat.md vòng 4, Thấp) - cửa sổ "giữ chỗ" NGUYÊN TỬ theo TÀI KHOẢN (email) TRƯỚC bcrypt ở
+ * `checkCredentials` (đăng nhập) và `changePasswordAction` (đổi mật khẩu): nhiều yêu cầu ĐỒNG THỜI
+ * cho CÙNG 1 email đều đọc `failedLoginCount` CŨ (chưa ai kịp ghi `registerFailedLogin`) nên đều lọt
+ * qua kiểm tra `lockedAt` và đều chạy bcrypt thật, vượt hẳn `LOGIN_LOCK_THRESHOLD`. Cửa sổ này CHỈ
+ * cần đủ ngắn để bắt các lượt THỰC SỰ chạy chồng nhau (giữ chỗ rồi RÚT LẠI NGAY sau khi bcrypt xong,
+ * không dùng để đếm dài hạn như `IP_FAIL_WINDOW_MS`) - bộ đếm khoá CHÍNH THỨC vẫn là
+ * `failedLoginCount`/`registerFailedLogin`, không đổi.
+ */
+export const ACCOUNT_GUESS_WINDOW_MS = 5_000;
+
 export const EMAIL_MAX_LENGTH = 254;
 
 /** trim + hạ chữ thường; rỗng, dài hơn 254, không có đúng 1 '@' -> null. */

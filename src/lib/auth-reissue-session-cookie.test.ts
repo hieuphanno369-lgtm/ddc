@@ -3,6 +3,9 @@
  * vừa tự đổi mật khẩu, đọc token từ cookie HIỆN TẠI của request (không tin dữ liệu client gửi lên),
  * làm mới `pwdAt` theo mốc `passwordChangedAt` mới nhất trong DB, mã hoá bằng đúng secret/maxAge của
  * `authOptions`. Test giải mã lại cookie mới để xác nhận nội dung thật, không chỉ spy lời gọi.
+ * R4-3 (bao-mat.md vòng 4, Thấp) - tham số thứ 2 là `newHash` (hash mật khẩu vừa ghi), KHÔNG còn là
+ * mốc giờ `changedAtIso` - so trực tiếp `passwordHash` trong DB với `newHash` để phát hiện race
+ * (không lệ thuộc độ chính xác đồng hồ hay trùng mili giây).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { decode as decodeSessionToken, encode as encodeSessionToken } from 'next-auth/jwt';
@@ -53,27 +56,28 @@ async function seedCookie(token: Partial<JWT>) {
 }
 
 const CHANGED_AT_ISO = '2026-09-28T00:10:00.000Z';
+const NEW_HASH = 'hash-moi-vua-ghi';
 
 describe('reissueSessionCookie', () => {
   it('khong co cookie phien nao dang mo -> khong lam gi, khong nem loi', async () => {
-    await expect(reissueSessionCookie(EMAIL, CHANGED_AT_ISO)).resolves.toBeUndefined();
+    await expect(reissueSessionCookie(EMAIL, NEW_HASH)).resolves.toBeUndefined();
     expect(cookieJar.setCalls).toHaveLength(0);
   });
 
   it('cookie hien tai thuoc EMAIL KHAC -> khong cap lai (khong lam moi nham phien cua nguoi khac)', async () => {
     await seedCookie({ email: 'khac@daidung.com.vn', role: 'viewer', pwdAt: 0 });
 
-    await reissueSessionCookie(EMAIL, CHANGED_AT_ISO);
+    await reissueSessionCookie(EMAIL, NEW_HASH);
 
     expect(cookieJar.setCalls).toHaveLength(0);
   });
 
-  it('dung email vua doi mat khau, DB khop changedAtIso truyen vao -> cap cookie MOI, pwdAt = passwordChangedAt tu DB, invalid = false', async () => {
+  it('dung email vua doi mat khau, DB co passwordHash KHOP newHash truyen vao -> cap cookie MOI, pwdAt = passwordChangedAt tu DB, invalid = false', async () => {
     await seedCookie({ email: EMAIL, role: 'viewer', canViewFinance: false, pwdAt: 0, invalid: true });
     getAccountStateMock.mockResolvedValue({
       email: EMAIL,
       name: 'BOD',
-      passwordHash: 'x',
+      passwordHash: NEW_HASH,
       role: 'bod',
       canViewFinance: true,
       isActive: true,
@@ -82,7 +86,7 @@ describe('reissueSessionCookie', () => {
       passwordChangedAt: CHANGED_AT_ISO,
     });
 
-    await reissueSessionCookie(EMAIL, CHANGED_AT_ISO);
+    await reissueSessionCookie(EMAIL, NEW_HASH);
 
     expect(cookieJar.setCalls).toHaveLength(1);
     const call = cookieJar.setCalls[0];
@@ -101,28 +105,28 @@ describe('reissueSessionCookie', () => {
     await seedCookie({ email: EMAIL, role: 'viewer', pwdAt: 0 });
     getAccountStateMock.mockResolvedValue(null);
 
-    await reissueSessionCookie(EMAIL, CHANGED_AT_ISO);
+    await reissueSessionCookie(EMAIL, NEW_HASH);
 
     const call = cookieJar.setCalls[0];
     const decoded = await decodeSessionToken({ token: call.value, secret: SECRET });
     expect(decoded?.invalid).toBe(true);
   });
 
-  it('R3-1 (bao-mat.md vong 3, Trung) - DB co passwordChangedAt MOI HON changedAtIso truyen vao (bi 1 request KHAC ghi de xen giua T2 va T3) -> invalid = true, KHONG hoi sinh nham bang moc cu', async () => {
+  it('R3-1/R4-3 (bao-mat.md vong 3+4, Trung/Thap) - DB co passwordHash KHAC newHash truyen vao (bi 1 request KHAC ghi de xen giua T2 va T3) -> invalid = true, KHONG hoi sinh nham', async () => {
     await seedCookie({ email: EMAIL, role: 'viewer', pwdAt: 0 });
     getAccountStateMock.mockResolvedValue({
       email: EMAIL,
       name: 'BOD',
-      passwordHash: 'x',
+      passwordHash: 'hash-cua-request-khac', // KHAC newHash - request khac da thang
       role: 'bod',
       canViewFinance: true,
       isActive: true,
       failedLoginCount: 0,
       lockedAt: null,
-      passwordChangedAt: '2026-09-28T00:20:00.000Z', // MOI HON changedAtIso ma request nay vua ghi
+      passwordChangedAt: '2026-09-28T00:20:00.000Z', // moc cua request khac
     });
 
-    await reissueSessionCookie(EMAIL, CHANGED_AT_ISO);
+    await reissueSessionCookie(EMAIL, NEW_HASH);
 
     const call = cookieJar.setCalls[0];
     const decoded = await decodeSessionToken({ token: call.value, secret: SECRET });
@@ -130,12 +134,12 @@ describe('reissueSessionCookie', () => {
     expect(decoded?.pwdAt).toBe(Date.parse('2026-09-28T00:20:00.000Z')); // van doc moc THAT tu DB
   });
 
-  it('DB co passwordChangedAt bang dung changedAtIso truyen vao (khong co race) -> khong tu dat invalid', async () => {
+  it('DB co passwordHash KHOP dung newHash truyen vao (khong co race) -> khong tu dat invalid', async () => {
     await seedCookie({ email: EMAIL, role: 'viewer', pwdAt: 0 });
     getAccountStateMock.mockResolvedValue({
       email: EMAIL,
       name: 'BOD',
-      passwordHash: 'x',
+      passwordHash: NEW_HASH,
       role: 'bod',
       canViewFinance: true,
       isActive: true,
@@ -144,7 +148,7 @@ describe('reissueSessionCookie', () => {
       passwordChangedAt: CHANGED_AT_ISO,
     });
 
-    await reissueSessionCookie(EMAIL, CHANGED_AT_ISO);
+    await reissueSessionCookie(EMAIL, NEW_HASH);
 
     const call = cookieJar.setCalls[0];
     const decoded = await decodeSessionToken({ token: call.value, secret: SECRET });

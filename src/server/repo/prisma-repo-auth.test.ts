@@ -192,12 +192,12 @@ describe('setPassword', () => {
 });
 
 describe('setPasswordIfHash - R3-1 (bao-mat.md vong 3, Trung) compare-and-swap', () => {
-  it('count 1 (oldHash con khop luc ghi) -> true, where loc CA email VA passwordHash = oldHash', async () => {
+  it('count 1 (oldHash con khop luc ghi) -> true, where loc email VA passwordHash = oldHash VA isActive/lockedAt (R4-4)', async () => {
     userRoleUpdateMany.mockResolvedValueOnce({ count: 1 });
     const r = await prismaAuthStore.setPasswordIfHash('a@daidung.com.vn', 'hash-cu', 'hash-moi', NOW_ISO);
     expect(r).toBe(true);
     expect(userRoleUpdateMany).toHaveBeenCalledWith({
-      where: { email: 'a@daidung.com.vn', passwordHash: 'hash-cu' },
+      where: { email: 'a@daidung.com.vn', passwordHash: 'hash-cu', isActive: true, lockedAt: null },
       data: { passwordHash: 'hash-moi', passwordChangedAt: new Date(NOW_ISO) },
     });
   });
@@ -216,6 +216,23 @@ describe('setPasswordIfHash - R3-1 (bao-mat.md vong 3, Trung) compare-and-swap',
       where: { email: 'a@daidung.com.vn', usedAt: null },
       data: { usedAt: new Date(NOW_ISO) },
     });
+  });
+});
+
+describe('revokeSessions - R4-1a (bao-mat.md vong 4, Trung, chot chu du an 2026-09-28)', () => {
+  it('count > 0 -> true, chi bump passwordChangedAt, KHONG dung passwordHash', async () => {
+    userRoleUpdateMany.mockResolvedValueOnce({ count: 1 });
+    const r = await prismaAuthStore.revokeSessions('a@daidung.com.vn', NOW_ISO);
+    expect(r).toBe(true);
+    expect(userRoleUpdateMany).toHaveBeenCalledWith({
+      where: { email: 'a@daidung.com.vn' },
+      data: { passwordChangedAt: new Date(NOW_ISO) },
+    });
+  });
+
+  it('count 0 (khong co tai khoan) -> false', async () => {
+    userRoleUpdateMany.mockResolvedValueOnce({ count: 0 });
+    expect(await prismaAuthStore.revokeSessions('x@daidung.com.vn', NOW_ISO)).toBe(false);
   });
 });
 

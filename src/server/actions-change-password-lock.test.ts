@@ -13,6 +13,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 import type { CurrentUser } from '@/lib/session';
 import { hashPassword } from '@/lib/password';
 import * as passwordLib from '@/lib/password';
+import { LOGIN_LOCK_THRESHOLD } from '@/lib/login-policy';
 
 vi.mock('next/cache', () => ({ revalidateTag: vi.fn(), revalidatePath: vi.fn() }));
 vi.mock('@/server/repo', async () => {
@@ -151,5 +152,63 @@ describe('changePasswordAction - R3-1 compare-and-swap (chong race ghi de mat kh
     // Ban ghi cua request kia (RACE_HASH) phai con nguyen - request nay KHONG duoc phep ghi de len.
     const state = await store.getAccountState(EMAIL);
     expect(state?.passwordHash).toBe(RACE_HASH);
+  });
+});
+
+describe('changePasswordAction - R4-1a (bao-mat.md vong 4, Trung, chot chu du an 2026-09-28) - khoa do doan sai phai thu hoi MOI phien phia server', () => {
+  it('lan sai VUA cham nguong (justLocked) -> goi store.revokeSessions(email, nowIso) DUNG 1 lan, bump passwordChangedAt', async () => {
+    const revokeSpy = vi.spyOn(store, 'revokeSessions');
+    for (let i = 0; i < 4; i++) await changePasswordAction('sai-mk', 'MatKhauMoiTuDoi1');
+    expect(revokeSpy).not.toHaveBeenCalled();
+
+    const before = await store.getAccountState(EMAIL);
+    expect(before?.passwordChangedAt).toBeNull();
+
+    const r5 = await changePasswordAction('sai-mk', 'MatKhauMoiTuDoi1');
+    expect(r5).toEqual({ ok: false, error: 'locked' });
+
+    expect(revokeSpy).toHaveBeenCalledTimes(1);
+    expect(revokeSpy).toHaveBeenCalledWith(EMAIL, expect.any(String));
+    const after = await store.getAccountState(EMAIL);
+    // revokeSessions bump passwordChangedAt - S8 (auth.ts) se vo hieu moi token co pwdAt cu hon moc nay.
+    expect(after?.passwordChangedAt).not.toBeNull();
+  });
+
+  it('da khoa tu truoc, goi them lan nua -> KHONG goi revokeSessions THEM lan nua (chi thu hoi 1 lan duy nhat luc VUA khoa)', async () => {
+    for (let i = 0; i < 5; i++) await changePasswordAction('sai-mk', 'MatKhauMoiTuDoi1');
+    const revokeSpy = vi.spyOn(store, 'revokeSessions');
+    revokeSpy.mockClear();
+
+    await changePasswordAction(REAL_PW, 'MatKhauMoiTuDoi1');
+
+    expect(revokeSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('changePasswordAction - R4-2 (bao-mat.md vong 4, Thap) - gioi han theo TAI KHOAN truoc bcrypt khi goi song song', () => {
+  it('Promise.all 10 luot sai dong thoi (verifyPassword co do tre that cua bcrypt) -> verifyPassword goi <= LOGIN_LOCK_THRESHOLD lan, tai khoan bi khoa', async () => {
+    const spy = vi.spyOn(passwordLib, 'verifyPassword');
+    spy.mockClear();
+    const N = 10;
+    const calls = Array.from({ length: N }, () => changePasswordAction('sai-mk', 'MatKhauMoiTuDoi1'));
+    await Promise.all(calls);
+
+    expect(spy.mock.calls.length).toBeLessThanOrEqual(LOGIN_LOCK_THRESHOLD);
+    const state = await store.getAccountState(EMAIL);
+    expect(state?.lockedAt).not.toBeNull();
+    expect(state?.failedLoginCount).toBe(LOGIN_LOCK_THRESHOLD);
+  });
+});
+
+describe('changePasswordAction - R4-4 (bao-mat.md vong 4, Thap) - tai khoan bi TAT khong duoc doi mat khau', () => {
+  it('isActive = false -> tra current, KHONG goi verifyPassword', async () => {
+    repo.setAccountActive(EMAIL, false);
+    const spy = vi.spyOn(passwordLib, 'verifyPassword');
+    spy.mockClear();
+
+    const r = await changePasswordAction(REAL_PW, 'MatKhauMoiTuDoi1');
+
+    expect(r).toEqual({ ok: false, error: 'current' });
+    expect(spy).not.toHaveBeenCalled();
   });
 });

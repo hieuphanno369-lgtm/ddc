@@ -1,6 +1,7 @@
 import { hashPassword, verifyPassword } from '@/lib/password';
 import { logActivity } from '@/lib/activity';
 import {
+  ACCOUNT_GUESS_WINDOW_MS,
   IP_FAIL_LIMIT,
   IP_FAIL_WINDOW_MS,
   LOGIN_LOCK_THRESHOLD,
@@ -115,7 +116,30 @@ export async function checkCredentials(
     return { ok: false, reason: count >= LOGIN_LOCK_THRESHOLD ? 'locked' : 'invalid' };
   }
 
-  const passwordMatches = await verifyPassword(password, account.passwordHash);
+  // R4-2 (bao-mat.md vòng 4, Thấp) - "đặt chỗ" NGUYÊN TỬ theo TÀI KHOẢN (giống IP ở bước 1) NGAY
+  // TRƯỚC bcrypt: nhiều yêu cầu chạy đồng thời cùng email (`Promise.all`) đều đọc `account` ở trên
+  // với `failedLoginCount` CŨ (chưa ai kịp ghi `registerFailedLogin`) nên đều lọt qua kiểm `lockedAt`
+  // ở bước 3 và đều chạy bcrypt thật - vượt hẳn `LOGIN_LOCK_THRESHOLD`. Giới hạn số lượt ĐANG CHẠY
+  // ĐỒNG THỜI không vượt số lượt còn lại trước ngưỡng khoá; luôn rút lại ngay sau khi bcrypt xong
+  // (`finally`) - bộ đếm khoá CHÍNH THỨC vẫn là `registerFailedLogin`/`failedLoginCount`, không đổi.
+  const accountRemaining = LOGIN_LOCK_THRESHOLD - account.failedLoginCount;
+  const sinceAccountIso = new Date(now.getTime() - ACCOUNT_GUESS_WINDOW_MS).toISOString();
+  const accountReserved =
+    accountRemaining > 0
+      ? await store.reserveThrottle('login_fail_account', email, nowIso, sinceAccountIso, accountRemaining)
+      : null;
+  if (accountReserved === null) {
+    // Đã đủ (hoặc đang đủ, do các lượt song song khác) lượt đoán đồng thời cho tài khoản này - coi
+    // như đã khoá, KHÔNG chạy bcrypt thật (chỗ IP đã đặt ở bước 1 vẫn tính là 1 lượt sai).
+    return { ok: false, reason: 'locked' };
+  }
+
+  let passwordMatches: boolean;
+  try {
+    passwordMatches = await verifyPassword(password, account.passwordHash);
+  } finally {
+    await store.releaseThrottle(accountReserved);
+  }
 
   if (!passwordMatches || !account.isActive) {
     const result = await store.registerFailedLogin(email, LOGIN_LOCK_THRESHOLD, nowIso);

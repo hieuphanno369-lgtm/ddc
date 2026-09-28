@@ -221,6 +221,37 @@ describe('setPasswordIfHash - R3-1 (bao-mat.md vong 3, Trung) compare-and-swap',
     const ok = await store.setPasswordIfHash('khong-co@daidung.com.vn', 'x', 'y', '2026-09-28T00:30:00.000Z');
     expect(ok).toBe(false);
   });
+
+  it('R4-4 (bao-mat.md vong 4, Thap) - tai khoan da bi TAT (isActive=false) -> tra false, KHONG doi mat khau', async () => {
+    accounts[0].isActive = false;
+    const ok = await store.setPasswordIfHash('a@daidung.com.vn', 'hash-cu', 'hash-moi', '2026-09-28T00:30:00.000Z');
+    expect(ok).toBe(false);
+    const state = await store.getAccountState('a@daidung.com.vn');
+    expect(state?.passwordHash).toBe('hash-cu');
+  });
+
+  it('R4-4 - tai khoan dang bi KHOA (lockedAt khac null) -> tra false, KHONG doi mat khau', async () => {
+    for (let i = 1; i <= 5; i++) await store.registerFailedLogin('a@daidung.com.vn', 5, `2026-09-27T00:0${i}:00.000Z`);
+    const ok = await store.setPasswordIfHash('a@daidung.com.vn', 'hash-cu', 'hash-moi', '2026-09-28T00:30:00.000Z');
+    expect(ok).toBe(false);
+    const state = await store.getAccountState('a@daidung.com.vn');
+    expect(state?.passwordHash).toBe('hash-cu');
+  });
+});
+
+describe('revokeSessions - R4-1a (bao-mat.md vong 4, Trung, chot chu du an 2026-09-28)', () => {
+  it('bump passwordChangedAt, KHONG doi passwordHash, tra true', async () => {
+    const ok = await store.revokeSessions('a@daidung.com.vn', '2026-09-28T01:00:00.000Z');
+    expect(ok).toBe(true);
+    const state = await store.getAccountState('a@daidung.com.vn');
+    expect(state?.passwordChangedAt).toBe('2026-09-28T01:00:00.000Z');
+    expect(state?.passwordHash).toBe('hash-cu');
+  });
+
+  it('khong co tai khoan -> tra false', async () => {
+    const ok = await store.revokeSessions('khong-co@daidung.com.vn', '2026-09-28T01:00:00.000Z');
+    expect(ok).toBe(false);
+  });
 });
 
 describe('reserveThrottle / releaseThrottle (R2 vong 2, N2 vong 3 - tra/nhan id thay vi boolean)', () => {

@@ -223,6 +223,14 @@ export const authOptions: NextAuthOptions = {
       if (typeof email === 'string' && email) {
         const last = typeof token.accessCheckedAt === 'number' ? token.accessCheckedAt : 0;
         if (Date.now() - last > ACCESS_RECHECK_INTERVAL_MS) {
+          // R4-1b (bao-mat.md vòng 4, Trung) - `invalid` phải "dính": nếu token ĐÃ bị đánh dấu vô
+          // hiệu từ trước (vd `invalidateCurrentSessionCookie` khi khoá tài khoản do đoán sai mật
+          // khẩu hiện tại - R4-1a), nhánh kiểm định kỳ này KHÔNG BAO GIỜ được hạ nó về hợp lệ lại.
+          // `applyAccountToToken` bên dưới có thể tạm đặt lại `invalid = false` (chỉ dựa theo
+          // `isActive` hiện tại của DB), rồi phép so `changedAtMs > pwdAt` có thể (hoặc không) đặt
+          // lại `true` - nếu DB CHƯA (hoặc không) phản ánh lý do vô hiệu ban đầu bằng
+          // `passwordChangedAt` thì kết quả cuối vẫn phải là `true` vì token này đã từng bị vô hiệu.
+          const wasInvalid = token.invalid === true;
           const account = await getAuthStore().getAccountState(email);
           applyAccountToToken(token, account);
           // S8 - mật khẩu đã đổi SAU lúc token này đăng nhập (`token.pwdAt`) -> vô hiệu, dù
@@ -230,6 +238,7 @@ export const authOptions: NextAuthOptions = {
           // trễ tối đa `ACCESS_RECHECK_INTERVAL_MS` như mọi kiểm lại định kỳ khác - T-5).
           const changedAtMs = account?.passwordChangedAt ? Date.parse(account.passwordChangedAt) : 0;
           if (changedAtMs > (token.pwdAt ?? 0)) token.invalid = true;
+          if (wasInvalid) token.invalid = true;
         }
       }
       return token;
@@ -300,23 +309,28 @@ async function withOwnSessionCookie(email: string, tag: string, mutate: (token: 
 }
 
 /**
- * R3-1 (bao-mat.md vòng 3, Trung) - nhận thêm `changedAtIso` (mốc `passwordChangedAt` mà
- * `changePasswordAction` VỪA GHI qua `setPasswordIfHash`, không phải đọc lại DB rồi tin ngay): giữa
- * lúc ghi xong (T2) và lúc hàm này đọc lại tài khoản (T3) vẫn còn 1 khe hở race - 1 request KHÁC
- * (admin đặt mật khẩu tạm, đặt lại qua email) có thể đã ghi đè mật khẩu SAU T2. Nếu chỉ tin DB một
- * cách vô điều kiện như bản cũ, hàm này sẽ "hồi sinh" nhầm phiên bằng 1 mốc `pwdAt` không còn đúng -
- * xoá sạch tác dụng của lần đổi mật khẩu KHÁC vừa thắng. Nay so `passwordChangedAt` mới nhất trong DB
- * với `changedAtIso`: khớp (trường hợp bình thường, không có race) thì làm mới `pwdAt` như cũ; DB mới
- * HƠN `changedAtIso` (bị ghi đè sau khi request này đã ghi) thì vô hiệu ngay (fail-closed) thay vì
- * hồi sinh nhầm.
+ * R3-1 (bao-mat.md vòng 3, Trung) - nhận thêm `newHash` (hash mới mà `changePasswordAction` VỪA GHI
+ * qua `setPasswordIfHash`, không phải đọc lại DB rồi tin ngay): giữa lúc ghi xong (T2) và lúc hàm này
+ * đọc lại tài khoản (T3) vẫn còn 1 khe hở race - 1 request KHÁC (admin đặt mật khẩu tạm, đặt lại qua
+ * email) có thể đã ghi đè mật khẩu SAU T2. Nếu chỉ tin DB một cách vô điều kiện như bản cũ, hàm này sẽ
+ * "hồi sinh" nhầm phiên bằng 1 mốc `pwdAt` không còn đúng - xoá sạch tác dụng của lần đổi mật khẩu
+ * KHÁC vừa thắng. Nay so `passwordHash` MỚI NHẤT trong DB với `newHash`: khớp (trường hợp bình
+ * thường, không có race) thì làm mới `pwdAt` như cũ; khác (bị ghi đè sau khi request này đã ghi) thì
+ * vô hiệu ngay (fail-closed) thay vì hồi sinh nhầm.
+ * R4-3 (bao-mat.md vòng 4, Thấp) - so trực tiếp `passwordHash` thay vì so lệch mốc giờ `changedAtIso`
+ * như bản cũ: so hash không phụ thuộc độ chính xác đồng hồ (nhiều instance) hay 2 lần ghi trùng mili
+ * giây, tránh bỏ sót race mà phép so mốc giờ có thể bỏ lọt.
  */
-export async function reissueSessionCookie(email: string, changedAtIso: string): Promise<void> {
+export async function reissueSessionCookie(email: string, newHash: string): Promise<void> {
   await withOwnSessionCookie(email, 'reissueSessionCookie', async (token) => {
     const account = await getAuthStore().getAccountState(email);
     applyAccountToToken(token, account);
     const dbChangedAtMs = account?.passwordChangedAt ? Date.parse(account.passwordChangedAt) : 0;
     token.pwdAt = dbChangedAtMs;
-    if (dbChangedAtMs > Date.parse(changedAtIso)) token.invalid = true;
+    // R4-3 (bao-mat.md vòng 4, Thấp) - so trực tiếp HASH hiện tại trong DB với `newHash` vừa ghi
+    // (thay vì so lệch mốc giờ `changedAtIso`): tránh bỏ sót khi lệch đồng hồ giữa nhiều instance
+    // hoặc 2 lần ghi trùng mili giây - so hash không phụ thuộc độ chính xác của đồng hồ.
+    if (!account || account.passwordHash !== newHash) token.invalid = true;
   });
 }
 
