@@ -3,7 +3,7 @@ import type { NextAuthOptions } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
 import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import type { Role, UserAccount } from '@/server/repo/types';
+import type { AuthAccountState, Role, UserAccount } from '@/server/repo/types';
 import { prisma } from '@/server/db';
 import { repo } from '@/server/repo/mock-repo';
 import { logActivity } from '@/lib/activity';
@@ -49,30 +49,6 @@ export async function resolveAccess(email: string): Promise<Access | null> {
   return accessFromAccount(u);
 }
 
-async function findAccount(email: string): Promise<UserAccount | null> {
-  const e = email.toLowerCase();
-  if (process.env.DATABASE_URL) {
-    try {
-      const row = await prisma.userRole.findUnique({ where: { email: e } });
-      if (!row) return null;
-      return {
-        email: row.email,
-        name: row.name,
-        passwordHash: row.passwordHash,
-        role: row.role as Role,
-        canViewFinance: row.canViewFinance,
-        isActive: row.isActive,
-        createdAt: row.createdAt.toISOString(),
-        lastLoginAt: row.lastLoginAt?.toISOString() ?? null,
-        lockedAt: row.lockedAt?.toISOString() ?? null,
-      };
-    } catch {
-      return null;
-    }
-  }
-  return repo.findAccount(e) ?? null;
-}
-
 async function touchLastLogin(email: string) {
   if (process.env.DATABASE_URL) {
     try {
@@ -96,7 +72,7 @@ export const ACCESS_RECHECK_INTERVAL_MS = 5 * 60 * 1000;
  * Dùng chung cho nhánh đăng nhập lẫn nhánh kiểm lại định kỳ trong callback `jwt`: tài khoản null
  * hoặc bị tắt (`isActive=false`) -> `token.invalid = true`; ngược lại gán quyền qua `accessFromAccount`.
  */
-function applyAccountToToken(token: JWT, account: UserAccount | null): void {
+function applyAccountToToken(token: JWT, account: AuthAccountState | null): void {
   if (!account || !account.isActive) {
     // Tài khoản bị khoá/tắt hoặc đã bị xoá khỏi DB - vô hiệu session ở callback session().
     token.invalid = true;
@@ -200,12 +176,16 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, user }) {
       if (user?.email) {
-        // K14 (đóng L-11): 1 lần đọc tài khoản (findAccount), quyền dựng thẳng từ đó - không gọi
-        // resolveAccess() thêm lần nữa (trước đây đọc DB 2 lần: findAccount() ở authorize/signIn
-        // rồi resolveAccess() ở đây).
-        const account = await findAccount(user.email);
+        // K14 (đóng L-11): 1 lần đọc tài khoản (getAccountState), quyền dựng thẳng từ đó - không
+        // gọi resolveAccess() thêm lần nữa (trước đây đọc DB 2 lần: findAccount() ở authorize/signIn
+        // rồi resolveAccess() ở đây). Task 7 - dùng `AuthStore.getAccountState` thay vì `findAccount`
+        // cục bộ để có sẵn `passwordChangedAt` (S8), không cần thêm cột này vào `UserAccount`.
+        const account = await getAuthStore().getAccountState(user.email);
         applyAccountToToken(token, account);
         if (account) token.name = account.name || token.name;
+        // S8 (Task 7) - lưu mốc đổi mật khẩu LÚC đăng nhập; dùng để phát hiện phiên cũ khi mật khẩu
+        // bị đổi (đặt lại qua email/admin đặt mật khẩu tạm) SAU thời điểm này.
+        token.pwdAt = account?.passwordChangedAt ? Date.parse(account.passwordChangedAt) : 0;
         return token;
       }
       // T-5: token đã có (không phải lần đăng nhập) - đọc lại quyền định kỳ mỗi
@@ -214,8 +194,13 @@ export const authOptions: NextAuthOptions = {
       if (typeof email === 'string' && email) {
         const last = typeof token.accessCheckedAt === 'number' ? token.accessCheckedAt : 0;
         if (Date.now() - last > ACCESS_RECHECK_INTERVAL_MS) {
-          const account = await findAccount(email);
+          const account = await getAuthStore().getAccountState(email);
           applyAccountToToken(token, account);
+          // S8 - mật khẩu đã đổi SAU lúc token này đăng nhập (`token.pwdAt`) -> vô hiệu, dù
+          // isActive/lockedAt bình thường (không cho phiên cũ dùng mật khẩu đã bị lộ tiếp tục sống,
+          // trễ tối đa `ACCESS_RECHECK_INTERVAL_MS` như mọi kiểm lại định kỳ khác - T-5).
+          const changedAtMs = account?.passwordChangedAt ? Date.parse(account.passwordChangedAt) : 0;
+          if (changedAtMs > (token.pwdAt ?? 0)) token.invalid = true;
         }
       }
       return token;

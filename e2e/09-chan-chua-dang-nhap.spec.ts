@@ -90,6 +90,14 @@ test.describe('09 - chan truy cap khi chua dang nhap (S-1)', () => {
     expect(res.status()).toBe(200);
   });
 
+  // Task 7 (P3E, D2) - 2 trang moi (quen/dat lai mat khau) cung phai la public path (middleware.ts).
+  test('/vi/quen-mat-khau va /vi/dat-lai-mat-khau?token=x van mo duoc khi chua dang nhap (200, khong ve login)', async () => {
+    const forgot = await api.get('/vi/quen-mat-khau', { maxRedirects: 0 });
+    expect(forgot.status()).toBe(200);
+    const reset = await api.get('/vi/dat-lai-mat-khau?token=x', { maxRedirects: 0 });
+    expect(reset.status()).toBe(200);
+  });
+
   // Khoa hoi quy: cac route API da tu chan (ky vong XANH ngay tu truoc khi sua).
   test('API khong cookie: khong tra du lieu', async () => {
     expect((await api.get('/api/export', { maxRedirects: 0 })).status()).toBe(401);

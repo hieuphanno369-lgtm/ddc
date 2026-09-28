@@ -593,7 +593,9 @@
     "deactivate_stage": "Deactivate stage",
     "login_locked": "Account locked after 5 failed sign-ins",
     "account_unlock": "Unlocked sign-in",
-    "account_unlock_cli": "Unlocked via server command"
+    "account_unlock_cli": "Unlocked via server command",
+    "password_reset_request": "Requested password reset link",
+    "password_reset_done": "Reset password via email"
   },
   "dataGuard": {
     "import": {
@@ -1183,7 +1185,21 @@
     "lockedList": "Locked accounts ({n})",
     "lockedBadge": "Locked (failed sign-ins)",
     "unlock": "Unlock",
-    "unlockWithTemp": "Unlock + set temporary password"
+    "unlockWithTemp": "Unlock + set temporary password",
+    "forgotLink": "Forgot password?",
+    "forgotTitle": "Forgot password",
+    "forgotIntro": "Enter your sign-in email and we will send a password reset link (valid for 30 minutes).",
+    "forgotSubmit": "Send reset link",
+    "forgotSent": "If the email exists in the system, a reset link has been sent. Check your inbox, including spam.",
+    "smtpMissing": "Email sending is not configured. Contact an administrator to reset your password.",
+    "backToLogin": "Back to sign in",
+    "resetTitle": "Reset password",
+    "resetSubmit": "Save new password",
+    "resetDone": "Your password has been reset. Sign in with the new password.",
+    "resetDoneLocked": "Your password has been reset, but the account is locked. Contact an administrator to unlock it.",
+    "resetInvalid": "This reset link is invalid, already used or expired. Please request a new one.",
+    "mailSubject": "Password reset",
+    "mailBody": "A password reset was requested for {email}.\n\nOpen this link within 30 minutes to set a new password (single use):\n{link}\n\nIf you did not request this, ignore this email; your current password stays the same."
   },
   "stageAdmin": {
     "title": "Value chain stages",

@@ -18,6 +18,7 @@ import { repo } from './repo';
 import { historyMonths } from '@/lib/clock';
 import { runAlertEngineSafe } from './alert-engine';
 import { checkProfileRules } from './project-profile-rules';
+import { getAuthStore } from './auth-store';
 
 /** Chặn write theo role - viewer không được ghi, khóa số liệu chỉ Admin/Trưởng phòng. */
 async function requireRole(allowed: Role[]): Promise<CurrentUser | null> {
@@ -401,7 +402,9 @@ export async function resetPasswordAction(email: string, newPassword: string) {
   if (!user) return { ok: false, error: 'Forbidden' };
   const parsed = resetPasswordSchema.safeParse({ email, newPassword });
   if (!parsed.success) return { ok: false, error: 'too_short' };
-  await repo.changePassword(parsed.data.email.toLowerCase(), hashPassword(parsed.data.newPassword));
+  // S8 (Task 7, Q2 = phương án b) - admin đặt lại mật khẩu -> vô hiệu MỌI phiên đăng nhập cũ
+  // (`bumpChangedAt: true`), khác `changePasswordAction` (tự đổi trong Cài đặt) không bump.
+  await getAuthStore().setPassword(parsed.data.email.toLowerCase(), hashPassword(parsed.data.newPassword), true, new Date().toISOString());
   await logActivity(user, 'reset_password', parsed.data.email);
   return { ok: true };
 }

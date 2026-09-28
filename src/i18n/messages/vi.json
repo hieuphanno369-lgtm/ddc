@@ -593,7 +593,9 @@
     "deactivate_stage": "Ngừng dùng giai đoạn",
     "login_locked": "Khoá tài khoản do sai mật khẩu 5 lần",
     "account_unlock": "Mở khoá đăng nhập",
-    "account_unlock_cli": "Mở khoá bằng lệnh trên server"
+    "account_unlock_cli": "Mở khoá bằng lệnh trên server",
+    "password_reset_request": "Xin link đặt lại mật khẩu",
+    "password_reset_done": "Đặt lại mật khẩu qua email"
   },
   "dataGuard": {
     "import": {
@@ -1183,7 +1185,21 @@
     "lockedList": "Tài khoản đang bị khoá ({n})",
     "lockedBadge": "Bị khoá (sai mật khẩu)",
     "unlock": "Mở khoá",
-    "unlockWithTemp": "Mở khoá + đặt mật khẩu tạm"
+    "unlockWithTemp": "Mở khoá + đặt mật khẩu tạm",
+    "forgotLink": "Quên mật khẩu?",
+    "forgotTitle": "Quên mật khẩu",
+    "forgotIntro": "Nhập email đăng nhập, hệ thống sẽ gửi link đặt lại mật khẩu (hiệu lực 30 phút).",
+    "forgotSubmit": "Gửi link đặt lại",
+    "forgotSent": "Nếu email có trong hệ thống, link đặt lại mật khẩu đã được gửi. Kiểm tra hộp thư, kể cả thư rác.",
+    "smtpMissing": "Hệ thống chưa cấu hình gửi email. Liên hệ quản trị để được đặt lại mật khẩu.",
+    "backToLogin": "Quay lại đăng nhập",
+    "resetTitle": "Đặt lại mật khẩu",
+    "resetSubmit": "Lưu mật khẩu mới",
+    "resetDone": "Đã đặt lại mật khẩu. Đăng nhập bằng mật khẩu mới.",
+    "resetDoneLocked": "Đã đặt lại mật khẩu, nhưng tài khoản đang bị khoá. Liên hệ quản trị để mở khoá.",
+    "resetInvalid": "Link đặt lại mật khẩu không hợp lệ, đã dùng hoặc đã hết hạn. Hãy xin link mới.",
+    "mailSubject": "Đặt lại mật khẩu",
+    "mailBody": "Có yêu cầu đặt lại mật khẩu cho tài khoản {email}.\n\nMở link sau trong vòng 30 phút để đặt mật khẩu mới (chỉ dùng được 1 lần):\n{link}\n\nNếu bạn không yêu cầu, hãy bỏ qua email này; mật khẩu hiện tại không đổi."
   },
   "stageAdmin": {
     "title": "Giai đoạn chuỗi giá trị",

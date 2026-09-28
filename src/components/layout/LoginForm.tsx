@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useLocale, useTranslations } from 'next-intl';
-import { useRouter } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { usePressable } from '@/components/ui/motion';
 
@@ -69,6 +69,9 @@ export function LoginForm({
         <div className="field">
           <span className="lb">{t('auth.password')}</span>
           <PasswordInput value={password} onChange={setPassword} className={inputCls} required />
+          <Link href="/quen-mat-khau" className="hintline" style={{ textAlign: 'right' }}>
+            {t('authSecurity.forgotLink')}
+          </Link>
         </div>
         {error && (
           <p className="sumbar bad">{error}</p>

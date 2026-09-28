@@ -112,6 +112,82 @@ describe('authOptions.callbacks.jwt - T-5 doc lai quyen dinh ky', () => {
   });
 });
 
+/**
+ * P3E (Task 7, S8) - `token.pwdAt` (Date.parse(passwordChangedAt) lúc đăng nhập) dùng để vô hiệu
+ * phiên cũ khi mật khẩu bị đổi (đặt lại qua email/admin) SAU khi phiên đó đã đăng nhập - trễ tối
+ * đa `ACCESS_RECHECK_INTERVAL_MS` (5 phút, đã có sẵn từ T-5).
+ */
+describe('authOptions.callbacks.jwt - S8 vo hieu phien cu sau doi mat khau (pwdAt)', () => {
+  it('dang nhap -> token.pwdAt = Date.parse(passwordChangedAt)', async () => {
+    findUniqueMock.mockResolvedValue({
+      role: 'bod', canViewFinance: true, isActive: true, passwordChangedAt: new Date('2026-09-01T00:00:00.000Z'),
+      email: 'bod@daidung.com.vn', name: 'BOD', passwordHash: 'x', createdAt: new Date(), lastLoginAt: null,
+    });
+
+    const token = await jwt({ token: {}, user: { email: 'bod@daidung.com.vn' } } as never);
+
+    expect(token.pwdAt).toBe(Date.parse('2026-09-01T00:00:00.000Z'));
+  });
+
+  it('dang nhap, chua tung doi mat khau (passwordChangedAt null) -> token.pwdAt = 0', async () => {
+    findUniqueMock.mockResolvedValue({
+      role: 'bod', canViewFinance: true, isActive: true, passwordChangedAt: null,
+      email: 'bod@daidung.com.vn', name: 'BOD', passwordHash: 'x', createdAt: new Date(), lastLoginAt: null,
+    });
+
+    const token = await jwt({ token: {}, user: { email: 'bod@daidung.com.vn' } } as never);
+
+    expect(token.pwdAt).toBe(0);
+  });
+
+  it('token.pwdAt CU HON passwordChangedAt trong DB -> token.invalid = true (mat khau da bi doi sau khi phien nay dang nhap)', async () => {
+    findUniqueMock.mockResolvedValue({
+      role: 'bod', canViewFinance: true, isActive: true, passwordChangedAt: new Date('2026-09-28T00:00:00.000Z'),
+      email: 'bod@daidung.com.vn', name: 'BOD', passwordHash: 'x', createdAt: new Date(), lastLoginAt: null,
+    });
+    const staleToken = {
+      email: 'bod@daidung.com.vn', role: 'bod', canViewFinance: true,
+      pwdAt: Date.parse('2026-09-01T00:00:00.000Z'),
+      accessCheckedAt: Date.now() - ACCESS_RECHECK_INTERVAL_MS - 1,
+    };
+
+    const token = await jwt({ token: staleToken } as never);
+
+    expect(token.invalid).toBe(true);
+  });
+
+  it('token.pwdAt BANG passwordChangedAt trong DB -> van hop le', async () => {
+    findUniqueMock.mockResolvedValue({
+      role: 'bod', canViewFinance: true, isActive: true, passwordChangedAt: new Date('2026-09-01T00:00:00.000Z'),
+      email: 'bod@daidung.com.vn', name: 'BOD', passwordHash: 'x', createdAt: new Date(), lastLoginAt: null,
+    });
+    const staleToken = {
+      email: 'bod@daidung.com.vn', role: 'bod', canViewFinance: true,
+      pwdAt: Date.parse('2026-09-01T00:00:00.000Z'),
+      accessCheckedAt: Date.now() - ACCESS_RECHECK_INTERVAL_MS - 1,
+    };
+
+    const token = await jwt({ token: staleToken } as never);
+
+    expect(token.invalid).toBe(false);
+  });
+
+  it('token khong co pwdAt, passwordChangedAt null -> van hop le', async () => {
+    findUniqueMock.mockResolvedValue({
+      role: 'bod', canViewFinance: true, isActive: true, passwordChangedAt: null,
+      email: 'bod@daidung.com.vn', name: 'BOD', passwordHash: 'x', createdAt: new Date(), lastLoginAt: null,
+    });
+    const staleToken = {
+      email: 'bod@daidung.com.vn', role: 'bod', canViewFinance: true,
+      accessCheckedAt: Date.now() - ACCESS_RECHECK_INTERVAL_MS - 1,
+    };
+
+    const token = await jwt({ token: staleToken } as never);
+
+    expect(token.invalid).toBe(false);
+  });
+});
+
 describe('authOptions.callbacks.session - T-5 vo hieu session khi token.invalid', () => {
   it('token.invalid = true -> session.user.email = null (getCurrentUser doc thanh chua dang nhap)', async () => {
     const result = await session({

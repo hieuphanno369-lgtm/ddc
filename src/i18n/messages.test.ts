@@ -71,6 +71,10 @@ const CHANGED_SOURCES: Record<string, string> = {
   'StageEditor': 'src/components/admin/StageEditor.tsx',
   'LoginForm': 'src/components/layout/LoginForm.tsx',
   'UserEditor': 'src/components/admin/UserEditor.tsx',
+  'trang /quen-mat-khau': 'app/[locale]/quen-mat-khau/page.tsx',
+  'trang /dat-lai-mat-khau': 'app/[locale]/dat-lai-mat-khau/page.tsx',
+  'ForgotPasswordForm': 'src/components/layout/ForgotPasswordForm.tsx',
+  'ResetPasswordForm': 'src/components/layout/ResetPasswordForm.tsx',
 };
 
 describe('i18n: vi/en phủ key như nhau', () => {
