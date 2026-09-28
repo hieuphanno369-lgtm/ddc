@@ -3,7 +3,6 @@
 import { useTranslations } from 'next-intl';
 import type { IsoDate } from '@/lib/clock';
 import { formatDateShort } from '@/lib/format';
-import { stageKey } from '@/lib/labels';
 import { buildTimeDomain, stageMarkers, xOf, type StageMarkerShape, type StageTimelineRow } from '@/lib/stage-timeline';
 import type { StageCode } from '@/server/repo/types';
 import { ChartTip, useChartTip } from './ChartTip';
@@ -19,8 +18,9 @@ function Marker({ shape, x, y, color }: { shape: StageMarkerShape; x: number; y:
   return <path d={`M ${x} ${y - 6} L ${x + 5.5} ${y + 4.5} L ${x - 5.5} ${y + 4.5} Z`} strokeWidth={1.3} strokeLinejoin="round" style={{ fill: color, stroke: 'var(--glass-3)' }} />;
 }
 
-export function StageTimelineChart({ rows, today, selected, onToggle }: {
+export function StageTimelineChart({ rows, today, selected, onToggle, stageNames }: {
   rows: StageTimelineRow[]; today: IsoDate; selected: StageCode | null; onToggle: (c: StageCode) => void;
+  stageNames: Record<StageCode, string>;
 }) {
   const t = useTranslations();
   const { tip, show, hide } = useChartTip();
@@ -50,7 +50,7 @@ export function StageTimelineChart({ rows, today, selected, onToggle }: {
           const aY = cy + 4;
           const on = selected === r.stageCode;
           const aEnd = r.actualFinish ?? r.forecastDate;
-          const title = r.weightPct == null ? t(stageKey[r.stageCode]) : `${t(stageKey[r.stageCode])} · ${t('detail.stageMs.weight', { n: r.weightPct })}`;
+          const title = r.weightPct == null ? stageNames[r.stageCode] : `${stageNames[r.stageCode]} · ${t('detail.stageMs.weight', { n: r.weightPct })}`;
           const tipRows = [
             ...STAGE_MARKER_ROWS(t, r),
             { k: t('detail.stageMs.variance'), v: varianceText(t, r.dayVariance), valueColor: varianceColor(r.dayVariance, 'var(--label)') },
@@ -59,7 +59,7 @@ export function StageTimelineChart({ rows, today, selected, onToggle }: {
             <g key={r.stageCode}>
               {on && <rect x={2} y={top + 3} width={W - 4} height={ROW_H - 6} rx={10} strokeWidth={1.2} style={{ fill: 'var(--accent-tint)', stroke: 'var(--accent)' }} />}
               {i > 0 && <line x1={0} x2={W} y1={top} y2={top} style={{ stroke: 'var(--grid)' }} />}
-              <text x={8} y={cy + 5} fontSize={14} fontWeight={700} style={{ fill: on ? 'var(--accent)' : 'var(--label)' }}>{t(stageKey[r.stageCode])}</text>
+              <text x={8} y={cy + 5} fontSize={14} fontWeight={700} style={{ fill: on ? 'var(--accent)' : 'var(--label)' }}>{stageNames[r.stageCode] ?? r.stageCode}</text>
               <text x={196} y={cy + 5} textAnchor="end" fontSize={11} fontWeight={800} style={{ fill: 'var(--label3)' }}>{r.weightPct == null ? '-' : `${r.weightPct}%`}</text>
               {r.plannedStart && r.plannedFinish && (
                 <rect x={X(r.plannedStart)} y={pY} width={Math.max(X(r.plannedFinish) - X(r.plannedStart), 3)} height={BH} rx={4.5} fillOpacity={0.55} style={{ fill: 'var(--s-plan)' }} />

@@ -7,7 +7,7 @@ import { Prisma } from '@prisma/client';
 import { getCurrentUser, type CurrentUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
 import { hashPassword, verifyPassword } from '@/lib/password';
-import { calcChainPctActual, findCurrentStage, normPct, validateStageWeights } from '@/lib/stages';
+import { calcChainPctActual, findCurrentStage, isSameStageSet, normPct, StagesChangedError, stageOrder, validateStageWeights } from '@/lib/stages';
 import { isReservedProjectCode, ProjectCodeTakenError } from '@/lib/project-code';
 import { cellText, type CellValue } from '@/lib/daily-import';
 import { assertXlsxInflatedSize, readBoundedSheet } from './daily-import';
@@ -124,6 +124,11 @@ export async function saveMonthlyData(
   const volumeTarget = factoryId !== undefined ? factoryId : project.factoryId;
   if (volumeTonnage != null && volumeTarget == null) return { ok: false, error: 'no_factory' };
 
+  // P7-C2 (K8): danh sách mã gửi lên PHẢI đúng bằng tập giai đoạn đang dùng - kiểm TRƯỚC mọi ghi
+  // (form mở từ trước khi admin thêm/ngừng giai đoạn không được lưu thiếu giai đoạn).
+  const stagesOrder: StageCode[] = chain ? stageOrder(await repo.getStages()) : [];
+  if (chain && !isSameStageSet(chain.map((c) => c.stageCode), stagesOrder)) return { ok: false, error: 'stages_changed' };
+
   const profilePatch: Partial<Project> = {};
   if (projectName) profilePatch.projectName = projectName;
   if (customerId != null) profilePatch.customerId = customerId;
@@ -159,7 +164,7 @@ export async function saveMonthlyData(
     // Trọng số theo dự án, không dùng mặc định cứng - dự án có thể bỏ giai đoạn.
     const weights = await repo.getStageWeights(projectId);
     derivedPctActual = calcChainPctActual(chain, weights);
-    bottleneckStage = findCurrentStage(chain);
+    bottleneckStage = findCurrentStage(chain, stagesOrder, weights);
   }
   if (pctPlan != null || derivedPctActual != null || ac != null || equipmentActual != null || bottleneckStage !== undefined) {
     const r = await repo.saveMonthlyFact(
@@ -232,7 +237,13 @@ export async function createProjectAction(
   if (currentAliasCode && (await repo.isProjectCodeTaken(currentAliasCode, null))) {
     return { ok: false, error: 'code_taken' };
   }
-  if (stageWeights && !validateStageWeights(stageWeights).ok) {
+  // Vong sua reviewer (muc 3): stageWeights BAT BUOC khi tao du an - thieu thi khong duoc am tham
+  // roi ve bo mac dinh (co Thanh quyet toan 2%, luat Q1a khong dem duoc nen van ngung dung duoc
+  // giai doan do va lam %TT du an doi ngoai y muon nguoi tao).
+  if (!stageWeights || stageWeights.length === 0) return { ok: false, error: 'weights_required' };
+  const order = stageOrder(await repo.getStages());
+  if (!isSameStageSet(stageWeights.map((w) => w.stageCode), order)) return { ok: false, error: 'stages_changed' };
+  if (!validateStageWeights(stageWeights).ok) {
     return { ok: false, error: 'weights_invalid' };
   }
   const dims = await repo.getDims();
@@ -253,15 +264,21 @@ export async function createProjectAction(
 
   let p: Project;
   try {
-    p = await repo.createProject({ ...rest, ...rules.patch, currentAliasCode }, user.email);
+    // Vong sua reviewer (tao du an nguyen tu): stageWeights duoc ghi TRONG CUNG transaction voi
+    // viec tao du an (repo.createProject) - truoc day tao du an xong roi moi goi rieng
+    // repo.replaceStageWeights, 'stages_changed' (admin ngung/dung lai giai doan xen giua) lam du
+    // an da tao nhung thieu trong so, nua voi. Kiem `isSameStageSet` o tren van giu lam fast-path
+    // (bao loi ngay khong can cham DB tao du an), kiem that trong transaction chan not khe ho TOCTOU.
+    p = await repo.createProject({ ...rest, ...rules.patch, currentAliasCode, stageWeights }, user.email);
   } catch (e) {
     // S-2 (vòng sửa 1): kiểm nhanh `isProjectCodeTaken` ở trên là fast-path; bắt lại ở đây để
     // chống race (2 request tạo dự án cùng mã CT gần như đồng thời) - mock/prisma cùng ném lỗi này.
     if (e instanceof ProjectCodeTakenError) return { ok: false, error: 'code_taken' };
+    // Vong sua reviewer: transaction cua createProject da rollback het (khong co du an nao duoc tao).
+    if (e instanceof StagesChangedError) return { ok: false, error: 'stages_changed' };
     throw e;
   }
   if (user.role === 'data-entry') await repo.addAssignment(p.id, user.email, 'PIC');
-  if (stageWeights) await repo.replaceStageWeights(p.id, stageWeights, user.email);
   if (keyMilestones?.length) await repo.replaceKeyMilestones(p.id, keyMilestones, user.email);
   await runAlertEngineSafe(p.id).catch(() => {});
   await logActivity(user, 'create_project', p.projectName);

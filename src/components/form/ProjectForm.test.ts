@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { SEED_STAGE_CODES } from '@/lib/stages';
+import type { Stage } from '@/server/repo/types';
 import type { ProjectFormProps } from './ProjectForm';
+
+/** P7-C2: 8 giai đoạn seed dùng cho test render (không phụ thuộc DB thật). */
+const STAGES: Stage[] = SEED_STAGE_CODES.map((code, i) => ({
+  code, nameVi: code, nameEn: code, sortOrder: i + 1, calcMode: 'manual', side: i < 4 ? 'left' : 'right', isActive: true,
+}));
 
 (globalThis as unknown as { React: typeof React }).React = React;
 
@@ -38,6 +45,7 @@ const BASE_PROPS: ProjectFormProps = {
   allContractors: [],
   ownerEmail: 'a@x',
   today: '2026-09-16',
+  stages: STAGES,
 };
 
 function render(props: Partial<ProjectFormProps> = {}) {

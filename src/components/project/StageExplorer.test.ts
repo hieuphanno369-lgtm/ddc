@@ -14,17 +14,20 @@ vi.mock('@/server/repo', async () => {
 
 import { repo } from '@/server/repo/mock-repo';
 import { buildStageTimelineRows } from '@/lib/stage-timeline';
+import { stageOrder } from '@/lib/stages';
 import { getWorkItemComparison } from '@/server/project-queries';
 import { StageExplorer } from './StageExplorer';
 
 describe('StageExplorer', () => {
-  it('du 7 chuoi ten giai doan, co hint, dung so lan "0 ngay" theo seed', async () => {
-    const rows = buildStageTimelineRows(repo.getStageMilestones(1), repo.getStageWeights(1));
+  it('du ten giai doan tu stages (P7-C2: doc tu DB, khong con key i18n stage.*), co hint, dung so lan "0 ngay" theo seed', async () => {
+    const stages = repo.getStages();
+    const order = stageOrder(stages);
+    const rows = buildStageTimelineRows(repo.getStageMilestones(1), repo.getStageWeights(1), order);
     const compare = await getWorkItemComparison(1, '2026-09');
-    const out = renderToStaticMarkup(React.createElement(StageExplorer, { rows, compare, today: '2026-09-16', locale: 'vi' }));
+    const out = renderToStaticMarkup(React.createElement(StageExplorer, { rows, compare, today: '2026-09-16', locale: 'vi', stages }));
 
-    for (const s of ['stage.design', 'stage.shop', 'stage.procurement', 'stage.fabrication', 'stage.transport', 'stage.erection', 'stage.handover']) {
-      expect(out).toContain(s);
+    for (const name of ['Thiết kế', 'Shop Drawing', 'Vật tư', 'Gia công', 'Vận chuyển', 'Lắp dựng', 'Nghiệm thu']) {
+      expect(out).toContain(name);
     }
     expect(out).toContain('detail.stageMs.hint');
     expect([...out.matchAll(/detail\.stageMs\.days\|0/g)]).toHaveLength(3);
@@ -33,7 +36,8 @@ describe('StageExplorer', () => {
   });
 
   it('rows rong -> hien trang thai trong; compare rong -> detail.cmp.empty', () => {
-    const out = renderToStaticMarkup(React.createElement(StageExplorer, { rows: [], compare: {}, today: '2026-09-16', locale: 'vi' }));
+    const stages = repo.getStages();
+    const out = renderToStaticMarkup(React.createElement(StageExplorer, { rows: [], compare: {}, today: '2026-09-16', locale: 'vi', stages }));
     expect(out).toContain('detail.stageMs.empty');
     expect(out).toContain('detail.cmp.empty');
   });

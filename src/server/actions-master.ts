@@ -5,9 +5,12 @@ import { logActivity } from '@/lib/activity';
 import { historyMonths } from '@/lib/clock';
 import type { FxCurrency } from '@/lib/fx';
 import { requireRoleUser } from './action-guards';
-import { overviewTag, profileTag } from './cache';
+import { listTag, overviewTag, profileTag } from './cache';
 import { repo } from './repo';
-import { deleteExchangeRateSchema, factorySchema, saveExchangeRateSchema } from './validation';
+import type { StageCode } from './repo/types';
+import {
+  deleteExchangeRateSchema, factorySchema, saveExchangeRateSchema, stageCodeSchema, stageSchema, type StageInputAdmin,
+} from './validation';
 
 /** T8 (Task 6, P2A): CRUD khu vực sản xuất / công suất - chỉ admin. */
 export async function saveFactoryAction(
@@ -42,6 +45,52 @@ export async function setFactoryActiveAction(
   await logActivity(user, isActive ? 'activate_factory' : 'deactivate_factory', String(id));
   revalidateTag(profileTag);
   for (const m of historyMonths()) revalidateTag(overviewTag(m));
+  return { ok: true };
+}
+
+/** Sau khi đổi danh sách giai đoạn: thẻ Chuỗi giá trị, form nhập liệu, Tổng quan đọc lại. */
+function revalidateStageViews() {
+  revalidateTag(profileTag);
+  for (const m of historyMonths()) {
+    revalidateTag(overviewTag(m));
+    revalidateTag(listTag(m));
+  }
+}
+
+/** P7-C2 Task 8: thêm/sửa giai đoạn chuỗi giá trị - chỉ admin. */
+export async function saveStageAction(
+  input: StageInputAdmin,
+): Promise<{ ok: true; code: StageCode } | { ok: false; error: 'Forbidden' | 'Invalid input' | 'duplicate_name' | 'Not found' | 'too_many' }> {
+  const user = await requireRoleUser(['admin']);
+  if (!user) return { ok: false, error: 'Forbidden' };
+  const parsed = stageSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: 'Invalid input' };
+
+  const result = await repo.saveStage(parsed.data, user.email);
+  if (result === 'duplicate_name' || result === 'too_many') return { ok: false, error: result };
+  if (result === 'not_found') return { ok: false, error: 'Not found' };
+
+  await logActivity(user, 'save_stage', result.nameVi);
+  revalidateStageViews();
+  return { ok: true, code: result.code };
+}
+
+/** P7-C2 Task 8 (Q1a): ngừng dùng / dùng lại giai đoạn - chỉ admin. */
+export async function setStageActiveAction(
+  code: StageCode,
+  isActive: boolean,
+): Promise<{ ok: true } | { ok: false; error: 'Forbidden' | 'Invalid input' | 'Not found' | 'in_use' | 'last_active'; count?: number }> {
+  const user = await requireRoleUser(['admin']);
+  if (!user) return { ok: false, error: 'Forbidden' };
+  if (!stageCodeSchema.safeParse(code).success || typeof isActive !== 'boolean') return { ok: false, error: 'Invalid input' };
+
+  const result = await repo.setStageActive(code, isActive, user.email);
+  if (result === 'not_found') return { ok: false, error: 'Not found' };
+  if (result === 'last_active') return { ok: false, error: 'last_active' };
+  if (result !== 'ok') return { ok: false, error: 'in_use', count: result.count };
+
+  await logActivity(user, isActive ? 'activate_stage' : 'deactivate_stage', code);
+  revalidateStageViews();
   return { ok: true };
 }
 

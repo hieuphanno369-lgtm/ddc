@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { repo } from '@/server/repo/mock-repo';
+import { LEGACY_STAGE_WEIGHTS } from '@/lib/stages';
 import type { CurrentUser } from '@/lib/session';
 
 /**
@@ -61,6 +62,7 @@ describe('S-7 (vong sua 1) - team da GOP van bi chan (bo sung ben canh customer 
       projectName: 'DU AN TEAM DA GOP', customerId: 1, teamKdId: fromId, marketCode: 'TN',
       projectType: 'EPC', priority: 'P1', contractValue: 10, tonnage: 100,
       plannedStartDate: '2026-10-01', plannedFinishDate: '2027-06-30', committedHandoverDate: '2027-07-31',
+      stageWeights: LEGACY_STAGE_WEIGHTS.map((w) => ({ ...w })),
     });
     expect(res).toEqual({ ok: false, error: 'invalid_team' });
   });

@@ -5,8 +5,12 @@ import {
   resetPasswordSchema,
   saveKeyMilestonesSchema,
   saveMonthlyDataSchema,
+  stageWeightRowsSchema,
 } from './validation';
-import { STAGE_ORDER } from '@/lib/stages';
+import { SEED_STAGE_CODES, STAGE_MAX_COUNT } from '@/lib/stages';
+
+/** 7 mã giai đoạn cũ (trước settlement) - chỉ để dựng dữ liệu test. */
+const LEGACY7_STAGE_CODES = SEED_STAGE_CODES.slice(0, 7);
 
 /** Ghi chú tester (ket-qua-test.md, khong phai loi bao mat) - trim + thong bao tieng Viet cho email. */
 describe('createAccountSchema - email trim + thong bao tieng Viet', () => {
@@ -89,7 +93,7 @@ describe('Mục 5 - 4 trường ngày: chỉ còn gửi từ step "Hồ sơ dự
 describe('saveMonthlyDataSchema - chain 7 giai đoạn (thay ô nhập tay pctActual)', () => {
   const base = { projectId: 1, month: '2026-09' };
   // stageCode để dạng string để test được cả giá trị lạ 'kickoff'
-  const chain7 = STAGE_ORDER.map((stageCode, i) => ({
+  const chain7 = LEGACY7_STAGE_CODES.map((stageCode, i) => ({
     stageCode: String(stageCode),
     pctComplete: i / 10,
     applicable: true,
@@ -103,9 +107,27 @@ describe('saveMonthlyDataSchema - chain 7 giai đoạn (thay ô nhập tay pctAc
     if (r.success) expect(r.data.patch.chain).toHaveLength(7);
   });
 
-  it('chặn chain thiếu phần tử hoặc thừa phần tử (phải đúng 7)', () => {
-    expect(parse(chain7.slice(0, 6)).success).toBe(false);
+  it('P7-C2: khong con ep dung 7 phan tu - it hon van hop le (danh sach giai doan gio la dong)', () => {
+    expect(parse(chain7.slice(0, 6)).success).toBe(true);
+  });
+
+  it('chan mang rong (min 1) va chan qua STAGE_MAX_COUNT dong', () => {
+    expect(parse([]).success).toBe(false);
+    const tooMany = Array.from({ length: STAGE_MAX_COUNT + 1 }, (_, i) => ({
+      stageCode: `custom_${i}`, pctComplete: 0, applicable: true,
+    }));
+    expect(parse(tooMany).success).toBe(false);
+    const okMax = tooMany.slice(0, STAGE_MAX_COUNT);
+    expect(parse(okMax).success).toBe(true);
+  });
+
+  it('chan chain co phan tu trung stageCode (bat ke so luong)', () => {
     expect(parse([...chain7, chain7[0]]).success).toBe(false);
+  });
+
+  it('chain 8 ma (SEED_STAGE_CODES, gom Thanh quyet toan) -> hop le', () => {
+    const chain8 = SEED_STAGE_CODES.map((stageCode, i) => ({ stageCode, pctComplete: i / 10, applicable: true }));
+    expect(parse(chain8).success).toBe(true);
   });
 
   it('chặn pctComplete vượt trần 1.5 - nhưng 1.5 đúng trần vẫn hợp lệ', () => {
@@ -114,13 +136,14 @@ describe('saveMonthlyDataSchema - chain 7 giai đoạn (thay ô nhập tay pctAc
     expect(parse(withFirst({ pctComplete: 2 })).success).toBe(false);
   });
 
-  it('chặn pctComplete âm và chặn stageCode không thuộc 7 giai đoạn', () => {
+  it('chặn pctComplete âm; P7-C2: stageCode gio la ma tu do (vd "kickoff") nhung phai dung mau chu thuong', () => {
     expect(parse(withFirst({ pctComplete: -0.1 })).success).toBe(false);
-    expect(parse(withFirst({ stageCode: 'kickoff' })).success).toBe(false);
+    expect(parse(withFirst({ stageCode: 'kickoff' })).success).toBe(true);
+    expect(parse(withFirst({ stageCode: 'Bad Code' })).success).toBe(false);
   });
 
   it('chặn 7 phần tử TRÙNG stageCode (đủ số lượng nhưng thiếu giai đoạn thật)', () => {
-    const allDesign = STAGE_ORDER.map(() => ({ stageCode: 'design', pctComplete: 0.5, applicable: true }));
+    const allDesign = LEGACY7_STAGE_CODES.map(() => ({ stageCode: 'design', pctComplete: 0.5, applicable: true }));
     expect(parse(allDesign).success).toBe(false);
 
     // 6 giai đoạn thật + 1 giai đoạn lặp → vẫn phải bị chặn
@@ -149,6 +172,29 @@ describe('saveMonthlyDataSchema - chain 7 giai đoạn (thay ô nhập tay pctAc
     const r = saveMonthlyDataSchema.safeParse({ ...base, patch: { pctActual: 0.9 } });
     expect(r.success).toBe(true);
     if (r.success) expect('pctActual' in r.data.patch).toBe(false);
+  });
+});
+
+describe('stageWeightRowsSchema (P7-C2: khong con ep .length(7))', () => {
+  const row = (stageCode: string, weightPct = 10) => ({ stageCode, weightPct, applicable: true });
+
+  it('8 ma (SEED_STAGE_CODES) -> hop le', () => {
+    const rows = SEED_STAGE_CODES.map((stageCode) => row(stageCode));
+    expect(stageWeightRowsSchema.safeParse(rows).success).toBe(true);
+  });
+
+  it("ma 'Bad Code' -> tu choi", () => {
+    expect(stageWeightRowsSchema.safeParse([row('Bad Code')]).success).toBe(false);
+  });
+
+  it('trung ma -> tu choi', () => {
+    expect(stageWeightRowsSchema.safeParse([row('design'), row('design')]).success).toBe(false);
+  });
+
+  it('31 dong (vuot STAGE_MAX_COUNT) -> tu choi; 30 dong -> hop le', () => {
+    const rows31 = Array.from({ length: STAGE_MAX_COUNT + 1 }, (_, i) => row(`custom_${i}`));
+    expect(stageWeightRowsSchema.safeParse(rows31).success).toBe(false);
+    expect(stageWeightRowsSchema.safeParse(rows31.slice(0, STAGE_MAX_COUNT)).success).toBe(true);
   });
 });
 

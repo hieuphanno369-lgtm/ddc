@@ -11,8 +11,11 @@ vi.mock('@/lib/session', () => ({ getCurrentUser: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/session';
 import {
-  deleteExchangeRateAction, saveExchangeRateAction, saveFactoryAction, setFactoryActiveAction,
+  deleteExchangeRateAction, saveExchangeRateAction, saveFactoryAction, saveStageAction, setFactoryActiveAction,
+  setStageActiveAction,
 } from '@/server/actions-master';
+import { stageOrder } from '@/lib/stages';
+import { valueChainColumns } from '@/lib/value-chain-view';
 
 const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.com.vn', role: 'admin', canViewFinance: true };
 const dataEntry = (email: string): CurrentUser => ({ name: email, email, role: 'data-entry', canViewFinance: false });
@@ -128,5 +131,84 @@ describe('saveExchangeRateAction / deleteExchangeRateAction', () => {
     login(ADMIN);
     const res = await deleteExchangeRateAction('EUR', '2020-01');
     expect(res).toEqual({ ok: false, error: 'Not found' });
+  });
+});
+
+describe('saveStageAction / setStageActiveAction', () => {
+  const NEW_STAGE = { nameVi: 'Bảo hành', nameEn: 'Warranty', side: 'left' as const, sortOrder: 5, calcMode: 'manual' as const };
+
+  it('data-entry, bod, viewer -> Forbidden, khong doi du lieu', async () => {
+    const before = repo.getStages().length;
+    for (const u of [dataEntry('pm@daidung.com.vn'), BOD, VIEWER]) {
+      login(u);
+      expect(await saveStageAction(NEW_STAGE)).toEqual({ ok: false, error: 'Forbidden' });
+      expect(await setStageActiveAction('design', false)).toEqual({ ok: false, error: 'Forbidden' });
+    }
+    expect(repo.getStages()).toHaveLength(before);
+    expect(repo.getStages().find((s) => s.code === 'design')?.isActive).toBe(true);
+  });
+
+  it('admin tao Bao hanh -> custom_1, moi du an co trong so custom_1 = 0 ap dung, audit create', async () => {
+    login(ADMIN);
+    const res = await saveStageAction(NEW_STAGE);
+    expect(res).toEqual({ ok: true, code: 'custom_1' });
+    const st = repo.getStages().find((s) => s.code === 'custom_1');
+    expect(st).toMatchObject({ nameVi: 'Bảo hành', nameEn: 'Warranty', side: 'left', sortOrder: 5, calcMode: 'manual', isActive: true });
+    for (const p of repo.listProjects()) {
+      expect(repo.getStageWeights(p.id).find((w) => w.stageCode === 'custom_1')).toMatchObject({ weightPct: 0, applicable: true });
+    }
+    expect(repo.getAuditLog().some((a) => a.tableName === 'dim_stage' && a.recordId === 'custom_1' && a.field === 'create')).toBe(true);
+  });
+
+  it('trung ten (khac hoa thuong, co khoang trang) -> duplicate_name', async () => {
+    login(ADMIN);
+    expect(await saveStageAction({ ...NEW_STAGE, nameVi: '  thanh quyết toán ' })).toEqual({ ok: false, error: 'duplicate_name' });
+  });
+
+  it('sua settlement sang ben trai -> valueChainColumns dua sang cot trai, giu code/isActive', async () => {
+    login(ADMIN);
+    const s = repo.getStages().find((x) => x.code === 'settlement')!;
+    const res = await saveStageAction({ code: 'settlement', nameVi: s.nameVi, nameEn: s.nameEn, side: 'left', sortOrder: s.sortOrder, calcMode: s.calcMode });
+    expect(res).toEqual({ ok: true, code: 'settlement' });
+    const [left, right] = valueChainColumns(repo.getStages());
+    expect(left.map((x) => x.code)).toContain('settlement');
+    expect(right.map((x) => x.code)).not.toContain('settlement');
+    expect(repo.getStages().find((x) => x.code === 'settlement')?.isActive).toBe(true);
+  });
+
+  it('sua code khong ton tai -> Not found', async () => {
+    login(ADMIN);
+    expect(await saveStageAction({ ...NEW_STAGE, code: 'custom_99' })).toEqual({ ok: false, error: 'Not found' });
+  });
+
+  it('ngung dung fabrication (seed co 40%) -> in_use kem so du an', async () => {
+    login(ADMIN);
+    const count = repo.listProjects().filter((p) =>
+      repo.getStageWeights(p.id).some((w) => w.stageCode === 'fabrication' && w.applicable && w.weightPct > 0)).length;
+    expect(count).toBeGreaterThan(0);
+    expect(await setStageActiveAction('fabrication', false)).toEqual({ ok: false, error: 'in_use', count });
+    expect(repo.getStages().find((s) => s.code === 'fabrication')?.isActive).toBe(true);
+  });
+
+  it('ngung dung custom_1 (0% moi du an) -> ok, stageOrder khong con; dung lai -> co lai', async () => {
+    login(ADMIN);
+    await saveStageAction(NEW_STAGE);
+    expect(await setStageActiveAction('custom_1', false)).toEqual({ ok: true });
+    expect(stageOrder(repo.getStages())).not.toContain('custom_1');
+    expect(await setStageActiveAction('custom_1', true)).toEqual({ ok: true });
+    expect(stageOrder(repo.getStages())).toContain('custom_1');
+  });
+
+  it('setStageActive code khong ton tai -> Not found', async () => {
+    login(ADMIN);
+    expect(await setStageActiveAction('custom_99', false)).toEqual({ ok: false, error: 'Not found' });
+  });
+
+  it('nameVi rong / thu tu 0 / code Bad Code -> Invalid input', async () => {
+    login(ADMIN);
+    expect(await saveStageAction({ ...NEW_STAGE, nameVi: '   ' })).toEqual({ ok: false, error: 'Invalid input' });
+    expect(await saveStageAction({ ...NEW_STAGE, sortOrder: 0 })).toEqual({ ok: false, error: 'Invalid input' });
+    expect(await saveStageAction({ ...NEW_STAGE, code: 'Bad Code' })).toEqual({ ok: false, error: 'Invalid input' });
+    expect(await setStageActiveAction('Bad Code', false)).toEqual({ ok: false, error: 'Invalid input' });
   });
 });

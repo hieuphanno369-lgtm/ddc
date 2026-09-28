@@ -1,6 +1,6 @@
 import type { saveMonthlyData } from '@/server/actions';
 import type { FactFinancial, FactProgressMonthly, Project, StageCode, ValueChainProgress } from '@/server/repo/types';
-import { STAGE_ORDER, normPct } from '@/lib/stages';
+import { normPct } from '@/lib/stages';
 
 /** Patch gửi lên `saveMonthlyData` - chỉ field khác base mới xuất hiện trong đây. */
 export type SaveMonthlyPatch = NonNullable<Parameters<typeof saveMonthlyData>[2]>;
@@ -49,11 +49,12 @@ export function buildBaseForm(
   fact: FactProgressMonthly | undefined,
   financial: FactFinancial | undefined,
   chain: ValueChainProgress[],
-  volumeTonnage: number | null = null,
+  volumeTonnage: number | null,
+  order: readonly StageCode[],
 ): FormState {
   const stagePct = {} as Record<StageCode, string>;
   const stageApplicable = {} as Record<StageCode, boolean>;
-  for (const s of STAGE_ORDER) {
+  for (const s of order) {
     const v = chain.find((c) => c.stageCode === s);
     stagePct[s] = v ? String(v.pctComplete) : '';
     stageApplicable[s] = v ? v.applicable : true;
@@ -91,9 +92,9 @@ export function buildBaseForm(
   };
 }
 
-/** 7 giai đoạn từ form (giống stageInputs hiện tại). */
-export function stageInputsOf(form: FormState): { stageCode: StageCode; pctComplete: number; applicable: boolean }[] {
-  return STAGE_ORDER.map((s) => ({
+/** Giai đoạn từ form theo `order` (chỉ mã đang dùng - bỏ mã ngừng dùng/lạ còn sót trong bản nháp). */
+export function stageInputsOf(form: FormState, order: readonly StageCode[]): { stageCode: StageCode; pctComplete: number; applicable: boolean }[] {
+  return order.map((s) => ({
     stageCode: s,
     pctComplete: normPct(form.stagePct?.[s] ?? '') ?? 0,
     applicable: form.stageApplicable?.[s] ?? true,
@@ -109,9 +110,9 @@ const SIMPLE_FIELDS: (keyof FormState)[] = [
   'factoryId', 'volumeTonnage',
 ];
 
-export function formsEqual(a: FormState, b: FormState): boolean {
+export function formsEqual(a: FormState, b: FormState, order: readonly StageCode[]): boolean {
   for (const k of SIMPLE_FIELDS) if (a[k] !== b[k]) return false;
-  for (const s of STAGE_ORDER) {
+  for (const s of order) {
     if (a.stagePct[s] !== b.stagePct[s]) return false;
     if (a.stageApplicable[s] !== b.stageApplicable[s]) return false;
   }
@@ -119,7 +120,11 @@ export function formsEqual(a: FormState, b: FormState): boolean {
 }
 
 /** Chỉ gửi field khác base. */
-export function buildSavePatch(base: FormState, form: FormState, opts: { canEditFinance: boolean }): SaveMonthlyPatch {
+export function buildSavePatch(
+  base: FormState,
+  form: FormState,
+  opts: { canEditFinance: boolean; order: readonly StageCode[] },
+): SaveMonthlyPatch {
   const patch: SaveMonthlyPatch = {};
 
   if (form.projectName !== base.projectName && form.projectName.trim() !== '') {
@@ -180,10 +185,10 @@ export function buildSavePatch(base: FormState, form: FormState, opts: { canEdit
     patch.equipmentActual = Number(form.equipmentActual);
   }
 
-  const chainChanged = STAGE_ORDER.some(
+  const chainChanged = opts.order.some(
     (s) => form.stagePct[s] !== base.stagePct[s] || form.stageApplicable[s] !== base.stageApplicable[s],
   );
-  if (chainChanged) patch.chain = stageInputsOf(form);
+  if (chainChanged) patch.chain = stageInputsOf(form, opts.order);
 
   if (opts.canEditFinance) {
     if (form.revenueCumulative !== base.revenueCumulative && form.revenueCumulative !== '') {
@@ -245,11 +250,11 @@ export function toDraftForm(f: FormState): DraftForm {
 }
 
 /** So sánh CHỈ các trường có trong bản nháp (khác `formsEqual` - so toàn bộ form). */
-export function draftFieldsEqual(a: FormState, b: FormState): boolean {
+export function draftFieldsEqual(a: FormState, b: FormState, order: readonly StageCode[]): boolean {
   if (a.pctPlan !== b.pctPlan || a.ac !== b.ac || a.equipmentActual !== b.equipmentActual || a.volumeTonnage !== b.volumeTonnage) {
     return false;
   }
-  for (const s of STAGE_ORDER) {
+  for (const s of order) {
     if (a.stagePct[s] !== b.stagePct[s]) return false;
     if (a.stageApplicable[s] !== b.stageApplicable[s]) return false;
   }
@@ -325,11 +330,12 @@ export function restoreDraft(base: FormState, draft: StoredDraft): FormState {
   return next;
 }
 
-export type SaveErrorKind = 'forbidden' | 'locked' | 'notFound' | 'generic';
+export type SaveErrorKind = 'forbidden' | 'locked' | 'notFound' | 'stagesChanged' | 'generic';
 
 export function saveErrorKind(error: string | undefined): SaveErrorKind {
   if (error === 'Forbidden') return 'forbidden';
   if (error === 'locked') return 'locked';
   if (error === 'Not found') return 'notFound';
+  if (error === 'stages_changed') return 'stagesChanged';
   return 'generic';
 }

@@ -72,13 +72,15 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
   },
   dim_stage: {
     kind: 'dim',
-    desc: '7 giai đoạn chuỗi giá trị - dimension thật (trước đây là hằng số trong code).',
+    desc: 'Giai đoạn chuỗi giá trị - admin thêm/sửa ở /admin; không xoá, chỉ ngừng dùng.',
     fields: {
-      code: "khoá chính ('design'…'handover')",
+      code: "khoá chính ('design'…'settlement', giai đoạn admin thêm là 'custom_<n>')",
       nameVi: 'tên tiếng Việt',
       nameEn: 'tên tiếng Anh',
       sortOrder: 'thứ tự trong chuỗi giá trị',
       calcMode: 'manual = nhập tay %HT · volume = suy từ sản lượng hạng mục',
+      side: 'bên hiển thị ở thẻ Chuỗi giá trị quản lý dự án: left | right',
+      isActive: 'false = ngừng dùng (ẩn khỏi chart, form; giữ số liệu cũ)',
     },
   },
   dim_contractor: {

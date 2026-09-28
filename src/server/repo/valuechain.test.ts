@@ -1,13 +1,16 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { repo } from './mock-repo';
-import { STAGE_ORDER } from '@/lib/stages';
+import { SEED_STAGE_CODES } from '@/lib/stages';
+
+/** 7 mã giai đoạn cũ (trước settlement) - chỉ để dựng dữ liệu test. */
+const LEGACY7_STAGE_CODES = SEED_STAGE_CODES.slice(0, 7);
 
 beforeEach(() => repo.reset());
 
 describe('chuỗi giá trị 7 giai đoạn', () => {
   it('saveValueChain ghi đủ 7 dòng, đúng pctComplete/applicable', () => {
     const p = repo.listProjects()[0];
-    const rows = STAGE_ORDER.map((stageCode, i) => ({
+    const rows = LEGACY7_STAGE_CODES.map((stageCode, i) => ({
       stageCode,
       pctComplete: (i + 1) / 10,
       applicable: i !== 0, // design không áp dụng
@@ -24,7 +27,7 @@ describe('chuỗi giá trị 7 giai đoạn', () => {
 
   it('saveValueChain ghi đè 7 dòng của cùng tháng (không nhân bản)', () => {
     const p = repo.listProjects()[0];
-    const rows = STAGE_ORDER.map((stageCode) => ({ stageCode, pctComplete: 0.5, applicable: true }));
+    const rows = LEGACY7_STAGE_CODES.map((stageCode) => ({ stageCode, pctComplete: 0.5, applicable: true }));
     repo.saveValueChain(p.id, '2026-08', rows);
     repo.saveValueChain(p.id, '2026-08', rows);
 
@@ -41,7 +44,7 @@ describe('chuỗi giá trị 7 giai đoạn', () => {
 
 describe('saveValueChain - idempotent & cô lập theo tháng', () => {
   const rows = (pct: number, applicable: (s: string) => boolean = () => true) =>
-    STAGE_ORDER.map((stageCode) => ({ stageCode, pctComplete: pct, applicable: applicable(stageCode) }));
+    LEGACY7_STAGE_CODES.map((stageCode) => ({ stageCode, pctComplete: pct, applicable: applicable(stageCode) }));
 
   it('lưu lại cùng tháng CẬP NHẬT giá trị cũ, không nhân bản, không để lại bản ghi cũ', () => {
     const p = repo.listProjects()[0];

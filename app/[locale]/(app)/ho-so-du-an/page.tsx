@@ -30,7 +30,9 @@ export default async function HoSoDuAnPage({
   const mode: 'new' | 'edit' = requestedEdit ? 'edit' : 'new';
   const selectedId = requestedEdit ? projectParam : undefined;
 
-  const [dims, exchangeRates, today] = await Promise.all([repo.getDims(), repo.getExchangeRates(), Promise.resolve(todayIso())]);
+  const [dims, exchangeRates, today, stages] = await Promise.all([
+    repo.getDims(), repo.getExchangeRates(), Promise.resolve(todayIso()), repo.getStages(),
+  ]);
 
   const project = selectedId != null ? (await repo.getProject(selectedId)) ?? null : null;
 
@@ -73,6 +75,7 @@ export default async function HoSoDuAnPage({
         allContractors={allContractors}
         ownerEmail={user.email}
         today={today}
+        stages={stages}
       />
       {mode === 'edit' && project && (
         <ProjectAuditCard

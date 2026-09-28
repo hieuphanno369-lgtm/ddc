@@ -20,15 +20,11 @@ export type Priority = 'P0' | 'P1' | 'P2' | 'P3';
 export type Status = 'Chuan_bi' | 'Dang_trien_khai' | 'Hoan_thanh' | 'Tam_dung';
 export type CurrencyCode = 'VND' | 'USD' | 'EUR';
 
-/** Chuỗi giá trị DDC - theo đúng thứ tự Thiết kế → Shop → Gia công → Vận chuyển → Lắp dựng → Nghiệm thu. */
-export type StageCode =
-  | 'design'
-  | 'shop'
-  | 'procurement'
-  | 'fabrication'
-  | 'transport'
-  | 'erection'
-  | 'handover';
+/** Mã giai đoạn - khoá dim_stage, do admin thêm được (không còn union cố định). */
+export type StageCode = string;
+
+/** Cột hiển thị ở thẻ "Chuỗi giá trị quản lý dự án": trái/phải. */
+export type StageSide = 'left' | 'right';
 
 export interface Customer {
   id: number;
@@ -147,6 +143,9 @@ export interface CreateProjectInput {
   factoryId?: number | null;
   contractValueOriginal?: number | null;
   currentAliasCode?: string;
+  /** Vòng sửa reviewer (tạo dự án nguyên tử): ghi CÙNG transaction với việc tạo dự án - xem
+   * `createProject` (prisma-repo.ts/mock-repo.ts). */
+  stageWeights?: StageWeightInput[];
 }
 
 export interface FactProgressMonthly {
@@ -194,7 +193,14 @@ export interface Stage {
   nameEn: string;
   sortOrder: number;
   calcMode: StageCalcMode;
+  /** Bên hiển thị ở thẻ Chuỗi giá trị quản lý dự án. */
+  side: StageSide;
+  /** false = ngừng dùng: ẩn khỏi chart/form, giữ số liệu cũ. */
+  isActive: boolean;
 }
+
+/** Kết quả bật/tắt giai đoạn (P7-C2 Task 8): `in_use` kèm số dự án còn đặt trọng số > 0%. */
+export type SetStageActiveResult = 'ok' | 'not_found' | 'last_active' | { status: 'in_use'; count: number };
 
 export interface ProjectStageWeight {
   projectId: number;

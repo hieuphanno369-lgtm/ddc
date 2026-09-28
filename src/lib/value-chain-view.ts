@@ -1,6 +1,6 @@
-import type { ProjectStageWeight, StageCode } from '@/server/repo/types';
+import type { ProjectStageWeight, Stage, StageCode } from '@/server/repo/types';
 import type { WorkItemCompare } from '@/lib/stage-timeline';
-import { STAGE_ORDER, calcChainPctActual, validateStageWeights, type StageInput } from '@/lib/stages';
+import { activeStages, calcChainPctActual, validateStageWeights, type StageInput } from '@/lib/stages';
 
 function formatWeightPoints(value: number, locale: string): string {
   return `${new Intl.NumberFormat(locale === 'vi' ? 'vi-VN' : 'en-US', { maximumFractionDigits: 1 }).format(value)}%`;
@@ -20,22 +20,19 @@ export function stagePctLabel(pct: number, locale: string): string {
   }).format(pct);
 }
 
-/**
- * Lưới 2 cột thẻ "Chuỗi giá trị" (mock-up `mockup-apple-glass.html` dòng 701-707, ảnh mẫu chủ dự
- * án 2026-09-24): trái = Thiết kế/Vật tư/Vận chuyển/Nghiệm thu & BG, phải = Shop Drawing/Gia
- * công/Lắp dựng - đúng thứ tự hiển thị trong mock-up, KHÔNG phải thứ tự xen kẽ của `STAGE_ORDER`.
- */
-export const VALUE_CHAIN_COLUMNS: readonly [readonly StageCode[], readonly StageCode[]] = [
-  ['design', 'procurement', 'transport', 'handover'],
-  ['shop', 'fabrication', 'erection'],
-];
+/** 2 cột (trái, phải) của thẻ "Chuỗi giá trị quản lý dự án" - chỉ giai đoạn đang dùng, mỗi cột
+ * xếp theo `sortOrder` tăng dần (dùng `activeStages`); bên trái/phải do admin cấu hình (P7-C2). */
+export function valueChainColumns(stages: readonly Stage[]): [Stage[], Stage[]] {
+  const active = activeStages(stages);
+  return [active.filter((s) => s.side === 'left'), active.filter((s) => s.side === 'right')];
+}
 
 type ChainStageRow = { stageCode: StageCode; pctComplete: number; applicable: boolean };
 
-/** Đủ 7 giai đoạn theo `STAGE_ORDER`, thiếu dòng -> applicable=true/pctComplete=0 (khớp cách mỗi
+/** Đủ giai đoạn theo `order`, thiếu dòng -> applicable=true/pctComplete=0 (khớp cách mỗi
  * hàng trong thẻ tự suy `v?.pctComplete ?? 0` khi không có dòng chain). */
-function chainStageInputs(chain: ChainStageRow[]): StageInput[] {
-  return STAGE_ORDER.map((code) => {
+function chainStageInputs(chain: ChainStageRow[], order: readonly StageCode[]): StageInput[] {
+  return order.map((code) => {
     const v = chain.find((c) => c.stageCode === code);
     return { stageCode: code, pctComplete: v?.pctComplete ?? 0, applicable: v?.applicable ?? true };
   });
@@ -48,9 +45,17 @@ export interface ChainFooterSummary { weightTotal: number; weightOk: boolean; pc
  * `weightOk=false` khi lệch, để tô cảnh báo) + %TT = Σ(trọng số × %HT giai đoạn), tính bằng đúng
  * `calcChainPctActual`/`validateStageWeights` của `src/lib/stages.ts` (nhất quán với wizard nhập liệu).
  */
-export function chainFooterSummary(chain: ChainStageRow[], weights: ProjectStageWeight[]): ChainFooterSummary {
-  const v = validateStageWeights(weights);
-  const pctTotal = calcChainPctActual(chainStageInputs(chain), weights);
+export function chainFooterSummary(
+  chain: ChainStageRow[],
+  weights: ProjectStageWeight[],
+  order: readonly StageCode[],
+): ChainFooterSummary {
+  // Vong sua reviewer (muc 2b): CHI cong cac dong co ma nam trong `order` (giai doan DANG DUNG).
+  // Phong khe ho T-3: neu 1 dong trong so cua giai doan da ngung dung sot lai (chua kip xoa), Sigma
+  // trong so o day khong duoc cong nham dong do vao, tranh bao lech 100 gia cho nguoi dung.
+  const activeWeights = weights.filter((w) => order.includes(w.stageCode));
+  const v = validateStageWeights(activeWeights);
+  const pctTotal = calcChainPctActual(chainStageInputs(chain, order), activeWeights);
   return { weightTotal: v.total, weightOk: v.ok, pctTotal };
 }
 

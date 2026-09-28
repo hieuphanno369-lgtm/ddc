@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import { revalidateTag } from 'next/cache';
 import { historyMonths, todayIso } from '@/lib/clock';
-import { validateStageWeights } from '@/lib/stages';
+import { isSameStageSet, stageOrder, validateStageWeights } from '@/lib/stages';
 import { isReservedProjectCode, normalizeProjectCode } from '@/lib/project-code';
 import { logActivity } from '@/lib/activity';
 import { requireRoleUser, requireWriteProject } from './action-guards';
@@ -124,7 +124,7 @@ export async function changeProjectCodeAction(
 export async function saveStageWeightsAction(
   projectId: number,
   rows: StageWeightInput[],
-): Promise<{ ok: true } | { ok: false; error: 'Forbidden' | 'Not found' | 'Invalid input' | 'weights_invalid' }> {
+): Promise<{ ok: true } | { ok: false; error: 'Forbidden' | 'Not found' | 'Invalid input' | 'weights_invalid' | 'stages_changed' }> {
   const user = await requireWriteProject(projectId);
   if (!user) return { ok: false, error: 'Forbidden' };
   const parsed = stageWeightRowsSchema.safeParse(rows);
@@ -132,9 +132,18 @@ export async function saveStageWeightsAction(
   const project = await repo.getProject(projectId);
   if (!project) return { ok: false, error: 'Not found' };
 
+  // P7-C2 (K8): danh sách mã gửi lên PHẢI đúng bằng tập giai đoạn đang dùng - kiểm nhanh (fast-path,
+  // NGOÀI transaction) trước khi đụng validate/DB.
+  const order = stageOrder(await repo.getStages());
+  if (!isSameStageSet(parsed.data.map((w) => w.stageCode), order)) return { ok: false, error: 'stages_changed' };
+
   if (!validateStageWeights(parsed.data).ok) return { ok: false, error: 'weights_invalid' };
 
-  await repo.replaceStageWeights(projectId, parsed.data, user.email);
+  // Vong sua reviewer (muc 2a, T-3): repo.replaceStageWeights kiem lai LAN NUA tap giai doan dang
+  // dung NGAY TRONG transaction (khoa cung dim_stage voi setStageActive) - chan khe ho admin ngung
+  // dung 1 giai doan dung luc xen giua kiem nhanh o tren va luc ghi that.
+  const result = await repo.replaceStageWeights(projectId, parsed.data, user.email);
+  if (result === 'stages_changed') return { ok: false, error: 'stages_changed' };
   await logActivity(user, 'save_stage_weights', `project ${projectId}`);
   for (const m of historyMonths()) {
     revalidateTag(overviewTag(m));

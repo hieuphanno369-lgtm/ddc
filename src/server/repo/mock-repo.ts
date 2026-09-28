@@ -1,7 +1,7 @@
 import { buildRepoData, SEED_VERSION, type RepoData } from '@/data/seed/history';
 import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { DEFAULT_STAGE_WEIGHTS, type StageInput } from '@/lib/stages';
+import { DEFAULT_STAGE_WEIGHTS, isSameStageSet, StagesChangedError, type StageInput } from '@/lib/stages';
 import { calcDayVariance, calcDurationPctComplete, calcSpi } from '@/lib/evm';
 import { endOfMonth, todayIso } from '@/lib/clock';
 import { keyMsAuditText } from '@/lib/key-milestones';
@@ -9,7 +9,7 @@ import { sumManpowerShifts } from '@/lib/shifts';
 import { ProjectCodeTakenError } from '@/lib/project-code';
 import { createReadMock } from './read-mock';
 import { makeEntryMockRepo } from './mock-repo-entry';
-import { isProjectCodeTakenIn, makeFormMockRepo } from './mock-repo-form';
+import { isProjectCodeTakenIn, makeFormMockRepo, replaceStageWeightsIn } from './mock-repo-form';
 import { makeNotifyMockRepo, resetNotifyMock } from './mock-repo-notify';
 import type {
   ActivityLogEntry,
@@ -648,7 +648,7 @@ const coreRepo = {
     return 'created';
   },
 
-  /** Ghi 7 giai đoạn chuỗi giá trị của 1 tháng (upsert theo projectId/stageCode/yearMonth). */
+  /** Ghi các giai đoạn chuỗi giá trị của 1 tháng (upsert theo projectId/stageCode/yearMonth). */
   saveValueChain(
     projectId: number,
     yearMonth: string,
@@ -792,6 +792,12 @@ const coreRepo = {
     this.logAudit('dim_project', String(projectId), fields.join(','), '', note, changedBy);
   },
 
+  /**
+   * Vong sua reviewer (tao du an nguyen tu): `stageWeights` (neu co) duoc kiem + ghi TRONG CUNG
+   * lan goi nay - ban mock don luong nen chi can kiem tap giai doan TRUOC khi ghi bat cu gi (nem
+   * `StagesChangedError` thi khong co du an nao duoc them vao `d.projects`), tuong duong hanh vi
+   * rollback cua transaction Prisma (prisma-repo.ts).
+   */
   createProject(input: CreateProjectInput, changedBy = 'system'): Project {
     const d = getData();
     const id = d.projects.reduce((m, p) => Math.max(m, p.id), 0) + 1;
@@ -799,6 +805,12 @@ const coreRepo = {
     // F-1 (vòng sửa 1, vòng 2): kiểm trùng cả mã tự sinh khi không nhập mã - đồng bộ prisma-repo.
     const finalCode = input.currentAliasCode ?? code;
     if (isProjectCodeTakenIn(d, finalCode, null)) throw new ProjectCodeTakenError(finalCode);
+    if (input.stageWeights) {
+      const activeCodes = d.stages.filter((s) => s.isActive).map((s) => s.code);
+      if (!isSameStageSet(input.stageWeights.map((w) => w.stageCode), activeCodes)) {
+        throw new StagesChangedError();
+      }
+    }
     const now = new Date().toISOString();
     const p: Project = {
       id,
@@ -843,6 +855,7 @@ const coreRepo = {
         approvedBy: changedBy,
       });
     }
+    if (input.stageWeights) replaceStageWeightsIn(d, id, input.stageWeights, changedBy);
     this.logAudit('dim_project', String(id), 'create', '', p.projectName, changedBy);
     return p;
   },

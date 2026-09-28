@@ -172,7 +172,7 @@
   "detail": {
     "title": "Project Detail",
     "timeline": "Plan vs Actual Timeline",
-    "valueChain": "Value Chain",
+    "valueChain": "Project Management Value Chain",
     "evmMetrics": "EVM Metrics",
     "spiCpi12": "SPI/CPI Trend (12 months)",
     "sCurve12": "S-Curve PV/EV/AC (12 months)",
@@ -272,7 +272,7 @@
       "first": "- first milestone -"
     },
     "stageMs": {
-      "title": "7-stage timeline",
+      "title": "Stage timeline",
       "plannedStart": "Planned start",
       "plannedFinish": "Planned finish",
       "actualStart": "Actual start",
@@ -296,15 +296,6 @@
       "manualStage": "This stage is entered as %, no per-item quantities",
       "empty": "No item quantities for this month"
     }
-  },
-  "stage": {
-    "design": "Design",
-    "shop": "Shop Drawing",
-    "procurement": "Procurement",
-    "fabrication": "Fabrication",
-    "transport": "Transport",
-    "erection": "Erection",
-    "handover": "Handover"
   },
   "form": {
     "title": "Project Data Entry",
@@ -359,7 +350,7 @@
     "stepFinance": "Finance",
     "stepProfile": "Project profile",
     "preview": "Preview",
-    "stageSection": "Progress by 7 stages",
+    "stageSection": "Progress by stage",
     "stageApplicable": "Applicable",
     "stagePctHint": "Enter completion (0-1). Empty stage = 0%.",
     "stageTotal": "Overall % (auto)",
@@ -596,7 +587,10 @@
     "notify_channel_save": "Save notification channel",
     "notify_test": "Send notification channel test",
     "save_manpower_plan": "Save monthly manpower plan",
-    "login_google_denied": "Google sign-in denied"
+    "login_google_denied": "Google sign-in denied",
+    "save_stage": "Save value chain stage",
+    "activate_stage": "Reactivate stage",
+    "deactivate_stage": "Deactivate stage"
   },
   "dataGuard": {
     "import": {
@@ -623,7 +617,8 @@
       "locked": "Month {month} is locked — cannot save.",
       "notFound": "Project not found.",
       "generic": "Save failed: {msg}",
-      "financeReadonly": "Only Admin/BOD can edit financials — fields below are read-only."
+      "financeReadonly": "Only Admin/BOD can edit financials — fields below are read-only.",
+      "stagesChanged": "The stage list was just changed by an admin - reload the page and re-enter progress."
     }
   },
   "resourceKpi": {
@@ -653,7 +648,7 @@
     "total": "Total actual"
   },
   "valueChainCard": {
-    "allStages": "All 7 stages",
+    "allStages": "All stages",
     "footerWeight": "Σ weight",
     "footerFormula": "Actual % = Σ(weight × stage actual %)"
   },
@@ -854,7 +849,7 @@
       "s2": "Contract value",
       "s3": "Dates",
       "s4": "Key milestones",
-      "s5": "7-stage weights",
+      "s5": "Stage weights",
       "s6": "Links & assignment",
       "hint": "Hover the ? next to a field for an explanation"
     },
@@ -872,7 +867,7 @@
         "sub": "Source of % Plan and contract penalty risk"
       },
       "weights": {
-        "title": "Value chain - 7-stage weights",
+        "title": "Value chain - stage weights",
         "sub": "Must total exactly 100%"
       },
       "links": {
@@ -935,7 +930,7 @@
       "masterCode": "Generated on save and never changes. The contract code may change many times; the master code stays so progress history is never lost, while each contract code is kept as an alias with an effective period.",
       "aliasCode": "The code used with the client. Changing it does not overwrite: the old code is valid until today, the new one from tomorrow, and both stay in the code history.",
       "customer": "Type to search by name. Not found? Choose + Add: the new customer is usable at once and is queued for an admin to approve or merge.",
-      "projectType": "Project type, used to filter and group projects. When creating a project it decides the pre-filled 7-stage weights in section 5; you can still edit the weights manually.",
+      "projectType": "Project type, used to filter and group projects. When creating a project it decides the pre-filled stage weights in section 5; you can still edit the weights manually.",
       "contractValue": "Before VAT, in bn VND. This is the BAC - PV, EV, EAC and VAC are all based on it. Foreign-currency contracts: enter the original amount next to it; it is converted at the contract month's rate and then kept fixed, regardless of later rates.",
       "tonnage": "Total structural steel quantity per contract, in tonnes.",
       "priority": "P0 - Strategic, P1 - Large, P2 - Standard, P3 - Small. Used to filter projects; the Overview list sorts P0 first by default.",
@@ -995,7 +990,9 @@
       "forbidden": "You cannot edit this project.",
       "notFound": "Project not found.",
       "generic": "Save failed: {msg}",
-      "unexpected": "Save failed due to a system or connection error. Try again, and contact an administrator if it persists."
+      "unexpected": "Save failed due to a system or connection error. Try again, and contact an administrator if it persists.",
+      "stages_changed": "The stage list was just changed by an admin - reload the page and re-enter the weights.",
+      "weights_required": "Enter the stage weights before creating the project."
     },
     "tip": {
       "plannedFinish": "Internal target used to run the schedule. % Plan = days elapsed since Planned start ÷ total days from Planned start to Planned finish. The countdown on Project detail counts to 17:00 on this date. Not the same as Committed handover.",
@@ -1177,5 +1174,33 @@
     "googleDenied": "This Google account has not been granted access or is locked. Contact an administrator.",
     "googleOnlyHint": "Leave blank if this person signs in with Google only",
     "duplicateAccount": "An account with this email already exists"
+  },
+  "stageAdmin": {
+    "title": "Value chain stages",
+    "order": "Order",
+    "nameVi": "Name (VI)",
+    "nameEn": "Name (EN)",
+    "side": "Side",
+    "left": "Left",
+    "right": "Right",
+    "calcMode": "Calc mode",
+    "manual": "Manual",
+    "volume": "By volume",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "save": "Save",
+    "add": "Add",
+    "deactivate": "Deactivate",
+    "activate": "Reactivate",
+    "hint": "Side: the column shown on the Project value chain card. Order: position within the column and the chain (smaller first). By volume is only used by the Comparison chart card; % complete is still entered manually in Data entry. A new stage only adds 0% to the weights of projects that already have their own weight rows. A stage can only be deactivated when no project gives it a weight above 0%.",
+    "err": {
+      "invalid": "Names are required and order must be a whole number 1-999",
+      "duplicate_name": "A stage with this name already exists",
+      "too_many": "At most 30 stages",
+      "in_use": "{n} projects still give this stage a weight above 0% - set it to 0% first",
+      "last_active": "At least 1 stage must stay active",
+      "generic": "Save failed"
+    }
   }
 }

@@ -1,7 +1,7 @@
 import { daysBetween, endOfMonth, type IsoDate } from '@/lib/clock';
-import { STAGE_ORDER } from '@/lib/stages';
+import { activeStages } from '@/lib/stages';
 import { monthTicks, type MonthTick } from '@/lib/time-axis';
-import type { ProjectStageWeight, StageCode, StageMilestoneView } from '@/server/repo/types';
+import type { ProjectStageWeight, Stage, StageCode, StageMilestoneView } from '@/server/repo/types';
 
 export interface StageTimelineRow {
   stageCode: StageCode;
@@ -14,8 +14,12 @@ export interface StageTimelineRow {
   dayVariance: number | null;        // Q1 Run 1 + Q5 mặc định (a)
 }
 
-export function buildStageTimelineRows(ms: StageMilestoneView[], weights: ProjectStageWeight[]): StageTimelineRow[] {
-  return STAGE_ORDER.flatMap((code) => {
+export function buildStageTimelineRows(
+  ms: StageMilestoneView[],
+  weights: ProjectStageWeight[],
+  order: readonly StageCode[],
+): StageTimelineRow[] {
+  return order.flatMap((code) => {
     const m = ms.find((x) => x.stageCode === code);
     if (!m) return [];
     const w = weights.find((x) => x.stageCode === code);
@@ -64,3 +68,15 @@ export function stageMarkers(r: StageTimelineRow) {
 
 export interface WorkItemCompareRow { workItemId: number; name: string; planned: number; actual: number }
 export type WorkItemCompare = Partial<Record<StageCode, WorkItemCompareRow[]>>;
+
+/** Giai đoạn mặc định của "Biểu đồ so sánh": 'fabrication' nếu đang dùng, không thì giai đoạn
+ * volume đầu tiên (theo sortOrder), không thì giai đoạn đầu tiên, rỗng -> null. */
+export function defaultCompareStage(stages: readonly Stage[]): StageCode | null {
+  const active = activeStages(stages);
+  if (!active.length) return null;
+  const fab = active.find((s) => s.code === 'fabrication');
+  if (fab) return fab.code;
+  const vol = active.find((s) => s.calcMode === 'volume');
+  if (vol) return vol.code;
+  return active[0].code;
+}

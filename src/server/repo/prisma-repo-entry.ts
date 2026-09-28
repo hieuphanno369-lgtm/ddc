@@ -1,9 +1,11 @@
 import { prisma } from '@/server/db';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import type { EquipmentCellInput, ManpowerCellInput } from '@/lib/daily-entry';
+import { STAGE_MAX_COUNT, nextCustomStageCode } from '@/lib/stages';
+import type { StageInputAdmin } from '@/server/validation';
 import type {
   Contractor, CurrencyCode, ExchangeRate, FactDailyManpowerShift, FactVolume, Factory, FxSource,
-  JobName, JobRunEntry, JobTrigger, NewEngineAlert, Shift,
+  JobName, JobRunEntry, JobTrigger, NewEngineAlert, SetStageActiveResult, Shift, Stage, StageCalcMode, StageCode, StageSide,
 } from './types';
 
 /** 'YYYY-MM-DD' → Date tại 00:00:00Z, để so sánh với cột @db.Date (khớp prisma-repo.ts). */
@@ -14,6 +16,12 @@ const day = (d: Date | null | undefined): string | null => (d ? d.toISOString().
 const iso = (d: Date | null | undefined): string | null => (d ? d.toISOString() : null);
 
 type Tx = Prisma.TransactionClient | PrismaClient;
+
+/** Dòng dim_stage → Stage (khớp getStages ở prisma-repo.ts). */
+const toStage = (s: { code: string; nameVi: string; nameEn: string; sortOrder: number; calcMode: string; side: string; isActive: boolean }): Stage => ({
+  code: s.code as StageCode, nameVi: s.nameVi, nameEn: s.nameEn, sortOrder: s.sortOrder,
+  calcMode: s.calcMode as StageCalcMode, side: s.side as StageSide, isActive: s.isActive,
+});
 
 /** Ghi 1 dòng audit_log - dùng lại trong transaction (Task 3-8) và ngoài transaction. */
 export async function audit(
@@ -228,6 +236,85 @@ export const entryPrismaRepo = {
     await prisma.factory.update({ where: { id }, data: { isActive } });
     await audit(prisma, 'dim_factory', String(id), 'isActive', String(before.isActive), String(isActive), by);
     return true;
+  },
+
+  /** P7-C2 Task 8: tạo/sửa giai đoạn chuỗi giá trị (khuôn `saveFactory`). CẢ 2 nhánh chạy trong 1
+   * transaction có khoá advisory (xem comment trong thân hàm). Tạo mới: dim_stage mã `custom_<n>` +
+   * trọng số 0% áp dụng cho mọi dự án đã có dòng trọng số (K10; dự án chưa có dòng nào đang dùng bộ
+   * mặc định, chèn 1 dòng lẻ sẽ làm mất bộ mặc định đó) + audit. Sửa: không đổi code/isActive. */
+  async saveStage(input: StageInputAdmin, by: string): Promise<Stage | 'duplicate_name' | 'not_found' | 'too_many'> {
+    const nameVi = input.nameVi.trim();
+    const fields = { nameVi, nameEn: input.nameEn.trim(), side: input.side, sortOrder: input.sortOrder, calcMode: input.calcMode };
+
+    return prisma.$transaction(async (tx) => {
+      // Vong sua bao mat T-1/T-2: khoa advisory 'dim_stage' truoc khi doc - khoa nay la mutex
+      // Postgres thuc su (khong theo MVCC nhu Serializable) nen khong can vong lap thu lai; serial
+      // hoa MOI thao tac ghi dim_stage (tao lan sua) qua cung 1 khoa, dong het khe ho 2 admin tao
+      // trung ten/vuot 30 giai doan cung luc (T-1) va lam update + audit thanh 1 don vi nguyen tu (T-2).
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('dim_stage'))`;
+      const all = await tx.stage.findMany({ select: { code: true, nameVi: true } });
+      const dup = all.find((s) => s.nameVi.trim().toLowerCase() === nameVi.toLowerCase() && s.code !== input.code);
+      if (dup) return 'duplicate_name';
+
+      if (input.code != null) {
+        const before = await tx.stage.findUnique({ where: { code: input.code } });
+        if (!before) return 'not_found';
+        const after = await tx.stage.update({ where: { code: input.code }, data: fields });
+        await audit(
+          tx, 'dim_stage', input.code, 'nameVi,nameEn,side,sortOrder,calcMode',
+          `${before.nameVi}/${before.nameEn}/${before.side}/${before.sortOrder}/${before.calcMode}`,
+          `${after.nameVi}/${after.nameEn}/${after.side}/${after.sortOrder}/${after.calcMode}`, by,
+        );
+        return toStage(after);
+      }
+      if (all.length >= STAGE_MAX_COUNT) return 'too_many';
+      const code = nextCustomStageCode(all.map((s) => s.code));
+      const created = await tx.stage.create({ data: { code, ...fields, isActive: true } });
+      const projects = await tx.projectStageWeight.findMany({ distinct: ['projectId'], select: { projectId: true } });
+      await tx.projectStageWeight.createMany({
+        data: projects.map((p) => ({ projectId: p.projectId, stageCode: code, weightPct: 0, applicable: true })),
+        skipDuplicates: true,
+      });
+      await audit(
+        tx, 'dim_stage', code, 'create', '',
+        `${created.nameVi}/${created.nameEn}/${created.side}/${created.sortOrder}/${created.calcMode}`, by,
+      );
+      return toStage(created);
+    });
+  },
+
+  /** P7-C2 Task 8 (Q1a): ngừng dùng bị chặn khi còn dự án đặt trọng số > 0% (áp dụng) hoặc khi đây
+   * là giai đoạn đang dùng cuối cùng. Chạy trong 1 transaction có khoá advisory (xem comment trong
+   * thân hàm). Dùng lại: chèn lại dòng trọng số còn thiếu (T-4), không đổi dòng đã có. */
+  async setStageActive(code: StageCode, isActive: boolean, by: string): Promise<SetStageActiveResult> {
+    return prisma.$transaction(async (tx) => {
+      // Vong sua bao mat T-3: cung khoa advisory 'dim_stage' voi saveStage - dong khe ho TOCTOU
+      // (2 admin ngung dung 2 giai doan cuoi cung cung luc se khong con giai doan nao dang dung) va
+      // gop dem/kiem/update/audit thanh 1 giao dich, khong con lenh roi nhau.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('dim_stage'))`;
+      const before = await tx.stage.findUnique({ where: { code } });
+      if (!before) return 'not_found';
+      if (!isActive) {
+        const count = await tx.projectStageWeight.count({ where: { stageCode: code, applicable: true, weightPct: { gt: 0 } } });
+        if (count > 0) return { status: 'in_use', count };
+        const others = await tx.stage.count({ where: { isActive: true, code: { not: code } } });
+        if (others === 0) return 'last_active';
+      }
+      await tx.stage.update({ where: { code }, data: { isActive } });
+      if (isActive) {
+        // T-4 (chu du an chot): dung lai giong het luc tao moi (K10) - chen dong trong so 0% ap
+        // dung cho MOI du an DA CO dong trong so nhung con thieu dong cua ma nay (vd du an tao
+        // trong luc giai doan dang ngung dung). `skipDuplicates` giu NGUYEN dong cu cua du an da
+        // tung co (kha nang giai doan tung bi ngung dung roi dung lai nhieu lan).
+        const projects = await tx.projectStageWeight.findMany({ distinct: ['projectId'], select: { projectId: true } });
+        await tx.projectStageWeight.createMany({
+          data: projects.map((p) => ({ projectId: p.projectId, stageCode: code, weightPct: 0, applicable: true })),
+          skipDuplicates: true,
+        });
+      }
+      await audit(tx, 'dim_stage', code, 'isActive', String(before.isActive), String(isActive), by);
+      return 'ok';
+    });
   },
 
   async getVolumes(projectId: number, yearMonth: string): Promise<FactVolume[]> {

@@ -61,7 +61,8 @@ export function FactoryEditor({ factories }: { factories: Factory[] }) {
     <div className="space-y-2">
       {err && <p className="sumbar bad">{err}</p>}
       <div className="scroll" style={{ maxHeight: 320 }}>
-        <table className="tbl sticky">
+        {/* Bề rộng tối thiểu: màn hẹp cuộn ngang thay vì ép ô nhập (cột Vùng từng còn ~30px ở 390). */}
+        <table className="tbl sticky" style={{ minWidth: 760 }}>
           <thead>
             <tr>
               <th>{t('factoryAdmin.name')}</th>

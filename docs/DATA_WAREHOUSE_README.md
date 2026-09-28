@@ -205,6 +205,8 @@ erDiagram
       String nameEn
       Int sortOrder
       StageCalcMode calcMode
+      StageSide side
+      Boolean isActive
     }
     dim_team_kd {
       Int id PK

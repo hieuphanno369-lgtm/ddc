@@ -1,15 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import type { ProjectStageWeight, StageCode } from '@/server/repo/types';
+import type { ProjectStageWeight, Stage, StageCode } from '@/server/repo/types';
 import type { WorkItemCompare, WorkItemCompareRow } from '@/lib/stage-timeline';
-import { STAGE_ORDER, calcChainPctActual } from '@/lib/stages';
+import { LEGACY_STAGE_WEIGHTS, SEED_STAGE_CODES, calcChainPctActual } from '@/lib/stages';
 import {
-  VALUE_CHAIN_COLUMNS,
   chainFooterSummary,
   chainWeightTotalLabel,
   stagePctLabel,
   stageTonnage,
   stageWeightLabel,
+  valueChainColumns,
 } from './value-chain-view';
+
+/** 7 mã "cũ" (không gồm settlement) - dùng cho các test tính %TT theo bộ trọng số cũ. */
+const OLD7 = SEED_STAGE_CODES.slice(0, 7);
 
 const W = (stageCode: ProjectStageWeight['stageCode'], weightPct: number, applicable = true): ProjectStageWeight => ({
   projectId: 1,
@@ -71,19 +74,6 @@ describe('stagePctLabel (vong sua 1 muc 4a - luon 1 chu so thap phan, khac forma
   });
 });
 
-describe('VALUE_CHAIN_COLUMNS (vong sua 1 muc 4a - 2 cot theo mock-up, khong xen ke STAGE_ORDER)', () => {
-  it('cot trai: design/procurement/transport/handover; cot phai: shop/fabrication/erection', () => {
-    expect(VALUE_CHAIN_COLUMNS[0]).toEqual(['design', 'procurement', 'transport', 'handover']);
-    expect(VALUE_CHAIN_COLUMNS[1]).toEqual(['shop', 'fabrication', 'erection']);
-  });
-
-  it('gop 2 cot = dung 7 giai doan cua STAGE_ORDER, khong thieu khong trung', () => {
-    const all = [...VALUE_CHAIN_COLUMNS[0], ...VALUE_CHAIN_COLUMNS[1]];
-    expect(new Set(all).size).toBe(all.length);
-    expect([...all].sort()).toEqual([...STAGE_ORDER].sort());
-  });
-});
-
 const CHAIN_ROW = (stageCode: StageCode, pctComplete: number, applicable = true) => ({ stageCode, pctComplete, applicable });
 
 describe('chainFooterSummary (vong sua 1 muc 4c - dong chan Sigma trong so + %TT)', () => {
@@ -91,7 +81,7 @@ describe('chainFooterSummary (vong sua 1 muc 4c - dong chan Sigma trong so + %TT
     const weights: ProjectStageWeight[] = [W('design', 50), W('fabrication', 30), W('shop', 20)];
     // shop co trong so nhung chain danh dau khong ap dung -> khong duoc tinh (dung effectiveWeight cua stages.ts).
     const chain = [CHAIN_ROW('design', 0.5), CHAIN_ROW('fabrication', 0.25), CHAIN_ROW('shop', 0.9, false)];
-    const out = chainFooterSummary(chain, weights);
+    const out = chainFooterSummary(chain, weights, OLD7);
     expect(out.weightTotal).toBe(100);
     expect(out.weightOk).toBe(true);
     expect(out.pctTotal).toBeCloseTo((50 * 0.5 + 30 * 0.25) / (50 + 30), 10);
@@ -100,24 +90,24 @@ describe('chainFooterSummary (vong sua 1 muc 4c - dong chan Sigma trong so + %TT
   it('trong so lech 100 -> weightOk=false, weightTotal = tong that (khong ghi cung 100)', () => {
     const weights: ProjectStageWeight[] = [W('design', 50), W('fabrication', 30)];
     const chain = [CHAIN_ROW('design', 0.5), CHAIN_ROW('fabrication', 0.25)];
-    const out = chainFooterSummary(chain, weights);
+    const out = chainFooterSummary(chain, weights, OLD7);
     expect(out.weightTotal).toBe(80);
     expect(out.weightOk).toBe(false);
   });
 
-  it('thieu han dong chain cho 1 giai doan co trong so -> mac dinh applicable=true/pct=0 (khop STAGE_ORDER day du)', () => {
+  it('thieu han dong chain cho 1 giai doan co trong so -> mac dinh applicable=true/pct=0 (khop du danh sach order)', () => {
     const weights: ProjectStageWeight[] = [W('design', 50), W('fabrication', 50)];
     const chain = [CHAIN_ROW('design', 1)]; // thieu dong 'fabrication'
-    const out = chainFooterSummary(chain, weights);
+    const out = chainFooterSummary(chain, weights, OLD7);
     expect(out.pctTotal).toBeCloseTo(0.5, 10);
   });
 
   it('khop voi calcChainPctActual khi truyen du 7 giai doan tuong tu (nhat quan cong thuc)', () => {
-    const weights: ProjectStageWeight[] = STAGE_ORDER.map((s) => W(s, 100 / STAGE_ORDER.length));
-    const chain = STAGE_ORDER.map((s) => CHAIN_ROW(s, 0.6));
-    const out = chainFooterSummary(chain, weights);
+    const weights: ProjectStageWeight[] = OLD7.map((s) => W(s, 100 / OLD7.length));
+    const chain = OLD7.map((s) => CHAIN_ROW(s, 0.6));
+    const out = chainFooterSummary(chain, weights, OLD7);
     const expected = calcChainPctActual(
-      STAGE_ORDER.map((s) => ({ stageCode: s, pctComplete: 0.6, applicable: true })),
+      OLD7.map((s) => ({ stageCode: s, pctComplete: 0.6, applicable: true })),
       weights,
     );
     expect(out.pctTotal).toBeCloseTo(expected, 10);
@@ -128,5 +118,61 @@ describe('chainWeightTotalLabel', () => {
   it('vi: "100%" khi tron; "95,5%" khi le', () => {
     expect(chainWeightTotalLabel(100, 'vi')).toBe('100%');
     expect(chainWeightTotalLabel(95.5, 'vi')).toBe('95,5%');
+  });
+});
+
+const ST = (code: string, sortOrder: number, side: 'left' | 'right', isActive = true): Stage => ({
+  code, nameVi: code, nameEn: code, sortOrder, calcMode: 'manual', side, isActive,
+});
+
+describe('valueChainColumns (giai doan dong - 2 cot tu dim_stage)', () => {
+  const seed8: Stage[] = [
+    ST('design', 1, 'left'), ST('shop', 2, 'left'), ST('procurement', 3, 'left'), ST('fabrication', 4, 'left'),
+    ST('transport', 5, 'right'), ST('erection', 6, 'right'), ST('handover', 7, 'right'), ST('settlement', 8, 'right'),
+  ];
+
+  it('trai design/shop/procurement/fabrication; phai transport/erection/handover/settlement', () => {
+    const [left, right] = valueChainColumns(seed8);
+    expect(left.map((s) => s.code)).toEqual(['design', 'shop', 'procurement', 'fabrication']);
+    expect(right.map((s) => s.code)).toEqual(['transport', 'erection', 'handover', 'settlement']);
+  });
+
+  it('giai doan ngung dung khong xuat hien', () => {
+    const withInactive = [...seed8, ST('old', 0, 'left', false)];
+    const [left] = valueChainColumns(withInactive);
+    expect(left.map((s) => s.code)).not.toContain('old');
+  });
+
+  it("custom_1 ben trai sortOrder 5 -> cuoi cot trai", () => {
+    const withCustom = [...seed8, ST('custom_1', 5, 'left')];
+    const [left] = valueChainColumns(withCustom);
+    expect(left.map((s) => s.code)).toEqual(['design', 'shop', 'procurement', 'fabrication', 'custom_1']);
+  });
+});
+
+describe('chainFooterSummary voi order truyen vao (giai doan dong)', () => {
+  it('chain 7 + LEGACY 8 dong + order 8 -> weightOk true, pctTotal bang tinh voi 7 dong cu', () => {
+    const chain7 = SEED_STAGE_CODES.slice(0, 7).map((code) => CHAIN_ROW(code, 0.6));
+    const old7 = SEED_STAGE_CODES.slice(0, 7).map((code) =>
+      W(code, LEGACY_STAGE_WEIGHTS.find((w) => w.stageCode === code)!.weightPct));
+    const legacy8 = LEGACY_STAGE_WEIGHTS.map((x) => W(x.stageCode, x.weightPct, x.applicable));
+    const out8 = chainFooterSummary(chain7, legacy8, [...SEED_STAGE_CODES]);
+    const out7 = chainFooterSummary(chain7, old7, SEED_STAGE_CODES.slice(0, 7));
+    expect(out8.weightOk).toBe(true);
+    expect(out8.pctTotal).toBeCloseTo(out7.pctTotal, 10);
+  });
+});
+
+describe('chainFooterSummary - bo qua dong trong so cua ma NGOAI order (vong sua reviewer muc 2b)', () => {
+  // Khe ho T-3: neu 1 dong trong so cua giai doan DA NGUNG DUNG sot lai (khong nam trong `order`,
+  // vi du do khe ho T-3 cu truoc khi vong sua nay chan lai), Sigma trong so o dong chan the KHONG
+  // duoc cong dong do vao - tranh bao lech 100 gia (dong da ngung dung khong con hien trong thẻ).
+  it('weights co 1 dong ma NGOAI order (con trong so > 0) -> khong cong vao weightTotal', () => {
+    const order7 = OLD7; // 7 ma dang dung, KHONG co 'settlement'
+    const weights: ProjectStageWeight[] = [...OLD7.map((s) => W(s, 100 / OLD7.length)), W('settlement', 20)];
+    const chain = OLD7.map((s) => CHAIN_ROW(s, 0.6));
+    const out = chainFooterSummary(chain, weights, order7);
+    expect(out.weightTotal).toBeCloseTo(100, 10);
+    expect(out.weightOk).toBe(true);
   });
 });

@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { RepoData } from '@/data/seed/history';
 import { repo } from './mock-repo';
-import type { NewEngineAlert } from './types';
+import { makeEntryMockRepo } from './mock-repo-entry';
+import type { NewEngineAlert, Project, ProjectStageWeight, Stage } from './types';
 
 /** Task 1 (P2A) - getShifts/getDailyManpowerByShift + logAudit/closeAlert nhận thêm note. */
 describe('entry repo (mock)', () => {
@@ -182,5 +184,82 @@ describe('entry repo (mock)', () => {
       expect(repo.insertEngineAlerts([])).toBe(0);
       expect(repo.getAlerts()).toHaveLength(before);
     });
+  });
+});
+
+/** P7-C2 Task 8: saveStage/setStageActive (mock) tren du lieu tu dung. */
+describe('entry repo (mock) - quan tri giai doan', () => {
+  const stage = (code: string, sortOrder: number, isActive = true): Stage =>
+    ({ code, nameVi: `GĐ ${code}`, nameEn: `Stage ${code}`, sortOrder, calcMode: 'manual', side: 'left', isActive });
+  function make(stages: Stage[], stageWeights: ProjectStageWeight[] = [], projectIds: number[] = [1, 2]) {
+    const data = {
+      stages, stageWeights, auditLog: [],
+      projects: projectIds.map((id) => ({ id }) as Project),
+    } as unknown as RepoData;
+    return { data, r: makeEntryMockRepo({ getData: () => data, persist: () => {} }) };
+  }
+  const input = { nameVi: 'Mới', nameEn: 'New', side: 'right' as const, sortOrder: 3, calcMode: 'volume' as const };
+
+  it('saveStage sua code khong co -> not_found', () => {
+    const { r } = make([stage('design', 1)]);
+    expect(r.saveStage({ ...input, code: 'custom_7' }, 'u@x')).toBe('not_found');
+  });
+
+  it('saveStage tao moi khi da du 30 giai doan (tinh ca ngung dung) -> too_many', () => {
+    const stages = Array.from({ length: 30 }, (_, i) => stage(`custom_${i + 1}`, i + 1, i % 2 === 0));
+    const { r, data } = make(stages);
+    expect(r.saveStage(input, 'u@x')).toBe('too_many');
+    expect(data.stages).toHaveLength(30);
+  });
+
+  it('saveStage tao moi -> ma custom_<max+1>, chen trong so 0% cho du an da co dong trong so', () => {
+    const { r, data } = make(
+      [stage('design', 1), stage('custom_4', 2)],
+      [{ projectId: 1, stageCode: 'design', weightPct: 100, applicable: true }],
+    );
+    const res = r.saveStage(input, 'u@x');
+    expect(res).toMatchObject({ code: 'custom_5', side: 'right', calcMode: 'volume', isActive: true });
+    expect(data.stageWeights.filter((w) => w.stageCode === 'custom_5')).toEqual([
+      { projectId: 1, stageCode: 'custom_5', weightPct: 0, applicable: true },
+    ]);
+  });
+
+  it('setStageActive tat giai doan dang dung cuoi cung -> last_active', () => {
+    const { r, data } = make([stage('design', 1), stage('shop', 2, false)]);
+    expect(r.setStageActive('design', false, 'u@x')).toBe('last_active');
+    expect(data.stages[0].isActive).toBe(true);
+  });
+
+  it('setStageActive dem in_use chi tinh dong applicable va weightPct > 0', () => {
+    const { r } = make([stage('design', 1), stage('shop', 2)], [
+      { projectId: 1, stageCode: 'shop', weightPct: 10, applicable: true },
+      { projectId: 2, stageCode: 'shop', weightPct: 10, applicable: false },
+    ]);
+    expect(r.setStageActive('shop', false, 'u@x')).toEqual({ status: 'in_use', count: 1 });
+  });
+
+  // Vong sua bao mat T-4 (tester doc lap vong 2): mock chua co test rieng cho nhanh dung-lai chen
+  // lai dong trong so 0% - chi co comment. Du an 1 da co dong KHAC (design) nhung thieu dong
+  // custom_1 -> duoc chen 0%; du an 2 DA co dong custom_1 tu truoc (vd ngung/dung lai nhieu lan) ->
+  // GIU NGUYEN (khong bi ghi de ve 0%); du an 3 CHUA co dong trong so nao ca -> khong duoc them
+  // dong le (dang dung bo mac dinh qua getStageWeights, giong K10 luc tao moi).
+  it('setStageActive dung lai -> chen 0% cho du an da co dong khac nhung thieu dong ma nay, giu nguyen dong da co, du an chua co dong nao thi khong them', () => {
+    const { r, data } = make(
+      [stage('design', 1), stage('custom_1', 2, false)],
+      [
+        { projectId: 1, stageCode: 'design', weightPct: 100, applicable: true },
+        { projectId: 2, stageCode: 'design', weightPct: 50, applicable: true },
+        { projectId: 2, stageCode: 'custom_1', weightPct: 7, applicable: false },
+      ],
+      [1, 2, 3],
+    );
+
+    expect(r.setStageActive('custom_1', true, 'u@x')).toBe('ok');
+
+    expect(data.stages.find((s) => s.code === 'custom_1')!.isActive).toBe(true);
+    const rowsForCode = data.stageWeights.filter((w) => w.stageCode === 'custom_1');
+    expect(rowsForCode.find((w) => w.projectId === 1)).toEqual({ projectId: 1, stageCode: 'custom_1', weightPct: 0, applicable: true });
+    expect(rowsForCode.find((w) => w.projectId === 2)).toEqual({ projectId: 2, stageCode: 'custom_1', weightPct: 7, applicable: false });
+    expect(rowsForCode.some((w) => w.projectId === 3)).toBe(false);
   });
 });

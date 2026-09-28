@@ -3,13 +3,14 @@ import { requireUser } from '@/lib/require-user';
 import { repo } from '@/server/repo';
 import { historyMonths } from '@/lib/clock';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
-import { IconAlert, IconFactory, IconMoney, IconUser } from '@/components/icons';
+import { IconAlert, IconChecklist, IconFactory, IconMoney, IconUser } from '@/components/icons';
 import { UserEditor } from '@/components/admin/UserEditor';
 import { ActivityViewer } from '@/components/admin/ActivityViewer';
 import { FieldEditor } from '@/components/admin/FieldEditor';
 import { DeleteProject } from '@/components/admin/DeleteProject';
 import { AuditMiniTable } from '@/components/admin/AuditMiniTable';
 import { FactoryEditor } from '@/components/admin/FactoryEditor';
+import { StageEditor } from '@/components/admin/StageEditor';
 import { ExchangeRateEditor } from '@/components/admin/ExchangeRateEditor';
 import { NotifyChannelEditor } from '@/components/admin/NotifyChannelEditor';
 import { hasSecretKey } from '@/lib/secret-box';
@@ -30,6 +31,8 @@ export default async function AdminPage() {
   const activity = await repo.readActivitySince(logSince('14d', new Date())!);
   const customerValues = await repo.getDimFieldValues('customer');
   const teamValues = await repo.getDimFieldValues('team');
+  // P7-C2: mọi giai đoạn (cả ngừng dùng) để admin dùng lại được.
+  const stages = await repo.getStages();
 
   return (
     <>
@@ -95,6 +98,13 @@ export default async function AdminPage() {
         <CardHeader title={t('factoryAdmin.title')} action={<IconFactory size={18} />} />
         <CardBody>
           <FactoryEditor factories={dims.factories} />
+        </CardBody>
+      </Card>
+
+      <Card className="overflow-visible">
+        <CardHeader title={t('stageAdmin.title')} action={<IconChecklist size={18} />} />
+        <CardBody>
+          <StageEditor stages={stages} />
         </CardBody>
       </Card>
 

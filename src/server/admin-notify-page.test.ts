@@ -40,6 +40,7 @@ vi.mock('@/components/admin/FieldEditor', () => ({ FieldEditor: () => null }));
 vi.mock('@/components/admin/DeleteProject', () => ({ DeleteProject: () => null }));
 vi.mock('@/components/admin/AuditMiniTable', () => ({ AuditMiniTable: () => null }));
 vi.mock('@/components/admin/FactoryEditor', () => ({ FactoryEditor: () => null }));
+vi.mock('@/components/admin/StageEditor', () => ({ StageEditor: () => null }));
 vi.mock('@/components/admin/ExchangeRateEditor', () => ({ ExchangeRateEditor: () => null }));
 vi.mock('@/components/admin/NotifyChannelEditor', () => ({
   NotifyChannelEditor: (props: Record<string, unknown>) => {

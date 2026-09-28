@@ -1,8 +1,10 @@
 import type { RepoData } from '@/data/seed/history';
 import type { EquipmentCellInput, ManpowerCellInput } from '@/lib/daily-entry';
+import { STAGE_MAX_COUNT, nextCustomStageCode } from '@/lib/stages';
+import type { StageInputAdmin } from '@/server/validation';
 import type {
   AlertLog, AuditLogEntry, Contractor, CurrencyCode, ExchangeRate, FactDailyManpowerShift, FactVolume, Factory,
-  FxSource, JobName, JobRunEntry, JobTrigger, NewEngineAlert, Shift,
+  FxSource, JobName, JobRunEntry, JobTrigger, NewEngineAlert, SetStageActiveResult, Shift, Stage, StageCode,
 } from './types';
 
 export interface EntryMockDeps {
@@ -222,6 +224,72 @@ export function makeEntryMockRepo({ getData, persist }: EntryMockDeps) {
       auditMock(d, 'dim_factory', String(id), 'isActive', old, String(isActive), by);
       persist();
       return true;
+    },
+
+    /** P7-C2 Task 8: tạo/sửa giai đoạn chuỗi giá trị (khuôn `saveFactory`). Mock chạy đồng bộ nên tự
+     * nguyên tử, khớp hành vi khoá advisory của bản Prisma (T-1/T-2). Tạo mới: mã `custom_<n>`,
+     * chèn trọng số 0% áp dụng cho mọi dự án đã có dòng trọng số (dự án chưa có dòng
+     * nào đang dùng bộ mặc định, chèn 1 dòng lẻ sẽ làm mất bộ mặc định đó). Sửa: không đổi code/isActive. */
+    saveStage(input: StageInputAdmin, by: string): Stage | 'duplicate_name' | 'not_found' | 'too_many' {
+      const d = getData();
+      const nameVi = input.nameVi.trim();
+      const dup = d.stages.find((s) => s.nameVi.trim().toLowerCase() === nameVi.toLowerCase() && s.code !== input.code);
+      if (dup) return 'duplicate_name';
+      const fields = { nameVi, nameEn: input.nameEn.trim(), side: input.side, sortOrder: input.sortOrder, calcMode: input.calcMode };
+
+      if (input.code != null) {
+        const existing = d.stages.find((s) => s.code === input.code);
+        if (!existing) return 'not_found';
+        const old = `${existing.nameVi}/${existing.nameEn}/${existing.side}/${existing.sortOrder}/${existing.calcMode}`;
+        Object.assign(existing, fields);
+        auditMock(d, 'dim_stage', existing.code, 'nameVi,nameEn,side,sortOrder,calcMode', old, `${existing.nameVi}/${existing.nameEn}/${existing.side}/${existing.sortOrder}/${existing.calcMode}`, by);
+        persist();
+        return existing;
+      }
+      if (d.stages.length >= STAGE_MAX_COUNT) return 'too_many';
+      const code = nextCustomStageCode(d.stages.map((s) => s.code));
+      const created: Stage = { code, ...fields, isActive: true };
+      d.stages.push(created);
+      const withWeights = new Set(d.stageWeights.map((w) => w.projectId));
+      for (const p of d.projects) {
+        if (withWeights.has(p.id)) d.stageWeights.push({ projectId: p.id, stageCode: code, weightPct: 0, applicable: true });
+      }
+      auditMock(d, 'dim_stage', code, 'create', '', `${created.nameVi}/${created.nameEn}/${created.side}/${created.sortOrder}/${created.calcMode}`, by);
+      persist();
+      return created;
+    },
+
+    /** P7-C2 Task 8 (Q1a): ngừng dùng bị chặn khi còn dự án đặt trọng số > 0% (áp dụng) hoặc
+     * khi đây là giai đoạn đang dùng cuối cùng. Mock chạy đồng bộ (không `await` xen giữa các bước)
+     * nên tự nguyên tử, không cần khoá như bản Prisma (T-3). Dùng lại: chèn lại dòng trọng số còn
+     * thiếu cho dự án đã có dòng khác (T-4), giữ nguyên dòng đã có. */
+    setStageActive(code: StageCode, isActive: boolean, by: string): SetStageActiveResult {
+      const d = getData();
+      const s = d.stages.find((x) => x.code === code);
+      if (!s) return 'not_found';
+      if (!isActive) {
+        const count = new Set(
+          d.stageWeights.filter((w) => w.stageCode === code && w.applicable && w.weightPct > 0).map((w) => w.projectId),
+        ).size;
+        if (count > 0) return { status: 'in_use', count };
+        if (!d.stages.some((x) => x.code !== code && x.isActive)) return 'last_active';
+      }
+      const old = String(s.isActive);
+      s.isActive = isActive;
+      if (isActive) {
+        // T-4 (chu du an chot): dung lai giong het luc tao moi - chen dong trong so 0% ap dung cho
+        // MOI du an DA CO dong trong so nhung con thieu dong cua ma nay; du an da co dong duoc giu NGUYEN.
+        const withWeights = new Set(d.stageWeights.map((w) => w.projectId));
+        const hasCode = new Set(d.stageWeights.filter((w) => w.stageCode === code).map((w) => w.projectId));
+        for (const p of d.projects) {
+          if (withWeights.has(p.id) && !hasCode.has(p.id)) {
+            d.stageWeights.push({ projectId: p.id, stageCode: code, weightPct: 0, applicable: true });
+          }
+        }
+      }
+      auditMock(d, 'dim_stage', code, 'isActive', old, String(isActive), by);
+      persist();
+      return 'ok';
     },
 
     getVolumes(projectId: number, yearMonth: string): FactVolume[] {
