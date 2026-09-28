@@ -1,9 +1,9 @@
 node_modules/
 .next/
 out/
-.env
-.env.local
-.env.*.local
+# Moi file bien moi truong (.env, .env.local, .env.production...) deu KHONG commit; chi giu file mau.
+.env*
+!.env.example
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
