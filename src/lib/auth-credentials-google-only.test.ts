@@ -67,6 +67,11 @@ const row = (over: Partial<Record<string, unknown>> = {}) => ({
   isActive: true,
   createdAt: new Date(),
   lastLoginAt: null,
+  // R5-1 (bao-mat.md vong 5, Thap) - tu vong 5, `authorize` di qua `reserveAccountGuess` (doc
+  // `lockedAt` qua `tx.userRole.findUnique`) TRUOC khi bcrypt - dong ho gia phai co du `lockedAt`
+  // (mac dinh that trong DB la `null`, KHONG phai `undefined`) de khong bi hieu nham la "dang khoa".
+  lockedAt: null,
+  failedLoginCount: 0,
   ...over,
 });
 

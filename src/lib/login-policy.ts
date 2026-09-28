@@ -47,12 +47,18 @@ export const RESET_SUBMIT_IP_WINDOW_MS = 15 * 60_000;
  * R4-2 (bao-mat.md vòng 4, Thấp) - cửa sổ "giữ chỗ" NGUYÊN TỬ theo TÀI KHOẢN (email) TRƯỚC bcrypt ở
  * `checkCredentials` (đăng nhập) và `changePasswordAction` (đổi mật khẩu): nhiều yêu cầu ĐỒNG THỜI
  * cho CÙNG 1 email đều đọc `failedLoginCount` CŨ (chưa ai kịp ghi `registerFailedLogin`) nên đều lọt
- * qua kiểm tra `lockedAt` và đều chạy bcrypt thật, vượt hẳn `LOGIN_LOCK_THRESHOLD`. Cửa sổ này CHỈ
- * cần đủ ngắn để bắt các lượt THỰC SỰ chạy chồng nhau (giữ chỗ rồi RÚT LẠI NGAY sau khi bcrypt xong,
- * không dùng để đếm dài hạn như `IP_FAIL_WINDOW_MS`) - bộ đếm khoá CHÍNH THỨC vẫn là
- * `failedLoginCount`/`registerFailedLogin`, không đổi.
+ * qua kiểm tra `lockedAt` và đều chạy bcrypt thật, vượt hẳn `LOGIN_LOCK_THRESHOLD`. Bộ đếm khoá
+ * CHÍNH THỨC vẫn là `failedLoginCount`/`registerFailedLogin`, không đổi.
+ * R5-2 (bao-mat.md vòng 5, Thấp) - vòng 4 dùng cửa sổ 5 GIÂY, ngắn hơn thời gian 1 lượt có thể cần
+ * để xử lý xong khi server bị dồn tải (nhiều bcrypt cùng chạy, `bcryptjs` JS thuần chạy chậm hẳn đi) -
+ * 1 chỗ giữ có thể "hết hạn" (rơi khỏi cửa sổ đếm) TRƯỚC KHI được rút đúng cách, khiến 1 lượt khác
+ * lọt qua dù chỗ kia trên thực tế vẫn đang được xử lý. Nới ra 5 PHÚT (cùng mốc với
+ * `ACCESS_RECHECK_INTERVAL_MS`) - đủ dài để không bao giờ bị "hết hạn" khi còn đang xử lý dở, chỉ còn
+ * tác dụng dọn dòng mồ côi nếu tiến trình crash giữa chừng không kịp `releaseThrottle` (không còn
+ * dùng để giới hạn concurrency theo thời gian như vòng 4 - từ vòng 5, `reserveAccountGuess` đếm số
+ * chỗ ĐANG GIỮ thật sự, xem `types.ts`).
  */
-export const ACCOUNT_GUESS_WINDOW_MS = 5_000;
+export const ACCOUNT_GUESS_WINDOW_MS = 5 * 60_000;
 
 export const EMAIL_MAX_LENGTH = 254;
 

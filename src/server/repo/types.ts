@@ -697,8 +697,41 @@ export interface AuthStore {
    * tại đủ ngưỡng (`changePasswordAction`) - phiên hiện tại còn được đá NGAY qua
    * `invalidateCurrentSessionCookie` (phía cookie), hàm này lo phần CÒN LẠI (các phiên khác, nếu có).
    * `false` nếu không có tài khoản đó.
+   * R5-6 (bao-mat.md vòng 5, Thấp) - KHÔNG được phép kéo `passwordChangedAt` LÙI LẠI: `nowIso` do bên
+   * gọi truyền vào được chụp lúc BẮT ĐẦU request, có thể đã cũ hơn 1 mốc MỚI HƠN đã được ghi bởi 1
+   * thao tác khác nhanh hơn (vd `changePasswordAction` khác vừa đổi mật khẩu thành công) xảy ra xen
+   * giữa - ghi đè bằng giá trị CŨ hơn sẽ vô tình làm mốc thu hồi lùi về trước, có thể khiến 1 phiên lẽ
+   * ra phải bị vô hiệu lại được coi là hợp lệ. Chỉ ghi khi `passwordChangedAt` hiện tại là `null` hoặc
+   * CŨ HƠN `nowIso` (kiểu "GREATEST", không đơn thuần ghi đè vô điều kiện); không ghi được (do đã có
+   * mốc mới hơn) KHÔNG phải là lỗi - tài khoản đó VẪN có `true` (mọi phiên vẫn bị thu hồi, chỉ là nhờ
+   * mốc mới hơn đã ghi từ trước).
    */
   revokeSessions(email: string, nowIso: string): Promise<boolean>;
+  /**
+   * R5-1 (bao-mat.md vòng 5, Thấp) - thay cho cách dùng `reserveThrottle` chung ở vòng 4 (R4-2): đó
+   * chỉ đếm số dòng trong 1 cửa sổ thời gian, KHÔNG đọc lại `failedLoginCount`/`lockedAt` TẠI THỜI
+   * ĐIỂM giữ chỗ - kết hợp với việc bên gọi RÚT chỗ quá sớm (ngay sau bcrypt, trước khi
+   * `registerFailedLogin` kịp ghi) để lọt quá `threshold` lượt bcrypt thật khi có yêu cầu chạy chồng
+   * chéo phức tạp (xem R5-1 trong `bao-mat.md`).
+   * "Giữ chỗ" một lượt đoán mật khẩu cho TÀI KHOẢN, nguyên tử trong 1 giao dịch: khoá advisory theo
+   * `kind:email` (giống `reserveThrottle`), đọc `failedLoginCount`/`lockedAt` HIỆN TẠI của tài khoản
+   * TỪ DB (không dựa vào bản chụp cũ đọc trước đó), đếm số chỗ ĐANG GIỮ (`auth_throttle` cùng
+   * `kind:key`, `createdAt >= sinceIso` - R5-2, cửa sổ dài vài phút CHỈ để dọn dòng mồ côi khi tiến
+   * trình crash không kịp `releaseThrottle`, KHÔNG dùng để giới hạn concurrency theo thời gian như
+   * `reserveThrottle`). Từ chối (`null`) khi tài khoản không còn, đã bị khoá (`lockedAt !== null`),
+   * hoặc `failedLoginCount + số chỗ đang giữ >= threshold`.
+   * Bên gọi PHẢI giữ chỗ này tới SAU KHI `registerFailedLogin` (nhánh sai) hoặc `resetFailedLogin`
+   * (nhánh đúng) chạy xong rồi mới `releaseThrottle` (try/finally bao cả đoạn, kể cả khi bcrypt/ghi
+   * ném lỗi) - bất biến: số chỗ đang giữ + số lượt sai đã ghi (`failedLoginCount`) không bao giờ vượt
+   * `threshold`.
+   */
+  reserveAccountGuess(
+    kind: ThrottleKind,
+    email: string,
+    nowIso: string,
+    sinceIso: string,
+    threshold: number,
+  ): Promise<number | null>;
   recordThrottle(kind: ThrottleKind, key: string, nowIso: string): Promise<void>;
   countThrottle(kind: ThrottleKind, key: string, sinceIso: string): Promise<number>;
   /**

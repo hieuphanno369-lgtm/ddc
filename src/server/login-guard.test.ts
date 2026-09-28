@@ -202,6 +202,7 @@ describe('checkCredentials - L3: xac nhan nguyen tu chong TOCTOU khi doan mat kh
       setPassword: vi.fn(),
       setPasswordIfHash: vi.fn(),
       revokeSessions: vi.fn(),
+      reserveAccountGuess: vi.fn().mockResolvedValue(1),
       replaceResetToken: vi.fn(),
       peekResetToken: vi.fn(),
       consumeResetToken: vi.fn(),
@@ -233,7 +234,12 @@ describe('checkCredentials - L3: xac nhan nguyen tu chong TOCTOU khi doan mat kh
     expect(state?.lockedAt).not.toBeNull();
   });
 
-  it('R4-2 - Promise.all 10 luot sai dong thoi (verifyPassword co do tre that cua bcrypt) -> verifyPassword goi <= LOGIN_LOCK_THRESHOLD lan', async () => {
+  it('R4-2 - Promise.all 10 luot sai dong thoi (verifyPassword co do tre that cua bcrypt) -> verifyPassword voi HASH THAT (khong tinh luot bcrypt gia cua R5-3) goi <= LOGIN_LOCK_THRESHOLD lan', async () => {
+    // R5-3 (bao-mat.md vong 5) - tu vong 5, nhanh het cho (accountReserved === null) CUNG chay 1 luot
+    // bcrypt GIA (qua respondAccountLocked, dummyHash) de can bang thoi gian voi nhanh da khoa that -
+    // spy.mock.calls.length tho se LON HON LOGIN_LOCK_THRESHOLD (moi luot bi tu choi cung goi bcrypt
+    // gia rieng) - can loc dung cac loi goi voi HASH THAT cua tai khoan (khong phai dummyHash) de kiem
+    // dung bat bien cua R5-1 ("khong qua 5 luot bcrypt THAT").
     const store = createMemoryAuthStore(makeSource([account()]));
     const spy = vi.spyOn(passwordLib, 'verifyPassword');
     spy.mockClear();
@@ -243,7 +249,100 @@ describe('checkCredentials - L3: xac nhan nguyen tu chong TOCTOU khi doan mat kh
     );
     await Promise.all(calls);
 
-    expect(spy.mock.calls.length).toBeLessThanOrEqual(LOGIN_LOCK_THRESHOLD);
+    const realCalls = spy.mock.calls.filter(([, hash]) => hash === REAL_HASH);
+    expect(realCalls.length).toBeLessThanOrEqual(LOGIN_LOCK_THRESHOLD);
+  });
+});
+
+describe('checkCredentials - R5-1 (bao-mat.md vong 5, Thap): chi rut cho SAU registerFailedLogin/resetFailedLogin, khong rut som nhu vong 4', () => {
+  it('ca A: registerFailedLogin cua request dau tien con dang TREO (chua tra ve) -> request thu 6 (chay sau) KHONG duoc goi verifyPassword voi HASH THAT (con tinh 1 cho dang giu cua request dau)', async () => {
+    const store = createMemoryAuthStore(makeSource([account()]));
+    let registerCallCount = 0;
+    let releaseFirstRegister: (() => void) | undefined;
+    const realRegister = store.registerFailedLogin.bind(store);
+    vi.spyOn(store, 'registerFailedLogin').mockImplementation(async (email, threshold, nowIso) => {
+      registerCallCount++;
+      if (registerCallCount === 1) {
+        // R1: treo o day - mo phong registerFailedLogin cham (vd DB tam cham) - CHUA tra ve, nen
+        // reserveAccountGuess cua R1 (giu trong try/finally) CHUA duoc rut.
+        await new Promise<void>((resolve) => {
+          releaseFirstRegister = resolve;
+        });
+      }
+      return realRegister(email, threshold, nowIso);
+    });
+
+    // R1: bat dau, se treo o buoc registerFailedLogin (chua tra ve checkCredentials).
+    const p1 = checkCredentials(store, { email: 'a@daidung.com.vn', password: 'sai', ip: '' }, at(0));
+    await vi.waitFor(() => {
+      if (registerCallCount < 1) throw new Error('R1 chua toi registerFailedLogin');
+    });
+
+    // R2..R5 (4 luot nua) chay TRON tung cai mot - dua failedLoginCount len 4 (R1 van dang treo,
+    // CHUA tinh vao failedLoginCount, nhung van con GIU 1 cho o reserveAccountGuess).
+    for (let i = 0; i < 4; i++) {
+      const r = await checkCredentials(store, { email: 'a@daidung.com.vn', password: 'sai', ip: '' }, at(i * 1000 + 1));
+      expect(r).toEqual({ ok: false, reason: 'invalid' });
+    }
+    expect((await store.getAccountState('a@daidung.com.vn'))?.failedLoginCount).toBe(4);
+
+    // R6: cho cua R1 (dang treo, CHUA rut) + failedLoginCount=4 = 5 >= threshold(5) -> KHONG duoc
+    // reserveAccountGuess, di qua nhanh "het cho" (bcrypt GIA qua R5-3), KHONG goi bcrypt THAT.
+    const spy = vi.spyOn(passwordLib, 'verifyPassword');
+    spy.mockClear();
+    const r6 = await checkCredentials(store, { email: 'a@daidung.com.vn', password: 'sai', ip: '' }, at(6000));
+    expect(r6).toEqual({ ok: false, reason: 'locked' });
+    const realCalls = spy.mock.calls.filter(([, hash]) => hash === REAL_HASH);
+    expect(realCalls).toHaveLength(0);
+
+    // Don dep: tha R1 chay not (khong con anh huong ket qua da kiem o tren).
+    releaseFirstRegister?.();
+    await p1;
+  });
+
+  it('ca B: 1 "ke giu cho" dang treo GIUA LUC kiem mat khau (chua goi xong verifyPassword) -> chi CON 4 luot khac (khong phai 5) duoc chay bcrypt THAT, tong khong vuot 5', async () => {
+    const store = createMemoryAuthStore(makeSource([account()]));
+    const realVerify = passwordLib.verifyPassword;
+    let verifyCallCount = 0;
+    let releaseHeld: (() => void) | undefined;
+    const spy = vi.spyOn(passwordLib, 'verifyPassword');
+    spy.mockImplementationOnce(async (raw: string, hash: string) => {
+      verifyCallCount++;
+      // Ke giu cho: da giu duoc 1 cho (reserveAccountGuess xong), nhung dang TREO giua luc kiem mat
+      // khau - chua goi xong verifyPassword nen chua toi registerFailedLogin, cho VAN con giu.
+      await new Promise<void>((resolve) => {
+        releaseHeld = resolve;
+      });
+      return realVerify(raw, hash);
+    });
+
+    const pHeld = checkCredentials(store, { email: 'a@daidung.com.vn', password: 'sai', ip: '' }, at(0));
+    await vi.waitFor(() => {
+      if (verifyCallCount < 1) throw new Error('ke giu cho chua toi buoc verify');
+    });
+
+    // 4 luot tiep theo chay TRON (khong phai 5, vi ke giu cho da chiem 1 trong 5 cho).
+    for (let i = 0; i < 4; i++) {
+      const r = await checkCredentials(store, { email: 'a@daidung.com.vn', password: 'sai', ip: '' }, at(i * 1000 + 1));
+      expect(r).toEqual({ ok: false, reason: 'invalid' });
+    }
+    expect((await store.getAccountState('a@daidung.com.vn'))?.failedLoginCount).toBe(4);
+
+    // Luot tiep theo (thu 5 trong so cac luot BINH THUONG, nhung la luot thu 6 neu tinh ca ke giu
+    // cho) phai bi tu choi TRUOC bcrypt that: 1 (ke giu cho) + 4 (da ghi) = 5 >= threshold.
+    const r5 = await checkCredentials(store, { email: 'a@daidung.com.vn', password: 'sai', ip: '' }, at(5000));
+    expect(r5).toEqual({ ok: false, reason: 'locked' });
+
+    // Tong so luot bcrypt THAT (hash that): 1 (ke giu cho, dang treo) + 4 (da chay tron) = 5, KHONG
+    // vuot LOGIN_LOCK_THRESHOLD - dung bat bien cua R5-1.
+    const realCallsSoFar = spy.mock.calls.filter(([, hash]) => hash === REAL_HASH);
+    expect(realCallsSoFar).toHaveLength(5);
+
+    // Don dep: tha ke giu cho, cho no chay not (khoa tai khoan o lan sai thu 5 - lan cua chinh no).
+    releaseHeld?.();
+    const heldResult = await pHeld;
+    expect(heldResult).toEqual({ ok: false, reason: 'locked' });
+    expect((await store.getAccountState('a@daidung.com.vn'))?.failedLoginCount).toBe(5);
   });
 });
 

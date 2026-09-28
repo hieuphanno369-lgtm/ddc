@@ -122,13 +122,35 @@ export const prismaAuthStore: AuthStore = {
   },
 
   // R4-1a (bao-mat.md vòng 4, Trung, chốt chủ dự án 2026-09-28) - thu hồi mọi phiên: bump
-  // `passwordChangedAt`, KHÔNG đổi `passwordHash`. `count > 0` nghĩa là có tài khoản đó.
+  // `passwordChangedAt`, KHÔNG đổi `passwordHash`.
+  // R5-6 (bao-mat.md vòng 5, Thấp) - KHÔNG kéo lùi: chỉ ghi khi chưa có `passwordChangedAt` hoặc mốc
+  // hiện tại CŨ HƠN `nowIso` (kiểu "GREATEST" bằng `where`, không ghi đè vô điều kiện). `count === 0`
+  // do đã có mốc MỚI HƠN (1 thao tác khác nhanh hơn vừa ghi) vẫn coi là "đã có hiệu lực" -> `true`,
+  // chỉ khi tài khoản không còn tồn tại mới trả `false`.
   async revokeSessions(email, nowIso) {
+    const now = new Date(nowIso);
     const result = await prisma.userRole.updateMany({
-      where: { email },
-      data: { passwordChangedAt: new Date(nowIso) },
+      where: { email, OR: [{ passwordChangedAt: null }, { passwordChangedAt: { lt: now } }] },
+      data: { passwordChangedAt: now },
     });
-    return result.count > 0;
+    if (result.count > 0) return true;
+    const exists = await prisma.userRole.findUnique({ where: { email }, select: { email: true } });
+    return exists !== null;
+  },
+
+  // R5-1 (bao-mat.md vòng 5, Thấp) - xem JSDoc `AuthStore.reserveAccountGuess` (types.ts). Advisory
+  // lock theo `kind:email` rồi đọc `failedLoginCount`/`lockedAt` TƯƠI trong CÙNG giao dịch (khác
+  // `reserveThrottle` vòng 4 - không đọc lại tài khoản, chỉ đếm dòng trong cửa sổ thời gian).
+  async reserveAccountGuess(kind, email, nowIso, sinceIso, threshold) {
+    return prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${kind} || ':' || ${email}))`;
+      const account = await tx.userRole.findUnique({ where: { email }, select: { failedLoginCount: true, lockedAt: true } });
+      if (!account || account.lockedAt !== null) return null;
+      const held = await tx.authThrottle.count({ where: { kind, key: email, createdAt: { gte: new Date(sinceIso) } } });
+      if ((account.failedLoginCount ?? 0) + held >= threshold) return null;
+      const created = await tx.authThrottle.create({ data: { kind, key: email, createdAt: new Date(nowIso) } });
+      return created.id;
+    });
   },
 
   async recordThrottle(kind, key, nowIso) {

@@ -180,3 +180,39 @@ Soi tinh `git diff df636b1..61805e8`. Ghi chu: security-reviewer chi co quyen do
 ### Chot cua chu du an vong 4 (2026-09-28)
 - R4-1 (a): khoa do doan sai mat khau hien tai -> dang xuat MOI phien cua tai khoan (thu hoi phia server, bump passwordChangedAt), khong lam sid/bang thu hoi.
 - R4-2: sua CA 2 man (Doi mat khau va Dang nhap): giu cho luot doan theo tai khoan truoc bcrypt, nguong 5 dung ca khi goi song song.
+
+## Vong 5 (security-reviewer, commit 9f937b5)
+
+CAN SUA (moi phat hien deu Thap) - R4-1, R4-3, R4-4 dong; R4-2 chua dat chot "nguong 5 dung ca khi goi song song".
+Ghi chu: security-reviewer chi co quyen doc, phien dieu phoi (C) ghi lai tu bao cao cua no.
+
+### R5-1 (Thap) - Ban so le van qua 5 luot bcrypt
+- File: login-guard.ts:125-149; actions.ts:415-438.
+- (a) releaseThrottle trong finally ngay sau bcrypt, TRUOC registerFailedLogin; (b) remaining = 5 - failedLoginCount tu ban doc dau ham (cu).
+- Kich ban: R1..R5 giu 5 cho; R6 doc count=0; R1 xong bcrypt rut cho; R6 dat cho thanh cong -> luot bcrypt thu 6. Kenh phu: luot dung rut cho IP, luot sai giu -> do han muc IP biet luot nao dung.
+- Cach va: ham kho moi kiem nguyen tu trong giao dich giu cho (advisory lock theo kind:email, doc failedLoginCount/lockedAt tu DB, tu choi khi lockedAt hoac failedLoginCount + so cho giu >= nguong); rut cho SAU registerFailedLogin/resetFailedLogin (try/finally). Bat bien: cho giu + luot sai da ghi <= 5.
+- Test do: ca A (registerFailedLogin cua R1 treo, bat dau R6) va ca B (R6 doc xong dung lai, R1 chay tron, tha R6) -> verifyPassword chi 5 lan; cho ca 2 man.
+
+### R5-2 (Thap) - Cua so 5 giay het han khi server bi don tai
+- File: login-policy.ts:55; reserveThrottle ghi createdAt = nowIso luc request bat dau; bcryptjs JS thuan cham theo tai.
+- Cach va: cua so 2-10 phut (chi de don dong mo coi), createdAt lay gio luc dat cho.
+
+### R5-3 (Thap) - Nhanh het cho tra locked ngay, do duoc email co mat khau qua thoi gian
+- File: login-guard.ts:131-135. Cach va: di y het nhanh lockedAt (bcrypt gia + login_locked_probe). Man Doi mat khau khong can.
+
+### R5-4 (Thap) - logActivity nem loi truoc revokeSessions -> tai khoan khoa nhung phien khong bi thu hoi
+- File: actions.ts:440-448. Cach va: revokeSessions + invalidateCurrentSessionCookie truoc, boc logActivity try/catch.
+
+### R5-5 (Thap, can chu du an chot) - Luot khoa o man Dang nhap khong da phien (Q1=a); doan 4 lan o Doi MK + lan 5 o Dang nhap de ne bi da. Tong luot doan van 5.
+- Tuy chon chat hon: actions.ts:395, tai khoan da khoa thi goi invalidateCurrentSessionCookie.
+
+### R5-6 (Thap, ghi nhan) - revokeSessions dung nowIso dau request, co the keo passwordChangedAt lui. Nen dung new Date() hoac GREATEST.
+
+### Diem DAT
+- R4-1: justLocked dung 1 loi goi thang; 2 duong vuot (bo qua Set-Cookie, hoi sinh qua GET /api/auth/session) da chan; khong con nhanh nao ha invalid cho token cu (reissue khong toi duoc voi cookie invalid vi getCurrentUser tra null).
+- R4-3 so hash dat; R4-4 dat; setPassword/consumeResetToken/unlock khong doi.
+- He qua phu: phien invalid khong hoi sinh khi admin mo khoa/bat lai - chap nhan duoc, fail-closed.
+
+### Chot cua chu du an vong 5 (2026-09-28)
+- R5-5: phien co doi mat khau tren tai khoan DA KHOA thi bi dang xuat ngay (invalidateCurrentSessionCookie o nhanh lockedAt cua changePasswordAction); Q1=a o man Dang nhap giu nguyen.
+- He qua phu R4-1b: DONG Y phien da vo hieu khong tu song lai khi admin mo khoa/bat lai tai khoan (phai dang nhap lai).

@@ -219,20 +219,69 @@ describe('setPasswordIfHash - R3-1 (bao-mat.md vong 3, Trung) compare-and-swap',
   });
 });
 
-describe('revokeSessions - R4-1a (bao-mat.md vong 4, Trung, chot chu du an 2026-09-28)', () => {
-  it('count > 0 -> true, chi bump passwordChangedAt, KHONG dung passwordHash', async () => {
+describe('revokeSessions - R4-1a (bao-mat.md vong 4, Trung, chot chu du an 2026-09-28); R5-6 (vong 5, Thap) khong keo lui', () => {
+  it('count > 0 -> true, chi bump passwordChangedAt, KHONG dung passwordHash, where co dieu kien GREATEST (null hoac cu hon)', async () => {
     userRoleUpdateMany.mockResolvedValueOnce({ count: 1 });
     const r = await prismaAuthStore.revokeSessions('a@daidung.com.vn', NOW_ISO);
     expect(r).toBe(true);
     expect(userRoleUpdateMany).toHaveBeenCalledWith({
-      where: { email: 'a@daidung.com.vn' },
+      where: { email: 'a@daidung.com.vn', OR: [{ passwordChangedAt: null }, { passwordChangedAt: { lt: new Date(NOW_ISO) } }] },
       data: { passwordChangedAt: new Date(NOW_ISO) },
+    });
+    expect(userRoleFindUnique).not.toHaveBeenCalled(); // ghi duoc ngay, khong can doc them
+  });
+
+  it('R5-6 - count 0 vi da co passwordChangedAt MOI HON nowIso (1 thao tac khac nhanh hon vua ghi) -> KHONG ghi de, van tra true vi tai khoan con ton tai (da co hieu luc)', async () => {
+    userRoleUpdateMany.mockResolvedValueOnce({ count: 0 });
+    userRoleFindUnique.mockResolvedValueOnce({ email: 'a@daidung.com.vn' });
+    const r = await prismaAuthStore.revokeSessions('a@daidung.com.vn', NOW_ISO);
+    expect(r).toBe(true);
+    expect(userRoleFindUnique).toHaveBeenCalledWith({ where: { email: 'a@daidung.com.vn' }, select: { email: true } });
+  });
+
+  it('count 0 va khong con tai khoan -> false', async () => {
+    userRoleUpdateMany.mockResolvedValueOnce({ count: 0 });
+    userRoleFindUnique.mockResolvedValueOnce(null);
+    expect(await prismaAuthStore.revokeSessions('x@daidung.com.vn', NOW_ISO)).toBe(false);
+  });
+});
+
+describe('reserveAccountGuess - R5-1 (bao-mat.md vong 5, Thap)', () => {
+  it('con cho (failedLoginCount + held < threshold) -> khoa advisory, tao dong moi, tra id', async () => {
+    userRoleFindUnique.mockResolvedValueOnce({ failedLoginCount: 3, lockedAt: null });
+    authThrottleCount.mockResolvedValueOnce(1); // 1 cho dang giu
+    authThrottleCreate.mockResolvedValueOnce({ id: 99 });
+    const id = await prismaAuthStore.reserveAccountGuess('login_fail_account', 'a@daidung.com.vn', NOW_ISO, '2026-09-27T23:55:00.000Z', 5);
+    expect(id).toBe(99);
+    expect(executeRaw).toHaveBeenCalled();
+    expect(authThrottleCount).toHaveBeenCalledWith({
+      where: { kind: 'login_fail_account', key: 'a@daidung.com.vn', createdAt: { gte: new Date('2026-09-27T23:55:00.000Z') } },
+    });
+    expect(authThrottleCreate).toHaveBeenCalledWith({
+      data: { kind: 'login_fail_account', key: 'a@daidung.com.vn', createdAt: new Date(NOW_ISO) },
     });
   });
 
-  it('count 0 (khong co tai khoan) -> false', async () => {
-    userRoleUpdateMany.mockResolvedValueOnce({ count: 0 });
-    expect(await prismaAuthStore.revokeSessions('x@daidung.com.vn', NOW_ISO)).toBe(false);
+  it('failedLoginCount + held >= threshold -> null, khong tao dong moi', async () => {
+    userRoleFindUnique.mockResolvedValueOnce({ failedLoginCount: 3, lockedAt: null });
+    authThrottleCount.mockResolvedValueOnce(2); // 3 + 2 = 5 >= 5
+    const id = await prismaAuthStore.reserveAccountGuess('login_fail_account', 'a@daidung.com.vn', NOW_ISO, '2026-09-27T23:55:00.000Z', 5);
+    expect(id).toBeNull();
+    expect(authThrottleCreate).not.toHaveBeenCalled();
+  });
+
+  it('tai khoan dang bi khoa (lockedAt khac null) -> null ngay, khong dem held', async () => {
+    userRoleFindUnique.mockResolvedValueOnce({ failedLoginCount: 1, lockedAt: new Date(NOW_ISO) });
+    const id = await prismaAuthStore.reserveAccountGuess('login_fail_account', 'a@daidung.com.vn', NOW_ISO, '2026-09-27T23:55:00.000Z', 5);
+    expect(id).toBeNull();
+    expect(authThrottleCount).not.toHaveBeenCalled();
+    expect(authThrottleCreate).not.toHaveBeenCalled();
+  });
+
+  it('khong co tai khoan -> null', async () => {
+    userRoleFindUnique.mockResolvedValueOnce(null);
+    const id = await prismaAuthStore.reserveAccountGuess('login_fail_account', 'khong-co@daidung.com.vn', NOW_ISO, '2026-09-27T23:55:00.000Z', 5);
+    expect(id).toBeNull();
   });
 });
 

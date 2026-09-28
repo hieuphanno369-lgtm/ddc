@@ -131,6 +131,47 @@ describe.skipIf(!hasDb)('prismaAuthStore tren Postgres that (DB _c)', () => {
     expect(await prismaAuthStore.revokeSessions('khong-ton-tai-p3e@daidung.com.vn', new Date().toISOString())).toBe(false);
   });
 
+  it('R5-6 (bao-mat.md vong 5, Thap) - khong duoc keo lui: goi voi nowIso CU HON moc da co -> giu nguyen moc moi, van tra true', async () => {
+    const newer = new Date(Date.now() + 60_000).toISOString();
+    await prismaAuthStore.revokeSessions(EMAIL_A, newer);
+    const older = new Date().toISOString();
+
+    const ok = await prismaAuthStore.revokeSessions(EMAIL_A, older);
+
+    expect(ok).toBe(true);
+    const state = await prismaAuthStore.getAccountState(EMAIL_A);
+    expect(state?.passwordChangedAt).toBe(new Date(newer).toISOString());
+  });
+
+  it('R5-1 (bao-mat.md vong 5, Thap) - 10 loi goi reserveAccountGuess dong thoi cung email, threshold=5 -> dung 5 id, 5 null', async () => {
+    await prismaAuthStore.unlockAccount(EMAIL_B);
+    await prisma.userRole.update({ where: { email: EMAIL_B }, data: { failedLoginCount: 0 } });
+    const nowIso = new Date().toISOString();
+    const since = new Date(Date.now() - 60_000).toISOString();
+
+    const results = await Promise.all(
+      Array.from({ length: 10 }, () => prismaAuthStore.reserveAccountGuess('login_fail_account', EMAIL_B, nowIso, since, 5)),
+    );
+    const ok = results.filter((r) => r !== null);
+    const blocked = results.filter((r) => r === null);
+    expect(ok).toHaveLength(5);
+    expect(blocked).toHaveLength(5);
+    expect(new Set(ok).size).toBe(5); // khong id nao trung nhau
+
+    for (const id of ok) await prismaAuthStore.releaseThrottle(id as number);
+  });
+
+  it('R5-1 - tai khoan dang bi khoa -> reserveAccountGuess tra null ngay', async () => {
+    await prismaAuthStore.registerFailedLogin(EMAIL_B, 1, new Date().toISOString()); // khoa ngay lan sai dau
+    const nowIso = new Date().toISOString();
+    const since = new Date(Date.now() - 60_000).toISOString();
+
+    const id = await prismaAuthStore.reserveAccountGuess('login_fail_account', EMAIL_B, nowIso, since, 5);
+
+    expect(id).toBeNull();
+    await prismaAuthStore.unlockAccount(EMAIL_B);
+  });
+
   it('R4-4 (bao-mat.md vong 4, Thap) - setPasswordIfHash tra false khi tai khoan da bi TAT (isActive=false) xen giua, du oldHash con khop', async () => {
     await prisma.userRole.update({ where: { email: EMAIL_A }, data: { passwordHash: 'hash-r4-4-active', isActive: false } });
     const nowIso = new Date().toISOString();

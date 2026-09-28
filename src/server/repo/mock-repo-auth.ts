@@ -140,12 +140,31 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
 
     // R4-1a (bao-mat.md vong 4, Trung, chot chu du an 2026-09-28) - thu hoi moi phien: bump
     // passwordChangedAt, KHONG doi passwordHash.
+    // R5-6 (bao-mat.md vong 5, Thap) - KHONG duoc keo lui: chi ghi khi chua co passwordChangedAt hoac
+    // moc hien tai CU HON nowIso (kieu "GREATEST"), giong ban Prisma.
     async revokeSessions(email, nowIso) {
       const key = findEmail(email);
       if (!key) return false;
       const c = countersFor(key);
-      counters.set(key, { ...c, passwordChangedAt: nowIso });
+      if (c.passwordChangedAt === null || c.passwordChangedAt < nowIso) {
+        counters.set(key, { ...c, passwordChangedAt: nowIso });
+      }
       return true;
+    },
+
+    // R5-1 (bao-mat.md vong 5, Thap) - xem JSDoc AuthStore.reserveAccountGuess (types.ts). Doc
+    // failedLoginCount/lockedAt TUOI (qua countersFor, khong dua vao ban chup cu ben ngoai) + dem so
+    // cho DANG GIU (chua releaseThrottle) trong cua so sinceIso, roi moi quyet dinh.
+    async reserveAccountGuess(kind, email, nowIso, sinceIso, threshold) {
+      const key = findEmail(email);
+      if (!key) return null;
+      const c = countersFor(key);
+      if (c.lockedAt !== null) return null;
+      const held = throttle.filter((t) => t.kind === kind && t.key === key && t.createdAt >= sinceIso).length;
+      if (c.failedLoginCount + held >= threshold) return null;
+      const id = nextThrottleId++;
+      throttle.push({ id, kind, key, createdAt: nowIso });
+      return id;
     },
 
     async recordThrottle(kind, key, nowIso) {

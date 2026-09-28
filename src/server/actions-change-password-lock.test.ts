@@ -102,7 +102,10 @@ describe('changePasswordAction - R3-2 khoa tai khoan sau 5 lan sai mat khau hien
     const r = await changePasswordAction(REAL_PW, 'MatKhauMoiTuDoi1'); // du dung mat khau that
     expect(r).toEqual({ ok: false, error: 'locked' });
     expect(spy).not.toHaveBeenCalled();
-    expect(invalidateCurrentSessionCookieMock).not.toHaveBeenCalled(); // khong khoa THEM lan nua
+    // R5-5 (bao-mat.md vong 5, Thap, chot chu du an 2026-09-28) - MOI lan goi tren 1 tai khoan DA
+    // khoa deu bi dang xuat phien dang thao tac (khac vong 4 - truoc day chi da 1 lan luc VUA khoa).
+    expect(invalidateCurrentSessionCookieMock).toHaveBeenCalledWith(EMAIL);
+    expect(invalidateCurrentSessionCookieMock).toHaveBeenCalledTimes(1);
   });
 
   it('dung mat khau sau vai lan sai (chua cham nguong) -> thanh cong, bo dem ve 0', async () => {
@@ -197,6 +200,39 @@ describe('changePasswordAction - R4-2 (bao-mat.md vong 4, Thap) - gioi han theo 
     const state = await store.getAccountState(EMAIL);
     expect(state?.lockedAt).not.toBeNull();
     expect(state?.failedLoginCount).toBe(LOGIN_LOCK_THRESHOLD);
+  });
+});
+
+describe('changePasswordAction - R5-4 (bao-mat.md vong 5, Thap) - logActivity loi khong duoc can tro thu hoi phien', () => {
+  it('logActivity nem loi dung luc VUA khoa (justLocked) -> revokeSessions VA invalidateCurrentSessionCookie VAN duoc goi (chay TRUOC logActivity), action van tra ve locked binh thuong (khong nem loi ra ngoai)', async () => {
+    (logActivity as Mock).mockRejectedValueOnce(new Error('DB ghi log tam gian doan'));
+    const revokeSpy = vi.spyOn(store, 'revokeSessions');
+
+    for (let i = 0; i < 4; i++) await changePasswordAction('sai-mk', 'MatKhauMoiTuDoi1');
+    const r5 = await changePasswordAction('sai-mk', 'MatKhauMoiTuDoi1');
+
+    expect(r5).toEqual({ ok: false, error: 'locked' }); // khong bi vo hieu boi loi cua logActivity
+    expect(revokeSpy).toHaveBeenCalledTimes(1);
+    expect(invalidateCurrentSessionCookieMock).toHaveBeenCalledWith(EMAIL);
+    const state = await store.getAccountState(EMAIL);
+    expect(state?.lockedAt).not.toBeNull();
+    expect(state?.passwordChangedAt).not.toBeNull(); // revokeSessions da chay du logActivity loi
+  });
+});
+
+describe('changePasswordAction - R5-5 (bao-mat.md vong 5, Thap, chot chu du an 2026-09-28) - tai khoan DA khoa (bat ky nguyen nhan) thi dang xuat NGAY phien dang thao tac', () => {
+  it('tai khoan bi khoa qua duong KHAC (khong phai qua chinh changePasswordAction nay) -> goi changePasswordAction (du dung mat khau that) van bi tu choi VA dang xuat phien hien tai', async () => {
+    // Mo phong khoa qua duong khac (vd dang nhap sai o man Dang nhap) - dung thang store.registerFailedLogin.
+    for (let i = 1; i <= 5; i++) await store.registerFailedLogin(EMAIL, 5, `2026-09-28T00:0${i}:00.000Z`);
+    const state = await store.getAccountState(EMAIL);
+    expect(state?.lockedAt).not.toBeNull();
+    invalidateCurrentSessionCookieMock.mockClear();
+
+    const r = await changePasswordAction(REAL_PW, 'MatKhauMoiTuDoi1');
+
+    expect(r).toEqual({ ok: false, error: 'locked' });
+    expect(invalidateCurrentSessionCookieMock).toHaveBeenCalledWith(EMAIL);
+    expect(invalidateCurrentSessionCookieMock).toHaveBeenCalledTimes(1);
   });
 });
 

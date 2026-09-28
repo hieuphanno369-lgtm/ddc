@@ -27,6 +27,28 @@ function getDummyHash(): Promise<string> {
 }
 
 /**
+ * R5-3 (bao-mat.md vòng 5, Thấp) - "khuôn" trả lời DÙNG CHUNG cho 2 nhánh cần giống hệt nhau về thời
+ * gian: tài khoản THẬT đang bị khoá (`lockedAt !== null`), VÀ (mới từ vòng 5) tài khoản THẬT hết chỗ
+ * giữ đoán mật khẩu (`reserveAccountGuess` trả `null`, xem R5-1) - trước vòng 5, nhánh hết chỗ trả
+ * `locked` NGAY không bcrypt, lộ thời gian phản hồi khác nhánh đã khoá hẳn (S-3, vòng 4). Chạy bcrypt
+ * giả (L1) + đúng 1 `recordThrottle`/`countThrottle` kind `login_locked_probe` (S-3, vòng 4 - kết quả
+ * không dùng để quyết định gì, chỉ để cân thời gian với nhánh "email lạ").
+ */
+async function respondAccountLocked(
+  store: AuthStore,
+  email: string,
+  password: string,
+  now: Date,
+  nowIso: string,
+): Promise<CredentialResult> {
+  await verifyPassword(password, await getDummyHash());
+  await store.recordThrottle('login_locked_probe', email, nowIso);
+  const sinceProbeIso = new Date(now.getTime() - UNKNOWN_EMAIL_WINDOW_MS).toISOString();
+  await store.countThrottle('login_locked_probe', email, sinceProbeIso);
+  return { ok: false, reason: 'locked' };
+}
+
+/**
  * Luật đăng nhập (K5, K6, K7, L1, L3, L7, R1, R2, R3, G2 - `.bangiao/bao-mat.md`), đúng thứ tự:
  * 0. G2 (vòng bảo mật 3) - chuẩn hoá `email = input.email.trim().toLowerCase()` TRƯỚC khi dùng làm
  *    khoá throttle (không còn 2 khoá khác nhau cho cùng 1 email chỉ vì hoa/thường hay khoảng trắng).
@@ -87,19 +109,11 @@ export async function checkCredentials(
   }
 
   if (account.lockedAt !== null) {
-    // L1 - chạy bcrypt giả TRƯỚC KHI trả, để nhánh này tốn thời gian giống hệt nhánh email lạ ở
-    // trên (không cho kẻ tấn công đo thời gian phân biệt "email tồn tại và đã khoá" với "email lạ").
-    await verifyPassword(password, await getDummyHash());
-    // S-3 (bao-mat.md vòng 4) - nhánh này TRƯỚC ĐÂY không đụng DB nào sau bcrypt giả, trong khi
-    // nhánh "email lạ" ở trên chạy thêm 1 INSERT (`recordThrottle`) + 1 SELECT (`countThrottle`) -
-    // chênh lệch đo được khi lấy trung bình nhiều lần, lộ ra "tài khoản thật đang khoá" khác với
-    // "email lạ". Chạy đúng 2 lượt DB tương đương (kind riêng `login_locked_probe`, KHÔNG dùng chung
-    // `login_fail_unknown_email` để không làm nhiễu dữ liệu dùng cho quyết định khoá email lạ) - kết
-    // quả không dùng cho quyết định gì, chỉ để cân thời gian.
-    await store.recordThrottle('login_locked_probe', email, nowIso);
-    const sinceProbeIso = new Date(now.getTime() - UNKNOWN_EMAIL_WINDOW_MS).toISOString();
-    await store.countThrottle('login_locked_probe', email, sinceProbeIso);
-    return { ok: false, reason: 'locked' };
+    // L1 (bao-mat.md vòng 1)/R5-3 (vòng 5) - dùng chung 1 "khuôn" trả lời với nhánh hết chỗ đoán bên
+    // dưới (xem `respondAccountLocked`): chạy bcrypt giả TRƯỚC KHI trả, để tốn thời gian giống hệt
+    // nhánh email lạ ở trên (không cho kẻ tấn công đo thời gian phân biệt "email tồn tại và đã khoá"
+    // với "email lạ").
+    return respondAccountLocked(store, email, password, now, nowIso);
   }
 
   const isGoogleOnly = account.passwordHash === '';
@@ -116,44 +130,44 @@ export async function checkCredentials(
     return { ok: false, reason: count >= LOGIN_LOCK_THRESHOLD ? 'locked' : 'invalid' };
   }
 
-  // R4-2 (bao-mat.md vòng 4, Thấp) - "đặt chỗ" NGUYÊN TỬ theo TÀI KHOẢN (giống IP ở bước 1) NGAY
-  // TRƯỚC bcrypt: nhiều yêu cầu chạy đồng thời cùng email (`Promise.all`) đều đọc `account` ở trên
-  // với `failedLoginCount` CŨ (chưa ai kịp ghi `registerFailedLogin`) nên đều lọt qua kiểm `lockedAt`
-  // ở bước 3 và đều chạy bcrypt thật - vượt hẳn `LOGIN_LOCK_THRESHOLD`. Giới hạn số lượt ĐANG CHẠY
-  // ĐỒNG THỜI không vượt số lượt còn lại trước ngưỡng khoá; luôn rút lại ngay sau khi bcrypt xong
-  // (`finally`) - bộ đếm khoá CHÍNH THỨC vẫn là `registerFailedLogin`/`failedLoginCount`, không đổi.
-  const accountRemaining = LOGIN_LOCK_THRESHOLD - account.failedLoginCount;
+  // R5-1 (bao-mat.md vòng 5, Thấp) - thay `reserveThrottle` chung (vòng 4, R4-2) bằng
+  // `reserveAccountGuess` (đọc `failedLoginCount`/`lockedAt` TƯƠI từ DB ngay trong giao dịch giữ chỗ,
+  // đếm đúng số chỗ ĐANG GIỮ chứ không phải số dòng trong 1 cửa sổ thời gian) - xem JSDoc ở
+  // `types.ts` vì sao cách cũ có thể để lọt quá `LOGIN_LOCK_THRESHOLD` lượt bcrypt thật khi có nhiều
+  // yêu cầu chạy chồng chéo phức tạp (không chỉ đơn thuần `Promise.all` đồng loạt).
   const sinceAccountIso = new Date(now.getTime() - ACCOUNT_GUESS_WINDOW_MS).toISOString();
-  const accountReserved =
-    accountRemaining > 0
-      ? await store.reserveThrottle('login_fail_account', email, nowIso, sinceAccountIso, accountRemaining)
-      : null;
+  const accountReserved = await store.reserveAccountGuess('login_fail_account', email, nowIso, sinceAccountIso, LOGIN_LOCK_THRESHOLD);
   if (accountReserved === null) {
-    // Đã đủ (hoặc đang đủ, do các lượt song song khác) lượt đoán đồng thời cho tài khoản này - coi
-    // như đã khoá, KHÔNG chạy bcrypt thật (chỗ IP đã đặt ở bước 1 vẫn tính là 1 lượt sai).
-    return { ok: false, reason: 'locked' };
+    // R5-3 (bao-mat.md vòng 5, Thấp) - TRƯỚC ĐÂY nhánh hết chỗ trả `locked` NGAY (không bcrypt), lộ
+    // ra thời gian phản hồi khác nhánh "đã khoá thật" (có bcrypt giả) - đo được khi 1 tài khoản THẬT
+    // có mật khẩu đang ở gần ngưỡng khoá khác với "đã khoá hẳn"/"email lạ". Đi Y HỆT nhánh `lockedAt`
+    // ở trên (dùng chung `respondAccountLocked`) - màn Đổi mật khẩu không có kiểu bcrypt-giả này nên
+    // không cần áp dụng tương tự.
+    return respondAccountLocked(store, email, password, now, nowIso);
   }
 
-  let passwordMatches: boolean;
+  // R5-1 - CHỈ rút chỗ SAU KHI `registerFailedLogin` (nhánh sai) hoặc `resetFailedLogin` (nhánh đúng)
+  // chạy XONG, dùng try/finally bao trọn cả đoạn (kể cả khi có lỗi ném ra) - rút quá sớm (ngay sau
+  // bcrypt, như vòng 4) là đúng gốc lỗi R5-1.
   try {
-    passwordMatches = await verifyPassword(password, account.passwordHash);
+    const passwordMatches = await verifyPassword(password, account.passwordHash);
+
+    if (!passwordMatches || !account.isActive) {
+      const result = await store.registerFailedLogin(email, LOGIN_LOCK_THRESHOLD, nowIso);
+      if (result?.justLocked) {
+        await logActivity({ name: account.name || email, email }, 'login_locked', String(result.count));
+      }
+      return { ok: false, reason: result?.locked ? 'locked' : 'invalid' };
+    }
+
+    // Đúng mật khẩu: lượt này KHÔNG tính là 1 lần sai theo IP - rút lại chỗ đã đặt ở đầu hàm.
+    await store.releaseThrottle(ipReserved);
+
+    // L3 - xác nhận nguyên tử, LUÔN gọi (kể cả `failedLoginCount === 0`): xem docstring hàm.
+    const confirmed = await store.resetFailedLogin(email);
+    if (!confirmed) return { ok: false, reason: 'locked' };
+    return { ok: true, account };
   } finally {
     await store.releaseThrottle(accountReserved);
   }
-
-  if (!passwordMatches || !account.isActive) {
-    const result = await store.registerFailedLogin(email, LOGIN_LOCK_THRESHOLD, nowIso);
-    if (result?.justLocked) {
-      await logActivity({ name: account.name || email, email }, 'login_locked', String(result.count));
-    }
-    return { ok: false, reason: result?.locked ? 'locked' : 'invalid' };
-  }
-
-  // Đúng mật khẩu: lượt này KHÔNG tính là 1 lần sai theo IP - rút lại chỗ đã đặt ở đầu hàm.
-  await store.releaseThrottle(ipReserved);
-
-  // L3 - xác nhận nguyên tử, LUÔN gọi (kể cả `failedLoginCount === 0`): xem docstring hàm.
-  const confirmed = await store.resetFailedLogin(email);
-  if (!confirmed) return { ok: false, reason: 'locked' };
-  return { ok: true, account };
 }
