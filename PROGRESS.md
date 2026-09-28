@@ -3,6 +3,16 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P3E phần 1 - Đăng nhập: Google theo danh sách admin, hạ tầng khoá sai mật khẩu và quên mật khẩu, gỡ ảnh hiện trường và tỷ giá VCB (Task 1-4, Tài khoản A) - CHỐT + ĐÃ MERGE vào `main` (2026-09-28)
+Nhánh `feature/p3e-dang-nhap`; hồ sơ `.bangiao/archive/p3e-phan1-2026-09-28/`. Sau merge main (P7-C2): 227 file / 2544 test; e2e 85/85 trên cổng 3010 + DB tạm; build (font mock) qua.
+Coder Task 1-4 -> tester ĐẠT -> security 4 vòng (L1-L8, R1-R7, N1-N4 đều đã sửa, vòng 4 ĐẠT) -> reviewer CẦN SỬA hồ sơ bàn giao -> sửa -> reviewer CHỐT. Merge nửa phase theo đồng ý của chủ dự án (2026-09-28).
+- Không có migration; bảng `project_photos` còn nguyên, Task 5 mới xoá.
+- Task 1: bỏ lấy tỷ giá VCB tự động, cron chỉ còn `alerts_daily`. Task 2: gỡ code ảnh hiện trường (route, action, component, i18n).
+- Task 3: đăng nhập Google chỉ cho email có trong danh sách tài khoản (bỏ `ALLOWED_EMAIL_DOMAINS`/`ROLE_SEED`), `resolveAccess` fail-closed; admin tạo được tài khoản chỉ Google, chặn trùng email.
+- Task 4: hạ tầng `login-guard.ts` (khoá 5 lần sai, giới hạn theo IP, email lạ bị đếm như thật) và `password-reset.ts` (giới hạn xin link, token 1 lần 30 phút); CHƯA nối vào đăng nhập thật, đăng nhập mật khẩu vẫn chạy logic cũ tới Task 6.
+- Quyết định chủ dự án: L2, L7=(b), R4=(a), L1=(b) (lượt bấm dư quên mật khẩu của 1 email không tính vào hạn mức IP, chặn spam ở reverse proxy lúc deploy).
+- Task 5-8 chuyển cho Tài khoản C (lệnh chủ dự án 2026-09-28), kế hoạch ở `.bangiao/ke-hoach.md` trên nhánh `feature/p3e-dang-nhap`.
+
 ### ✅ P7-C2 - Chuỗi giá trị quản lý dự án: giai đoạn động, cột trái/phải, thêm "Thanh quyết toán" (Tài khoản C) - CHỐT + ĐÃ MERGE vào `main` (2026-09-28)
 Nhánh `feature/p7-c2-chuoi-gia-tri`; hồ sơ `.bangiao/archive/p7-c2-chuoi-gia-tri-2026-09-28/`. 219 file / 2519 test; e2e 83/83 trên cổng 3003 + DB `ddc_control_tower_c` (lượt tester vòng 1).
 Coder (9 task) -> tester ĐẠT -> security ĐẠT (4 thấp T-1..T-4) -> vá T-1..T-4 + tester vòng 2 -> reviewer CHỐT (0 bắt buộc, 4 nên làm) -> sửa 4 mục -> tester vòng 3 ĐẠT (1 bản sửa nhỏ, chưa qua reviewer, chủ dự án đồng ý merge).
