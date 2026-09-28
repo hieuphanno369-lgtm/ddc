@@ -91,3 +91,56 @@ Ghi chu: security-reviewer chi co quyen doc, phien dieu phoi (C) ghi lai tu bao 
 - SessionProvider long: khong lo du lieu; bo duoc neu va R2-1 theo cach 1.
 - Callback jwt khong doc tham so `session` -> khong mass-assignment.
 - Khong secret moi, khong SQL noi chuoi.
+
+---
+
+PHAN QUYET BAO MAT VONG 3: LO HONG
+
+## Vong 3 (security-reviewer, commit ece0d95)
+
+CAN SUA - R2-1 da dong that; 2 muc Trung moi (R3-1 race tu nguon cu nhung nay dung duoc de giu phien, R3-2 co tu truoc), 2 muc Thap, R2-2 ghi nhan.
+Soi tinh `git diff 5221e84..ece0d95`, doc next-auth 4.24.15 (jwt/index.js, core/lib/cookie.js, core/init.js, utils/detect-origin.js, next/index.js, core/routes/session.js), middleware.ts, src/lib/session.ts, prisma-repo-auth.ts. Khong pentest dong.
+Ghi chu: security-reviewer chi co quyen doc, phien dieu phoi (C) ghi lai tu bao cao cua no.
+
+### Kiem R2-1: DA DONG
+- auth.ts:189-197 nhanh update khong goi applyAccountToToken, khong ghi pwdAt, chi dat invalid=true khi changedAtMs > pwdAt; khong co lenh dat invalid=false.
+- Chi 2 cho ghi token.pwdAt: nhanh dang nhap (auth.ts:208) va reissueSessionCookie (auth.ts:274), goi duy nhat tai actions.ts:369 sau verifyPassword (:365) va setPassword (:368).
+- GET /api/auth/session: applyAccountToToken ha invalid nhung phep so pwdAt ngay sau (auth.ts:222-223) dat lai true.
+- Phien invalid goi changePasswordAction: session.user.email = null, getCurrentUser null, action tra Forbidden.
+- Cookie moi: salt "" khop core, ten cookie va thuoc tinh khop defaultCookies, suy https giong getToken; lech thi fail-closed.
+- getServerSession app router co setCookie rong, khong ghi de cookie vua cap.
+- Loi nuot trong reissue deu fail-closed, log chi e.name.
+- S-3 voi verifyPassword bat dong bo: 4 nhanh deu await 1 lan bcrypt; khong cho nao thieu await.
+
+### R3-1 (Trung) - Race giua kiem mat khau va setPassword: ke giu mat khau + phien vo hieu hoa duoc admin dat mat khau tam va dat lai qua email
+- File: src/server/actions.ts:364-369; src/lib/auth.ts:272-274; src/server/repo/prisma-repo-auth.ts:91-103 (mock-repo-auth.ts:105).
+- changePasswordAction kiem currentPassword o T1, bam mat khau moi, setPassword vo dieu kien (updateMany where { email }) o T2; reissueSessionCookie doc LAI passwordChangedAt tu DB.
+- Khai thac: ke tan cong biet mat khau + co phien chay vong lap doi mat khau P1->P2->...; khi admin unlockAccountAction(tempPassword) (actions-account-lock.ts:51) hoac nan nhan resetPasswordWithToken ghi vao giua T1..T2, setPassword cua ke tan cong ghi de, passwordChangedAt = moc cua ke tan cong, cookie cap lai pwdAt moi nhat, phien ke tan cong song tiep. Xac suat trung cua so cao (uoc >70%).
+- Cach va: (1) compare-and-swap: setPasswordIfHash(email, oldHash, newHash, nowIso) updateMany where { email, passwordHash: oldHash }, count 0 thi tra 'current' va khong reissue; (2) kiem gia tri tra ve cua setPassword; (3) reissueSessionCookie(email, changedAtIso) dat pwdAt dung moc vua ghi, DB co moc moi hon thi invalid=true.
+- Test do: ben thu ba doi hash giua verify va setPassword -> action tra 'current', reissue khong goi; reissue voi DB passwordChangedAt > moc truyen vao -> invalid=true.
+
+### R3-2 (Trung, co tu truoc) - changePasswordAction la oracle doan mat khau khong gioi han, vuot khoa 5 lan
+- File: src/server/actions.ts:362-367.
+- Sai currentPassword chi tra 'current', khong registerFailedLogin, khong reserveThrottle. Ai giu cookie phien doan mat khau hien tai khong gioi han; doan trung thi doi mat khau va (nho reissue) chiem han tai khoan. Moi lan ton 1 bcrypt tren main thread.
+- Tai hien: goi changePasswordAction('sai-1','MatKhauMoi123') lap N lan; failedLoginCount/lockedAt khong doi, auth_throttle khong co dong moi.
+- Cach va: reserveThrottle('change_pwd_fail', email, ...) truoc verifyPassword (vd 5/15 phut theo email + theo IP), dung thi release. Qua nguong xu ly theo chot cua chu du an.
+- Test do: 6 lan sai lien tiep -> lan 6 bi tu choi truoc bcrypt (spy verifyPassword khong goi).
+
+### R3-3 (Thap) - Kiem lai dinh ky doc DB moi request sau 5 phut
+- File: src/lib/auth.ts:213-225 + next/index.js:118.
+- Khong co SessionProvider nen cookie gan nhu khong duoc encode lai; accessCheckedAt dung yen tu luc dang nhap, sau 5 phut MOI request server component chay getAccountState. Fail-closed, nhung tai DB tang theo thoi gian phien.
+
+### R3-4 (Thap) - Nhanh update bo qua kiem isActive trong phan hoi POST /api/auth/session
+- File: src/lib/auth.ts:189-197. Tai khoan vua bi tat (chua qua 5 phut) van nhan role/canViewFinance trong JSON. Them `if (!account || !account.isActive) token.invalid = true;` cho nhat quan "chi siet".
+
+### R2-2: ghi nhan (checklist deploy).
+
+### Diem khac, DAT
+- Token cap lai giai ma tu cookie cua chinh request, bat buoc token.email === user.email.
+- encode dat lai iat/exp/jti, maxAge 8h khop session.
+- Cookie chunk (>4KB) khong xu ly: fail-closed.
+- ChangePasswordModal khong con duong client goi update().
+- Khong secret moi, khong SQL noi chuoi, log khong chua token/mat khau.
+
+### Chot cua chu du an (2026-09-28)
+- R3-2: sai mat khau hien tai o man Doi mat khau tinh CHUNG vao bo dem khoa 5 lan cua dang nhap (registerFailedLogin); du nguong thi khoa tai khoan, phien hien tai bi dang xuat, can admin mo khoa.
