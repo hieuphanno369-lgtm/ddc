@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Đăng ký - sáng</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:#0a1f3d;-webkit-font-smoothing:antialiased}
+a{color:#1d5a9e;font-weight:600;text-decoration:none}a:hover{color:#0e2741;text-decoration:underline}
+.blob{position:absolute;border-radius:50%;filter:blur(90px)}
+.glass{background:rgba(255,255,255,.60);-webkit-backdrop-filter:blur(22px) saturate(180%);backdrop-filter:blur(22px) saturate(180%);border:.5px solid rgba(255,255,255,.72);box-shadow:0 4px 10px rgba(10,31,61,.06),0 16px 38px rgba(10,31,61,.10),inset 0 .5px 0 rgba(255,255,255,.75)}
+.glass2{background:rgba(255,255,255,.42);-webkit-backdrop-filter:blur(44px) saturate(180%);backdrop-filter:blur(44px) saturate(180%);border:.5px solid rgba(255,255,255,.72);box-shadow:inset 0 .5px 0 rgba(255,255,255,.75)}
+.inp{width:100%;box-sizing:border-box;height:46px;padding:0 14px;border-radius:12px;border:.5px solid rgba(10,31,61,.16);background:rgba(255,255,255,.80);font:500 15px Inter,sans-serif;color:#0a1f3d;outline:none}
+.inp::placeholder{color:rgba(10,31,61,.45)}
+.inp:focus{border-color:#1d5a9e;box-shadow:0 0 0 3.5px rgba(29,90,158,.12)}
+.lb{font-size:13px;font-weight:600;color:rgba(10,31,61,.70)}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:50px;border-radius:12px;border:none;font:650 15px Inter,sans-serif;cursor:pointer}
+.btn-primary{color:#ffffff;background:linear-gradient(160deg,#2a6db4,#1d5a9e);box-shadow:0 6px 16px rgba(29,90,158,.28)}
+.btn:focus-visible{outline:2px solid #1d5a9e;outline-offset:2px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#1d5a9e}
+.trolley{animation:trolley 10s cubic-bezier(.45,0,.2,1) infinite}
+.cable{transform-box:fill-box;transform-origin:50% 0;animation:cable 10s cubic-bezier(.45,0,.2,1) infinite}
+.hook{animation:hook 10s cubic-bezier(.45,0,.2,1) infinite}
+.hb{animation:hb 10s linear infinite}
+.placed{animation:placed 10s linear infinite}
+.blink{animation:blink 1.6s ease-in-out infinite}
+@keyframes trolley{0%,8%{transform:translateX(0)}28%,68%{transform:translateX(100px)}88%,100%{transform:translateX(0)}}
+@keyframes cable{0%,28%{transform:scaleY(1)}44%,54%{transform:scaleY(2.95)}68%,100%{transform:scaleY(1)}}
+@keyframes hook{0%,28%{transform:translateY(0)}44%,54%{transform:translateY(78px)}68%,100%{transform:translateY(0)}}
+@keyframes hb{0%,47%{opacity:1}49%,92%{opacity:0}95%,100%{opacity:1}}
+@keyframes placed{0%,47%{opacity:0}49%,90%{opacity:1}93%,100%{opacity:0}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.trolley,.cable,.hook,.hb,.placed,.blink{animation:none}}
+</style>
+</helmet>
+<div style="width: 1440px; height: 960px; position: relative; overflow: hidden; background: #e9eef6">
+<div class="blob" style="width: 750px; height: 750px; left: -170px; top: -230px; background: #2a6db4; opacity: .55"></div>
+<div class="blob" style="width: 630px; height: 630px; right: -140px; top: -120px; background: #0f8a63; opacity: .34"></div>
+<div class="blob" style="width: 580px; height: 580px; left: 320px; bottom: -260px; background: #f5b301; opacity: .22"></div>
+<div class="blob" style="width: 490px; height: 490px; right: 60px; bottom: -200px; background: #5856d6; opacity: .24"></div>
+
+<div style="position: relative; z-index: 1; width: 1440px; height: 960px; display: flex; box-sizing: border-box; padding: 24px">
+<div class="glass2" style="width: 696px; flex-shrink: 0; box-sizing: border-box; padding: 40px 48px; border-radius: 32px; display: flex; flex-direction: column; justify-content: space-between">
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="width: 48px; height: 48px; flex-shrink: 0; border-radius: 12px; background: #ffffff; overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(10,31,61,.10)"><img src="/_blob/b39a5c76cbde3f941bc0bbe81eb9b299" alt="Đại Dũng" style="width: 44px; height: 44px; object-fit: contain"></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 17px; font-weight: 700">Báo cáo quản trị</span><span style="font-size: 11px; font-weight: 600; letter-spacing: 0.16em; color: rgba(10,31,61,.55)">DANH MỤC DỰ ÁN</span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 16px; padding-bottom: 18px">
+<h2 style="margin: 0; font-size: 48px; line-height: 1.06; font-weight: 800; letter-spacing: -0.035em">Cùng một nhịp,<br>trên mọi<br><span style="color: #1d5a9e">công trình.</span></h2>
+<p style="margin: 0; max-width: 330px; font-size: 16px; line-height: 1.55; color: rgba(10,31,61,.66)">Nơi cả công ty cùng nhìn vào một bức tranh: tiến độ, chuỗi giá trị và những việc cần chú ý hôm nay.</p>
+</div>
+<svg width="240" height="196" viewBox="0 0 320 260" fill="none" aria-hidden="true" style="flex-shrink: 0; overflow: visible">
+<g stroke="#1d5a9e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M60 250h40"></path><path d="M72 250V58M88 250V58"></path>
+<path d="M72 250L88 234L72 218L88 202L72 186L88 170L72 154L88 138L72 122L88 106L72 90L88 74L72 58" stroke-width="1.2" opacity=".6"></path>
+<path d="M72 58L80 26L88 58"></path><path d="M20 58H304M88 50H296M20 50H72"></path>
+<path d="M88 58l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8" stroke-width="1.2" opacity=".6"></path>
+<path d="M80 26L296 50M80 26L24 50" stroke-width="1.2"></path><rect x="88" y="58" width="14" height="14" rx="2"></rect>
+</g>
+<circle class="blink" cx="80" cy="21" r="3" fill="#f5b301"></circle>
+<g stroke="#7d93b3" stroke-width="3" stroke-linecap="round"><path d="M212 250V208M288 250V208"></path></g>
+<path d="M0 250.5H320" stroke="#0a1f3d" stroke-opacity=".18" stroke-width="1"></path>
+<g class="placed"><rect x="205" y="200" width="90" height="8" rx="1" fill="#f5b301"></rect></g>
+<g class="trolley"><rect x="142" y="58" width="16" height="6" rx="1" fill="#f5b301"></rect><rect class="cable" x="149.25" y="64" width="1.5" height="40" fill="#0a1f3d" fill-opacity=".55"></rect>
+<g class="hook"><path d="M150 104v5a4 4 0 1 1-4 4" stroke="#0a1f3d" stroke-opacity=".7" stroke-width="2" stroke-linecap="round"></path><g class="hb"><path d="M150 110L112 122M150 110L188 122" stroke="#0a1f3d" stroke-opacity=".45" stroke-width="1"></path><rect x="105" y="122" width="90" height="8" rx="1" fill="#f5b301"></rect></g></g></g>
+</svg>
+</div>
+<div class="glass" style="border-radius: 20px; padding: 22px 22px 22px; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; align-items: center; gap: 12px; height: 32px"><span style="width: 118px; font-size: 14px; color: rgba(10,31,61,.75)">Thiết kế</span><div style="flex-grow: 1; position: relative; height: 10px"><div style="position: absolute; left: 0%; width: 34%; height: 10px; border-radius: 5px; background: #1d5a9e"></div></div></div>
+<div style="display: flex; align-items: center; gap: 12px; height: 32px"><span style="width: 118px; font-size: 14px; color: rgba(10,31,61,.75)">Mua sắm</span><div style="flex-grow: 1; position: relative; height: 10px"><div style="position: absolute; left: 18%; width: 30%; height: 10px; border-radius: 5px; background: #1d5a9e"></div></div></div>
+<div style="display: flex; align-items: center; gap: 12px; height: 32px"><span style="width: 118px; font-size: 14px; font-weight: 650">Gia công</span><div style="flex-grow: 1; position: relative; height: 10px"><div style="position: absolute; left: 36%; width: 30%; height: 10px; border-radius: 5px; background: #f5b301"></div></div></div>
+<div style="display: flex; align-items: center; gap: 12px; height: 32px"><span style="width: 118px; font-size: 14px; color: rgba(10,31,61,.75)">Lắp dựng</span><div style="flex-grow: 1; position: relative; height: 10px"><div style="position: absolute; left: 70%; width: 30%; height: 10px; box-sizing: border-box; border-radius: 5px; border: 1px dashed rgba(10,31,61,.35)"></div></div></div>
+</div>
+<div style="display: flex; justify-content: flex-end; margin-top: -26px; padding-right: 24px">
+<div class="glass" style="box-sizing: border-box; padding: 12px 16px; border-radius: 16px; display: flex; gap: 10px; align-items: center; background: rgba(255,255,255,.82)">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1b7a44" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+<span style="font-size: 14px">Thiết kế [TÊN DỰ ÁN] vừa hoàn thành</span>
+</div>
+</div>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: rgba(10,31,61,.50)"><span>HỆ THỐNG NỘI BỘ</span><span>© ĐẠI DŨNG</span></div>
+</div>
+
+<div style="flex-grow: 1; display: flex; align-items: center; justify-content: center">
+<form class="glass" style="width: 480px; box-sizing: border-box; padding: 38px 40px 32px; border-radius: 26px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span class="eyebrow">Tạo tài khoản</span>
+<h1 style="margin: 0; font-size: 32px; line-height: 1.12; font-weight: 800; letter-spacing: -0.03em">Bắt đầu cùng đồng nghiệp</h1>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: rgba(10,31,61,.64)">Dùng email công ty để tạo tài khoản, chỉ mất khoảng một phút. Quản trị viên duyệt xong bạn mới đăng nhập được.</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 7px"><label for="rname" class="lb">Họ và tên</label><input id="rname" class="inp" placeholder="Nguyễn Văn A"></div>
+<div style="display: flex; flex-direction: column; gap: 7px"><label for="rdept" class="lb">Phòng ban</label><select id="rdept" class="inp"><option>Chọn phòng ban</option><option>[PHÒNG BAN 1]</option><option>[PHÒNG BAN 2]</option></select></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 7px"><label for="remail" class="lb">Email công ty</label><input id="remail" class="inp" type="email" placeholder="ten@daidung.vn"><span style="font-size: 12px; color: rgba(10,31,61,.50)">Chỉ nhận email có đuôi @daidung.vn</span></div>
+<div style="display: flex; flex-direction: column; gap: 7px"><label for="rpw" class="lb">Mật khẩu</label><input id="rpw" class="inp" type="password" placeholder="Tối thiểu 8 ký tự">
+<div style="display: flex; align-items: center; gap: 10px"><div style="flex-grow: 1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px"><div style="height: 4px; border-radius: 2px; background: #1d5a9e"></div><div style="height: 4px; border-radius: 2px; background: #1d5a9e"></div><div style="height: 4px; border-radius: 2px; background: #1d5a9e"></div><div style="height: 4px; border-radius: 2px; background: rgba(10,31,61,.12)"></div></div><span style="width: 64px; font-size: 12px; font-weight: 600; color: #1d5a9e; text-align: right">Khá mạnh</span></div>
+</div>
+<button type="button" class="btn btn-primary">Tạo tài khoản<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></button>
+<p style="margin: 0; font-size: 13px; line-height: 1.5; color: rgba(10,31,61,.55); text-align: center">Khi tạo tài khoản, bạn đồng ý với <a href="#">Điều khoản sử dụng</a> của công ty.</p>
+<p style="margin: 0; font-size: 14px; color: rgba(10,31,61,.64); text-align: center">Đã có tài khoản? <a href="Main.dc.html">Đăng nhập</a></p>
+</form>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

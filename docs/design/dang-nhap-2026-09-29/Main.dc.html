@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Đăng nhập - sáng</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:#0a1f3d;-webkit-font-smoothing:antialiased}
+a{color:#1d5a9e;font-weight:600;text-decoration:none}a:hover{color:#0e2741;text-decoration:underline}
+.blob{position:absolute;border-radius:50%;filter:blur(90px)}
+.glass{background:rgba(255,255,255,.60);-webkit-backdrop-filter:blur(22px) saturate(180%);backdrop-filter:blur(22px) saturate(180%);border:.5px solid rgba(255,255,255,.72);box-shadow:0 4px 10px rgba(10,31,61,.06),0 16px 38px rgba(10,31,61,.10),inset 0 .5px 0 rgba(255,255,255,.75)}
+.glass2{background:rgba(255,255,255,.42);-webkit-backdrop-filter:blur(44px) saturate(180%);backdrop-filter:blur(44px) saturate(180%);border:.5px solid rgba(255,255,255,.72);box-shadow:inset 0 .5px 0 rgba(255,255,255,.75)}
+.inp{width:100%;box-sizing:border-box;height:48px;padding:0 14px;border-radius:12px;border:.5px solid rgba(10,31,61,.16);background:rgba(255,255,255,.80);font:500 15px Inter,sans-serif;color:#0a1f3d;outline:none;transition:box-shadow .18s,border-color .18s}
+.inp::placeholder{color:rgba(10,31,61,.45)}
+.inp:focus{border-color:#1d5a9e;box-shadow:0 0 0 3.5px rgba(29,90,158,.12)}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:50px;border-radius:12px;border:none;font:650 15px Inter,sans-serif;cursor:pointer;transition:filter .15s,box-shadow .15s}
+.btn-primary{color:#ffffff;background:linear-gradient(160deg,#2a6db4,#1d5a9e);box-shadow:0 1px 2px rgba(10,31,61,.05),0 6px 16px rgba(29,90,158,.28)}
+.btn-primary:hover{filter:brightness(1.06)}
+.btn-primary:hover .arr{transform:translateX(3px)}
+.arr{transition:transform .2s}
+.btn-ghost{color:#0a1f3d;background:rgba(10,31,61,.05);border:.5px solid rgba(10,31,61,.16)}
+.btn-ghost:hover{background:rgba(255,255,255,.85)}
+.btn:focus-visible,.eye:focus-visible,.seg:focus-visible,.lnk:focus-visible{outline:2px solid #1d5a9e;outline-offset:2px}
+.lnk{background:none;border:0;padding:0;font:600 13px Inter,sans-serif;color:#1d5a9e;cursor:pointer}
+.lnk:hover{text-decoration:underline}
+.eye{background:none;border:0;cursor:pointer;color:rgba(10,31,61,.55)}
+.eye:hover{color:#0a1f3d}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#1d5a9e}
+.bar{transform-origin:left center;animation:grow .9s cubic-bezier(.2,.8,.2,1) both}
+.d1{animation-delay:.15s}.d2{animation-delay:.3s}.d3{animation-delay:.45s}.d4{animation-delay:.6s}.d5{animation-delay:.75s}
+.up{animation:up .6s cubic-bezier(.2,.8,.2,1) both}
+.u1{animation-delay:.05s}.u2{animation-delay:.12s}.u3{animation-delay:.19s}.u4{animation-delay:.26s}.u5{animation-delay:.33s}.u6{animation-delay:.4s}
+.today{animation:fade .5s ease 1.1s both}
+.pop{animation:up .6s cubic-bezier(.2,.8,.2,1) 1.4s both}
+.pulse{position:relative}
+.pulse::after{content:'';position:absolute;inset:0;border-radius:50%;background:#f5b301;animation:ping 1.8s ease-out 1.6s infinite}
+.spin{animation:spin 6s linear infinite}
+.trolley{animation:trolley 10s cubic-bezier(.45,0,.2,1) infinite}
+.cable{transform-box:fill-box;transform-origin:50% 0;animation:cable 10s cubic-bezier(.45,0,.2,1) infinite}
+.hook{animation:hook 10s cubic-bezier(.45,0,.2,1) infinite}
+.hb{animation:hb 10s linear infinite}
+.placed{animation:placed 10s linear infinite}
+.blink{animation:blink 1.6s ease-in-out infinite}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes ping{0%{transform:scale(1);opacity:.6}100%{transform:scale(3);opacity:0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes trolley{0%,8%{transform:translateX(0)}28%,68%{transform:translateX(100px)}88%,100%{transform:translateX(0)}}
+@keyframes cable{0%,28%{transform:scaleY(1)}44%,54%{transform:scaleY(2.95)}68%,100%{transform:scaleY(1)}}
+@keyframes hook{0%,28%{transform:translateY(0)}44%,54%{transform:translateY(78px)}68%,100%{transform:translateY(0)}}
+@keyframes hb{0%,47%{opacity:1}49%,92%{opacity:0}95%,100%{opacity:1}}
+@keyframes placed{0%,47%{opacity:0}49%,90%{opacity:1}93%,100%{opacity:0}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.bar,.up,.today,.pop,.pulse::after,.spin,.trolley,.cable,.hook,.hb,.placed,.blink{animation:none}}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; position: relative; overflow: hidden; background: #e9eef6">
+<div class="blob" style="width: 750px; height: 750px; left: -170px; top: -230px; background: #2a6db4; opacity: .55"></div>
+<div class="blob" style="width: 630px; height: 630px; right: -140px; top: -120px; background: #0f8a63; opacity: .34"></div>
+<div class="blob" style="width: 580px; height: 580px; left: 320px; bottom: -260px; background: #f5b301; opacity: .22"></div>
+<div class="blob" style="width: 490px; height: 490px; right: 60px; bottom: -200px; background: #5856d6; opacity: .24"></div>
+
+<div style="position: relative; z-index: 1; width: 1440px; height: 900px; display: flex; box-sizing: border-box; padding: 24px">
+
+<div class="glass2" style="width: 796px; flex-shrink: 0; box-sizing: border-box; padding: 40px 48px; border-radius: 32px; display: flex; flex-direction: column; justify-content: space-between">
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="width: 48px; height: 48px; flex-shrink: 0; border-radius: 12px; background: #ffffff; overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(10,31,61,.10)"><img src="/_blob/b39a5c76cbde3f941bc0bbe81eb9b299" alt="Đại Dũng" style="width: 44px; height: 44px; object-fit: contain"></div>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 17px; font-weight: 700; letter-spacing: -0.01em">Báo cáo quản trị</span>
+<span style="font-size: 11px; font-weight: 600; letter-spacing: 0.16em; color: rgba(10,31,61,.55)">DANH MỤC DỰ ÁN</span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px">
+<div class="up" style="display: flex; flex-direction: column; gap: 16px; padding-bottom: 18px">
+<h2 style="margin: 0; font-size: 54px; line-height: 1.05; font-weight: 800; letter-spacing: -0.035em; color: #0a1f3d">Mọi dự án.<br><span style="color: #1d5a9e">Một tầm nhìn.</span></h2>
+<p style="margin: 0; max-width: 380px; font-size: 17px; line-height: 1.55; color: rgba(10,31,61,.66)">Theo dõi tiến độ, chuỗi giá trị và cảnh báo của toàn bộ dự án trên một màn hình duy nhất.</p>
+</div>
+<svg width="270" height="220" viewBox="0 0 320 260" fill="none" aria-hidden="true" style="flex-shrink: 0; overflow: visible">
+<g stroke="#1d5a9e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M60 250h40"></path>
+<path d="M72 250V58M88 250V58"></path>
+<path d="M72 250L88 234L72 218L88 202L72 186L88 170L72 154L88 138L72 122L88 106L72 90L88 74L72 58" stroke-width="1.2" opacity=".6"></path>
+<path d="M72 58L80 26L88 58"></path>
+<path d="M20 58H304M88 50H296M20 50H72"></path>
+<path d="M88 58l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8" stroke-width="1.2" opacity=".6"></path>
+<path d="M80 26L296 50M80 26L24 50" stroke-width="1.2"></path>
+<rect x="24" y="58" width="24" height="16" rx="2" fill="#1d5a9e" fill-opacity=".18"></rect>
+<rect x="88" y="58" width="14" height="14" rx="2"></rect>
+</g>
+<circle class="blink" cx="80" cy="21" r="3" fill="#f5b301"></circle>
+<g stroke="#7d93b3" stroke-width="3" stroke-linecap="round"><path d="M212 250V208M288 250V208"></path><path d="M204 250h16M280 250h16" stroke-width="2"></path></g>
+<path d="M0 250.5H320" stroke="#0a1f3d" stroke-opacity=".18" stroke-width="1"></path>
+<g class="placed"><rect x="205" y="200" width="90" height="8" rx="1" fill="#f5b301"></rect></g>
+<g class="trolley">
+<rect x="142" y="58" width="16" height="6" rx="1" fill="#f5b301"></rect>
+<rect class="cable" x="149.25" y="64" width="1.5" height="40" fill="#0a1f3d" fill-opacity=".55"></rect>
+<g class="hook">
+<path d="M150 104v5a4 4 0 1 1-4 4" stroke="#0a1f3d" stroke-opacity=".7" stroke-width="2" stroke-linecap="round"></path>
+<g class="hb"><path d="M150 110L112 122M150 110L188 122" stroke="#0a1f3d" stroke-opacity=".45" stroke-width="1"></path><rect x="105" y="122" width="90" height="8" rx="1" fill="#f5b301"></rect></g>
+</g>
+</g>
+</svg>
+</div>
+
+<div class="glass" style="border-radius: 20px; padding: 20px 22px 24px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<span style="font-size: 12px; font-weight: 700; letter-spacing: .14em; color: rgba(10,31,61,.60)">TIẾN ĐỘ CHUỖI GIÁ TRỊ</span>
+<div style="display: flex; gap: 16px; font-size: 12px; color: rgba(10,31,61,.62)">
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 6px; border-radius: 3px; background: #1d5a9e"></span>Hoàn thành</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 6px; border-radius: 3px; background: #f5b301"></span>Đang chạy</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 4px; border-radius: 3px; border: 1px dashed rgba(10,31,61,.4)"></span>Kế hoạch</span>
+</div>
+</div>
+<div style="display: flex; gap: 12px; font-size: 11px; font-weight: 600; color: rgba(10,31,61,.45)">
+<span style="width: 124px; flex-shrink: 0"></span>
+<div style="flex-grow: 1; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr))"><span>T7</span><span>T8</span><span>T9</span><span>T10</span><span>T11</span><span>T12</span></div>
+</div>
+<div style="position: relative; display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; gap: 12px; height: 34px"><span style="width: 124px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; color: rgba(10,31,61,.75)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V4l16 16z"></path><path d="M8 16v-4l4 4z"></path></svg>Thiết kế</span><div style="flex-grow: 1; position: relative; height: 10px"><div class="bar d1" style="position: absolute; left: 0%; width: 34%; height: 10px; border-radius: 5px; background: #1d5a9e"></div></div></div>
+<div style="display: flex; align-items: center; gap: 12px; height: 34px"><span style="width: 124px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; color: rgba(10,31,61,.75)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14M5 20h14M12 4v16"></path></svg>Mua sắm</span><div style="flex-grow: 1; position: relative; height: 10px"><div class="bar d2" style="position: absolute; left: 18%; width: 30%; height: 10px; border-radius: 5px; background: #1d5a9e"></div></div></div>
+<div style="display: flex; align-items: center; gap: 12px; height: 34px"><span style="width: 124px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 650; color: #0a1f3d"><svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c28a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z"></path><circle cx="12" cy="12" r="3.2"></circle></svg>Gia công</span><div style="flex-grow: 1; position: relative; height: 10px"><div class="bar d3" style="position: absolute; left: 36%; width: 30%; height: 10px; border-radius: 5px; background: #f5b301; box-shadow: 0 0 0 4px rgba(245,179,1,.18)"></div></div></div>
+<div style="display: flex; align-items: center; gap: 12px; height: 34px"><span style="width: 124px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; color: rgba(10,31,61,.75)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 7h12v9H2z"></path><path d="M14 10h4l3 3v3h-7"></path><circle cx="6" cy="18" r="2"></circle><circle cx="17" cy="18" r="2"></circle></svg>Vận chuyển</span><div style="flex-grow: 1; position: relative; height: 10px"><div class="bar d4" style="position: absolute; left: 60%; width: 22%; height: 10px; box-sizing: border-box; border-radius: 5px; border: 1px dashed rgba(10,31,61,.35)"></div></div></div>
+<div style="display: flex; align-items: center; gap: 12px; height: 34px"><span style="width: 124px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; color: rgba(10,31,61,.75)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 21V4"></path><path d="M4 21h6"></path><path d="M3 6h18"></path><path d="M16 6v6"></path><path d="M14 12h4v2h-4z"></path></svg>Lắp dựng</span><div style="flex-grow: 1; position: relative; height: 10px"><div class="bar d5" style="position: absolute; left: 70%; width: 30%; height: 10px; box-sizing: border-box; border-radius: 5px; border: 1px dashed rgba(10,31,61,.35)"></div></div></div>
+<div class="today" style="position: absolute; top: -6px; bottom: -6px; left: calc(136px + (100% - 136px) * 0.58); width: 0; border-left: 1.5px solid #d93a30"></div>
+<div class="today" style="position: absolute; top: -28px; left: calc(136px + (100% - 136px) * 0.58); transform: translateX(-50%); padding: 2px 8px; border-radius: 999px; background: #d93a30; color: #ffffff; font-size: 10px; font-weight: 700; letter-spacing: .08em">HÔM NAY</div>
+</div>
+</div>
+<div class="pop" style="display: flex; justify-content: flex-end; margin-top: -28px; padding-right: 24px">
+<div class="glass" style="width: 320px; box-sizing: border-box; padding: 12px 16px; border-radius: 16px; display: flex; gap: 12px; align-items: flex-start; background: rgba(255,255,255,.80)">
+<div class="pulse" style="width: 8px; height: 8px; margin: 6px 4px 0; flex-shrink: 0; border-radius: 4px; background: #f5b301"></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; font-weight: 700; letter-spacing: .12em; color: #9a6400">CẢNH BÁO</span><span style="font-size: 14px; line-height: 1.4; color: #0a1f3d">Gia công [TÊN DỰ ÁN] chậm so với kế hoạch</span></div>
+</div>
+</div>
+</div>
+
+<div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: rgba(10,31,61,.50)"><span>HỆ THỐNG NỘI BỘ · CHỈ DÀNH CHO TÀI KHOẢN ĐƯỢC CẤP QUYỀN</span><span>© ĐẠI DŨNG</span></div>
+</div>
+
+<div style="flex-grow: 1; position: relative; display: flex; align-items: center; justify-content: center">
+<div class="glass" style="position: absolute; top: 16px; right: 16px; display: flex; gap: 2px; padding: 3px; border-radius: 12px">
+<button class="seg" style="height: 32px; padding: 0 12px; border: 0; border-radius: 9px; background: #ffffff; color: #0a1f3d; font: 650 13px Inter,sans-serif; box-shadow: 0 1px 3px rgba(10,31,61,.12)" aria-pressed="true">VI</button>
+<button class="seg" style="height: 32px; padding: 0 12px; border: 0; border-radius: 9px; background: transparent; color: rgba(10,31,61,.60); font: 600 13px Inter,sans-serif" aria-pressed="false">EN</button>
+</div>
+
+<div class="glass" style="width: 452px; box-sizing: border-box; padding: 40px 40px 36px; border-radius: 26px">
+<sc-if value="{{isLogin}}" hint-placeholder-val="{{true}}">
+<form onSubmit="{{doLogin}}" style="display: flex; flex-direction: column; gap: 20px">
+<div class="up u1" style="display: flex; flex-direction: column; gap: 10px">
+<span class="eyebrow">Đăng nhập hệ thống</span>
+<h1 style="margin: 0; font-size: 34px; line-height: 1.12; font-weight: 800; letter-spacing: -0.03em">Chào mừng trở lại</h1>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: rgba(10,31,61,.64)">Đăng nhập bằng tài khoản Google công ty hoặc email đã được quản trị viên cấp quyền.</p>
+</div>
+<button type="button" class="btn btn-ghost up u2">
+<svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path></svg>
+Tiếp tục với Google
+</button>
+<div class="up u3" style="display: flex; align-items: center; gap: 14px; font-size: 13px; color: rgba(10,31,61,.50)"><div style="flex-grow: 1; height: .5px; background: rgba(10,31,61,.16)"></div><span>hoặc dùng email</span><div style="flex-grow: 1; height: .5px; background: rgba(10,31,61,.16)"></div></div>
+<div class="up u4" style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 7px"><label for="email" style="font-size: 13px; font-weight: 600; color: rgba(10,31,61,.70)">Email</label><input id="email" class="inp" type="email" autocomplete="email" placeholder="ten@daidung.vn"></div>
+<div style="display: flex; flex-direction: column; gap: 7px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><label for="pw" style="font-size: 13px; font-weight: 600; color: rgba(10,31,61,.70)">Mật khẩu</label><button type="button" class="lnk" onClick="{{toForgot}}">Quên mật khẩu?</button></div>
+<div style="position: relative"><input id="pw" class="inp" type="{{pwType}}" autocomplete="current-password" placeholder="Nhập mật khẩu" style="padding-right: 52px">
+<button type="button" class="eye" onClick="{{togglePw}}" aria-label="{{pwLabel}}" style="position: absolute; right: 2px; top: 2px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></div>
+</div>
+<label style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: rgba(10,31,61,.75); cursor: pointer"><input type="checkbox" style="width: 18px; height: 18px; margin: 0; accent-color: #1d5a9e">Ghi nhớ trên thiết bị này</label>
+</div>
+<button type="submit" class="btn btn-primary up u5">Đăng nhập<svg class="arr" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></button>
+<p class="up u6" style="margin: 0; font-size: 14px; color: rgba(10,31,61,.64); text-align: center">Chưa có tài khoản? <a href="DangKy.dc.html">Tạo tài khoản</a></p>
+</form>
+</sc-if>
+<sc-if value="{{isForgot}}" hint-placeholder-val="{{false}}">
+<form onSubmit="{{sendReset}}" style="display: flex; flex-direction: column; gap: 20px">
+<button type="button" class="lnk" onClick="{{toLogin}}" style="align-self: flex-start; display: flex; align-items: center; gap: 6px; color: rgba(10,31,61,.70)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"></path><path d="M11 18l-6-6 6-6"></path></svg>Quay lại đăng nhập</button>
+<div style="display: flex; flex-direction: column; gap: 10px"><span class="eyebrow">Khôi phục mật khẩu</span><h1 style="margin: 0; font-size: 34px; line-height: 1.12; font-weight: 800; letter-spacing: -0.03em">Quên mật khẩu?</h1><p style="margin: 0; font-size: 15px; line-height: 1.55; color: rgba(10,31,61,.64)">Nhập email của bạn, hệ thống sẽ gửi liên kết để đặt lại mật khẩu.</p></div>
+<div style="display: flex; flex-direction: column; gap: 7px"><label for="email2" style="font-size: 13px; font-weight: 600; color: rgba(10,31,61,.70)">Email</label><input id="email2" class="inp" type="email" placeholder="ten@daidung.vn"></div>
+<button type="submit" class="btn btn-primary">Gửi liên kết đặt lại</button>
+</form>
+</sc-if>
+<sc-if value="{{isSent}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 20px">
+<div style="width: 56px; height: 56px; border-radius: 16px; background: linear-gradient(160deg,#2a6db4,#1d5a9e); display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(29,90,158,.28)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f5b301" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3.5 6.5l8.5 6.5 8.5-6.5"></path></svg></div>
+<div style="display: flex; flex-direction: column; gap: 10px"><h1 style="margin: 0; font-size: 34px; line-height: 1.12; font-weight: 800; letter-spacing: -0.03em">Kiểm tra hộp thư</h1><p style="margin: 0; font-size: 15px; line-height: 1.55; color: rgba(10,31,61,.64)">Nếu email có trong hệ thống, liên kết đặt lại mật khẩu sẽ đến trong vài phút. Liên kết có hiệu lực trong 30 phút.</p></div>
+<button type="button" class="btn btn-ghost" onClick="{{toLogin}}">Quay lại đăng nhập</button>
+</div>
+</sc-if>
+</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+const screen = this.state.screen || 'login';
+const show = !!this.state.showPw;
+return {
+isLogin: screen === 'login',
+isForgot: screen === 'forgot',
+isSent: screen === 'sent',
+pwType: show ? 'text' : 'password',
+pwLabel: show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu',
+togglePw: () => this.setState({ showPw: !show }),
+toForgot: () => this.setState({ screen: 'forgot' }),
+toLogin: () => this.setState({ screen: 'login' }),
+sendReset: (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ screen: 'sent' }); },
+doLogin: (e) => { if (e && e.preventDefault) e.preventDefault(); }
+};
+}
+}
+</script>
+</body>
+</html>
