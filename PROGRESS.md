@@ -3,6 +3,16 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P3E phần 2 - Đăng nhập: khoá sai mật khẩu, quên/đặt lại mật khẩu qua email, tự đổi mật khẩu, bỏ bảng ảnh (Task 5-8, Tài khoản C làm thay A) - CHỐT + ĐÃ MERGE vào `main` (2026-09-28)
+Nhánh `feature/p3e-c-task5-8` (tách từ `9c74809`); hồ sơ `.bangiao/archive/p3e-task5-8-2026-09-28/`. 238 file / 2700 test xanh + 15 skip (real-db 15/15 chạy tay); e2e 98/98 trên cổng 3003 + DB `ddc_control_tower_c`; build (font mock) qua.
+Coder Task 5-8 -> tester -> security 7 vòng (S-1..S-4, R2-1 Cao, R3-1/R3-2/R4-1 Trung, R4-2..R6-4 Thấp đều đã sửa; vòng 7 CHỐT) -> reviewer CẦN SỬA (Q5 + comment/hồ sơ) -> sửa + tester soi pixel -> chủ dự án đồng ý merge.
+- **Có migration** `20260928080000_p3e_dang_nhap_bo_anh` (cột khoá/đổi mật khẩu, bảng `auth_throttle`, `password_reset_token`, xoá `project_photos`). Bên khác: `git merge main` + `npx prisma migrate deploy` + `npm test`.
+- Task 5: schema + kho Prisma có advisory lock. Task 6: khoá tài khoản sau 5 lần sai, admin mở khoá (kèm mật khẩu tạm), nhãn tài khoản tắt là "Ngưng sử dụng" (Q5=a). Task 7: trang `/quen-mat-khau`, `/dat-lai-mat-khau` (token 1 lần 30 phút). Task 8: dọn `JobName`, `.env.example`, checklist deploy.
+- Bảo mật: tự đổi mật khẩu giữ phiên hiện tại qua cấp lại cookie phía server (không còn `update()` phía client); ghi mật khẩu bằng compare-and-swap; sai mật khẩu hiện tại tính chung khoá 5 lần với đăng nhập, khoá thì đăng xuất mọi phiên; giữ chỗ lượt đoán chung 2 màn (`reserveAccountGuess`, kind `account_guess`); phiên đã vô hiệu không tự sống lại.
+- Quyết định chủ dự án: S-2 (tự đổi mật khẩu không đăng xuất phiên hiện tại), R3-2, R4-1 (đăng xuất mọi phiên khi khoá), R4-2 (sửa cả Đăng nhập), R5-5, phiên vô hiệu không hồi sinh khi mở khoá, chữ `changePasswordDone` mới.
+- Checklist deploy (proxy `X-Forwarded-For` + `TRUSTED_PROXY_HOPS`, khoá `'unknown'` cho `login_fail_ip`/`reset_submit_ip`/`change_pwd_fail_ip`, SMTP, Google OAuth, lọc `token` khỏi access log...) ở `thay-doi.md` trong archive, chuyển vào tài liệu deploy T17.
+- Ghi nhận chưa sửa: bảng người dùng trang Quản trị cuộn ngang; e2e 07 không tự dọn kênh khi đỏ giữa chừng.
+
 ### ✅ P3E phần 1 - Đăng nhập: Google theo danh sách admin, hạ tầng khoá sai mật khẩu và quên mật khẩu, gỡ ảnh hiện trường và tỷ giá VCB (Task 1-4, Tài khoản A) - CHỐT + ĐÃ MERGE vào `main` (2026-09-28)
 Nhánh `feature/p3e-dang-nhap`; hồ sơ `.bangiao/archive/p3e-phan1-2026-09-28/`. Sau merge main (P7-C2): 227 file / 2544 test; e2e 85/85 trên cổng 3010 + DB tạm; build (font mock) qua.
 Coder Task 1-4 -> tester ĐẠT -> security 4 vòng (L1-L8, R1-R7, N1-N4 đều đã sửa, vòng 4 ĐẠT) -> reviewer CẦN SỬA hồ sơ bàn giao -> sửa -> reviewer CHỐT. Merge nửa phase theo đồng ý của chủ dự án (2026-09-28).
