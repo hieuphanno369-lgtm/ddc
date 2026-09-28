@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import type { Role, UserAccount } from '@/server/repo/types';
+import type { AdminUserRow, Role } from '@/server/repo/types';
 import {
   createAccountAction,
   removeUserRoleAction,
@@ -11,15 +11,16 @@ import {
   setUserRoleAction,
   toggleAccountActiveAction,
 } from '@/server/actions';
+import { unlockAccountAction } from '@/server/actions-account-lock';
 import { setUserCanViewFinanceAction } from '@/server/actions-user-finance';
-import { formatDate } from '@/lib/format';
+import { formatDate, formatDateTime } from '@/lib/format';
 import { IconClose } from '@/components/icons';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Badge } from '@/components/ui/Badge';
 
 const ROLES: Role[] = ['admin', 'bod', 'data-entry', 'viewer'];
 
-export function UserEditor({ users }: { users: UserAccount[] }) {
+export function UserEditor({ users }: { users: AdminUserRow[] }) {
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
@@ -32,6 +33,12 @@ export function UserEditor({ users }: { users: UserAccount[] }) {
   const [resetConfirm, setResetConfirm] = useState('');
   const [resetErr, setResetErr] = useState<string | null>(null);
   const [addErr, setAddErr] = useState<string | null>(null);
+  // P3E (Task 6) - modal "Mở khoá + đặt mật khẩu tạm" cho tài khoản đang bị khoá do sai mật khẩu.
+  const [unlockTempEmail, setUnlockTempEmail] = useState<string | null>(null);
+  const [unlockTempPw, setUnlockTempPw] = useState('');
+  const [unlockTempConfirm, setUnlockTempConfirm] = useState('');
+  const [unlockTempErr, setUnlockTempErr] = useState<string | null>(null);
+  const lockedUsers = users.filter((u) => u.lockedAt !== null);
 
   const roleLabel = (r: Role) => t(r === 'data-entry' ? 'role.dataEntry' : `role.${r}`);
   const inputCls = 'inp';
@@ -75,6 +82,30 @@ export function UserEditor({ users }: { users: UserAccount[] }) {
     router.refresh();
   }
 
+  async function doUnlock(targetEmail: string) {
+    window.dispatchEvent(new Event('ddc:sync'));
+    await unlockAccountAction(targetEmail);
+    router.refresh();
+  }
+
+  async function doUnlockWithTemp() {
+    if (unlockTempPw.length < 8) {
+      setUnlockTempErr(t('auth.passwordTooShort'));
+      return;
+    }
+    if (unlockTempPw !== unlockTempConfirm) {
+      setUnlockTempErr(t('auth.mismatch'));
+      return;
+    }
+    window.dispatchEvent(new Event('ddc:sync'));
+    await unlockAccountAction(unlockTempEmail!, unlockTempPw);
+    setUnlockTempEmail(null);
+    setUnlockTempPw('');
+    setUnlockTempConfirm('');
+    setUnlockTempErr(null);
+    router.refresh();
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-end gap-2">
@@ -107,6 +138,32 @@ export function UserEditor({ users }: { users: UserAccount[] }) {
       </div>
       {addErr && <p className="sumbar bad">{addErr}</p>}
 
+      {lockedUsers.length > 0 && (
+        <div className="rounded-md border border-danger/30 bg-danger/5 p-3 space-y-2">
+          <div className="text-callout font-semibold">{t('authSecurity.lockedList', { n: lockedUsers.length })}</div>
+          {lockedUsers.map((u) => (
+            <div key={u.email} className="flex flex-wrap items-center gap-2 text-footnote">
+              <span className="mono">{u.email}</span>
+              <span className="text-label3">{formatDateTime(u.lockedAt, locale)}</span>
+              <button
+                onClick={() => doUnlock(u.email)}
+                className="btn ghost"
+                style={{ padding: '4px 10px', fontSize: 'var(--t-caption1)' }}
+              >
+                {t('authSecurity.unlock')}
+              </button>
+              <button
+                onClick={() => setUnlockTempEmail(u.email)}
+                className="btn ghost"
+                style={{ padding: '4px 10px', fontSize: 'var(--t-caption1)' }}
+              >
+                {t('authSecurity.unlockWithTemp')}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="scroll">
         <table className="tbl">
           <thead>
@@ -123,7 +180,14 @@ export function UserEditor({ users }: { users: UserAccount[] }) {
           <tbody>
             {users.map((u) => (
               <tr key={u.email}>
-                <td className="mono">{u.email}</td>
+                <td className="mono">
+                  {u.email}
+                  {!u.hasPassword && (
+                    <Badge tone="info" className="ml-1">
+                      {t('authSecurity.googleOnly')}
+                    </Badge>
+                  )}
+                </td>
                 <td>{u.name}</td>
                 <td>
                   <select
@@ -164,15 +228,21 @@ export function UserEditor({ users }: { users: UserAccount[] }) {
                   )}
                 </td>
                 <td>
-                  <button
-                    onClick={async () => {
-                      window.dispatchEvent(new Event('ddc:sync'));
-                      await toggleAccountActiveAction(u.email, !u.isActive);
-                      router.refresh();
-                    }}
-                  >
-                    <Badge tone={u.isActive ? 'ok' : 'neutral'}>{u.isActive ? t('admin.active') : t('admin.locked')}</Badge>
-                  </button>
+                  {u.lockedAt !== null ? (
+                    // P3E (Task 6) - khoá do sai mật khẩu (khác isActive): không bấm được ở đây,
+                    // mở khoá qua khối "Tài khoản đang bị khoá" phía trên.
+                    <Badge tone="danger">{t('authSecurity.lockedBadge')}</Badge>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        window.dispatchEvent(new Event('ddc:sync'));
+                        await toggleAccountActiveAction(u.email, !u.isActive);
+                        router.refresh();
+                      }}
+                    >
+                      <Badge tone={u.isActive ? 'ok' : 'neutral'}>{u.isActive ? t('admin.active') : t('admin.locked')}</Badge>
+                    </button>
+                  )}
                 </td>
                 <td>{u.lastLoginAt ? formatDate(u.lastLoginAt, locale) : '-'}</td>
                 <td className="num">
@@ -222,6 +292,38 @@ export function UserEditor({ users }: { users: UserAccount[] }) {
               </div>
               {resetErr && <p className="sumbar bad">{resetErr}</p>}
               <button onClick={doReset} className="btn w-full justify-center">
+                {t('common.save')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {unlockTempEmail && (
+        <div className="modal-scrim" onClick={() => setUnlockTempEmail(null)}>
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-callout font-semibold">
+                {t('authSecurity.unlockWithTemp')} - {unlockTempEmail}
+              </h2>
+              <button onClick={() => setUnlockTempEmail(null)} className="rounded-sm p-2 text-label3 transition-colors duration-fast hover:bg-fill hover:text-label">
+                <IconClose size={18} />
+              </button>
+            </div>
+            <div className="space-y-3.5">
+              <div className="field">
+                <span className="lb">{t('auth.newPassword')}</span>
+                <PasswordInput value={unlockTempPw} onChange={setUnlockTempPw} className={`${inputCls} w-full`} showStrength />
+              </div>
+              <div className="field">
+                <span className="lb">{t('auth.confirmPassword')}</span>
+                <PasswordInput value={unlockTempConfirm} onChange={setUnlockTempConfirm} className={`${inputCls} w-full`} />
+              </div>
+              {unlockTempErr && <p className="sumbar bad">{unlockTempErr}</p>}
+              <button onClick={doUnlockWithTemp} className="btn w-full justify-center">
                 {t('common.save')}
               </button>
             </div>

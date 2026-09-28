@@ -590,7 +590,10 @@
     "login_google_denied": "Từ chối đăng nhập Google",
     "save_stage": "Lưu giai đoạn chuỗi giá trị",
     "activate_stage": "Dùng lại giai đoạn",
-    "deactivate_stage": "Ngừng dùng giai đoạn"
+    "deactivate_stage": "Ngừng dùng giai đoạn",
+    "login_locked": "Khoá tài khoản do sai mật khẩu 5 lần",
+    "account_unlock": "Mở khoá đăng nhập",
+    "account_unlock_cli": "Mở khoá bằng lệnh trên server"
   },
   "dataGuard": {
     "import": {
@@ -1173,7 +1176,14 @@
   "authSecurity": {
     "googleDenied": "Tài khoản Google này chưa được quản trị cấp quyền hoặc đang bị khoá. Liên hệ quản trị.",
     "googleOnlyHint": "Để trống nếu người này chỉ đăng nhập bằng Google",
-    "duplicateAccount": "Email này đã có tài khoản"
+    "duplicateAccount": "Email này đã có tài khoản",
+    "googleOnly": "Chỉ Google",
+    "locked": "Tài khoản đã bị khoá do nhập sai mật khẩu nhiều lần. Liên hệ quản trị để mở khoá.",
+    "ipLimited": "Máy này đã thử đăng nhập sai quá nhiều lần. Thử lại sau 15 phút.",
+    "lockedList": "Tài khoản đang bị khoá ({n})",
+    "lockedBadge": "Bị khoá (sai mật khẩu)",
+    "unlock": "Mở khoá",
+    "unlockWithTemp": "Mở khoá + đặt mật khẩu tạm"
   },
   "stageAdmin": {
     "title": "Giai đoạn chuỗi giá trị",

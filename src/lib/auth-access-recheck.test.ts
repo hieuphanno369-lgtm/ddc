@@ -79,6 +79,24 @@ describe('authOptions.callbacks.jwt - T-5 doc lai quyen dinh ky', () => {
     expect(token.invalid).toBe(true);
   });
 
+  it("Q1 (chu du an chot phuong an a) - token da cu, tai khoan dang bi KHOA (lockedAt khac null) nhung isActive VAN true -> KHONG vo hieu (chi chan dang nhap MOI, khong cat phien dang mo)", async () => {
+    findUniqueMock.mockResolvedValue({
+      role: 'bod', canViewFinance: true, isActive: true, lockedAt: new Date('2026-09-28T00:00:00.000Z'),
+      email: 'bod@daidung.com.vn', name: 'BOD', passwordHash: 'x', createdAt: new Date(), lastLoginAt: null,
+    });
+    const staleToken = {
+      email: 'bod@daidung.com.vn',
+      role: 'bod',
+      canViewFinance: true,
+      accessCheckedAt: Date.now() - ACCESS_RECHECK_INTERVAL_MS - 1,
+    };
+
+    const token = await jwt({ token: staleToken } as never);
+
+    expect(token.invalid).toBe(false);
+    expect(token.role).toBe('bod');
+  });
+
   it('token da cu, tai khoan khong con trong DB -> token.invalid = true', async () => {
     findUniqueMock.mockResolvedValue(null);
     const staleToken = {

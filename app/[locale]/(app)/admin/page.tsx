@@ -5,6 +5,7 @@ import { historyMonths } from '@/lib/clock';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { IconAlert, IconChecklist, IconFactory, IconMoney, IconUser } from '@/components/icons';
 import { UserEditor } from '@/components/admin/UserEditor';
+import { toAdminUserRow } from '@/lib/admin-user-row';
 import { ActivityViewer } from '@/components/admin/ActivityViewer';
 import { FieldEditor } from '@/components/admin/FieldEditor';
 import { DeleteProject } from '@/components/admin/DeleteProject';
@@ -39,7 +40,7 @@ export default async function AdminPage() {
       <Card className="overflow-visible">
         <CardHeader title={t('admin.userRoles')} />
         <CardBody>
-          <UserEditor users={users} />
+          <UserEditor users={users.map(toAdminUserRow)} />
         </CardBody>
       </Card>
 

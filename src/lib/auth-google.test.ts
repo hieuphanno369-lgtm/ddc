@@ -4,8 +4,37 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { findUniqueMock } = vi.hoisted(() => ({ findUniqueMock: vi.fn() }));
-vi.mock('@/server/db', () => ({ prisma: { userRole: { findUnique: findUniqueMock } } }));
+const { findUniqueMock, authThrottleCountMock, authThrottleCreateMock, executeRawMock, resetThrottleRows } = vi.hoisted(() => {
+  // Dem so dong da "ghi" that su (khong dung static mock) de mo phong dung `reserveThrottle` khi
+  // goi lien tiep - can cho test R7 phan 3 (het cho o lan thu 6).
+  let rows = 0;
+  const authThrottleCountMock = vi.fn(async () => rows);
+  const authThrottleCreateMock = vi.fn(async () => {
+    rows += 1;
+    return { id: rows };
+  });
+  return {
+    findUniqueMock: vi.fn(),
+    authThrottleCountMock,
+    authThrottleCreateMock,
+    executeRawMock: vi.fn(async () => 1),
+    resetThrottleRows: () => {
+      rows = 0;
+    },
+  };
+});
+vi.mock('@/server/db', () => ({
+  prisma: {
+    userRole: { findUnique: findUniqueMock },
+    authThrottle: { count: authThrottleCountMock, create: authThrottleCreateMock },
+    $executeRaw: executeRawMock,
+    // Task 6 (R7 phần 3, G4) - `signIn` Google gọi `reserveThrottle('google_denied', ...)` trước khi
+    // ghi log; cần mock `$transaction` để không ném lỗi (mock đơn giản, KHÔNG kiểm advisory lock ở
+    // đây - phần đó đã có `prisma-repo-auth-real-db.test.ts` chạy trên Postgres thật).
+    $transaction: vi.fn(async (fn: (tx: unknown) => unknown) =>
+      fn({ authThrottle: { count: authThrottleCountMock, create: authThrottleCreateMock }, $executeRaw: executeRawMock })),
+  },
+}));
 vi.mock('@/lib/activity');
 
 import { authOptions, ACCESS_RECHECK_INTERVAL_MS } from './auth';
@@ -28,6 +57,9 @@ const row = (over: Partial<Record<string, unknown>> = {}) => ({
 
 beforeEach(() => {
   findUniqueMock.mockReset();
+  authThrottleCountMock.mockClear();
+  authThrottleCreateMock.mockClear();
+  resetThrottleRows();
   vi.mocked(logActivity).mockClear();
   vi.stubEnv('DATABASE_URL', 'postgres://x');
 });
@@ -64,6 +96,20 @@ describe('authOptions.callbacks.signIn - Google', () => {
     vi.stubEnv('ALLOWED_EMAIL_DOMAINS', 'daidung.com.vn');
     findUniqueMock.mockResolvedValue(row({ email: 'ca-nhan@gmail.com' }));
     expect(await signIn(googleParams('ca-nhan@gmail.com') as never)).toBe(true);
+  });
+
+  it('Task 6 - tai khoan dang bi khoa (lockedAt that tu DB) -> false', async () => {
+    findUniqueMock.mockResolvedValue(row({ email: 'a@daidung.com.vn', lockedAt: new Date('2026-09-28T00:00:00.000Z') }));
+    expect(await signIn(googleParams('a@daidung.com.vn') as never)).toBe(false);
+  });
+
+  it('Task 6 - dang nhap Google thanh cong KHONG doi failedLoginCount (khong goi userRole.update)', async () => {
+    // Mock `prisma.userRole` CHI co `findUnique` (khong co `update`) - neu callback signIn lo goi
+    // `userRole.update` (tang/reset bo dem sai) se nem loi "is not a function" ngay, khien test do.
+    findUniqueMock.mockResolvedValue(row({ email: 'a@daidung.com.vn' }));
+    const result = await signIn(googleParams('a@daidung.com.vn') as never);
+    expect(result).toBe(true);
+    expect(findUniqueMock).toHaveBeenCalled();
   });
 });
 
@@ -140,6 +186,19 @@ describe('authOptions.callbacks.signIn - Google, L8 ghi nhat ky khi bi tu choi',
     await signIn(googleParams('la@daidung.com.vn') as never);
     const calls = vi.mocked(logActivity).mock.calls;
     for (const call of calls) expect(JSON.stringify(call)).not.toMatch(/token|http/i);
+  });
+
+  it("R7 phan 3: 5 lan tu choi lien tiep cung email ghi du 5 dong login_google_denied, lan thu 6 tra false nhung KHONG goi logActivity them", async () => {
+    findUniqueMock.mockResolvedValue(null); // not_found - luon bi tu choi
+    for (let i = 0; i < 5; i++) {
+      await signIn(googleParams('spam@daidung.com.vn') as never);
+    }
+    expect(vi.mocked(logActivity)).toHaveBeenCalledTimes(5);
+
+    const result = await signIn(googleParams('spam@daidung.com.vn') as never);
+
+    expect(result).toBe(false);
+    expect(vi.mocked(logActivity)).toHaveBeenCalledTimes(5); // van 5, khong them dong thu 6
   });
 });
 

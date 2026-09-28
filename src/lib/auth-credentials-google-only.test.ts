@@ -7,8 +7,36 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hashPassword } from '@/lib/password';
 
-const { findUniqueMock, updateMock } = vi.hoisted(() => ({ findUniqueMock: vi.fn(), updateMock: vi.fn() }));
-vi.mock('@/server/db', () => ({ prisma: { userRole: { findUnique: findUniqueMock, update: updateMock } } }));
+const {
+  findUniqueMock, updateMock, updateManyMock, authThrottleCountMock, authThrottleCreateMock, authThrottleDeleteManyMock, executeRawMock,
+} = vi.hoisted(() => ({
+  findUniqueMock: vi.fn(),
+  updateMock: vi.fn(),
+  updateManyMock: vi.fn(async () => ({ count: 1 })),
+  authThrottleCountMock: vi.fn(async () => 0),
+  authThrottleCreateMock: vi.fn(async () => ({ id: 1 })),
+  authThrottleDeleteManyMock: vi.fn(async () => ({ count: 1 })),
+  executeRawMock: vi.fn(async () => 1),
+}));
+vi.mock('@/server/db', () => ({
+  prisma: {
+    userRole: { findUnique: findUniqueMock, update: updateMock, updateMany: updateManyMock },
+    authThrottle: { count: authThrottleCountMock, create: authThrottleCreateMock, deleteMany: authThrottleDeleteManyMock },
+    $executeRaw: executeRawMock,
+    // Task 6 - `authorize` giờ nối vào `checkCredentials` (qua `getAuthStore()`/`prismaAuthStore`),
+    // cần đặt chỗ IP (`reserveThrottle`) TRƯỚC khi kiểm mật khẩu - mock transaction đơn giản, KHÔNG
+    // kiểm advisory lock thật ở đây (đã có `prisma-repo-auth-real-db.test.ts` trên Postgres thật).
+    $transaction: vi.fn(async (fn: (tx: unknown) => unknown) =>
+      fn({
+        userRole: { findUnique: findUniqueMock, update: updateMock, updateMany: updateManyMock },
+        authThrottle: { count: authThrottleCountMock, create: authThrottleCreateMock },
+        $executeRaw: executeRawMock,
+      })),
+  },
+}));
+// Task 6 - `authorize` đọc IP qua `clientIpFrom(await headers())`; test này không quan tâm IP nên
+// trả header rỗng (không kích hoạt giới hạn IP với `updateManyMock`/`authThrottleCountMock` mặc định).
+vi.mock('next/headers', () => ({ headers: async () => new Map() as unknown as Headers }));
 vi.mock('@/lib/activity');
 
 import { authOptions } from './auth';
@@ -39,6 +67,11 @@ const row = (over: Partial<Record<string, unknown>> = {}) => ({
 beforeEach(() => {
   findUniqueMock.mockReset();
   updateMock.mockReset();
+  updateMock.mockResolvedValue({ failedLoginCount: 1 }); // Task 6 - registerFailedLogin doc field nay
+  updateManyMock.mockClear();
+  authThrottleCountMock.mockClear();
+  authThrottleCreateMock.mockClear();
+  authThrottleDeleteManyMock.mockClear();
   vi.stubEnv('DATABASE_URL', 'postgres://x');
 });
 afterEach(() => vi.unstubAllEnvs());

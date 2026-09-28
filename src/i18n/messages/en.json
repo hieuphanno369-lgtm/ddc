@@ -590,7 +590,10 @@
     "login_google_denied": "Google sign-in denied",
     "save_stage": "Save value chain stage",
     "activate_stage": "Reactivate stage",
-    "deactivate_stage": "Deactivate stage"
+    "deactivate_stage": "Deactivate stage",
+    "login_locked": "Account locked after 5 failed sign-ins",
+    "account_unlock": "Unlocked sign-in",
+    "account_unlock_cli": "Unlocked via server command"
   },
   "dataGuard": {
     "import": {
@@ -1173,7 +1176,14 @@
   "authSecurity": {
     "googleDenied": "This Google account has not been granted access or is locked. Contact an administrator.",
     "googleOnlyHint": "Leave blank if this person signs in with Google only",
-    "duplicateAccount": "An account with this email already exists"
+    "duplicateAccount": "An account with this email already exists",
+    "googleOnly": "Google only",
+    "locked": "This account is locked after too many failed sign-in attempts. Contact an administrator to unlock it.",
+    "ipLimited": "Too many failed sign-in attempts from this device. Try again in 15 minutes.",
+    "lockedList": "Locked accounts ({n})",
+    "lockedBadge": "Locked (failed sign-ins)",
+    "unlock": "Unlock",
+    "unlockWithTemp": "Unlock + set temporary password"
   },
   "stageAdmin": {
     "title": "Value chain stages",

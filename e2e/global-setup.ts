@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process';
 import { PrismaClient } from '@prisma/client';
-import { loadE2eEnv, resolveE2eTarget } from './helpers/env';
+import { hashPassword } from '../src/lib/password';
+import { E2E_LOCK_PASSWORD, loadE2eEnv, resolveE2eTarget } from './helpers/env';
 
 /**
  * Task 9 (P3B) - chạy 1 lần trước mọi spec: nạp `.env`, khẳng định chắc chắn đang trỏ vào
@@ -21,6 +22,17 @@ export default async function globalSetup(): Promise<void> {
   const prisma = new PrismaClient({ datasourceUrl: databaseUrl });
   try {
     await prisma.notifyChannel.deleteMany({ where: { name: { startsWith: 'E2E ' } } });
+
+    // Task 6/7 (P3E) - 2 tài khoản viewer riêng cho spec khoá tài khoản + quên mật khẩu, tạo lại mỗi
+    // lần chạy (upsert - đảm bảo lockedAt/failedLoginCount về trạng thái sạch giữa các lần chạy).
+    const passwordHash = hashPassword(E2E_LOCK_PASSWORD);
+    for (const email of ['e2e-khoa@daidung.com.vn', 'e2e-quenmk@daidung.com.vn']) {
+      await prisma.userRole.upsert({
+        where: { email },
+        update: { passwordHash, isActive: true, lockedAt: null, failedLoginCount: 0 },
+        create: { email, name: email, passwordHash, role: 'viewer', canViewFinance: false, isActive: true },
+      });
+    }
   } finally {
     await prisma.$disconnect();
   }

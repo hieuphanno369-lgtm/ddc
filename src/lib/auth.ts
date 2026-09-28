@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import type { NextAuthOptions } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
 import GoogleProvider from 'next-auth/providers/google';
@@ -6,9 +7,12 @@ import type { Role, UserAccount } from '@/server/repo/types';
 import { prisma } from '@/server/db';
 import { repo } from '@/server/repo/mock-repo';
 import { logActivity } from '@/lib/activity';
-import { verifyPassword } from '@/lib/password';
+import { normalizeEmail, GOOGLE_DENIED_LIMIT, GOOGLE_DENIED_WINDOW_MS } from '@/lib/login-policy';
+import { clientIpFrom } from '@/lib/client-ip';
 import { requireAuthSecret } from '@/lib/env';
 import { googleAccessDecision, type GoogleProfileLite } from '@/server/google-access';
+import { checkCredentials } from '@/server/login-guard';
+import { getAuthStore } from '@/server/auth-store';
 
 export type Access = { role: Role; canViewFinance: boolean };
 
@@ -118,16 +122,28 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        // TODO: rate-limit login chống brute-force - dùng src/lib/rate-limit.ts.
-        const email = (credentials?.email ?? '').toLowerCase().trim();
+        // Task 6 (D3) - nối vào `checkCredentials`/`AuthStore` thật: khoá sau 5 lần sai, giới hạn
+        // theo IP, không lộ tài khoản chỉ Google/tài khoản không tồn tại (K5-K7, L1, L7, R1-R3, G2).
+        const email = normalizeEmail(credentials?.email);
         const password = credentials?.password ?? '';
         if (!email || !password) return null;
-        const account = await findAccount(email);
-        if (!account || !account.isActive || !account.passwordHash) return null;
-        if (!verifyPassword(password, account.passwordHash)) return null;
-        // TODO: thiếu flow "quên mật khẩu" self-service - admin mất pass = chết cứng. Blocker pre-prod.
-        await touchLastLogin(email);
-        return { id: email, email, name: account.name };
+        const ip = clientIpFrom(await headers());
+        try {
+          const result = await checkCredentials(getAuthStore(), { email, password, ip });
+          if (!result.ok) {
+            if (result.reason === 'locked' || result.reason === 'ip_limited') throw new Error(result.reason);
+            return null;
+          }
+          await touchLastLogin(email);
+          return { id: result.account.email, email: result.account.email, name: result.account.name };
+        } catch (e) {
+          // G5 - `locked`/`ip_limited` PHẢI ném nguyên văn (next-auth cần đúng 2 chuỗi này ở
+          // `res.error`); lỗi khác (ví dụ Prisma mất kết nối) thì KHÔNG log `e.message` (có thể chứa
+          // chuỗi kết nối DB), trả `null` (next-auth hiện `CredentialsSignin` chung).
+          if (e instanceof Error && (e.message === 'locked' || e.message === 'ip_limited')) throw e;
+          console.error('[authorize]', e instanceof Error ? e.name : String(e));
+          return null;
+        }
       },
     }),
     GoogleProvider({
@@ -142,11 +158,11 @@ export const authOptions: NextAuthOptions = {
       const email = user.email?.toLowerCase() ?? '';
       if (account?.provider === 'google') {
         // S9: chỉ vào khi email đã xác minh, có trong danh sách admin thêm, đang hoạt động,
-        // chưa bị khoá (lockedAt thật sẽ nối vào ở Task 6, sau khi có cột DB - Task 5).
-        const found = email ? await findAccount(email) : null;
+        // chưa bị khoá - `lockedAt` thật từ Task 5 (không còn cứng `null` như bản Task 3).
+        const found = email ? await getAuthStore().getAccountState(email) : null;
         const decision = googleAccessDecision(
           profile as GoogleProfileLite,
-          found ? { isActive: found.isActive, lockedAt: null } : null,
+          found ? { isActive: found.isActive, lockedAt: found.lockedAt } : null,
         );
         if (decision !== 'allow') {
           // L8 (bao-mat.md) - ghi lại lần bị từ chối kèm lý do, để admin thấy được ai đã thử vào
@@ -154,19 +170,23 @@ export const authOptions: NextAuthOptions = {
           // R7 (bao-mat.md vòng 2) - nhánh `unverified` nghĩa là Google CHƯA xác minh email, nên
           // toàn bộ `profile`/`user` (kể cả `name`) là dữ liệu KHÔNG đáng tin (ai đó có thể tự khai
           // tên bất kỳ); dùng tên CỐ ĐỊNH thay vì `user.name` để admin không hiểu nhầm là tên thật.
-          // R7 (chưa làm, để Task 5-6) - báo cáo bảo mật đề nghị giới hạn tần suất ghi
-          // `login_google_denied`; callback này KHÔNG có `AuthStore`/bảng đếm nào để tiêm vào (khác
-          // `checkCredentials`), và không được đụng `schema.prisma` ở vòng sửa này - Task 5 thêm
-          // `ThrottleKind` riêng `'google_denied'` (không dùng chung `login_fail_unknown_email` - kind
-          // đó đếm theo email cho nhánh CREDENTIALS sai/email lạ, còn đây là log Google bị từ chối,
-          // 2 việc khác nhau dù cùng khoá theo email), Task 6 bước 6.3 gọi
-          // `reserveThrottle('google_denied', email, ...)` trước khi ghi log, thay vì tự chế 1 bộ đếm
-          // trong tiến trình (không sống sót qua restart, không đúng với nhiều instance).
           const who = decision === 'unverified' ? { name: '(email chua xac minh)', email } : { name: user.name ?? email, email };
-          try {
-            await logActivity(who, 'login_google_denied', decision);
-          } catch {
-            /* ignore */
+          // R7 phần 3, G4 (bao-mat.md) - hạn chế `activity_log` bị spam bởi các lần Google từ chối
+          // lặp lại của CÙNG 1 email: "đặt chỗ" TRƯỚC khi ghi log; còn chỗ (`id` khác null) thì ghi
+          // như cũ, hết chỗ thì VẪN từ chối đăng nhập (return false) nhưng KHÔNG ghi log thêm (giống
+          // cách `requestPasswordReset` bỏ log khi hết chỗ IP - L4, tránh việc chặn spam log lại làm
+          // log bị spam).
+          if (email) {
+            const now = new Date();
+            const sinceIso = new Date(now.getTime() - GOOGLE_DENIED_WINDOW_MS).toISOString();
+            const reserved = await getAuthStore().reserveThrottle('google_denied', email, now.toISOString(), sinceIso, GOOGLE_DENIED_LIMIT);
+            if (reserved !== null) {
+              try {
+                await logActivity(who, 'login_google_denied', decision);
+              } catch {
+                /* ignore */
+              }
+            }
           }
           return false;
         }

@@ -36,7 +36,16 @@ export function LoginForm({
     setError(null);
     const res = await signIn('credentials', { redirect: false, email, password });
     if (res?.error) {
-      setError(t('auth.invalidCredentials'));
+      // Task 6 (D3) - `authorize` ném nguyên văn 'locked'/'ip_limited' qua `res.error`; các lỗi
+      // khác (sai email/mật khẩu, hoặc lỗi hạ tầng đã bị `authorize` nuốt thành `null`) đều hiện
+      // chung 1 thông báo (không lộ chi tiết).
+      setError(
+        res.error === 'locked'
+          ? t('authSecurity.locked')
+          : res.error === 'ip_limited'
+            ? t('authSecurity.ipLimited')
+            : t('auth.invalidCredentials'),
+      );
       setBusy(false);
     } else {
       router.replace('/overview');

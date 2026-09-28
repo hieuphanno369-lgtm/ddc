@@ -69,6 +69,8 @@ const CHANGED_SOURCES: Record<string, string> = {
   'layout [locale] (metadata)': 'app/[locale]/layout.tsx',
   'trang /login': 'app/[locale]/login/page.tsx',
   'StageEditor': 'src/components/admin/StageEditor.tsx',
+  'LoginForm': 'src/components/layout/LoginForm.tsx',
+  'UserEditor': 'src/components/admin/UserEditor.tsx',
 };
 
 describe('i18n: vi/en phủ key như nhau', () => {
@@ -100,6 +102,9 @@ describe('i18n: vi/en phủ key như nhau', () => {
       'audit.new',
       'alert.title',
       'alert.owner',
+      'activity.account_unlock_cli',
+      'authSecurity.locked',
+      'authSecurity.unlock',
     ];
     expect(required.filter((k) => !viKeys.includes(k)), 'thiếu ở vi.json').toEqual([]);
     expect(required.filter((k) => !enKeys.includes(k)), 'thiếu ở en.json').toEqual([]);
