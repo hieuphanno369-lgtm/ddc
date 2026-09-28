@@ -17,3 +17,8 @@ e2e/.auth/
 e2e/.report/
 test-results/
 playwright-report/
+# Cau hinh Claude Code rieng tung may va ban sao luu skill cu: khong commit.
+.claude/settings.local.json
+.claude/*.bak-*/
+.claude/skills_archived/
+.claude/__pycache__/
