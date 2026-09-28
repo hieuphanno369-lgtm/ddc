@@ -602,6 +602,9 @@ export interface SapQueueItem {
  * S-3 (bao-mat.md vòng 4) - `'login_locked_probe'` KHÔNG dùng để quyết định gì, chỉ để nhánh "tài
  * khoản thật đang khoá" trong `checkCredentials` tốn ĐÚNG số lượt gọi DB như nhánh "email lạ" (cân
  * thời gian, chống oracle phân biệt 2 nhánh); kết quả luôn bị bỏ qua.
+ * R3-2 (bao-mat.md vòng 3, Trung) - `'change_pwd_fail_ip'` giới hạn tần suất gọi
+ * `changePasswordAction` theo IP TRƯỚC bcrypt (giống `'login_fail_ip'`), chặn 1 IP tốn CPU đoán mật
+ * khẩu hiện tại qua nhiều phiên/nhiều tài khoản khác nhau; dùng lại `IP_FAIL_LIMIT`/`IP_FAIL_WINDOW_MS`.
  */
 export type ThrottleKind =
   | 'login_fail_ip'
@@ -610,7 +613,8 @@ export type ThrottleKind =
   | 'reset_req_email'
   | 'reset_req_ip'
   | 'reset_submit_ip'
-  | 'google_denied';
+  | 'google_denied'
+  | 'change_pwd_fail_ip';
 
 export interface AuthAccountState {
   email: string;
@@ -664,6 +668,21 @@ export interface AuthStore {
    * còn lý do để dùng được nữa.
    */
   setPassword(email: string, passwordHash: string, bumpChangedAt: boolean, nowIso: string): Promise<boolean>;
+  /**
+   * R3-1 (bao-mat.md vòng 3, Trung) - Compare-and-swap: CHỈ ghi mật khẩu mới khi `passwordHash` trong
+   * DB TẠI THỜI ĐIỂM GHI vẫn đúng bằng `oldHash` (hash đã kiểm bằng `verifyPassword` ở bước trước đó
+   * trong CÙNG request) - chặn race giữa lúc kiểm mật khẩu hiện tại và lúc ghi: 1 request khác (admin
+   * đặt mật khẩu tạm, đặt lại qua email) ghi đè xen giữa 2 bước đó thì request này KHÔNG được phép
+   * thắng (mới ghi đè LẦN NỮA lên mật khẩu vừa đổi hợp lệ đó). Dùng cho đường TỰ đổi mật khẩu trong
+   * Cài đặt (`changePasswordAction`) - LUÔN bump `passwordChangedAt = nowIso` (khác `setPassword`
+   * dùng cho admin/đặt lại qua email, những đường đó không cần kiểm CAS vì không có "hash cũ đã kiểm"
+   * nào để so - admin/token được phép ghi đè vô điều kiện). Cùng transaction, CŨNG huỷ (usedAt =
+   * nowIso) mọi token đặt lại mật khẩu còn hạn của email này, giống `setPassword` (S-2).
+   * Trả `true` khi ghi được (đúng 1 dòng khớp `email` + `passwordHash = oldHash`); `false` khi không
+   * (hash đã đổi khác lúc ghi) - bên gọi PHẢI coi là thất bại (trả lỗi `'current'`), KHÔNG được cấp
+   * lại cookie phiên hay coi là đổi mật khẩu thành công.
+   */
+  setPasswordIfHash(email: string, oldHash: string, newHash: string, nowIso: string): Promise<boolean>;
   recordThrottle(kind: ThrottleKind, key: string, nowIso: string): Promise<void>;
   countThrottle(kind: ThrottleKind, key: string, sinceIso: string): Promise<number>;
   /**

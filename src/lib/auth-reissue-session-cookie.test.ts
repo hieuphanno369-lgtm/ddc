@@ -52,21 +52,23 @@ async function seedCookie(token: Partial<JWT>) {
   cookieJar.store.set(COOKIE_NAME, raw);
 }
 
+const CHANGED_AT_ISO = '2026-09-28T00:10:00.000Z';
+
 describe('reissueSessionCookie', () => {
   it('khong co cookie phien nao dang mo -> khong lam gi, khong nem loi', async () => {
-    await expect(reissueSessionCookie(EMAIL)).resolves.toBeUndefined();
+    await expect(reissueSessionCookie(EMAIL, CHANGED_AT_ISO)).resolves.toBeUndefined();
     expect(cookieJar.setCalls).toHaveLength(0);
   });
 
   it('cookie hien tai thuoc EMAIL KHAC -> khong cap lai (khong lam moi nham phien cua nguoi khac)', async () => {
     await seedCookie({ email: 'khac@daidung.com.vn', role: 'viewer', pwdAt: 0 });
 
-    await reissueSessionCookie(EMAIL);
+    await reissueSessionCookie(EMAIL, CHANGED_AT_ISO);
 
     expect(cookieJar.setCalls).toHaveLength(0);
   });
 
-  it('dung email vua doi mat khau -> cap cookie MOI, giai ma ra pwdAt = passwordChangedAt tu DB, invalid = false', async () => {
+  it('dung email vua doi mat khau, DB khop changedAtIso truyen vao -> cap cookie MOI, pwdAt = passwordChangedAt tu DB, invalid = false', async () => {
     await seedCookie({ email: EMAIL, role: 'viewer', canViewFinance: false, pwdAt: 0, invalid: true });
     getAccountStateMock.mockResolvedValue({
       email: EMAIL,
@@ -77,10 +79,10 @@ describe('reissueSessionCookie', () => {
       isActive: true,
       failedLoginCount: 0,
       lockedAt: null,
-      passwordChangedAt: '2026-09-28T00:10:00.000Z',
+      passwordChangedAt: CHANGED_AT_ISO,
     });
 
-    await reissueSessionCookie(EMAIL);
+    await reissueSessionCookie(EMAIL, CHANGED_AT_ISO);
 
     expect(cookieJar.setCalls).toHaveLength(1);
     const call = cookieJar.setCalls[0];
@@ -89,7 +91,7 @@ describe('reissueSessionCookie', () => {
     expect((call.options as { secure?: boolean }).secure).toBe(false); // NEXTAUTH_URL http trong test
 
     const decoded = await decodeSessionToken({ token: call.value, secret: SECRET });
-    expect(decoded?.pwdAt).toBe(Date.parse('2026-09-28T00:10:00.000Z'));
+    expect(decoded?.pwdAt).toBe(Date.parse(CHANGED_AT_ISO));
     expect(decoded?.invalid).toBe(false);
     expect(decoded?.role).toBe('bod');
     expect(decoded?.canViewFinance).toBe(true);
@@ -99,10 +101,53 @@ describe('reissueSessionCookie', () => {
     await seedCookie({ email: EMAIL, role: 'viewer', pwdAt: 0 });
     getAccountStateMock.mockResolvedValue(null);
 
-    await reissueSessionCookie(EMAIL);
+    await reissueSessionCookie(EMAIL, CHANGED_AT_ISO);
 
     const call = cookieJar.setCalls[0];
     const decoded = await decodeSessionToken({ token: call.value, secret: SECRET });
     expect(decoded?.invalid).toBe(true);
+  });
+
+  it('R3-1 (bao-mat.md vong 3, Trung) - DB co passwordChangedAt MOI HON changedAtIso truyen vao (bi 1 request KHAC ghi de xen giua T2 va T3) -> invalid = true, KHONG hoi sinh nham bang moc cu', async () => {
+    await seedCookie({ email: EMAIL, role: 'viewer', pwdAt: 0 });
+    getAccountStateMock.mockResolvedValue({
+      email: EMAIL,
+      name: 'BOD',
+      passwordHash: 'x',
+      role: 'bod',
+      canViewFinance: true,
+      isActive: true,
+      failedLoginCount: 0,
+      lockedAt: null,
+      passwordChangedAt: '2026-09-28T00:20:00.000Z', // MOI HON changedAtIso ma request nay vua ghi
+    });
+
+    await reissueSessionCookie(EMAIL, CHANGED_AT_ISO);
+
+    const call = cookieJar.setCalls[0];
+    const decoded = await decodeSessionToken({ token: call.value, secret: SECRET });
+    expect(decoded?.invalid).toBe(true);
+    expect(decoded?.pwdAt).toBe(Date.parse('2026-09-28T00:20:00.000Z')); // van doc moc THAT tu DB
+  });
+
+  it('DB co passwordChangedAt bang dung changedAtIso truyen vao (khong co race) -> khong tu dat invalid', async () => {
+    await seedCookie({ email: EMAIL, role: 'viewer', pwdAt: 0 });
+    getAccountStateMock.mockResolvedValue({
+      email: EMAIL,
+      name: 'BOD',
+      passwordHash: 'x',
+      role: 'bod',
+      canViewFinance: true,
+      isActive: true,
+      failedLoginCount: 0,
+      lockedAt: null,
+      passwordChangedAt: CHANGED_AT_ISO,
+    });
+
+    await reissueSessionCookie(EMAIL, CHANGED_AT_ISO);
+
+    const call = cookieJar.setCalls[0];
+    const decoded = await decodeSessionToken({ token: call.value, secret: SECRET });
+    expect(decoded?.invalid).toBe(false);
   });
 });

@@ -118,6 +118,23 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
       return true;
     },
 
+    // R3-1 (bao-mat.md vong 3, Trung) - compare-and-swap: chi doi khi passwordHash HIEN TAI cua tai
+    // khoan van dung bang oldHash (da kiem o buoc verify truoc do trong CUNG request) - mo phong dung
+    // hanh vi WHERE ... AND passwordHash = oldHash cua ban Prisma.
+    async setPasswordIfHash(email, oldHash, newHash, nowIso) {
+      const key = findEmail(email);
+      if (!key) return false;
+      const account = source.findAccount(key);
+      if (!account || account.passwordHash !== oldHash) return false;
+      source.changePassword(key, newHash);
+      const c = countersFor(key);
+      counters.set(key, { ...c, passwordChangedAt: nowIso });
+      for (const row of resetTokens) {
+        if (row.email === key && row.usedAt === null) row.usedAt = nowIso;
+      }
+      return true;
+    },
+
     async recordThrottle(kind, key, nowIso) {
       throttle.push({ id: nextThrottleId++, kind, key, createdAt: nowIso });
     },

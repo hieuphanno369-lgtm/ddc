@@ -190,8 +190,17 @@ export const authOptions: NextAuthOptions = {
         const email = token.email;
         if (typeof email === 'string' && email) {
           const account = await getAuthStore().getAccountState(email);
-          const changedAtMs = account?.passwordChangedAt ? Date.parse(account.passwordChangedAt) : 0;
-          if (changedAtMs > (token.pwdAt ?? 0)) token.invalid = true;
+          // R3-4 (bao-mat.md vòng 3, Thấp) - tài khoản không còn/đã bị TẮT (isActive=false) cũng phải
+          // vô hiệu ngay ở nhánh này, nhất quán với nhánh kiểm định kỳ (`applyAccountToToken`) - trước
+          // đây nhánh update chỉ so `passwordChangedAt`, bỏ qua `isActive`, nên 1 tài khoản vừa bị tắt
+          // (chưa qua ACCESS_RECHECK_INTERVAL_MS) vẫn nhận role/canViewFinance trong phản hồi JSON của
+          // `POST /api/auth/session` dù middleware/trang khác đã coi phiên là hợp lệ tới lúc đó.
+          if (!account || !account.isActive) {
+            token.invalid = true;
+          } else {
+            const changedAtMs = account.passwordChangedAt ? Date.parse(account.passwordChangedAt) : 0;
+            if (changedAtMs > (token.pwdAt ?? 0)) token.invalid = true;
+          }
         }
         return token;
       }
@@ -247,16 +256,19 @@ export const authOptions: NextAuthOptions = {
  * qua `changePasswordAction` (đã kiểm `currentPassword` đúng) mới được phép cấp lại cookie phiên MỚI
  * cho CHÍNH phiên hiện tại, ngay phía server, sau khi đổi mật khẩu thành công.
  * Không tin dữ liệu client gửi lên: đọc token TỪ COOKIE HIỆN TẠI của chính request này (không nhận
- * tham số nào từ ngoài ngoài `email` đã được `changePasswordAction` xác thực), đọc lại tài khoản từ
- * DB để lấy đúng `passwordChangedAt` vừa ghi. Dùng chung `secret`/`session.maxAge` của `authOptions`
- * (không nhân bản hằng số); tên cookie + thuộc tính khớp `defaultCookies` của next-auth (không có
- * `authOptions.cookies` tuỳ biến nên next-auth dùng đúng mặc định này) - `secureCookie` suy từ
- * `NEXTAUTH_URL` (không bao giờ tin header `Host`, cùng quy ước K11), đúng quy tắc mặc định mà
- * `next-auth/jwt`'s `getToken()` và `middleware.ts` đang dùng khi đọc token.
- * Không xử lý cookie bị chia nhỏ (chunk) - payload JWT của app này nhỏ (email/role/pwdAt...), không
- * chạm ngưỡng ~4KB next-auth mới chia nhỏ cookie.
+ * tham số nào từ ngoài ngoài `email` đã được `changePasswordAction` xác thực). Dùng chung
+ * `secret`/`session.maxAge` của `authOptions` (không nhân bản hằng số); tên cookie + thuộc tính khớp
+ * `defaultCookies` của next-auth (không có `authOptions.cookies` tuỳ biến nên next-auth dùng đúng mặc
+ * định này) - `secureCookie` suy từ `NEXTAUTH_URL` (không bao giờ tin header `Host`, cùng quy ước
+ * K11), đúng quy tắc mặc định mà `next-auth/jwt`'s `getToken()` và `middleware.ts` đang dùng khi đọc
+ * token. Không xử lý cookie bị chia nhỏ (chunk) - payload JWT của app này nhỏ (email/role/pwdAt...),
+ * không chạm ngưỡng ~4KB next-auth mới chia nhỏ cookie.
+ * Dùng chung cho `reissueSessionCookie` (cấp lại cookie sau khi tự đổi mật khẩu) và
+ * `invalidateCurrentSessionCookie` (R3-2 - đá ngay phiên hiện tại khi tài khoản bị khoá do đoán sai
+ * mật khẩu hiện tại nhiều lần) - cả 2 chỉ được sửa cookie của ĐÚNG người gọi (`token.email === email`),
+ * không bao giờ đụng tới cookie của người khác.
  */
-export async function reissueSessionCookie(email: string): Promise<void> {
+async function withOwnSessionCookie(email: string, tag: string, mutate: (token: JWT) => Promise<void>): Promise<void> {
   try {
     const secureCookie = process.env.NEXTAUTH_URL?.startsWith('https://') ?? !!process.env.VERCEL;
     const cookieName = secureCookie ? '__Secure-next-auth.session-token' : 'next-auth.session-token';
@@ -266,12 +278,10 @@ export async function reissueSessionCookie(email: string): Promise<void> {
 
     const secret = requireAuthSecret();
     const token = await decodeSessionToken({ token: raw, secret });
-    // Chỉ làm mới cookie của ĐÚNG người vừa tự đổi mật khẩu (email đã qua requireAuth ở actions.ts).
+    // Chỉ sửa cookie của ĐÚNG người mà bên gọi đã xác thực (email đã qua requireAuth ở actions.ts).
     if (!token || token.email !== email) return;
 
-    const account = await getAuthStore().getAccountState(email);
-    applyAccountToToken(token, account);
-    token.pwdAt = account?.passwordChangedAt ? Date.parse(account.passwordChangedAt) : 0;
+    await mutate(token);
 
     const maxAge = authOptions.session?.maxAge ?? 8 * 60 * 60;
     const newRaw = await encodeSessionToken({ token, secret, maxAge });
@@ -283,8 +293,44 @@ export async function reissueSessionCookie(email: string): Promise<void> {
       maxAge,
     });
   } catch (e) {
-    // Cấp lại cookie chỉ là tiện ích (giữ phiên hiện tại không bị đăng xuất) - lỗi ở đây KHÔNG được
-    // làm hỏng việc đổi mật khẩu đã thành công; không log message (có thể chứa dữ liệu nhạy cảm).
-    console.error('[reissueSessionCookie]', e instanceof Error ? e.name : String(e));
+    // Sửa cookie ở đây chỉ là tiện ích/hàng rào thêm - lỗi ở đây KHÔNG được làm hỏng hành động đã
+    // thành công (đổi mật khẩu, khoá tài khoản); không log message (có thể chứa dữ liệu nhạy cảm).
+    console.error(`[${tag}]`, e instanceof Error ? e.name : String(e));
   }
+}
+
+/**
+ * R3-1 (bao-mat.md vòng 3, Trung) - nhận thêm `changedAtIso` (mốc `passwordChangedAt` mà
+ * `changePasswordAction` VỪA GHI qua `setPasswordIfHash`, không phải đọc lại DB rồi tin ngay): giữa
+ * lúc ghi xong (T2) và lúc hàm này đọc lại tài khoản (T3) vẫn còn 1 khe hở race - 1 request KHÁC
+ * (admin đặt mật khẩu tạm, đặt lại qua email) có thể đã ghi đè mật khẩu SAU T2. Nếu chỉ tin DB một
+ * cách vô điều kiện như bản cũ, hàm này sẽ "hồi sinh" nhầm phiên bằng 1 mốc `pwdAt` không còn đúng -
+ * xoá sạch tác dụng của lần đổi mật khẩu KHÁC vừa thắng. Nay so `passwordChangedAt` mới nhất trong DB
+ * với `changedAtIso`: khớp (trường hợp bình thường, không có race) thì làm mới `pwdAt` như cũ; DB mới
+ * HƠN `changedAtIso` (bị ghi đè sau khi request này đã ghi) thì vô hiệu ngay (fail-closed) thay vì
+ * hồi sinh nhầm.
+ */
+export async function reissueSessionCookie(email: string, changedAtIso: string): Promise<void> {
+  await withOwnSessionCookie(email, 'reissueSessionCookie', async (token) => {
+    const account = await getAuthStore().getAccountState(email);
+    applyAccountToToken(token, account);
+    const dbChangedAtMs = account?.passwordChangedAt ? Date.parse(account.passwordChangedAt) : 0;
+    token.pwdAt = dbChangedAtMs;
+    if (dbChangedAtMs > Date.parse(changedAtIso)) token.invalid = true;
+  });
+}
+
+/**
+ * R3-2 (bao-mat.md vòng 3, Trung, chủ dự án chốt 2026-09-28) - tài khoản vừa bị KHOÁ ngay trong
+ * `changePasswordAction` (đủ 5 lần đoán sai mật khẩu hiện tại): khác với khoá do đăng nhập sai (Q1 =
+ * phương án a - không cắt phiên đang mở, chỉ chặn đăng nhập MỚI), ở đây kẻ đoán mật khẩu ĐANG GIỮ
+ * chính phiên đó (có thể là cookie bị đánh cắp) nên phiên hiện tại PHẢI bị đá ngay, không chờ
+ * `ACCESS_RECHECK_INTERVAL_MS`. Chỉ đặt `token.invalid = true` (không đổi `role`/`pwdAt`/... gì
+ * khác) - lần request kế tiếp của phiên này (middleware hoặc `session()` callback) sẽ tự đẩy về
+ * `/login`.
+ */
+export async function invalidateCurrentSessionCookie(email: string): Promise<void> {
+  await withOwnSessionCookie(email, 'invalidateCurrentSessionCookie', async (token) => {
+    token.invalid = true;
+  });
 }

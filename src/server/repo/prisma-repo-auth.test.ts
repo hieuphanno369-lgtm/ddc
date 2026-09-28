@@ -191,6 +191,34 @@ describe('setPassword', () => {
   });
 });
 
+describe('setPasswordIfHash - R3-1 (bao-mat.md vong 3, Trung) compare-and-swap', () => {
+  it('count 1 (oldHash con khop luc ghi) -> true, where loc CA email VA passwordHash = oldHash', async () => {
+    userRoleUpdateMany.mockResolvedValueOnce({ count: 1 });
+    const r = await prismaAuthStore.setPasswordIfHash('a@daidung.com.vn', 'hash-cu', 'hash-moi', NOW_ISO);
+    expect(r).toBe(true);
+    expect(userRoleUpdateMany).toHaveBeenCalledWith({
+      where: { email: 'a@daidung.com.vn', passwordHash: 'hash-cu' },
+      data: { passwordHash: 'hash-moi', passwordChangedAt: new Date(NOW_ISO) },
+    });
+  });
+
+  it('count 0 (oldHash da bi ghi de xen giua) -> false, KHONG huy token dat lai', async () => {
+    userRoleUpdateMany.mockResolvedValueOnce({ count: 0 });
+    const r = await prismaAuthStore.setPasswordIfHash('a@daidung.com.vn', 'hash-cu', 'hash-moi', NOW_ISO);
+    expect(r).toBe(false);
+    expect(passwordResetTokenUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it('count 1 -> CUNG huy (usedAt=now) token dat lai con han cua email do, giong setPassword', async () => {
+    userRoleUpdateMany.mockResolvedValueOnce({ count: 1 });
+    await prismaAuthStore.setPasswordIfHash('a@daidung.com.vn', 'hash-cu', 'hash-moi', NOW_ISO);
+    expect(passwordResetTokenUpdateMany).toHaveBeenCalledWith({
+      where: { email: 'a@daidung.com.vn', usedAt: null },
+      data: { usedAt: new Date(NOW_ISO) },
+    });
+  });
+});
+
 describe('recordThrottle / countThrottle', () => {
   it('recordThrottle goi create dung kind/key/createdAt', async () => {
     await prismaAuthStore.recordThrottle('login_fail_unknown_email', 'x@daidung.com.vn', NOW_ISO);

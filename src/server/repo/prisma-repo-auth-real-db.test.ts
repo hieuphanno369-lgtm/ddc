@@ -99,6 +99,22 @@ describe.skipIf(!hasDb)('prismaAuthStore tren Postgres that (DB _c)', () => {
     await prismaAuthStore.unlockAccount(EMAIL_B);
   });
 
+  it('R3-1 - 2 loi goi setPasswordIfHash song song cung oldHash -> dung 1 cai thang, hash cuoi la cua ben thang', async () => {
+    await prisma.userRole.update({ where: { email: EMAIL_A }, data: { passwordHash: 'hash-cas-cu' } });
+    const nowIso = new Date().toISOString();
+    const [r1, r2] = await Promise.all([
+      prismaAuthStore.setPasswordIfHash(EMAIL_A, 'hash-cas-cu', 'hash-cas-1', nowIso),
+      prismaAuthStore.setPasswordIfHash(EMAIL_A, 'hash-cas-cu', 'hash-cas-2', nowIso),
+    ]);
+    expect([r1, r2].filter(Boolean)).toHaveLength(1);
+    const state = await prismaAuthStore.getAccountState(EMAIL_A);
+    expect(state?.passwordHash).toBe(r1 ? 'hash-cas-1' : 'hash-cas-2');
+    expect(state?.passwordChangedAt).not.toBeNull();
+    // oldHash sai -> khong ghi gi
+    expect(await prismaAuthStore.setPasswordIfHash(EMAIL_A, 'hash-cas-cu', 'hash-cas-3', nowIso)).toBe(false);
+    expect((await prismaAuthStore.getAccountState(EMAIL_A))?.passwordHash).toBe(state?.passwordHash);
+  });
+
   it('L5 - consumeResetToken tra { ok: false } khi tai khoan da chuyen sang chi-Google du token con han', async () => {
     const nowIso = new Date().toISOString();
     const expiresAtIso = new Date(Date.now() + 30 * 60_000).toISOString();

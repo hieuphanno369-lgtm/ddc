@@ -2,12 +2,15 @@
 
 import { revalidateTag } from 'next/cache';
 import { Readable } from 'node:stream';
+import { headers } from 'next/headers';
 import ExcelJS from 'exceljs';
 import { Prisma } from '@prisma/client';
 import { getCurrentUser, type CurrentUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
 import { hashPassword, verifyPassword } from '@/lib/password';
-import { reissueSessionCookie } from '@/lib/auth';
+import { reissueSessionCookie, invalidateCurrentSessionCookie } from '@/lib/auth';
+import { clientIpFrom } from '@/lib/client-ip';
+import { IP_FAIL_LIMIT, IP_FAIL_WINDOW_MS, LOGIN_LOCK_THRESHOLD } from '@/lib/login-policy';
 import { calcChainPctActual, findCurrentStage, isSameStageSet, normPct, StagesChangedError, stageOrder, validateStageWeights } from '@/lib/stages';
 import { isReservedProjectCode, ProjectCodeTakenError } from '@/lib/project-code';
 import { cellText, type CellValue } from '@/lib/daily-import';
@@ -345,28 +348,87 @@ export async function removeProjectAction(id: number) {
 /**
  * Đổi mật khẩu chính mình.
  * S-2 (bao-mat.md vòng 4, chủ dự án chốt 2026-09-28, thay quyết định Q2=b cũ) - tự đổi mật khẩu
- * trong Cài đặt giờ CŨNG bump `passwordChangedAt` (qua `getAuthStore().setPassword(..., true, ...)`)
- * để vô hiệu các phiên đăng nhập KHÁC, nhưng phiên hiện tại vẫn dùng được. `setPassword` cũng huỷ
- * mọi token đặt lại còn hạn của email này (không còn cần `repo.changePassword` nữa).
+ * trong Cài đặt giờ CŨNG bump `passwordChangedAt` để vô hiệu các phiên đăng nhập KHÁC, nhưng phiên
+ * hiện tại vẫn dùng được (trừ khi chính lượt gọi này làm khoá tài khoản - xem R3-2 bên dưới).
  * R2-1 (bao-mat.md vòng 2, CAO, sửa lại cách giữ phiên hiện tại) - KHÔNG còn dựa vào client gọi
- * `update()` (next-auth) để làm mới phiên (lỗ hổng: `update()` gọi được từ MỌI cookie phiên đang
- * giữ, kể cả cookie bị đánh cắp - xem callback `jwt` ở `auth.ts`). Thay vào đó, NGAY SAU KHI đã kiểm
- * `currentPassword` đúng và đổi mật khẩu thành công, server tự cấp lại cookie phiên MỚI cho CHÍNH
- * phiên gọi action này (`reissueSessionCookie`) - chỉ request đã qua kiểm mật khẩu hiện tại mới làm
- * mới được `pwdAt` của phiên.
+ * `update()` (next-auth) để làm mới phiên. Thay vào đó, NGAY SAU KHI đã kiểm `currentPassword` đúng
+ * và đổi mật khẩu thành công, server tự cấp lại cookie phiên MỚI cho CHÍNH phiên gọi action này
+ * (`reissueSessionCookie`) - chỉ request đã qua kiểm mật khẩu hiện tại mới làm mới được `pwdAt`.
+ * R3-1 (bao-mat.md vòng 3, Trung) - ghi mật khẩu mới bằng compare-and-swap (`setPasswordIfHash`):
+ * chỉ ghi khi `passwordHash` trong DB vẫn còn đúng bằng hash vừa kiểm ở bước `verifyPassword` - chặn
+ * race với 1 request khác (admin đặt mật khẩu tạm, đặt lại qua email) ghi đè xen giữa lúc kiểm và
+ * lúc ghi (CAS thua thì trả lỗi `'current'`, KHÔNG cấp lại cookie phiên).
+ * R3-2 (bao-mat.md vòng 3, Trung, chủ dự án chốt 2026-09-28) - đoán sai `currentPassword` tính CHUNG
+ * vào bộ đếm khoá 5 lần của đăng nhập (dùng lại `registerFailedLogin`/cơ chế D3, không nhân bản bộ
+ * đếm riêng): tài khoản ĐANG khoá thì từ chối NGAY trước bcrypt (không gọi `verifyPassword`); đủ 5
+ * lần sai (kể cả sai lần đầu ở lượt gọi này) thì khoá tài khoản VÀ đá luôn phiên hiện tại
+ * (`invalidateCurrentSessionCookie` - khác Q1=a áp dụng cho đăng nhập, ở đây kẻ đoán mật khẩu ĐANG
+ * GIỮ chính phiên này nên không thể chỉ chặn đăng nhập mới); đúng mật khẩu thì reset bộ đếm như đăng
+ * nhập thành công. Có thêm giới hạn theo IP (`change_pwd_fail_ip`, TRƯỚC bcrypt, cùng ngưỡng
+ * `IP_FAIL_LIMIT`/`IP_FAIL_WINDOW_MS` với đăng nhập) để 1 IP không spam CPU bcrypt qua nhiều
+ * phiên/tài khoản khác nhau.
  */
 export async function changePasswordAction(currentPassword: string, newPassword: string) {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: 'Forbidden' };
   const parsed = changePasswordSchema.safeParse({ currentPassword, newPassword });
   if (!parsed.success) return { ok: false, error: 'invalid' };
-  const account = await repo.findAccount(user.email);
-  // Tài khoản chỉ Google (passwordHash rỗng) - tránh gọi verifyPassword với hash rỗng (bcrypt ném lỗi).
-  if (!account || account.passwordHash === '' || !(await verifyPassword(currentPassword, account.passwordHash))) {
+
+  const store = getAuthStore();
+  // R3-1 (bao-mat.md vòng 3, Trung) - đọc qua `AuthStore.getAccountState` (nguồn sự thật DUY NHẤT
+  // cho lockedAt/failedLoginCount, giống `checkCredentials`), KHÔNG dùng `repo.findAccount` - kho bộ
+  // nhớ (`mock-repo-auth.ts`) lưu lockedAt/passwordChangedAt TÁCH RIÊNG với `repo`, dùng nhầm nguồn
+  // sẽ đọc lockedAt sai; `AuthAccountState` cũng KHÔNG bị alias/mutate ngầm như đối tượng `repo`
+  // trả về (mỗi lần `getAccountState` dựng object mới), an toàn để giữ làm "oldHash" cho CAS bên
+  // dưới dù có await xen giữa.
+  const account = await store.getAccountState(user.email);
+  // Tài khoản chỉ Google (passwordHash rỗng) hoặc không còn tồn tại - tránh gọi verifyPassword với
+  // hash rỗng (bcrypt ném lỗi); không tính vào bộ đếm khoá (L7 - giống nhánh chỉ-Google ở đăng nhập).
+  if (!account || account.passwordHash === '') {
     return { ok: false, error: 'current' };
   }
-  await getAuthStore().setPassword(user.email, await hashPassword(parsed.data.newPassword), true, new Date().toISOString());
-  await reissueSessionCookie(user.email);
+
+  // R3-2 - tài khoản ĐANG bị khoá (do chính lượt đoán trước đó, hoặc lý do khác) -> từ chối TRƯỚC
+  // bcrypt, không tốn CPU đoán mật khẩu trên 1 tài khoản đã khoá.
+  if (account.lockedAt !== null) {
+    return { ok: false, error: 'locked' };
+  }
+  const oldHash = account.passwordHash;
+
+  const now = new Date();
+  const nowIso = now.toISOString();
+  // R3-2 - chặn tần suất theo IP TRƯỚC bcrypt (giống checkCredentials ở login-guard.ts), tránh 1 IP
+  // spam CPU bằng nhiều phiên/nhiều tài khoản khác nhau đoán mật khẩu hiện tại.
+  const ipKey = clientIpFrom(await headers()).trim() || 'unknown';
+  const sinceIpIso = new Date(now.getTime() - IP_FAIL_WINDOW_MS).toISOString();
+  const ipReserved = await store.reserveThrottle('change_pwd_fail_ip', ipKey, nowIso, sinceIpIso, IP_FAIL_LIMIT);
+  if (ipReserved === null) return { ok: false, error: 'ip_limited' };
+
+  if (!(await verifyPassword(currentPassword, oldHash))) {
+    // R3-2 - sai mật khẩu hiện tại tính CHUNG vào bộ đếm khoá 5 lần của đăng nhập; đủ ngưỡng thì
+    // khoá tài khoản VÀ đá luôn phiên hiện tại (khác đăng nhập sai - ở đây kẻ đoán mật khẩu đang giữ
+    // chính phiên này).
+    const result = await store.registerFailedLogin(user.email, LOGIN_LOCK_THRESHOLD, nowIso);
+    if (result?.locked) {
+      if (result.justLocked) await logActivity(user, 'login_locked', String(result.count));
+      await invalidateCurrentSessionCookie(user.email);
+    }
+    return { ok: false, error: result?.locked ? 'locked' : 'current' };
+  }
+
+  // Đúng mật khẩu: lượt này không tính là 1 lần sai theo IP - rút lại chỗ đã đặt; reset bộ đếm sai
+  // như đăng nhập thành công (L3 - nguyên tử, luôn gọi).
+  await store.releaseThrottle(ipReserved);
+  const confirmed = await store.resetFailedLogin(user.email);
+  if (!confirmed) return { ok: false, error: 'locked' };
+
+  // R3-1 - compare-and-swap: chỉ ghi khi passwordHash trong DB vẫn đúng bằng `oldHash` vừa kiểm ở trên.
+  const changedAtIso = new Date().toISOString();
+  const newHash = await hashPassword(parsed.data.newPassword);
+  const changed = await store.setPasswordIfHash(user.email, oldHash, newHash, changedAtIso);
+  if (!changed) return { ok: false, error: 'current' };
+
+  await reissueSessionCookie(user.email, changedAtIso);
   await logActivity(user, 'change_password');
   return { ok: true };
 }

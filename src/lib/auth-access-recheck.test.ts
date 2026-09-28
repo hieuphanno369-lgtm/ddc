@@ -236,6 +236,29 @@ describe("authOptions.callbacks.jwt - R2-1 trigger 'update' CHI duoc siet chat, 
 
     expect(token.invalid).toBeUndefined();
   });
+
+  it('R3-4 (bao-mat.md vong 3, Thap) - tai khoan bi TAT (isActive=false) -> invalid = true ngay, khong cho ACCESS_RECHECK_INTERVAL_MS', async () => {
+    findUniqueMock.mockResolvedValue({
+      role: 'bod', canViewFinance: true, isActive: false, passwordChangedAt: null,
+      email: 'bod@daidung.com.vn', name: 'BOD', passwordHash: 'x', createdAt: new Date(), lastLoginAt: null,
+    });
+    // accessCheckedAt vua kiem xong - nhanh dinh ky binh thuong se BO QUA, nhung trigger 'update' phai
+    // kiem NGAY (giong bai test pwdAt o tren).
+    const freshToken = { email: 'bod@daidung.com.vn', role: 'bod', canViewFinance: true, pwdAt: 0, accessCheckedAt: Date.now() };
+
+    const token = await jwt({ token: freshToken, trigger: 'update' } as never);
+
+    expect(token.invalid).toBe(true);
+  });
+
+  it('R3-4 - tai khoan khong con trong DB -> invalid = true', async () => {
+    findUniqueMock.mockResolvedValue(null);
+    const token0 = { email: 'xoa-roi@daidung.com.vn', role: 'bod', canViewFinance: true, pwdAt: 0 };
+
+    const token = await jwt({ token: token0, trigger: 'update' } as never);
+
+    expect(token.invalid).toBe(true);
+  });
 });
 
 describe('authOptions.callbacks.session - T-5 vo hieu session khi token.invalid', () => {

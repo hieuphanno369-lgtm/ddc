@@ -548,3 +548,34 @@ lại mở ra 1 lỗ hổng MỚI mức Cao (R2-1). Phiên điều phối đã c
    cho `POST /api/auth/session` (next-auth expose công khai, không tắt được) - nên kiểm tra thêm nếu
    sau này có tính năng mới gọi `update()` (ví dụ đồng bộ `session` phía client) thì đọc lại đoạn
    comment ở `auth.ts` trước khi thêm logic mới vào nhánh này.
+
+## Vòng sửa bảo mật 3 (bao-mat.md vòng 3: R3-1, R3-2 Trung; R3-4 Thấp; tester e2e 25)
+
+- **R3-1 - compare-and-swap khi tự đổi mật khẩu.**
+  `AuthStore.setPasswordIfHash(email, oldHash, newHash, nowIso)` (Prisma: `updateMany where { email, passwordHash: oldHash }` trong transaction, chỉ huỷ token đặt lại khi ghi thắng; bản bộ nhớ tương đương).
+  `changePasswordAction` đọc `oldHash` qua `getAccountState`, ghi bằng CAS; thua CAS thì trả `current` và không cấp lại cookie.
+  `reissueSessionCookie(email, changedAtIso)` nhận mốc vừa ghi; DB có `passwordChangedAt` mới hơn thì đặt `invalid = true` thay vì hồi sinh phiên.
+- **R3-2 - đoán mật khẩu hiện tại (theo chốt của chủ dự án).**
+  Tài khoản đang khoá bị từ chối trước bcrypt (`locked`).
+  Giới hạn theo IP trước bcrypt: `reserveThrottle('change_pwd_fail_ip', ...)` cùng ngưỡng/cửa sổ với đăng nhập (`ip_limited`), đúng mật khẩu thì `releaseThrottle`.
+  Sai mật khẩu tính chung bộ đếm khoá 5 lần (`registerFailedLogin`); đủ ngưỡng thì ghi `login_locked` và `invalidateCurrentSessionCookie` (đặt `invalid = true` trên cookie của chính người gọi).
+  Đúng mật khẩu thì `resetFailedLogin` (false nghĩa là vừa bị khoá song song, trả `locked`).
+  `withOwnSessionCookie` là phần dùng chung của `reissueSessionCookie` và `invalidateCurrentSessionCookie`.
+- **R3-4.** Nhánh `jwt` `trigger === 'update'` đặt `invalid = true` khi tài khoản không còn hoặc `isActive = false`.
+- **R3-3 (Thấp).** Không sửa trong vòng này: kiểm lại định kỳ đọc DB là fail-closed, tải DB chấp nhận được với quy mô người dùng nội bộ; ghi nhận để xem lại khi có SessionProvider/làm mới cookie.
+- **Modal Đổi mật khẩu (e2e 25).** `ChangePasswordModal` render qua `createPortal(..., document.body)`, thoát containing block do `backdrop-filter` của `.side`; hiển thị thông báo `authSecurity.locked` (rồi tải lại trang) và `authSecurity.ipLimited`, không thêm key i18n.
+
+### Test mới/sửa (vòng sửa bảo mật 3)
+
+- `src/server/actions-change-password-lock.test.ts` (mới): khoá sau 5 lần sai + đá phiên, đã khoá thì không gọi bcrypt, đúng mật khẩu reset bộ đếm, `ip_limited`, CAS thua khi có request khác ghi đè giữa verify và ghi.
+- `src/lib/auth-invalidate-session-cookie.test.ts` (mới); `auth-reissue-session-cookie.test.ts`, `auth-access-recheck.test.ts` (R3-4), repo auth mock/prisma (`setPasswordIfHash`) cập nhật.
+- `prisma-repo-auth-real-db.test.ts`: thêm ca 2 lời gọi `setPasswordIfHash` song song cùng `oldHash` chỉ 1 cái thắng.
+- `login-guard.test.ts`: bổ sung `setPasswordIfHash` vào store giả (lỗi tsc).
+
+### Cổng kiểm (vòng sửa bảo mật 3)
+
+- `npx tsc --noEmit`: sạch.
+- `npm test`: 239 file, 2665 xanh + 8 skip (8 ca real-db, bỏ qua khi không có `DATABASE_URL`).
+- Real-db (`DATABASE_URL` trỏ `ddc_control_tower_c`): 8/8 xanh.
+- e2e 24 + 25 (kèm setup): 7/7 xanh; e2e 25 trước đó đỏ chủ đích, nay xanh nhờ portal.
+- Chưa chạy lại toàn bộ e2e và `npm run build` trong vòng này.

@@ -190,6 +190,39 @@ describe('setPassword - S-2 (bao-mat.md vong 4) huy token dat lai con han cua em
   });
 });
 
+describe('setPasswordIfHash - R3-1 (bao-mat.md vong 3, Trung) compare-and-swap', () => {
+  it('oldHash khop passwordHash hien tai -> ghi thanh cong, tra true, bump passwordChangedAt', async () => {
+    const ok = await store.setPasswordIfHash('a@daidung.com.vn', 'hash-cu', 'hash-moi', '2026-09-28T00:30:00.000Z');
+
+    expect(ok).toBe(true);
+    const state = await store.getAccountState('a@daidung.com.vn');
+    expect(state?.passwordHash).toBe('hash-moi');
+    expect(state?.passwordChangedAt).toBe('2026-09-28T00:30:00.000Z');
+  });
+
+  it('oldHash KHONG khop (bi ghi de xen giua) -> tra false, KHONG doi mat khau, KHONG bump passwordChangedAt', async () => {
+    const ok = await store.setPasswordIfHash('a@daidung.com.vn', 'hash-sai', 'hash-moi', '2026-09-28T00:30:00.000Z');
+
+    expect(ok).toBe(false);
+    const state = await store.getAccountState('a@daidung.com.vn');
+    expect(state?.passwordHash).toBe('hash-cu');
+    expect(state?.passwordChangedAt).toBeNull();
+  });
+
+  it('ghi thanh cong -> CUNG huy token dat lai con han cua email do (giong setPassword, S-2)', async () => {
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-token-con-han', '2026-09-27T02:00:00.000Z', '1.2.3.4');
+
+    await store.setPasswordIfHash('a@daidung.com.vn', 'hash-cu', 'hash-moi', '2026-09-28T00:30:00.000Z');
+
+    expect(await store.peekResetToken('hash-token-con-han', '2026-09-27T00:00:00.000Z')).toBe(false);
+  });
+
+  it('khong co tai khoan -> tra false', async () => {
+    const ok = await store.setPasswordIfHash('khong-co@daidung.com.vn', 'x', 'y', '2026-09-28T00:30:00.000Z');
+    expect(ok).toBe(false);
+  });
+});
+
 describe('reserveThrottle / releaseThrottle (R2 vong 2, N2 vong 3 - tra/nhan id thay vi boolean)', () => {
   it('con cho thi ghi + tra id (number); het cho thi KHONG ghi them + tra null', async () => {
     for (let i = 0; i < 3; i++) {

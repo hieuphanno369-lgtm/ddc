@@ -200,6 +200,7 @@ describe('checkCredentials - L3: xac nhan nguyen tu chong TOCTOU khi doan mat kh
       registerFailedLogin: vi.fn(),
       unlockAccount: vi.fn(),
       setPassword: vi.fn(),
+      setPasswordIfHash: vi.fn(),
       replaceResetToken: vi.fn(),
       peekResetToken: vi.fn(),
       consumeResetToken: vi.fn(),
