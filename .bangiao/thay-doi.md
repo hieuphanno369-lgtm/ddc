@@ -689,3 +689,35 @@ Làm TDD: viết test đỏ trước (tái hiện đúng kịch bản trong `bao
 - `npx tsc --noEmit`: sạch.
 - `npm test`: 2699 xanh + 15 skip.
 - Real-db: 15/15 xanh (chạy trước khi thêm R6-4, R6-4 không đổi kho).
+
+## Vòng sửa sau reviewer (kiểm cuối, 2026-09-28)
+
+Tester bị dừng giữa chừng (hết hạn mức phiên, HTTP 429) khi đang soi ảnh 390px; phiên điều phối C làm nốt và ghi mục này.
+
+### Lỗi pixel tester phát hiện và sửa
+
+- Modal "Đặt lại mật khẩu" và "Mở khoá + đặt mật khẩu tạm" trong `UserEditor.tsx` bị nhốt trong thẻ `.card` (có `backdrop-filter` tạo containing block mới cho `position: fixed`), cùng gốc với lỗi modal Đổi mật khẩu (e2e 25).
+- Sửa: render cả 2 modal qua `createPortal(..., document.body)`.
+- Test: thêm ca vào `e2e/21-khoa-tai-khoan.spec.ts` đo `.modal-scrim` phủ >= 90% viewport ở 1440 và 390.
+- Phiên C xác nhận test đỏ trên bản chưa sửa (scrim rộng 1162px, cần > 1296px) rồi xanh sau khi sửa.
+- Đã rà toàn bộ `src`: không còn lớp phủ `position: fixed` nào khác nằm trong thẻ có `backdrop-filter`.
+
+### Ảnh đã chụp (`.bangiao/anh-tester/`, 1440 và 390)
+
+- `quenmk-forgotSent-*`, `datlaimk-resetDone-*`, `datlaimk-resetDoneLocked-*`, `admin-modal-mokhoa-tam-*`, `changepw-done-*`, `admin-badges-1440`, `admin-badges-390-scrolled*`, `admin-locked-block-390`.
+- Soi: modal phủ kín màn hình ở cả 2 bề rộng; chữ mới "sẽ bị đăng xuất trong vài phút" và badge "Ngưng sử dụng" không tràn, không xuống dòng xấu.
+- Ghi nhận (không sửa, có từ trước Task 5-8): bảng người dùng ở trang Quản trị cuộn ngang ở cả 1440 và 390 (cột cuối nằm ngoài khung, cuộn tới được).
+
+### Dọn dẹp
+
+- Xoá `scripts/_tmp-regen-token.ts` (script tạm của tester), dừng dev server cổng 3003 tester bỏ lại.
+- Xoá 3 kênh thông báo thừa trong DB `_c` (id 86 "Tester pixel smtp" do tester tạo; id 90, 91 do lượt e2e 07 bị dừng giữa chừng), làm e2e 07 và 22 đỏ trước khi dọn.
+- Ghi nhận: e2e 07 không tự dọn kênh khi đỏ giữa chừng, dữ liệu thừa làm lượt sau đỏ theo; chưa sửa trong phase này.
+
+### Cổng kiểm (commit cuối của phase)
+
+- `npx tsc --noEmit`: sạch.
+- `npm test`: 2700 xanh + 15 skip.
+- Real-db (`DATABASE_URL` trỏ `ddc_control_tower_c`, `npx vitest run src/server/repo/prisma-repo-auth-real-db.test.ts`): 15/15 xanh.
+- Toàn bộ e2e (`npx playwright test`): 98/98 xanh (sau khi dọn DB).
+- `NEXT_FONT_GOOGLE_MOCKED_RESPONSES=... npm run build`: qua.

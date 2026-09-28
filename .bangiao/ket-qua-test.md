@@ -259,3 +259,8 @@ ghi nợ kỹ thuật.
 - `e2e/25-pixel-modal-doi-mat-khau.spec.ts`: file mới, 2 test - CẢ 2 ĐỎ CHỦ ĐÍCH, chứng minh bug
   giao diện thật (mục 4). KHÔNG làm yếu test cho xanh.
 - `.bangiao/ket-qua-test.md`: mục này.
+
+## Kiểm cuối sau reviewer (2026-09-28)
+
+Xem `thay-doi.md` mục "Vòng sửa sau reviewer (kiểm cuối)": e2e 98/98, `npm test` 2700 xanh + 15 skip, real-db 15/15, build qua; ảnh pixel 1440/390 trong `.bangiao/anh-tester/`.
+

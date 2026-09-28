@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import type { AdminUserRow, Role } from '@/server/repo/types';
@@ -34,6 +35,10 @@ export function UserEditor({ users }: { users: AdminUserRow[] }) {
   const [resetErr, setResetErr] = useState<string | null>(null);
   const [addErr, setAddErr] = useState<string | null>(null);
   // P3E (Task 6) - modal "Mở khoá + đặt mật khẩu tạm" cho tài khoản đang bị khoá do sai mật khẩu.
+  // Tester (kiem cuoi truoc merge) - ca modal nay va modal "resetEmail" deu render qua createPortal
+  // ra document.body: the cha ".card" co backdrop-filter (Apple Glass) tao containing block MOI cho
+  // hau due position:fixed, khien ".modal-scrim" bi nhot trong khung cua ".card" thay vi phu toan
+  // viewport neu render truc tiep trong cay component (cung goc bug voi ChangePasswordModal, e2e 25).
   const [unlockTempEmail, setUnlockTempEmail] = useState<string | null>(null);
   const [unlockTempPw, setUnlockTempPw] = useState('');
   const [unlockTempConfirm, setUnlockTempConfirm] = useState('');
@@ -267,69 +272,73 @@ export function UserEditor({ users }: { users: AdminUserRow[] }) {
         </table>
       </div>
 
-      {resetEmail && (
-        <div className="modal-scrim" onClick={() => setResetEmail(null)}>
-          <div
-            className="modal"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-callout font-semibold">
-                {t('admin.resetPassword')} - {resetEmail}
-              </h2>
-              <button onClick={() => setResetEmail(null)} className="rounded-sm p-2 text-label3 transition-colors duration-fast hover:bg-fill hover:text-label">
-                <IconClose size={18} />
-              </button>
-            </div>
-            <div className="space-y-3.5">
-              <div className="field">
-                <span className="lb">{t('auth.newPassword')}</span>
-                <PasswordInput value={resetPw} onChange={setResetPw} className={`${inputCls} w-full`} showStrength />
+      {resetEmail &&
+        createPortal(
+          <div className="modal-scrim" onClick={() => setResetEmail(null)}>
+            <div
+              className="modal"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-5 flex items-center justify-between">
+                <h2 className="text-callout font-semibold">
+                  {t('admin.resetPassword')} - {resetEmail}
+                </h2>
+                <button onClick={() => setResetEmail(null)} className="rounded-sm p-2 text-label3 transition-colors duration-fast hover:bg-fill hover:text-label">
+                  <IconClose size={18} />
+                </button>
               </div>
-              <div className="field">
-                <span className="lb">{t('auth.confirmPassword')}</span>
-                <PasswordInput value={resetConfirm} onChange={setResetConfirm} className={`${inputCls} w-full`} />
+              <div className="space-y-3.5">
+                <div className="field">
+                  <span className="lb">{t('auth.newPassword')}</span>
+                  <PasswordInput value={resetPw} onChange={setResetPw} className={`${inputCls} w-full`} showStrength />
+                </div>
+                <div className="field">
+                  <span className="lb">{t('auth.confirmPassword')}</span>
+                  <PasswordInput value={resetConfirm} onChange={setResetConfirm} className={`${inputCls} w-full`} />
+                </div>
+                {resetErr && <p className="sumbar bad">{resetErr}</p>}
+                <button onClick={doReset} className="btn w-full justify-center">
+                  {t('common.save')}
+                </button>
               </div>
-              {resetErr && <p className="sumbar bad">{resetErr}</p>}
-              <button onClick={doReset} className="btn w-full justify-center">
-                {t('common.save')}
-              </button>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
 
-      {unlockTempEmail && (
-        <div className="modal-scrim" onClick={() => setUnlockTempEmail(null)}>
-          <div
-            className="modal"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-callout font-semibold">
-                {t('authSecurity.unlockWithTemp')} - {unlockTempEmail}
-              </h2>
-              <button onClick={() => setUnlockTempEmail(null)} className="rounded-sm p-2 text-label3 transition-colors duration-fast hover:bg-fill hover:text-label">
-                <IconClose size={18} />
-              </button>
-            </div>
-            <div className="space-y-3.5">
-              <div className="field">
-                <span className="lb">{t('auth.newPassword')}</span>
-                <PasswordInput value={unlockTempPw} onChange={setUnlockTempPw} className={`${inputCls} w-full`} showStrength />
+      {unlockTempEmail &&
+        createPortal(
+          <div className="modal-scrim" onClick={() => setUnlockTempEmail(null)}>
+            <div
+              className="modal"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-5 flex items-center justify-between">
+                <h2 className="text-callout font-semibold">
+                  {t('authSecurity.unlockWithTemp')} - {unlockTempEmail}
+                </h2>
+                <button onClick={() => setUnlockTempEmail(null)} className="rounded-sm p-2 text-label3 transition-colors duration-fast hover:bg-fill hover:text-label">
+                  <IconClose size={18} />
+                </button>
               </div>
-              <div className="field">
-                <span className="lb">{t('auth.confirmPassword')}</span>
-                <PasswordInput value={unlockTempConfirm} onChange={setUnlockTempConfirm} className={`${inputCls} w-full`} />
+              <div className="space-y-3.5">
+                <div className="field">
+                  <span className="lb">{t('auth.newPassword')}</span>
+                  <PasswordInput value={unlockTempPw} onChange={setUnlockTempPw} className={`${inputCls} w-full`} showStrength />
+                </div>
+                <div className="field">
+                  <span className="lb">{t('auth.confirmPassword')}</span>
+                  <PasswordInput value={unlockTempConfirm} onChange={setUnlockTempConfirm} className={`${inputCls} w-full`} />
+                </div>
+                {unlockTempErr && <p className="sumbar bad">{unlockTempErr}</p>}
+                <button onClick={doUnlockWithTemp} className="btn w-full justify-center">
+                  {t('common.save')}
+                </button>
               </div>
-              {unlockTempErr && <p className="sumbar bad">{unlockTempErr}</p>}
-              <button onClick={doUnlockWithTemp} className="btn w-full justify-center">
-                {t('common.save')}
-              </button>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
