@@ -115,7 +115,6 @@ export default async function AdminPage() {
           <ExchangeRateEditor
             months={[...historyMonths(12)].reverse()}
             rates={await repo.getExchangeRates()}
-            lastRun={(await repo.getRecentJobRuns('rates_monthly', 1))[0] ?? null}
           />
         </CardBody>
       </Card>

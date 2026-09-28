@@ -5,16 +5,13 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { FX_CURRENCIES, type FxCurrency } from '@/lib/fx';
 import { formatTon } from '@/lib/format';
-import type { ExchangeRate, JobRunEntry } from '@/server/repo/types';
+import type { ExchangeRate } from '@/server/repo/types';
 import { deleteExchangeRateAction, saveExchangeRateAction } from '@/server/actions-master';
 import { Badge } from '@/components/ui/Badge';
 
 export interface ExchangeRateEditorProps {
   months: string[];
   rates: ExchangeRate[];
-  /** P3E (D4): khong con dung - da bo tinh nang tu lay VCB. Giu prop (tuy chon) de tuong
-   * thich voi `admin/page.tsx` (dang bi khoa - C giu), xoa het khi C nha khoa. */
-  lastRun?: JobRunEntry | null;
 }
 
 /** T6 (Task 7, P2A): tỷ giá theo tháng - nhập tay (P3E/D4: bỏ tự lấy VCB). */

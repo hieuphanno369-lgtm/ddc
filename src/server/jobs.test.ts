@@ -81,7 +81,8 @@ describe('runDueJobs', () => {
     try {
       await runDueJobs('lazy');
       expect(fetchSpy).not.toHaveBeenCalled();
-      expect(repo.getRecentJobRuns('rates_monthly', 5)).toHaveLength(0);
+      // Task 8: JobName gio chi con 'alerts_daily' - ep kieu de van kiem duoc khong con job_run ten cu.
+      expect(repo.getRecentJobRuns('rates_monthly' as never, 5)).toHaveLength(0);
     } finally {
       vi.unstubAllGlobals();
     }

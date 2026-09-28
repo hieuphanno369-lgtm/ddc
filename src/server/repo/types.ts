@@ -487,7 +487,7 @@ export interface AuditLogEntry {
   note: string;
 }
 
-export type JobName = 'alerts_daily' | 'rates_monthly';
+export type JobName = 'alerts_daily';
 export type JobTrigger = 'cron' | 'lazy' | 'admin';
 
 export interface JobRunEntry {
