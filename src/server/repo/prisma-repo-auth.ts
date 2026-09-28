@@ -89,11 +89,17 @@ export const prismaAuthStore: AuthStore = {
   },
 
   async setPassword(email, passwordHash, bumpChangedAt, nowIso) {
-    const result = await prisma.userRole.updateMany({
-      where: { email },
-      data: { passwordHash, ...(bumpChangedAt ? { passwordChangedAt: new Date(nowIso) } : {}) },
+    const now = new Date(nowIso);
+    return prisma.$transaction(async (tx) => {
+      const result = await tx.userRole.updateMany({
+        where: { email },
+        data: { passwordHash, ...(bumpChangedAt ? { passwordChangedAt: now } : {}) },
+      });
+      // S-2 (bao-mat.md vong 4) - huy moi token dat lai con dung duoc cua email nay (du bumpChangedAt
+      // hay khong): mat khau da doi qua duong khac thi 1 link dat lai cu con lai khong con ly do de dung.
+      await tx.passwordResetToken.updateMany({ where: { email, usedAt: null }, data: { usedAt: now } });
+      return result.count > 0;
     });
-    return result.count > 0;
   },
 
   async recordThrottle(kind, key, nowIso) {

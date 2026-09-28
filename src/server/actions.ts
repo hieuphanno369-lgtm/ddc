@@ -341,7 +341,15 @@ export async function removeProjectAction(id: number) {
   return { ok: true };
 }
 
-/** Đổi mật khẩu chính mình. */
+/**
+ * Đổi mật khẩu chính mình.
+ * S-2 (bao-mat.md vòng 4, chủ dự án chốt 2026-09-28, thay quyết định Q2=b cũ) - tự đổi mật khẩu
+ * trong Cài đặt giờ CŨNG bump `passwordChangedAt` (qua `getAuthStore().setPassword(..., true, ...)`)
+ * để vô hiệu các phiên đăng nhập KHÁC, nhưng phiên hiện tại vẫn dùng được (client tự cập nhật
+ * `token.pwdAt` của chính phiên qua `update()` next-auth ngay sau khi action này trả `ok: true` -
+ * xem `ChangePasswordModal.tsx`, callback `jwt` ở `auth.ts`). `setPassword` cũng huỷ mọi token đặt
+ * lại còn hạn của email này (không còn cần `repo.changePassword` nữa).
+ */
 export async function changePasswordAction(currentPassword: string, newPassword: string) {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: 'Forbidden' };
@@ -352,7 +360,7 @@ export async function changePasswordAction(currentPassword: string, newPassword:
   if (!account || account.passwordHash === '' || !verifyPassword(currentPassword, account.passwordHash)) {
     return { ok: false, error: 'current' };
   }
-  await repo.changePassword(user.email, hashPassword(parsed.data.newPassword));
+  await getAuthStore().setPassword(user.email, await hashPassword(parsed.data.newPassword), true, new Date().toISOString());
   await logActivity(user, 'change_password');
   return { ok: true };
 }
@@ -375,7 +383,7 @@ export async function createAccountAction(email: string, name: string, role: Rol
     await repo.createAccount({
       email: normEmail,
       name: parsed.data.name,
-      passwordHash: parsed.data.password === '' ? '' : hashPassword(parsed.data.password),
+      passwordHash: parsed.data.password === '' ? '' : await hashPassword(parsed.data.password),
       role: parsed.data.role,
       canViewFinance: parsed.data.role !== 'viewer',
       isActive: true,
@@ -403,8 +411,10 @@ export async function resetPasswordAction(email: string, newPassword: string) {
   const parsed = resetPasswordSchema.safeParse({ email, newPassword });
   if (!parsed.success) return { ok: false, error: 'too_short' };
   // S8 (Task 7, Q2 = phương án b) - admin đặt lại mật khẩu -> vô hiệu MỌI phiên đăng nhập cũ
-  // (`bumpChangedAt: true`), khác `changePasswordAction` (tự đổi trong Cài đặt) không bump.
-  await getAuthStore().setPassword(parsed.data.email.toLowerCase(), hashPassword(parsed.data.newPassword), true, new Date().toISOString());
+  // (`bumpChangedAt: true`); S-2 (bao-mat.md vòng 4) - nay `changePasswordAction` (tự đổi trong Cài
+  // đặt) CŨNG bump, nhưng giữ phiên hiện tại (khác ở đây: admin đặt lại không có "phiên hiện tại"
+  // nào để giữ, nên không cần thêm gì).
+  await getAuthStore().setPassword(parsed.data.email.toLowerCase(), await hashPassword(parsed.data.newPassword), true, new Date().toISOString());
   await logActivity(user, 'reset_password', parsed.data.email);
   return { ok: true };
 }

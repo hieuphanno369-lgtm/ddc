@@ -6,7 +6,7 @@
  * được và mật khẩu CŨ không còn dùng được; token dùng một lần; token hết hạn không dùng được;
  * tài khoản đang khoá thì đặt lại xong vẫn khoá (K10) - checkCredentials phải tiếp tục báo `locked`.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hashPassword } from '@/lib/password';
 import { LOGIN_LOCK_THRESHOLD, RESET_TOKEN_TTL_MS } from '@/lib/login-policy';
 import { createMemoryAuthStore, type MemoryAccountSource } from './repo/mock-repo-auth';
@@ -61,11 +61,13 @@ function makeMailer(): { mailer: ResetMailer; tokenOf: () => string } {
   };
 }
 
+// S-1 (bao-mat.md vong 4) - `hashPassword` gio bat dong bo; tinh 1 lan truoc (beforeAll).
+let OLD_HASH = '';
 function account(over: Partial<UserAccount> = {}): UserAccount {
   return {
     email: 'nguoi@daidung.com.vn',
     name: 'Nguoi Dung',
-    passwordHash: hashPassword(OLD_PW),
+    passwordHash: OLD_HASH,
     role: 'viewer',
     canViewFinance: false,
     isActive: true,
@@ -78,6 +80,10 @@ function account(over: Partial<UserAccount> = {}): UserAccount {
 
 const T0 = new Date('2026-09-27T00:00:00.000Z');
 const at = (ms: number) => new Date(T0.getTime() + ms);
+
+beforeAll(async () => {
+  OLD_HASH = await hashPassword(OLD_PW);
+});
 
 beforeEach(() => vi.clearAllMocks());
 

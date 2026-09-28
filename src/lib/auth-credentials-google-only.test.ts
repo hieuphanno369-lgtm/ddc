@@ -4,7 +4,7 @@
  * Yêu cầu bàn giao: "tài khoản chỉ Google (không mật khẩu) không đăng nhập được bằng mật khẩu rỗng"
  * và không đăng nhập được bằng bất kỳ mật khẩu nào khác (K7 - không lộ tài khoản nào chỉ dùng Google).
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hashPassword } from '@/lib/password';
 
 const {
@@ -52,10 +52,16 @@ function getAuthorize(): Authorize {
 }
 
 const REAL_PW = 'MatKhauThat1';
+// S-1 (bao-mat.md vong 4) - `hashPassword` gio bat dong bo; tinh 1 lan truoc (beforeAll) roi dung
+// lai gia tri, thay vi goi truc tiep (dong bo) trong `row()`.
+let REAL_HASH = '';
+beforeAll(async () => {
+  REAL_HASH = await hashPassword(REAL_PW);
+});
 const row = (over: Partial<Record<string, unknown>> = {}) => ({
   email: 'a@daidung.com.vn',
   name: 'A',
-  passwordHash: hashPassword(REAL_PW),
+  passwordHash: REAL_HASH,
   role: 'viewer',
   canViewFinance: false,
   isActive: true,

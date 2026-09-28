@@ -597,12 +597,19 @@ export interface SapQueueItem {
  * R7 phần 3, G4 (bao-mat.md) - `'google_denied'` chỉ dùng để hạn chế `activity_log` bị spam bởi các
  * lần Google từ chối lặp lại của CÙNG 1 email (Google không đi qua form mật khẩu nên không dùng
  * `login_fail_ip`/`login_fail_unknown_email`/`LOGIN_LOCK_THRESHOLD`); không phải khoá đăng nhập.
+ * S-1 (bao-mat.md vòng 4) - `'reset_submit_ip'` giới hạn số lần GỬI đặt lại mật khẩu
+ * (`resetPasswordWithToken`) theo IP, chặn từ chối dịch vụ CPU (bcrypt) từ người không đăng nhập.
+ * S-3 (bao-mat.md vòng 4) - `'login_locked_probe'` KHÔNG dùng để quyết định gì, chỉ để nhánh "tài
+ * khoản thật đang khoá" trong `checkCredentials` tốn ĐÚNG số lượt gọi DB như nhánh "email lạ" (cân
+ * thời gian, chống oracle phân biệt 2 nhánh); kết quả luôn bị bỏ qua.
  */
 export type ThrottleKind =
   | 'login_fail_ip'
   | 'login_fail_unknown_email'
+  | 'login_locked_probe'
   | 'reset_req_email'
   | 'reset_req_ip'
+  | 'reset_submit_ip'
   | 'google_denied';
 
 export interface AuthAccountState {
@@ -649,7 +656,13 @@ export interface AuthStore {
   resetFailedLogin(email: string): Promise<boolean>;
   /** Xoá khoá + bộ đếm; false nếu không có tài khoản. */
   unlockAccount(email: string): Promise<boolean>;
-  /** Đổi mật khẩu; bumpChangedAt = true thì passwordChangedAt = now. */
+  /**
+   * Đổi mật khẩu; bumpChangedAt = true thì passwordChangedAt = now.
+   * S-2 (bao-mat.md vòng 4, chủ dự án chốt 2026-09-28) - LUÔN huỷ (đánh dấu `usedAt = nowIso`) mọi
+   * token đặt lại mật khẩu CÒN HẠN của email này, bất kể `bumpChangedAt` - mật khẩu đã đổi qua đường
+   * nào đó khác (tự đổi trong Cài đặt, admin đặt mật khẩu tạm) thì 1 link đặt lại cũ (nếu còn) không
+   * còn lý do để dùng được nữa.
+   */
   setPassword(email: string, passwordHash: string, bumpChangedAt: boolean, nowIso: string): Promise<boolean>;
   recordThrottle(kind: ThrottleKind, key: string, nowIso: string): Promise<void>;
   countThrottle(kind: ThrottleKind, key: string, sinceIso: string): Promise<number>;

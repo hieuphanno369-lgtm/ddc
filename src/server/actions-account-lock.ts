@@ -9,9 +9,11 @@ import { requireRoleUser } from './action-guards';
 import { profileTag } from './cache';
 import { getAuthStore } from './auth-store';
 
+// I-3 (bao-mat.md vòng 4) - `tempPassword` thêm `.max(72)` (bcrypt cắt ở 72 byte, mật khẩu dài hơn
+// vô nghĩa - không nên âm thầm bị cắt mà không báo).
 const unlockAccountSchema = z.object({
   email: z.string().email(),
-  tempPassword: z.string().min(8).optional(),
+  tempPassword: z.string().min(8).max(72).optional(),
 });
 
 /**
@@ -25,6 +27,12 @@ export async function unlockAccountAction(
 ): Promise<{ ok: true } | { ok: false; error: 'Forbidden' | 'Invalid input' | 'too_short' | 'Not found' }> {
   const user = await requireRoleUser(['admin']);
   if (!user) return { ok: false, error: 'Forbidden' };
+
+  // I-3 (bao-mat.md vòng 4) - kiểm KIỂU của đầu vào THÔ TRƯỚC khi gọi `.trim()`: trước đây gọi
+  // `email.trim()` ngay trên tham số hàm rồi mới đưa vào `safeParse`, nên đầu vào không phải chuỗi
+  // (ai đó gọi thẳng server action với kiểu khác, không qua UI có kiểm TypeScript) làm `.trim()` ném
+  // TypeError TRƯỚC KHI zod kịp kiểm - lộ lỗi 500 thay vì phản hồi `Invalid input` bình thường.
+  if (typeof email !== 'string') return { ok: false, error: 'Invalid input' };
 
   const parsed = unlockAccountSchema.safeParse({ email: email.trim(), tempPassword });
   if (!parsed.success) {
@@ -40,7 +48,7 @@ export async function unlockAccountAction(
   if (!unlocked) return { ok: false, error: 'Not found' };
 
   if (parsed.data.tempPassword) {
-    await store.setPassword(normEmail, hashPassword(parsed.data.tempPassword), true, new Date().toISOString());
+    await store.setPassword(normEmail, await hashPassword(parsed.data.tempPassword), true, new Date().toISOString());
   }
 
   await logActivity(user, 'account_unlock', normEmail);

@@ -1,13 +1,20 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { repo } from './mock-repo';
 import { hashPassword, verifyPassword } from '@/lib/password';
 import type { UserAccount } from './types';
+
+// S-1 (bao-mat.md vong 4) - `hashPassword` gio bat dong bo; tinh 1 lan truoc (beforeAll) roi dung
+// lai gia tri, thay vi goi truc tiep (dong bo) trong `acct()`.
+let PASS_HASH = '';
+beforeAll(async () => {
+  PASS_HASH = await hashPassword('Pass@12345');
+});
 
 function acct(email: string, role: UserAccount['role'] = 'viewer'): UserAccount {
   return {
     email,
     name: email.split('@')[0],
-    passwordHash: hashPassword('Pass@12345'),
+    passwordHash: PASS_HASH,
     role,
     canViewFinance: role !== 'viewer',
     isActive: true,
@@ -39,9 +46,9 @@ describe('account management (mock repo)', () => {
     expect(repo.findAccount('y@daidung.com.vn')?.canViewFinance).toBe(true);
   });
 
-  it('changePassword đổi hash, verify mật khẩu mới', () => {
+  it('changePassword đổi hash, verify mật khẩu mới', async () => {
     repo.createAccount(acct('z@daidung.com.vn'));
-    repo.changePassword('z@daidung.com.vn', hashPassword('New@99999'));
+    repo.changePassword('z@daidung.com.vn', await hashPassword('New@99999'));
     const a = repo.findAccount('z@daidung.com.vn')!;
     expect(verifyPassword('New@99999', a.passwordHash)).toBe(true);
     expect(verifyPassword('Pass@12345', a.passwordHash)).toBe(false);

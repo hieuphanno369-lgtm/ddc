@@ -174,7 +174,20 @@ export const authOptions: NextAuthOptions = {
       }
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
+      // S-2 (bao-mat.md vòng 4) - "update": `ChangePasswordModal` gọi `update()` (next-auth) ngay
+      // sau khi tự đổi mật khẩu thành công, để LÀM MỚI `token.pwdAt`/quyền của CHÍNH phiên này ngay
+      // (không chờ tới nhịp kiểm lại định kỳ 5 phút) - tránh phiên vừa đổi mật khẩu bị nhánh kiểm lại
+      // dưới đây vô hiệu nhầm (token.pwdAt cũ < passwordChangedAt mới vừa tự đặt).
+      if (trigger === 'update') {
+        const email = token.email;
+        if (typeof email === 'string' && email) {
+          const account = await getAuthStore().getAccountState(email);
+          applyAccountToToken(token, account);
+          token.pwdAt = account?.passwordChangedAt ? Date.parse(account.passwordChangedAt) : 0;
+        }
+        return token;
+      }
       if (user?.email) {
         // K14 (đóng L-11): 1 lần đọc tài khoản (getAccountState), quyền dựng thẳng từ đó - không
         // gọi resolveAccess() thêm lần nữa (trước đây đọc DB 2 lần: findAccount() ở authorize/signIn

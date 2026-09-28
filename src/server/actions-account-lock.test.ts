@@ -84,6 +84,29 @@ describe('unlockAccountAction - dieu kien dau vao', () => {
     const state = await store.getAccountState('ngan@daidung.com.vn');
     expect(state?.lockedAt).not.toBeNull();
   });
+
+  it('I-3 (bao-mat.md vong 4): tempPassword 73 ky tu (qua 72 byte bcrypt) -> too_short, khong mo khoa', async () => {
+    login(ADMIN);
+    repo.createAccount({
+      email: 'dai@daidung.com.vn', name: 'Dai', passwordHash: 'x', role: 'viewer',
+      canViewFinance: false, isActive: true, createdAt: new Date().toISOString(), lastLoginAt: null, lockedAt: null,
+    });
+    await store.registerFailedLogin('dai@daidung.com.vn', 1, new Date().toISOString());
+
+    const res = await unlockAccountAction('dai@daidung.com.vn', 'a'.repeat(73));
+
+    expect(res).toEqual({ ok: false, error: 'too_short' });
+    const state = await store.getAccountState('dai@daidung.com.vn');
+    expect(state?.lockedAt).not.toBeNull();
+  });
+
+  it('I-3 (bao-mat.md vong 4): email KHONG PHAI chuoi (goi thang server action, bo qua kieu TypeScript) -> Invalid input, khong nem loi', async () => {
+    login(ADMIN);
+
+    const res = await unlockAccountAction(12345 as unknown as string);
+
+    expect(res).toEqual({ ok: false, error: 'Invalid input' });
+  });
 });
 
 describe('unlockAccountAction - mo khoa thanh cong', () => {

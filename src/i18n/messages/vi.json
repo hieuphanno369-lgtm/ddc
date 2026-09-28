@@ -1199,7 +1199,8 @@
     "resetDoneLocked": "Đã đặt lại mật khẩu, nhưng tài khoản đang bị khoá. Liên hệ quản trị để mở khoá.",
     "resetInvalid": "Link đặt lại mật khẩu không hợp lệ, đã dùng hoặc đã hết hạn. Hãy xin link mới.",
     "mailSubject": "Đặt lại mật khẩu",
-    "mailBody": "Có yêu cầu đặt lại mật khẩu cho tài khoản {email}.\n\nMở link sau trong vòng 30 phút để đặt mật khẩu mới (chỉ dùng được 1 lần):\n{link}\n\nNếu bạn không yêu cầu, hãy bỏ qua email này; mật khẩu hiện tại không đổi."
+    "mailBody": "Có yêu cầu đặt lại mật khẩu cho tài khoản {email}.\n\nMở link sau trong vòng 30 phút để đặt mật khẩu mới (chỉ dùng được 1 lần):\n{link}\n\nNếu bạn không yêu cầu, hãy bỏ qua email này; mật khẩu hiện tại không đổi.",
+    "changePasswordDone": "Đã đổi mật khẩu. Các phiên đăng nhập khác (nếu có) đã bị đăng xuất."
   },
   "stageAdmin": {
     "title": "Giai đoạn chuỗi giá trị",

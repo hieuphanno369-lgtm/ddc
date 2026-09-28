@@ -25,8 +25,10 @@ export default async function globalSetup(): Promise<void> {
 
     // Task 6/7 (P3E) - 2 tài khoản viewer riêng cho spec khoá tài khoản + quên mật khẩu, tạo lại mỗi
     // lần chạy (upsert - đảm bảo lockedAt/failedLoginCount về trạng thái sạch giữa các lần chạy).
-    const passwordHash = hashPassword(E2E_LOCK_PASSWORD);
-    for (const email of ['e2e-khoa@daidung.com.vn', 'e2e-quenmk@daidung.com.vn']) {
+    // Vòng sửa bảo mật 4 (S-2) - thêm `e2e-doimk@daidung.com.vn` cho spec tự đổi mật khẩu (giữ
+    // phiên hiện tại, đăng xuất phiên khác) - cùng mật khẩu để dùng lại hằng số có sẵn.
+    const passwordHash = await hashPassword(E2E_LOCK_PASSWORD);
+    for (const email of ['e2e-khoa@daidung.com.vn', 'e2e-quenmk@daidung.com.vn', 'e2e-doimk@daidung.com.vn']) {
       await prisma.userRole.upsert({
         where: { email },
         update: { passwordHash, isActive: true, lockedAt: null, failedLoginCount: 0 },

@@ -36,7 +36,8 @@ export async function submitPasswordResetAction(
 ): Promise<{ ok: true; locked: boolean } | { ok: false; error: 'invalid_token' | 'too_short' | 'mismatch' }> {
   if (newPassword !== confirm) return { ok: false, error: 'mismatch' };
   try {
-    return await resetPasswordWithToken(getAuthStore(), { token, newPassword });
+    const ip = clientIpFrom(await headers());
+    return await resetPasswordWithToken(getAuthStore(), { token, newPassword, ip });
   } catch (e) {
     // G5 - phản hồi chung, không lộ chi tiết lỗi hạ tầng.
     console.error('[submitPasswordResetAction]', e instanceof Error ? e.name : String(e));

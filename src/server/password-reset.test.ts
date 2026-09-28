@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hashPassword } from '@/lib/password';
-import { RESET_EMAIL_LIMIT, RESET_IP_LIMIT, RESET_TOKEN_TTL_MS } from '@/lib/login-policy';
+import * as passwordLib from '@/lib/password';
+import { RESET_EMAIL_LIMIT, RESET_IP_LIMIT, RESET_SUBMIT_IP_LIMIT, RESET_TOKEN_TTL_MS } from '@/lib/login-policy';
 import { createMemoryAuthStore, type MemoryAccountSource } from './repo/mock-repo-auth';
 import type { UserAccount } from './repo/types';
 import type { SmtpConfig } from './notify/email';
@@ -30,9 +31,15 @@ function makeSource(accounts: UserAccount[]): MemoryAccountSource {
   };
 }
 
+// S-1 (bao-mat.md vong 4) - `hashPassword` gio bat dong bo; tinh 1 lan truoc (beforeAll).
+let REAL_HASH = '';
+beforeAll(async () => {
+  REAL_HASH = await hashPassword(REAL_PW);
+});
+
 function account(over: Partial<UserAccount> = {}): UserAccount {
   return {
-    email: 'a@daidung.com.vn', name: 'A', passwordHash: hashPassword(REAL_PW), role: 'viewer',
+    email: 'a@daidung.com.vn', name: 'A', passwordHash: REAL_HASH, role: 'viewer',
     canViewFinance: false, isActive: true, createdAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null,
     lockedAt: null,
     ...over,
@@ -481,6 +488,49 @@ describe('resetPasswordWithToken', () => {
     const state = await store.getAccountState('a@daidung.com.vn');
     expect(state?.failedLoginCount).toBe(0);
     expect(state?.passwordChangedAt).toBe(at(2000).toISOString());
+  });
+
+  describe('S-1 (bao-mat.md vong 4) - khong bam mat khau truoc khi biet token co ton tai, gioi han theo IP', () => {
+    it('token dung dang nhung KHONG TON TAI trong kho -> invalid_token, hashPassword KHONG DUOC GOI (khong ton CPU bam mat khau)', async () => {
+      const store = createMemoryAuthStore(makeSource([account()]));
+      const spy = vi.spyOn(passwordLib, 'hashPassword');
+      const fakeToken = 'A'.repeat(43);
+
+      const r = await resetPasswordWithToken(store, { token: fakeToken, newPassword: 'MatKhauMoi1', ip: '1.1.1.1' }, at(0));
+
+      expect(r).toEqual({ ok: false, error: 'invalid_token' });
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it(`qua gioi han IP (${RESET_SUBMIT_IP_LIMIT} lan) -> invalid_token NGAY, khong cham DB token (peekResetToken/consumeResetToken khong duoc goi)`, async () => {
+      const store = createMemoryAuthStore(makeSource([account()]));
+      const token = await requestAndGetToken(store, 'a@daidung.com.vn', at(0));
+      const IP = '5.5.5.5';
+
+      // Dot het RESET_SUBMIT_IP_LIMIT luot bang token gia (khong dung toi token dung, chi de dot cho IP).
+      for (let i = 0; i < RESET_SUBMIT_IP_LIMIT; i++) {
+        await resetPasswordWithToken(store, { token: 'B'.repeat(43), newPassword: 'MatKhauMoi1', ip: IP }, at(1000 + i * 10));
+      }
+
+      const peekSpy = vi.spyOn(store, 'peekResetToken');
+      const consumeSpy = vi.spyOn(store, 'consumeResetToken');
+
+      const r = await resetPasswordWithToken(store, { token, newPassword: 'MatKhauMoi1', ip: IP }, at(2000));
+
+      expect(r).toEqual({ ok: false, error: 'invalid_token' });
+      expect(peekSpy).not.toHaveBeenCalled();
+      expect(consumeSpy).not.toHaveBeenCalled();
+    });
+
+    it('khong truyen ip (undefined) -> khong nem loi, gom vao khoa unknown, van hoat dong binh thuong', async () => {
+      const store = createMemoryAuthStore(makeSource([account()]));
+      const token = await requestAndGetToken(store, 'a@daidung.com.vn', at(0));
+
+      const r = await resetPasswordWithToken(store, { token, newPassword: 'MatKhauMoi1' }, at(1000));
+
+      expect(r).toEqual({ ok: true, locked: false });
+    });
   });
 });
 

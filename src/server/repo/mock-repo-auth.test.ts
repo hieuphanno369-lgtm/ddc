@@ -160,6 +160,36 @@ describe('replaceResetToken / peekResetToken / consumeResetToken', () => {
   });
 });
 
+describe('setPassword - S-2 (bao-mat.md vong 4) huy token dat lai con han cua email do', () => {
+  it('bumpChangedAt = true: doi mat khau xong, token dat lai con han cua email do het dung duoc (peek -> false)', async () => {
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-con-han', '2026-09-27T02:00:00.000Z', '1.2.3.4');
+    expect(await store.peekResetToken('hash-con-han', '2026-09-27T00:00:00.000Z')).toBe(true);
+
+    await store.setPassword('a@daidung.com.vn', 'hash-moi', true, '2026-09-27T00:30:00.000Z');
+
+    expect(await store.peekResetToken('hash-con-han', '2026-09-27T00:00:00.000Z')).toBe(false);
+  });
+
+  it('bumpChangedAt = false: van huy token dat lai con han (mat khau da doi qua duong khac thi link cu khong con ly do dung duoc)', async () => {
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-con-han-2', '2026-09-27T02:00:00.000Z', '1.2.3.4');
+
+    await store.setPassword('a@daidung.com.vn', 'hash-moi', false, '2026-09-27T00:30:00.000Z');
+
+    expect(await store.peekResetToken('hash-con-han-2', '2026-09-27T00:00:00.000Z')).toBe(false);
+  });
+
+  it('token cua email KHAC khong bi dung theo', async () => {
+    accounts.push({ ...BASE, email: 'khac@daidung.com.vn' });
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-a', '2026-09-27T02:00:00.000Z', '1.2.3.4');
+    await store.replaceResetToken('khac@daidung.com.vn', 'hash-khac', '2026-09-27T02:00:00.000Z', '1.2.3.4');
+
+    await store.setPassword('a@daidung.com.vn', 'hash-moi', true, '2026-09-27T00:30:00.000Z');
+
+    expect(await store.peekResetToken('hash-a', '2026-09-27T00:00:00.000Z')).toBe(false);
+    expect(await store.peekResetToken('hash-khac', '2026-09-27T00:00:00.000Z')).toBe(true);
+  });
+});
+
 describe('reserveThrottle / releaseThrottle (R2 vong 2, N2 vong 3 - tra/nhan id thay vi boolean)', () => {
   it('con cho thi ghi + tra id (number); het cho thi KHONG ghi them + tra null', async () => {
     for (let i = 0; i < 3; i++) {

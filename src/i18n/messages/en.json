@@ -1199,7 +1199,8 @@
     "resetDoneLocked": "Your password has been reset, but the account is locked. Contact an administrator to unlock it.",
     "resetInvalid": "This reset link is invalid, already used or expired. Please request a new one.",
     "mailSubject": "Password reset",
-    "mailBody": "A password reset was requested for {email}.\n\nOpen this link within 30 minutes to set a new password (single use):\n{link}\n\nIf you did not request this, ignore this email; your current password stays the same."
+    "mailBody": "A password reset was requested for {email}.\n\nOpen this link within 30 minutes to set a new password (single use):\n{link}\n\nIf you did not request this, ignore this email; your current password stays the same.",
+    "changePasswordDone": "Password changed. Other sign-in sessions (if any) have been signed out."
   },
   "stageAdmin": {
     "title": "Value chain stages",

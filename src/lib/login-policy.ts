@@ -33,6 +33,16 @@ export const AUTH_DATA_RETENTION_MS = 24 * 3_600_000;
 export const GOOGLE_DENIED_LIMIT = 5;
 export const GOOGLE_DENIED_WINDOW_MS = UNKNOWN_EMAIL_WINDOW_MS;
 
+/**
+ * S-1 (bao-mat.md vong 4) - gioi han so lan GUI dat lai mat khau (`/dat-lai-mat-khau`) tinh theo IP,
+ * chan tu choi dich vu CPU tu nguoi khong dang nhap (moi lan gui phai cho hashPassword chay). Tai
+ * dung dung gia tri cua `IP_FAIL_LIMIT`/`IP_FAIL_WINDOW_MS` (20 lan/15 phut) - cung muc "1 IP dang
+ * sau NAT/proxy chung" da duoc chap nhan lam nguong hop ly cho dang nhap; tach hang so rieng vi day
+ * la 1 hanh dong khac (gui token dat lai, khong phai dang nhap sai mat khau).
+ */
+export const RESET_SUBMIT_IP_LIMIT = 20;
+export const RESET_SUBMIT_IP_WINDOW_MS = 15 * 60_000;
+
 export const EMAIL_MAX_LENGTH = 254;
 
 /** trim + hạ chữ thường; rỗng, dài hơn 254, không có đúng 1 '@' -> null. */

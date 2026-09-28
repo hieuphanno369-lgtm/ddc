@@ -14,10 +14,16 @@ export type CredentialResult =
 
 /**
  * K6 - email không có tài khoản (hoặc tài khoản chỉ Google) vẫn chạy 1 lần bcrypt giả để thời
- * gian phản hồi không lộ tài khoản nào tồn tại. Hash sinh 1 lần lúc load module (cost 10, giống
- * mật khẩu thật) - không phải bí mật, chỉ dùng để tốn đúng bằng ấy thời gian CPU.
+ * gian phản hồi không lộ tài khoản nào tồn tại. Hash sinh 1 LẦN (cost 10, giống mật khẩu thật, không
+ * phải bí mật, chỉ dùng để tốn đúng bằng ấy thời gian CPU), rồi giữ lại cho các lần gọi sau.
+ * S-1 (bao-mat.md vòng 4) - `hashPassword` giờ bất đồng bộ (`bcryptjs.hash`), không còn tính được
+ * ngay lúc load module (top-level) như trước; tính LƯỜI (lazy) ở lần gọi đầu tiên.
  */
-const DUMMY_HASH = hashPassword('khong-ton-tai-mat-khau-nay-dung-de-can-thoi-gian');
+let dummyHashPromise: Promise<string> | undefined;
+function getDummyHash(): Promise<string> {
+  if (!dummyHashPromise) dummyHashPromise = hashPassword('khong-ton-tai-mat-khau-nay-dung-de-can-thoi-gian');
+  return dummyHashPromise;
+}
 
 /**
  * Luật đăng nhập (K5, K6, K7, L1, L3, L7, R1, R2, R3, G2 - `.bangiao/bao-mat.md`), đúng thứ tự:
@@ -72,7 +78,7 @@ export async function checkCredentials(
   const account = await store.getAccountState(email);
 
   if (!account) {
-    verifyPassword(password, DUMMY_HASH);
+    verifyPassword(password, await getDummyHash());
     await store.recordThrottle('login_fail_unknown_email', email, nowIso);
     const sinceUnknownIso = new Date(now.getTime() - UNKNOWN_EMAIL_WINDOW_MS).toISOString();
     const count = await store.countThrottle('login_fail_unknown_email', email, sinceUnknownIso);
@@ -82,7 +88,16 @@ export async function checkCredentials(
   if (account.lockedAt !== null) {
     // L1 - chạy bcrypt giả TRƯỚC KHI trả, để nhánh này tốn thời gian giống hệt nhánh email lạ ở
     // trên (không cho kẻ tấn công đo thời gian phân biệt "email tồn tại và đã khoá" với "email lạ").
-    verifyPassword(password, DUMMY_HASH);
+    verifyPassword(password, await getDummyHash());
+    // S-3 (bao-mat.md vòng 4) - nhánh này TRƯỚC ĐÂY không đụng DB nào sau bcrypt giả, trong khi
+    // nhánh "email lạ" ở trên chạy thêm 1 INSERT (`recordThrottle`) + 1 SELECT (`countThrottle`) -
+    // chênh lệch đo được khi lấy trung bình nhiều lần, lộ ra "tài khoản thật đang khoá" khác với
+    // "email lạ". Chạy đúng 2 lượt DB tương đương (kind riêng `login_locked_probe`, KHÔNG dùng chung
+    // `login_fail_unknown_email` để không làm nhiễu dữ liệu dùng cho quyết định khoá email lạ) - kết
+    // quả không dùng cho quyết định gì, chỉ để cân thời gian.
+    await store.recordThrottle('login_locked_probe', email, nowIso);
+    const sinceProbeIso = new Date(now.getTime() - UNKNOWN_EMAIL_WINDOW_MS).toISOString();
+    await store.countThrottle('login_locked_probe', email, sinceProbeIso);
     return { ok: false, reason: 'locked' };
   }
 
@@ -93,7 +108,7 @@ export async function checkCredentials(
     // đặt `lockedAt` (không ảnh hưởng đăng nhập Google thật). Trước đây nhánh này luôn trả `invalid`
     // trong khi nhánh email lạ báo `locked` từ lần 5 - lộ ra email nào là tài khoản chỉ Google (sai
     // 5 lần vẫn `invalid` mãi = chắc chắn tồn tại). Nay `reason` giống hệt nhánh email lạ.
-    verifyPassword(password, DUMMY_HASH);
+    verifyPassword(password, await getDummyHash());
     await store.recordThrottle('login_fail_unknown_email', email, nowIso);
     const sinceUnknownIso = new Date(now.getTime() - UNKNOWN_EMAIL_WINDOW_MS).toISOString();
     const count = await store.countThrottle('login_fail_unknown_email', email, sinceUnknownIso);

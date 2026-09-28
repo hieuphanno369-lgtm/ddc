@@ -3,7 +3,7 @@
  * that (khong con doc thang `prisma.userRole` nhu truoc Task 6): mock `next/headers` (x-forwarded-for),
  * `@/server/auth-store` (kho bo nho), `@/lib/activity` (khong ghi that).
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hashPassword } from '@/lib/password';
 import { createMemoryAuthStore, type MemoryAccountSource } from '@/server/repo/mock-repo-auth';
 import type { UserAccount } from '@/server/repo/types';
@@ -11,13 +11,20 @@ import type { UserAccount } from '@/server/repo/types';
 vi.mock('@/lib/activity', () => ({ logActivity: vi.fn() }));
 
 const REAL_PW = 'MatKhauThat1';
+// S-1 (bao-mat.md vong 4) - `hashPassword` gio bat dong bo; tinh 1 lan truoc moi test (beforeAll)
+// thay vi goi truc tiep trong `account()` (ham nay van goi DONG BO tu nhieu noi).
+let REAL_HASH = '';
 let accounts: UserAccount[];
 let store: ReturnType<typeof createMemoryAuthStore>;
 let currentIp = '9.9.9.9';
 
+beforeAll(async () => {
+  REAL_HASH = await hashPassword(REAL_PW);
+});
+
 function account(over: Partial<UserAccount> = {}): UserAccount {
   return {
-    email: 'a@daidung.com.vn', name: 'A', passwordHash: hashPassword(REAL_PW), role: 'viewer',
+    email: 'a@daidung.com.vn', name: 'A', passwordHash: REAL_HASH, role: 'viewer',
     canViewFinance: false, isActive: true, createdAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null,
     lockedAt: null,
     ...over,

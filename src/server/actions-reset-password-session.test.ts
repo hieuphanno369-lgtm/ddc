@@ -4,7 +4,11 @@ import type { CurrentUser } from '@/lib/session';
 /**
  * P3E (Task 7, S8, Q2=b) - `resetPasswordAction` (admin đặt lại mật khẩu) phải đặt
  * `passwordChangedAt` (qua `getAuthStore().setPassword(..., bumpChangedAt: true, ...)`) để vô hiệu
- * phiên đăng nhập cũ - khác `changePasswordAction` (tự đổi trong Cài đặt, Q2=b KHÔNG bump).
+ * phiên đăng nhập cũ.
+ * S-2 (bao-mat.md vòng 4, chủ dự án chốt 2026-09-28, thay quyết định Q2=b cũ) - `changePasswordAction`
+ * (tự đổi trong Cài đặt) NAY CŨNG bump `passwordChangedAt` (vô hiệu các phiên KHÁC), khác biệt duy
+ * nhất với `resetPasswordAction` là phiên HIỆN TẠI được client làm mới qua `update()` next-auth
+ * ngay sau khi action này trả `ok: true` (xem `auth-access-recheck.test.ts` - nhánh `trigger: 'update'`).
  */
 vi.mock('next/cache', () => ({ revalidateTag: vi.fn(), revalidatePath: vi.fn() }));
 vi.mock('@/server/repo', async () => {
@@ -52,13 +56,22 @@ describe('resetPasswordAction (admin) - Q2=b bump passwordChangedAt', () => {
   });
 });
 
-describe('changePasswordAction (tu doi trong Cai dat) - Q2=b KHONG bump (chinh phien dang dung khong bi dang xuat)', () => {
-  it('doi mat khau thanh cong - KHONG goi getAuthStore().setPassword (dung repo.changePassword nhu cu)', async () => {
+describe('changePasswordAction (tu doi trong Cai dat) - S-2 CUNG bump passwordChangedAt (khac resetPasswordAction: phien hien tai duoc client lam moi qua update(), khong bi dang xuat)', () => {
+  it('doi mat khau thanh cong - GOI getAuthStore().setPassword voi bumpChangedAt = true', async () => {
     login(ADMIN);
 
     const res = await changePasswordAction('Admin@123', 'MatKhauMoiTuDoi1');
 
     expect(res).toEqual({ ok: true });
+    expect(setPasswordMock).toHaveBeenCalledWith('admin@daidung.com.vn', expect.any(String), true, expect.any(String));
+  });
+
+  it('mat khau hien tai sai -> current, KHONG goi setPassword', async () => {
+    login(ADMIN);
+
+    const res = await changePasswordAction('mat-khau-sai', 'MatKhauMoiTuDoi1');
+
+    expect(res).toEqual({ ok: false, error: 'current' });
     expect(setPasswordMock).not.toHaveBeenCalled();
   });
 });

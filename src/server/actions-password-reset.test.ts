@@ -44,13 +44,14 @@ function tokenFromLastLink(): string {
   return m[1];
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.clearAllMocks();
   lastLink = '';
   process.env.NEXTAUTH_URL = 'https://app.example.com';
   accounts = [
     {
-      email: 'nguoi@daidung.com.vn', name: 'Nguoi Dung', passwordHash: hashPassword(OLD_PW), role: 'viewer',
+      // S-1 (bao-mat.md vong 4) - `hashPassword` gio bat dong bo.
+      email: 'nguoi@daidung.com.vn', name: 'Nguoi Dung', passwordHash: await hashPassword(OLD_PW), role: 'viewer',
       canViewFinance: false, isActive: true, createdAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, lockedAt: null,
     },
   ];

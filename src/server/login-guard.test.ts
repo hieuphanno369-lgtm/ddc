@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryAuthStore, type MemoryAccountSource } from './repo/mock-repo-auth';
 import type { AuthAccountState, AuthStore, UserAccount } from './repo/types';
 import { hashPassword } from '@/lib/password';
@@ -11,6 +11,9 @@ import { logActivity } from '@/lib/activity';
 import { checkCredentials } from './login-guard';
 
 const REAL_PW = 'MatKhauDung1';
+// S-1 (bao-mat.md vong 4) - `hashPassword` gio bat dong bo; tinh 1 lan truoc (beforeAll) roi dung
+// lai gia tri, thay vi goi truc tiep (dong bo) trong `account()`.
+let REAL_HASH = '';
 
 function makeSource(accounts: UserAccount[]): MemoryAccountSource {
   return {
@@ -26,7 +29,7 @@ function account(over: Partial<UserAccount> = {}): UserAccount {
   return {
     email: 'a@daidung.com.vn',
     name: 'A',
-    passwordHash: hashPassword(REAL_PW),
+    passwordHash: REAL_HASH,
     role: 'viewer',
     canViewFinance: false,
     isActive: true,
@@ -39,6 +42,10 @@ function account(over: Partial<UserAccount> = {}): UserAccount {
 
 const T0 = new Date('2026-09-27T00:00:00.000Z');
 const at = (msFromT0: number) => new Date(T0.getTime() + msFromT0);
+
+beforeAll(async () => {
+  REAL_HASH = await hashPassword(REAL_PW);
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -133,6 +140,36 @@ describe('checkCredentials - L1: nhanh da khoa cung chay bcrypt gia (timing orac
   });
 });
 
+describe('checkCredentials - S-3 (bao-mat.md vong 4): can bang so luot goi DB giua nhanh "da khoa" va "email la"', () => {
+  it('nhanh tai khoan that dang khoa va nhanh email la goi recordThrottle/countThrottle so lan BANG NHAU', async () => {
+    const store = createMemoryAuthStore(makeSource([account()]));
+    for (let i = 0; i < 5; i++) {
+      await checkCredentials(store, { email: 'a@daidung.com.vn', password: 'sai', ip: '' }, at(i * 1000));
+    }
+    const locked = await store.getAccountState('a@daidung.com.vn');
+    expect(locked?.lockedAt).not.toBeNull(); // xac nhan da khoa truoc khi do
+
+    const recordSpy = vi.spyOn(store, 'recordThrottle');
+    const countSpy = vi.spyOn(store, 'countThrottle');
+
+    await checkCredentials(store, { email: 'a@daidung.com.vn', password: 'bat-ky', ip: '' }, at(6000));
+    const lockedRecord = recordSpy.mock.calls.length;
+    const lockedCount = countSpy.mock.calls.length;
+
+    recordSpy.mockClear();
+    countSpy.mockClear();
+
+    await checkCredentials(store, { email: 'email-hoan-toan-la-2@daidung.com.vn', password: 'bat-ky', ip: '' }, at(7000));
+    const unknownRecord = recordSpy.mock.calls.length;
+    const unknownCount = countSpy.mock.calls.length;
+
+    expect(lockedRecord).toBeGreaterThan(0);
+    expect(lockedRecord).toBe(unknownRecord);
+    expect(lockedCount).toBeGreaterThan(0);
+    expect(lockedCount).toBe(unknownCount);
+  });
+});
+
 describe('checkCredentials - L3: xac nhan nguyen tu chong TOCTOU khi doan mat khau song song', () => {
   it('store bao da khoa (resetFailedLogin tra false) tai thoi diem xac nhan -> khong duoc coi la dang nhap thanh cong, du ban chup account doc truoc do chua khoa', async () => {
     // Mo phong co kiem soat dung "ban chup cu": store tra ve account CHUA khoa luc doc (buoc 1),
@@ -142,7 +179,7 @@ describe('checkCredentials - L3: xac nhan nguyen tu chong TOCTOU khi doan mat kh
     const accountSnapshot: AuthAccountState = {
       email: 'a@daidung.com.vn',
       name: 'A',
-      passwordHash: hashPassword(REAL_PW),
+      passwordHash: REAL_HASH,
       role: 'viewer',
       canViewFinance: false,
       isActive: true,

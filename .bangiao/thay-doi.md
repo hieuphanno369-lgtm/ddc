@@ -295,3 +295,145 @@ tố trùng nhau.
 - e2e: 85/85 (mốc trước Task 5) → **92/92 xanh** (toàn bộ suite, thêm spec 21, 22, thêm test trong 09).
 - Migration mới: `20260928080000_p3e_dang_nhap_bo_anh` (đã diễn tập rollback thành công trên DB `_c`).
 - 3 commit `feat(p3e)` (Task 5, 6, 7) + 1 commit `chore(p3e)` (Task 8, hồ sơ này).
+
+---
+
+## Vòng sửa bảo mật (sau `security-reviewer`, `.bangiao/bao-mat.md`)
+
+Sửa theo TDD (viết test đỏ tái hiện trước, rồi mới sửa) cho S-1, S-2, S-3, I-3. S-4 và I-2 chỉ ghi
+nhận theo yêu cầu chủ dự án (không sửa code), xem mục "Việc cho tài liệu deploy" ở cuối phần này.
+
+### S-1 (Trung) - Đặt lại mật khẩu không giới hạn tần suất, bcrypt chạy trước khi kiểm token
+
+- `src/server/password-reset.ts` (`resetPasswordWithToken`): đổi thứ tự - đặt chỗ NGUYÊN TỬ theo IP
+  (`reserveThrottle('reset_submit_ip', ...)`) NGAY ĐẦU HÀM, trước cả kiểm định dạng token; hết chỗ
+  trả `invalid_token` ngay, không đụng bảng token. Token hợp lệ hình thức + mật khẩu đủ dài mới gọi
+  `store.peekResetToken` (chỉ đọc, không đốt token) - token không tồn tại/hết hạn/đã dùng thì trả
+  `invalid_token` NGAY, không gọi `hashPassword` (trước đây `hashPassword` chạy trước khi biết token
+  có tồn tại, cho phép từ chối dịch vụ CPU từ người không đăng nhập bằng cách gửi token rác liên tục).
+  Token dùng được mới `hashPassword` rồi `consumeResetToken` (vẫn nguyên tử như cũ, K4 không đổi).
+  Thêm `ip?: string` vào input (tuỳ chọn, không có thì gom khoá `'unknown'` giống các hàm khác).
+- `src/lib/login-policy.ts`: thêm `RESET_SUBMIT_IP_LIMIT = 20`, `RESET_SUBMIT_IP_WINDOW_MS = 15 phút`
+  (tái dùng đúng giá trị của `IP_FAIL_LIMIT`/`IP_FAIL_WINDOW_MS`, tách hằng số riêng vì đây là hành
+  động khác - gửi token đặt lại, không phải đăng nhập sai).
+- `src/server/repo/types.ts`: `ThrottleKind` thêm `'reset_submit_ip'`.
+- `src/server/actions-password-reset.ts` (`submitPasswordResetAction`): lấy IP qua
+  `clientIpFrom(await headers())`, truyền vào `resetPasswordWithToken`.
+- `src/lib/password.ts` (`hashPassword`): đổi từ `bcryptjs.hashSync` (đồng bộ, chặn event loop) sang
+  `bcryptjs.hash` (bất đồng bộ) - áp dụng THỐNG NHẤT cho mọi nơi gọi hàm này (không tách riêng 1 bản
+  bất đồng bộ chỉ cho `password-reset.ts`). Đã sửa mọi nơi gọi theo (thêm `await`):
+  `src/server/actions.ts` (`changePasswordAction`, `createAccountAction`, `resetPasswordAction`),
+  `src/server/actions-account-lock.ts` (`unlockAccountAction`), `e2e/global-setup.ts`.
+  `src/server/login-guard.ts`: `DUMMY_HASH` (module-level, dùng để cân thời gian bcrypt cho tài khoản
+  không tồn tại) không còn tính được đồng bộ lúc load module - đổi sang `getDummyHash()` tính lười
+  (lazy) 1 lần, cache lại `Promise<string>`, 3 chỗ gọi `verifyPassword(password, DUMMY_HASH)` đổi
+  thành `verifyPassword(password, await getDummyHash())`.
+  Kéo theo: 8 file test (`auth-authorize.test.ts`, `auth-credentials-google-only.test.ts`,
+  `login-guard.test.ts`, `password-reset.test.ts`, `login-reset-integration.test.ts`,
+  `actions-password-reset.test.ts`, `repo/account.test.ts`) đổi các hàm dựng tài khoản mẫu sang tính
+  hash 1 lần trong `beforeAll`/`beforeEach` (không gọi `hashPassword` đồng bộ nữa).
+- Test đỏ → xanh: `password-reset.test.ts` mục "S-1" - token đúng dạng nhưng không tồn tại thì spy
+  `hashPassword` KHÔNG được gọi; quá `RESET_SUBMIT_IP_LIMIT` lần thì trả `invalid_token`, spy
+  `peekResetToken`/`consumeResetToken` KHÔNG được gọi.
+
+### S-2 (Thấp, chủ dự án chốt lại 2026-09-28, thay quyết định Q2=b cũ)
+
+Quyết định mới: tự đổi mật khẩu trong Cài đặt CŨNG vô hiệu các phiên KHÁC (bump `passwordChangedAt`),
+nhưng phiên đang dùng để đổi thì KHÔNG bị đăng xuất.
+
+- `src/server/repo/types.ts` (`AuthStore.setPassword`): thêm vào hợp đồng - LUÔN huỷ (đặt
+  `usedAt = nowIso`) mọi token đặt lại còn hạn của email đó, bất kể `bumpChangedAt` true/false.
+  `src/server/repo/mock-repo-auth.ts`, `src/server/repo/prisma-repo-auth.ts`: cài theo (bản Prisma
+  gộp cả 2 lệnh `userRole.updateMany` + `passwordResetToken.updateMany` trong 1 `$transaction`).
+  Áp dụng cho CẢ hai nơi gọi `setPassword` (tự đổi mật khẩu VÀ admin đặt mật khẩu tạm/đặt lại), đúng
+  yêu cầu "Admin đặt mật khẩu tạm (setPassword) cũng huỷ token đặt lại còn hạn".
+- `src/server/actions.ts` (`changePasswordAction`): đổi từ `repo.changePassword(...)` (không bump)
+  sang `getAuthStore().setPassword(user.email, await hashPassword(...), true, now)` (bump, giống
+  `resetPasswordAction`).
+- `src/lib/auth.ts` (callback `jwt`): thêm nhánh `trigger === 'update'` - đọc lại tài khoản NGAY (bỏ
+  qua điều kiện "đã qua `ACCESS_RECHECK_INTERVAL_MS`" của nhánh kiểm lại định kỳ thường), làm mới
+  `token.pwdAt`/quyền cho CHÍNH phiên gọi `update()` - để phiên vừa tự đổi mật khẩu không bị nhánh
+  kiểm lại định kỳ vô hiệu nhầm (do `token.pwdAt` cũ < `passwordChangedAt` mới vừa tự đặt).
+- `src/components/layout/ChangePasswordModal.tsx`: bỏ `signOut()` sau khi đổi thành công (trước đây
+  đăng xuất luôn); thay bằng gọi `update()` (next-auth, qua `useSession()`) rồi hiện thông báo thành
+  công (`authSecurity.changePasswordDone`), KHÔNG đăng xuất. Vì repo chưa có `SessionProvider` ở
+  layout gốc (chỉ dùng session server-side), bọc RIÊNG 1 `SessionProvider` quanh modal này (không đổi
+  kiến trúc đăng nhập toàn app) chỉ để lấy `update()`.
+  `src/lib/drafts.ts`: sửa lại comment `clearDraftsOnLogout` (không còn được gọi từ modal này nữa).
+- i18n: thêm `authSecurity.changePasswordDone` (cuối nhóm `authSecurity`, cả `vi.json`/`en.json`).
+- Test: `src/lib/auth-access-recheck.test.ts` thêm 2 test cho nhánh `trigger: 'update'`;
+  `src/server/actions-reset-password-session.test.ts` sửa lại mô tả + test `changePasswordAction`
+  (trước đây khẳng định KHÔNG gọi `setPassword`, giờ khẳng định CÓ gọi với `bumpChangedAt: true`);
+  `src/server/repo/mock-repo-auth.test.ts` + `prisma-repo-auth.test.ts` thêm test `setPassword` huỷ
+  token đặt lại còn hạn.
+- e2e mới `e2e/23-doi-mat-khau.spec.ts` (tài khoản `e2e-doimk@daidung.com.vn`, thêm vào
+  `e2e/global-setup.ts`): đổi mật khẩu ở 1 trình duyệt → hiện thông báo thành công, phiên đó vẫn vào
+  được `/vi/overview` ngay (không bị đăng xuất); mật khẩu CŨ hết dùng được cho lượt đăng nhập MỚI
+  ngay (chứng minh đã đổi thật ở DB); mật khẩu MỚI đăng nhập được.
+  **Giới hạn e2e đã biết (kế thừa K12):** vô hiệu phiên KHÁC trễ tối đa `ACCESS_RECHECK_INTERVAL_MS`
+  (5 phút) - chờ 5 phút thật trong e2e không khả thi (chậm, dễ vượt timeout CI), nên phần "trình
+  duyệt B bị đăng xuất sau khi A đổi mật khẩu" chỉ kiểm ở mức unit/integration có giả lập thời gian
+  (`auth-access-recheck.test.ts`), KHÔNG có e2e đa trình duyệt chờ thật 5 phút. Tester nên biết đây
+  là giới hạn có chủ đích, không phải thiếu sót.
+
+### S-3 (Thấp) - Oracle do tồn tại tài khoản qua thời gian
+
+- `src/server/login-guard.ts` (`checkCredentials`): nhánh "tài khoản thật đang khoá" trước đây chỉ
+  chạy 1 lần bcrypt giả rồi trả ngay, trong khi nhánh "email lạ" chạy bcrypt giả + `recordThrottle` +
+  `countThrottle` (2 lượt DB) - chênh lệch đo được khi lấy trung bình nhiều lần. Nay nhánh "đang khoá"
+  CŨNG chạy đúng 1 `recordThrottle` + 1 `countThrottle` (kind riêng `login_locked_probe`, KHÔNG dùng
+  chung `login_fail_unknown_email` để không làm nhiễu dữ liệu dùng cho quyết định khoá email lạ) -
+  kết quả bị bỏ qua, chỉ để cân thời gian. Cửa sổ 24h giữ như K6 (không đổi).
+- `src/server/repo/types.ts`: `ThrottleKind` thêm `'login_locked_probe'`.
+- Test đỏ → xanh: `login-guard.test.ts` mục "S-3" - so số lượt gọi `recordThrottle`/`countThrottle`
+  giữa nhánh "đang khoá" và "email lạ", phải bằng nhau (đều > 0).
+
+### I-3 (Thông tin) - `unlockAccountAction` kiểm kiểu trước khi trim, giới hạn độ dài `tempPassword`
+
+- `src/server/actions-account-lock.ts`: thêm `if (typeof email !== 'string') return { ok: false,
+  error: 'Invalid input' };` TRƯỚC khi gọi `email.trim()` (trước đây gọi `.trim()` ngay trên tham số
+  hàm, đầu vào không phải chuỗi - ví dụ ai đó gọi thẳng server action qua devtools, bỏ qua kiểm
+  TypeScript phía client - làm `TypeError` ném ra trước khi zod kịp kiểm, lộ lỗi 500 thay vì phản hồi
+  bình thường). `tempPassword` thêm `.max(72)` (giới hạn bcrypt cắt ở 72 byte).
+- Test: `actions-account-lock.test.ts` thêm 2 test - email không phải chuỗi (ép kiểu `unknown`) trả
+  `Invalid input`, không ném lỗi; `tempPassword` 73 ký tự trả `too_short` (dùng chung thông điệp có
+  sẵn với lỗi quá ngắn, không thêm key i18n mới vì chưa có thông điệp "quá dài" riêng cho mật khẩu).
+
+### S-4, I-2 - chỉ ghi nhận, không sửa code (theo yêu cầu chủ dự án)
+
+- **S-4** - khoá tài khoản bị dùng để từ chối dịch vụ có chủ đích (kể cả admin): đúng thiết kế D3 đã
+  duyệt, chủ dự án chốt chỉ ghi nhận. Đề xuất cho việc sau (không thuộc phạm vi vòng sửa này): cảnh
+  báo admin khi tài khoản admin bị khoá, theo dõi `activity_log` action `login_locked`.
+- **I-2** - token trong query string `/dat-lai-mat-khau?token=...` sẽ vào access log của reverse
+  proxy. Đã thêm vào mục "Việc cho tài liệu deploy" bên dưới (không sửa code app - việc của tầng
+  reverse proxy khi deploy).
+
+### Việc cho tài liệu deploy (bổ sung, cùng nhóm với mục đã có ở trên)
+
+9. **I-2 (bao-mat.md)** - cấu hình reverse proxy LỌC BỎ query string `token` khỏi access log (link
+   `/dat-lai-mat-khau?token=...` không nên bị ghi log dạng plaintext ở tầng hạ tầng); ví dụ Nginx dùng
+   `log_format` tuỳ biến bỏ `$request` gốc, thay bằng URI đã lọc query, hoặc dùng module chuyên lọc.
+
+### Cổng kiểm (vòng sửa bảo mật)
+
+- `npx tsc --noEmit`: sạch.
+- `npm test`: **235 file/2648 test** (2641 xanh + 7 skip - đúng 5 skip cũ của
+  `prisma-repo-auth-real-db.test.ts` + kiểm tra lại KHÔNG tăng số skip nào khác; đã chạy tay riêng
+  file này với `DATABASE_URL` trỏ `ddc_control_tower_c`: 7/7 xanh).
+- `npm run check:read`: OK.
+- `NEXT_FONT_GOOGLE_MOCKED_RESPONSES=... npm run build`: qua sạch.
+- `npm run test:e2e` (toàn bộ, không lọc spec): **93/93 xanh** (thêm spec 23), đã seed lại DB `_c`
+  sau khi chạy.
+
+### Cho Tester nên soi kỹ (bổ sung riêng cho vòng sửa bảo mật này)
+
+1. **S-1** - thử tái tạo lại kịch bản DoS gốc (gửi token rác liên tục tới
+   `submitPasswordResetAction`) và xác nhận CPU không còn bị tốn bởi `hashPassword` khi token không
+   tồn tại; xác nhận `RESET_SUBMIT_IP_LIMIT` (20/15 phút) không quá chặt với người dùng thật (1 người
+   quên mật khẩu vài lần liên tiếp không nên bị chặn).
+2. **S-2** - soi kỹ `ChangePasswordModal.tsx` mới bọc `SessionProvider` riêng: xác nhận không có tác
+   dụng phụ nào khi mở/đóng modal nhiều lần liên tục (mount/unmount `SessionProvider` lặp lại); soi
+   e2e `23-doi-mat-khau.spec.ts` và cân nhắc bổ sung kiểm tra thật với thời gian giả lập (fake timers
+   ở tầng Next.js) nếu muốn phủ hết trường hợp "phiên B bị đăng xuất" bằng e2e (hiện chưa khả thi).
+3. **S-3** - đây là fix mức "Thấp", đáng đối chiếu lại bằng đo thời gian thực tế (không chỉ đếm số
+   lượt gọi DB) nếu có công cụ đo timing side-channel chuyên dụng.
