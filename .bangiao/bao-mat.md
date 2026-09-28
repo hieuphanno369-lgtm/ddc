@@ -343,3 +343,10 @@ Lý do ĐẠT: N1, N2 (phần hợp đồng và kho bộ nhớ), N3, N4, G2 đ�
 - G5: nếu `releaseThrottle` ném lỗi thì `requestPasswordReset` ném theo, hỏng theo hướng an toàn; route ở Task 5-6 phải bọc lỗi thành phản hồi chung, không lộ `message` của Prisma.
 - G6: với Prisma, trong khoảng ngắn giữa đặt chỗ và nhả chỗ IP, yêu cầu đồng thời cùng IP có thể bị chặn nhầm tạm thời; không đáng kể.
 - G7: nhánh nhả chỗ IP thêm 1 lượt gọi DB, đo thời gian có thể biết email đang hết lượt; không lộ email có tồn tại hay không, không đáng kể.
+
+## Quyết định của chủ dự án (2026-09-28)
+
+L1: chọn phương án (b), không tính lượt bấm dư của 1 email vào hạn mức IP.
+Lý do nghiệp vụ: một người bấm quá tay không được làm đồng nghiệp chung mạng văn phòng mất lượt xin link.
+Giữ nguyên `releaseThrottle(ipReserved)` ở `password-reset.ts`; chặn spam bằng giới hạn tần suất ở reverse proxy, đã ghi vào checklist deploy Task 8.4 trong `ke-hoach.md`.
+L2: đã thêm test `password-reset.test.ts` "L2 (bao mat vong 4 ...)" chốt hành vi nhả chỗ IP; đã kiểm bằng cách tạm bỏ dòng nhả chỗ thì test đỏ (`expected 10 to be 3`).

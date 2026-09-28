@@ -362,7 +362,30 @@ describe('requestPasswordReset - khong lo email ton tai (S3)', () => {
     expect(queued.filter((q) => q.to === 'v@daidung.com.vn')).toHaveLength(RESET_EMAIL_LIMIT);
   });
 
-  it('L6: requestPasswordReset() tra ve KHONG CAN CHO xong viec doc tai khoan/soan+gui mail (viec do chay nen)', async () => {
+  it('L2 (bao mat vong 4, chu du an chon "khong tinh"): email het luot thi nha cho IP - bam du cho 1 email KHONG an vao han muc IP chung', async () => {
+    const store = createMemoryAuthStore(makeSource([account({ email: 'e@daidung.com.vn' })]));
+    const { mailer, queued } = makeMailer();
+    const IP_X = '3.3.3.3';
+    const since = '2020-01-01T00:00:00.000Z';
+    const extra = RESET_IP_LIMIT + 5;
+
+    // Gui RESET_EMAIL_LIMIT + extra yeu cau cho cung 1 email tu IP X: chi RESET_EMAIL_LIMIT lan dau duoc tinh.
+    for (let i = 0; i < RESET_EMAIL_LIMIT + extra; i++) {
+      await requestPasswordReset(store, mailer, { email: 'e@daidung.com.vn', ip: IP_X, locale: 'vi', baseUrl: BASE_URL }, at(i * 10));
+    }
+    await __resetRequestQueueIdleForTest();
+
+    expect(await store.countThrottle('reset_req_email', 'e@daidung.com.vn', since)).toBe(RESET_EMAIL_LIMIT);
+    expect(await store.countThrottle('reset_req_ip', IP_X, since)).toBe(RESET_EMAIL_LIMIT);
+    expect(queued.filter((q) => q.to === 'e@daidung.com.vn')).toHaveLength(RESET_EMAIL_LIMIT);
+
+    // Dong nghiep chung IP X van xin duoc link cho email khac.
+    await requestPasswordReset(store, mailer, { email: 'k@daidung.com.vn', ip: IP_X, locale: 'vi', baseUrl: BASE_URL }, at(10_000));
+    await __resetRequestQueueIdleForTest();
+    expect(await store.countThrottle('reset_req_email', 'k@daidung.com.vn', since)).toBe(1);
+  });
+
+  it('L6:requestPasswordReset() tra ve KHONG CAN CHO xong viec doc tai khoan/soan+gui mail (viec do chay nen)', async () => {
     // Ep 1 "thao tac cham" bang deferred promise (khong dua vao suy doan thu tu microtask cua JS,
     // vi Promise.then() tren 1 promise DA resolve co the chay truoc ca continuation cua await ben
     // ngoai - ep gate that su cham moi chung minh duoc requestPasswordReset() KHONG cho no).
