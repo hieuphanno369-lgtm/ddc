@@ -110,7 +110,7 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
         const c = countersFor(key);
         counters.set(key, { ...c, passwordChangedAt: nowIso });
       }
-      // S-2 (bao-mat.md vong 4) - huy moi token dat lai con dung duoc cua email nay, du bumpChangedAt
+      // S-2 - huy moi token dat lai con dung duoc cua email nay, du bumpChangedAt
       // hay khong (mat khau da doi qua duong khac thi 1 link cu con lai khong con ly do de dung duoc).
       for (const row of resetTokens) {
         if (row.email === key && row.usedAt === null) row.usedAt = nowIso;

@@ -17,7 +17,7 @@ export type CredentialResult =
  * K6 - email không có tài khoản (hoặc tài khoản chỉ Google) vẫn chạy 1 lần bcrypt giả để thời
  * gian phản hồi không lộ tài khoản nào tồn tại. Hash sinh 1 LẦN (cost 10, giống mật khẩu thật, không
  * phải bí mật, chỉ dùng để tốn đúng bằng ấy thời gian CPU), rồi giữ lại cho các lần gọi sau.
- * S-1 (bao-mat.md vòng 4) - `hashPassword` giờ bất đồng bộ (`bcryptjs.hash`), không còn tính được
+ * S-1 - `hashPassword` giờ bất đồng bộ (`bcryptjs.hash`), không còn tính được
  * ngay lúc load module (top-level) như trước; tính LƯỜI (lazy) ở lần gọi đầu tiên.
  */
 let dummyHashPromise: Promise<string> | undefined;
@@ -57,13 +57,17 @@ async function respondAccountLocked(
  *    đọc số đếm cũ trước khi ai kịp ghi); hết chỗ -> `ip_limited` (không kiểm mật khẩu, không bcrypt).
  * 2. Không có tài khoản: vẫn chạy bcrypt giả (K6), ghi throttle theo email; đủ ngưỡng trong 24h thì
  *    cũng báo `locked` như tài khoản thật (không lộ email không tồn tại).
- * 3. Tài khoản đang khoá -> vẫn chạy bcrypt giả (L1, tránh timing oracle phân biệt được với nhánh
- *    email lạ ở bước 2) rồi trả `locked` ngay, không nói mật khẩu đúng/sai.
+ * 3. Tài khoản đang khoá -> `respondAccountLocked`: bcrypt giả (L1, tránh timing oracle phân biệt
+ *    được với nhánh email lạ ở bước 2) + ghi/đếm `login_locked_probe`, trả `locked`, không nói mật
+ *    khẩu đúng/sai.
  * 4. Tài khoản chỉ Google (`passwordHash === ''`) -> vẫn chạy bcrypt giả (không lộ timing), đi Y HỆT
  *    nhánh email lạ ở bước 2 (ghi/đếm chung theo email, R1 - trước đây nhánh này luôn trả `invalid`
  *    trong khi email lạ báo `locked` từ lần 5, lộ ra email nào là tài khoản chỉ Google), KHÔNG tăng
  *    bộ đếm tài khoản, KHÔNG bị khoá (`lockedAt`) vì sai ở form mật khẩu (L7, quyết định chủ dự án
  *    2026-09-27: tránh DoS tài khoản chỉ Google bằng cách cố tình nhập sai mật khẩu nhiều lần).
+ * 4b. Giữ chỗ lượt đoán theo tài khoản (`reserveAccountGuess`, R4-2/R5-1/R6-1, chung với màn Đổi mật
+ *    khẩu) TRƯỚC bcrypt thật; hết chỗ -> `respondAccountLocked` y hệt bước 3 (R5-3). Chỗ này được
+ *    rút trong `finally` SAU KHI bước 5 hoặc 6 ghi xong (không rút ngay sau bcrypt).
  * 5. Mật khẩu sai, hoặc tài khoản bị tắt -> tăng bộ đếm tài khoản; lần vừa chạm ngưỡng thì ghi
  *    nhật ký `login_locked`. Chỗ IP đã đặt ở bước 1 GIỮ NGUYÊN (tính là 1 lần sai theo IP).
  * 6. Đúng: rút lại chỗ IP đã đặt ở bước 1 (không tính lượt đúng vào giới hạn IP), rồi xác nhận

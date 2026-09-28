@@ -5,7 +5,7 @@ import type { CurrentUser } from '@/lib/session';
  * P3E (Task 7, S8, Q2=b) - `resetPasswordAction` (admin đặt lại mật khẩu) phải đặt
  * `passwordChangedAt` (qua `getAuthStore().setPassword(..., bumpChangedAt: true, ...)`) để vô hiệu
  * phiên đăng nhập cũ.
- * S-2 (bao-mat.md vòng 4, chủ dự án chốt 2026-09-28, thay quyết định Q2=b cũ) - `changePasswordAction`
+ * S-2 (chủ dự án chốt 2026-09-28, thay quyết định Q2=b cũ) - `changePasswordAction`
  * (tự đổi trong Cài đặt) NAY CŨNG bump `passwordChangedAt` (vô hiệu các phiên KHÁC), khác biệt duy
  * nhất với `resetPasswordAction` là phiên HIỆN TẠI được server tự cấp lại cookie mới ngay trong action
  * này (`reissueSessionCookie`, mock ở đây - xem test thật của hàm đó ở `auth-reissue-session-cookie.test.ts`)

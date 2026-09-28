@@ -597,9 +597,9 @@ export interface SapQueueItem {
  * R7 phần 3, G4 (bao-mat.md) - `'google_denied'` chỉ dùng để hạn chế `activity_log` bị spam bởi các
  * lần Google từ chối lặp lại của CÙNG 1 email (Google không đi qua form mật khẩu nên không dùng
  * `login_fail_ip`/`login_fail_unknown_email`/`LOGIN_LOCK_THRESHOLD`); không phải khoá đăng nhập.
- * S-1 (bao-mat.md vòng 4) - `'reset_submit_ip'` giới hạn số lần GỬI đặt lại mật khẩu
+ * S-1 - `'reset_submit_ip'` giới hạn số lần GỬI đặt lại mật khẩu
  * (`resetPasswordWithToken`) theo IP, chặn từ chối dịch vụ CPU (bcrypt) từ người không đăng nhập.
- * S-3 (bao-mat.md vòng 4) - `'login_locked_probe'` KHÔNG dùng để quyết định gì, chỉ để nhánh "tài
+ * S-3 - `'login_locked_probe'` KHÔNG dùng để quyết định gì, chỉ để nhánh "tài
  * khoản thật đang khoá" trong `checkCredentials` tốn ĐÚNG số lượt gọi DB như nhánh "email lạ" (cân
  * thời gian, chống oracle phân biệt 2 nhánh); kết quả luôn bị bỏ qua.
  * R3-2 (bao-mat.md vòng 3, Trung) - `'change_pwd_fail_ip'` giới hạn tần suất gọi
@@ -667,7 +667,7 @@ export interface AuthStore {
   unlockAccount(email: string): Promise<boolean>;
   /**
    * Đổi mật khẩu; bumpChangedAt = true thì passwordChangedAt = now.
-   * S-2 (bao-mat.md vòng 4, chủ dự án chốt 2026-09-28) - LUÔN huỷ (đánh dấu `usedAt = nowIso`) mọi
+   * S-2 (chủ dự án chốt 2026-09-28) - LUÔN huỷ (đánh dấu `usedAt = nowIso`) mọi
    * token đặt lại mật khẩu CÒN HẠN của email này, bất kể `bumpChangedAt` - mật khẩu đã đổi qua đường
    * nào đó khác (tự đổi trong Cài đặt, admin đặt mật khẩu tạm) thì 1 link đặt lại cũ (nếu còn) không
    * còn lý do để dùng được nữa.
@@ -708,18 +708,13 @@ export interface AuthStore {
    */
   revokeSessions(email: string, nowIso: string): Promise<boolean>;
   /**
-   * R5-1 (bao-mat.md vòng 5, Thấp) - thay cho cách dùng `reserveThrottle` chung ở vòng 4 (R4-2): đó
-   * chỉ đếm số dòng trong 1 cửa sổ thời gian, KHÔNG đọc lại `failedLoginCount`/`lockedAt` TẠI THỜI
-   * ĐIỂM giữ chỗ - kết hợp với việc bên gọi RÚT chỗ quá sớm (ngay sau bcrypt, trước khi
-   * `registerFailedLogin` kịp ghi) để lọt quá `threshold` lượt bcrypt thật khi có yêu cầu chạy chồng
-   * chéo phức tạp (xem R5-1 trong `bao-mat.md`).
-   * "Giữ chỗ" một lượt đoán mật khẩu cho TÀI KHOẢN, nguyên tử trong 1 giao dịch: khoá advisory theo
-   * `kind:email` (giống `reserveThrottle`), đọc `failedLoginCount`/`lockedAt` HIỆN TẠI của tài khoản
-   * TỪ DB (không dựa vào bản chụp cũ đọc trước đó), đếm số chỗ ĐANG GIỮ (`auth_throttle` cùng
-   * `kind:key`, `createdAt >= sinceIso` - R5-2, cửa sổ dài vài phút CHỈ để dọn dòng mồ côi khi tiến
-   * trình crash không kịp `releaseThrottle`, KHÔNG dùng để giới hạn concurrency theo thời gian như
-   * `reserveThrottle`). Từ chối (`null`) khi tài khoản không còn, đã bị khoá (`lockedAt !== null`),
-   * hoặc `failedLoginCount + số chỗ đang giữ >= threshold`.
+   * R4-2, R5-1, R6-1 - "giữ chỗ" một lượt đoán mật khẩu cho TÀI KHOẢN, dùng CHUNG cho Đăng nhập và
+   * Đổi mật khẩu (kind cố định `account_guess`, bên gọi không truyền kind). Nguyên tử trong 1 giao
+   * dịch: khoá advisory theo `account_guess:email`, đọc `failedLoginCount`/`lockedAt` HIỆN TẠI của tài
+   * khoản TỪ DB (không dựa vào bản chụp cũ), đếm số chỗ ĐANG GIỮ (`auth_throttle` kind `account_guess`,
+   * key = email, `createdAt >= sinceIso`; cửa sổ dài vài phút CHỈ để dọn dòng mồ côi khi tiến trình
+   * chết giữa chừng không kịp `releaseThrottle`). Từ chối (`null`) khi tài khoản không còn, đã bị khoá
+   * (`lockedAt !== null`), hoặc `failedLoginCount + số chỗ đang giữ >= threshold`.
    * Bên gọi PHẢI giữ chỗ này tới SAU KHI `registerFailedLogin` (nhánh sai) hoặc `resetFailedLogin`
    * (nhánh đúng) chạy xong rồi mới `releaseThrottle` (try/finally bao cả đoạn, kể cả khi bcrypt/ghi
    * ném lỗi) - bất biến: số chỗ đang giữ + số lượt sai đã ghi (`failedLoginCount`) không bao giờ vượt

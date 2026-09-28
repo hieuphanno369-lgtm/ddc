@@ -55,7 +55,7 @@ export function purgeForeignDrafts(s: KeyStore, ownerTag: string): number {
  * F6: xoá mọi bản nháp trước khi đăng xuất (SettingsMenu) - người dùng kế tiếp dùng chung máy
  * không được thấy nháp của người này. localStorage có thể bị chặn (chế độ riêng tư) nên bọc
  * try/catch - không bao giờ chặn luồng đăng xuất vì lỗi localStorage.
- * S-2 (bao-mat.md vòng 4) - `ChangePasswordModal` KHÔNG còn gọi hàm này: tự đổi mật khẩu không còn
+ * S-2 - `ChangePasswordModal` KHÔNG còn gọi hàm này: tự đổi mật khẩu không còn
  * đăng xuất phiên hiện tại nên không có "người dùng kế tiếp" ở đây.
  */
 export function clearDraftsOnLogout(storage: KeyStore): void {

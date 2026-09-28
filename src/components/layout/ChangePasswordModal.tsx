@@ -6,9 +6,10 @@ import { useTranslations } from 'next-intl';
 import { changePasswordAction } from '@/server/actions';
 import { IconClose } from '@/components/icons';
 import { PasswordInput } from '@/components/ui/PasswordInput';
+import { clearDraftsOnLogout } from '@/lib/drafts';
 
 /**
- * S-2 (bao-mat.md vòng 4, chủ dự án chốt 2026-09-28, thay quyết định Q2=b cũ) - tự đổi mật khẩu
+ * S-2 (chủ dự án chốt 2026-09-28, thay quyết định Q2=b cũ) - tự đổi mật khẩu
  * KHÔNG còn đăng xuất phiên hiện tại (trước đây `signOut()` ngay sau khi đổi xong).
  * R2-1 (bao-mat.md vòng 2, CAO) - bỏ `useSession()`/`update()` và `SessionProvider` bọc riêng: phiên
  * hiện tại giờ được server tự cấp lại cookie mới ngay trong `changePasswordAction`
@@ -61,6 +62,8 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
       // phiên này (invalidateCurrentSessionCookie). Tái dùng thông báo khoá sẵn có (không thêm key
       // i18n mới); tải lại trang để middleware (đã thấy cookie invalid) tự đẩy về /login.
       setMsg(t('authSecurity.locked'));
+      // F6 - phiên đã bị đá: xoá bản nháp như khi đăng xuất thường.
+      clearDraftsOnLogout(window.localStorage);
       window.setTimeout(() => window.location.reload(), 1500);
     } else if (res.error === 'ip_limited') {
       setMsg(t('authSecurity.ipLimited'));

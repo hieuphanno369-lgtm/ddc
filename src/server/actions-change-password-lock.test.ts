@@ -138,9 +138,11 @@ describe('R6-1 (bao-mat.md vong 6) - Dang nhap va Doi mat khau dung CHUNG cho gi
     );
     await vi.waitFor(() => expect(realCalls()).toBe(5));
 
+    const reserveSpy = vi.spyOn(store, 'reserveAccountGuess');
     const pending = changePasswordAction('sai-mk', 'MatKhauMoiTuDoi1');
-    // Cho doi mat khau di het phan dat cho truoc khi mo cong bcrypt.
-    await new Promise((r) => setTimeout(r, 50));
+    // Cho doi mat khau dat cho XONG (co ket qua) truoc khi mo cong bcrypt cua 5 luot dang nhap.
+    await vi.waitFor(() => expect(reserveSpy.mock.results[0]?.value).toBeDefined());
+    await reserveSpy.mock.results[0].value;
     open();
     const r = await pending;
     await Promise.all(logins);

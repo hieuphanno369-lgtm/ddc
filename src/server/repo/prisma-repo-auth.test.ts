@@ -181,7 +181,7 @@ describe('setPassword', () => {
     });
   });
 
-  it('S-2 (bao-mat.md vong 4) - du bumpChangedAt true hay false, LUON huy (usedAt=now) token dat lai con han cua email do', async () => {
+  it('S-2 - du bumpChangedAt true hay false, LUON huy (usedAt=now) token dat lai con han cua email do', async () => {
     userRoleUpdateMany.mockResolvedValueOnce({ count: 1 });
     await prismaAuthStore.setPassword('a@daidung.com.vn', 'hash-moi', false, NOW_ISO);
     expect(passwordResetTokenUpdateMany).toHaveBeenCalledWith({

@@ -52,7 +52,7 @@ function getAuthorize(): Authorize {
 }
 
 const REAL_PW = 'MatKhauThat1';
-// S-1 (bao-mat.md vong 4) - `hashPassword` gio bat dong bo; tinh 1 lan truoc (beforeAll) roi dung
+// S-1 - `hashPassword` gio bat dong bo; tinh 1 lan truoc (beforeAll) roi dung
 // lai gia tri, thay vi goi truc tiep (dong bo) trong `row()`.
 let REAL_HASH = '';
 beforeAll(async () => {

@@ -95,8 +95,8 @@ export const prismaAuthStore: AuthStore = {
         where: { email },
         data: { passwordHash, ...(bumpChangedAt ? { passwordChangedAt: now } : {}) },
       });
-      // S-2 (bao-mat.md vong 4) - huy moi token dat lai con dung duoc cua email nay (du bumpChangedAt
-      // hay khong): mat khau da doi qua duong khac thi 1 link dat lai cu con lai khong con ly do de dung.
+      // S-2 - huỷ mọi token đặt lại còn dùng được của email này (dù bumpChangedAt hay không): mật khẩu
+      // đã đổi qua đường khác thì link đặt lại cũ không còn lý do để dùng.
       await tx.passwordResetToken.updateMany({ where: { email, usedAt: null }, data: { usedAt: now } });
       return result.count > 0;
     });
@@ -138,11 +138,9 @@ export const prismaAuthStore: AuthStore = {
     return exists !== null;
   },
 
-  // R5-1 (bao-mat.md vòng 5, Thấp) - xem JSDoc `AuthStore.reserveAccountGuess` (types.ts). Advisory
-  // lock theo `kind:email` rồi đọc `failedLoginCount`/`lockedAt` TƯƠI trong CÙNG giao dịch (khác
-  // `reserveThrottle` vòng 4 - không đọc lại tài khoản, chỉ đếm dòng trong cửa sổ thời gian).
-  // R6-1 (bao-mat.md vòng 6) - 1 kind chung `account_guess` cho Đăng nhập và Đổi mật khẩu, không nhận
-  // kind từ bên gọi (tránh 2 màn đếm riêng, vượt tổng 5 lượt).
+  // Xem JSDoc `AuthStore.reserveAccountGuess` (types.ts): advisory lock theo `account_guess:email`, đọc
+  // `failedLoginCount`/`lockedAt` TƯƠI và đếm chỗ đang giữ trong CÙNG giao dịch. Kind cố định, dùng
+  // chung cho Đăng nhập và Đổi mật khẩu (R6-1).
   async reserveAccountGuess(email, nowIso, sinceIso, threshold) {
     const kind = 'account_guess';
     return prisma.$transaction(async (tx) => {

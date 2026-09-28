@@ -171,7 +171,7 @@ export async function requestPasswordReset(
 }
 
 /**
- * S-1 (bao-mat.md vòng 4) - `resetPasswordWithToken` là server action CÔNG KHAI (không cần đăng
+ * S-1 - `resetPasswordWithToken` là server action CÔNG KHAI (không cần đăng
  * nhập). Đúng thứ tự (khác thứ tự cũ - trước đây bcrypt chạy TRƯỚC khi biết token có tồn tại,
  * cho phép từ chối dịch vụ CPU chỉ bằng cách gửi token rác liên tục):
  * 1. "Đặt chỗ" NGUYÊN TỬ theo IP (`reset_submit_ip`) NGAY ĐẦU HÀM, TRƯỚC mọi việc khác (giống

@@ -114,3 +114,15 @@ describe('UserEditor - D3 khoi "Tai khoan dang bi khoa"', () => {
     expect(out).not.toContain('admin.active');
   });
 });
+
+describe('UserEditor - Q5=a nhan tai khoan bi TAT (isActive=false) khac voi "Bi khoa (sai mat khau)"', () => {
+  it('tai khoan tat hien key admin.locked, gia tri la "Ngung su dung"/"Inactive" (khong con "Khoa"/"Locked")', async () => {
+    const out = render([USER({ email: 'tat@daidung.com.vn', isActive: false })]);
+    expect(out).toContain('admin.locked');
+    expect(out).not.toContain('authSecurity.lockedBadge');
+    const vi = (await import('@/i18n/messages/vi.json')).default as { admin: { locked: string } };
+    const en = (await import('@/i18n/messages/en.json')).default as { admin: { locked: string } };
+    expect(vi.admin.locked).toBe('Ngưng sử dụng');
+    expect(en.admin.locked).toBe('Inactive');
+  });
+});

@@ -517,8 +517,9 @@ lại mở ra 1 lỗ hổng MỚI mức Cao (R2-1). Phiên điều phối đã c
 ### Việc cho tài liệu deploy (bổ sung thêm, cùng nhóm với các mục đã có ở trên)
 
 10. **R2-2 (bao-mat.md vòng 2)** - bắt buộc cấu hình đúng header IP (`X-Forwarded-For`/`X-Real-Ip`) +
-    `TRUSTED_PROXY_HOPS` (xem mục 4 ở trên) - áp dụng cho CẢ khoá đăng nhập (`login_fail_ip`) VÀ khoá
-    gửi đặt lại mật khẩu (`reset_submit_ip`), cùng chung khoá `'unknown'` khi thiếu header. Theo dõi
+    `TRUSTED_PROXY_HOPS` (xem mục 4 ở trên) - áp dụng cho khoá đăng nhập (`login_fail_ip`), khoá
+    gửi đặt lại mật khẩu (`reset_submit_ip`) VÀ khoá đoán mật khẩu hiện tại ở Đổi mật khẩu
+    (`change_pwd_fail_ip`, R4-5), cùng chung khoá `'unknown'` khi thiếu header. Theo dõi
     cảnh báo `warnUnknownIpOnce` (log 1 lần khi rơi vào khoá `'unknown'`) sau khi deploy để phát hiện
     sớm nếu reverse proxy cấu hình sai.
 

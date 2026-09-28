@@ -3,7 +3,7 @@ import { repo } from './mock-repo';
 import { hashPassword, verifyPassword } from '@/lib/password';
 import type { UserAccount } from './types';
 
-// S-1 (bao-mat.md vong 4) - `hashPassword` gio bat dong bo; tinh 1 lan truoc (beforeAll) roi dung
+// S-1 - `hashPassword` gio bat dong bo; tinh 1 lan truoc (beforeAll) roi dung
 // lai gia tri, thay vi goi truc tiep (dong bo) trong `acct()`.
 let PASS_HASH = '';
 beforeAll(async () => {

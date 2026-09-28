@@ -176,16 +176,12 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     async jwt({ token, user, trigger }) {
-      // R2-1 (bao-mat.md vòng 2, CAO) - ĐÃ BỎ nhánh riêng làm mới token khi `trigger === 'update'`.
-      // Lỗ hổng cũ: `POST /api/auth/session` (kèm csrfToken lấy công khai) sinh `trigger: 'update'`
-      // cho BẤT KỲ ai đang giữ cookie phiên (kể cả cookie bị đánh cắp) - nhánh cũ luôn gọi
-      // `applyAccountToToken` (có thể hạ `invalid` từ true về false) rồi ghi đè `token.pwdAt` bằng
-      // mốc mới nhất trong DB, tức là "hồi sinh" được MỌI phiên đã bị đá do đổi mật khẩu, xoá sạch
-      // tác dụng của S8/S-2. Nhánh update giờ CHỈ được phép SIẾT CHẶT thêm (đặt `invalid = true` nếu
-      // phát hiện mật khẩu đã đổi sau lúc phiên này đăng nhập), KHÔNG BAO GIỜ nới lỏng - không gọi
-      // `applyAccountToToken`, không đụng `token.pwdAt`. Việc cấp cookie MỚI cho phiên vừa tự đổi mật
-      // khẩu (đã qua kiểm mật khẩu hiện tại) là việc của `reissueSessionCookie` (server-side, chạy
-      // ngay trong `changePasswordAction`), không còn dựa vào client gọi `update()` nữa.
+      // R2-1 - nhánh `trigger === 'update'` CHỈ được SIẾT, không bao giờ nới. `POST /api/auth/session`
+      // (csrfToken lấy công khai) sinh `trigger: 'update'` cho BẤT KỲ ai giữ cookie phiên, kể cả cookie
+      // bị đánh cắp, nên nhánh này không gọi `applyAccountToToken` (có thể hạ `invalid`), không đụng
+      // `token.pwdAt`; chỉ đặt `invalid = true` khi tài khoản không còn/bị tắt (R3-4) hoặc mật khẩu đã
+      // đổi sau lúc phiên đăng nhập. Cấp cookie mới cho phiên vừa tự đổi mật khẩu là việc của
+      // `reissueSessionCookie` (server-side, trong `changePasswordAction`).
       if (trigger === 'update') {
         const email = token.email;
         if (typeof email === 'string' && email) {
@@ -309,17 +305,11 @@ async function withOwnSessionCookie(email: string, tag: string, mutate: (token: 
 }
 
 /**
- * R3-1 (bao-mat.md vòng 3, Trung) - nhận thêm `newHash` (hash mới mà `changePasswordAction` VỪA GHI
- * qua `setPasswordIfHash`, không phải đọc lại DB rồi tin ngay): giữa lúc ghi xong (T2) và lúc hàm này
- * đọc lại tài khoản (T3) vẫn còn 1 khe hở race - 1 request KHÁC (admin đặt mật khẩu tạm, đặt lại qua
- * email) có thể đã ghi đè mật khẩu SAU T2. Nếu chỉ tin DB một cách vô điều kiện như bản cũ, hàm này sẽ
- * "hồi sinh" nhầm phiên bằng 1 mốc `pwdAt` không còn đúng - xoá sạch tác dụng của lần đổi mật khẩu
- * KHÁC vừa thắng. Nay so `passwordHash` MỚI NHẤT trong DB với `newHash`: khớp (trường hợp bình
- * thường, không có race) thì làm mới `pwdAt` như cũ; khác (bị ghi đè sau khi request này đã ghi) thì
- * vô hiệu ngay (fail-closed) thay vì hồi sinh nhầm.
- * R4-3 (bao-mat.md vòng 4, Thấp) - so trực tiếp `passwordHash` thay vì so lệch mốc giờ `changedAtIso`
- * như bản cũ: so hash không phụ thuộc độ chính xác đồng hồ (nhiều instance) hay 2 lần ghi trùng mili
- * giây, tránh bỏ sót race mà phép so mốc giờ có thể bỏ lọt.
+ * R3-1, R4-3 - cấp lại cookie cho phiên vừa tự đổi mật khẩu. `newHash` là hash mà
+ * `changePasswordAction` VỪA GHI qua `setPasswordIfHash`. Giữa lúc ghi và lúc hàm này đọc lại tài
+ * khoản, 1 request KHÁC (admin đặt mật khẩu tạm, đặt lại qua email) có thể đã ghi đè mật khẩu; khi
+ * đó hash trong DB khác `newHash` và phiên bị vô hiệu (fail-closed) thay vì được "hồi sinh" bằng mốc
+ * `pwdAt` của lần ghi đã thua. So hash (bcrypt có salt nên không thể trùng) không phụ thuộc đồng hồ.
  */
 export async function reissueSessionCookie(email: string, newHash: string): Promise<void> {
   await withOwnSessionCookie(email, 'reissueSessionCookie', async (token) => {
@@ -327,9 +317,6 @@ export async function reissueSessionCookie(email: string, newHash: string): Prom
     applyAccountToToken(token, account);
     const dbChangedAtMs = account?.passwordChangedAt ? Date.parse(account.passwordChangedAt) : 0;
     token.pwdAt = dbChangedAtMs;
-    // R4-3 (bao-mat.md vòng 4, Thấp) - so trực tiếp HASH hiện tại trong DB với `newHash` vừa ghi
-    // (thay vì so lệch mốc giờ `changedAtIso`): tránh bỏ sót khi lệch đồng hồ giữa nhiều instance
-    // hoặc 2 lần ghi trùng mili giây - so hash không phụ thuộc độ chính xác của đồng hồ.
     if (!account || account.passwordHash !== newHash) token.invalid = true;
   });
 }

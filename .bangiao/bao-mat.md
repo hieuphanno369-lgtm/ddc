@@ -1,4 +1,4 @@
-PHAN QUYET BAO MAT: LO HONG
+PHAN QUYET BAO MAT: CHOT (vong 7, commit 899a852; cac vong truoc giu nguyen ben duoi lam lich su)
 
 # Danh gia bao mat P3E Task 5-8 (nhanh feature/p3e-c-task5-8, commit 453a2cd)
 
@@ -237,3 +237,13 @@ Ghi chu: security-reviewer chi co quyen doc, phien dieu phoi (C) ghi lai tu bao 
 ### Diem DAT
 - Bat bien trong 1 man dung (advisory lock, doc tuoi, try/finally); registerFailedLogin khong lay lock van an toan (nghieng ve chat hon).
 - R5-2..R5-6 dat; chot R4-1b dat; khong SQL noi chuoi, khong secret, log sach.
+
+## Vong 7 (security-reviewer, xac nhan, commit 899a852)
+
+CHOT - khong con muc Trung tro len, cac chot cua chu du an deu dat.
+Ghi chu: security-reviewer chi co quyen doc, phien dieu phoi (C) ghi lai tu bao cao cua no.
+- R6-1 DONG: `reserveAccountGuess(email, ...)` 1 kind `account_guess` o ca Prisma va bo nho, tsc chan cho goi cu; test tich hop cheo man tai hien dung.
+- R6-4 DONG: chi da phien khi tai khoan that su da khoa; het cho do luot song song khong da.
+- R7-1 (Thap, ghi nhan): ke tan cong khoa tai khoan qua Dang nhap roi nan nhan vao Doi mat khau thi bi da phien - dung chot R5-5.
+- R7-2 (Thap, ghi nhan): reviewer khong chay real-db; phien C da chay tren DB _c sau 899a852 (xem thay-doi.md).
+- Hoi quy: khong (R2-1, R3-1, R3-2, R4-1..R4-4, R5-1..R5-6, Q1=a).

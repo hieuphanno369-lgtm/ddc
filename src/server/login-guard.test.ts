@@ -11,7 +11,7 @@ import { logActivity } from '@/lib/activity';
 import { checkCredentials } from './login-guard';
 
 const REAL_PW = 'MatKhauDung1';
-// S-1 (bao-mat.md vong 4) - `hashPassword` gio bat dong bo; tinh 1 lan truoc (beforeAll) roi dung
+// S-1 - `hashPassword` gio bat dong bo; tinh 1 lan truoc (beforeAll) roi dung
 // lai gia tri, thay vi goi truc tiep (dong bo) trong `account()`.
 let REAL_HASH = '';
 
@@ -140,7 +140,7 @@ describe('checkCredentials - L1: nhanh da khoa cung chay bcrypt gia (timing orac
   });
 });
 
-describe('checkCredentials - S-3 (bao-mat.md vong 4): can bang so luot goi DB giua nhanh "da khoa" va "email la"', () => {
+describe('checkCredentials - S-3: can bang so luot goi DB giua nhanh "da khoa" va "email la"', () => {
   it('nhanh tai khoan that dang khoa va nhanh email la goi recordThrottle/countThrottle so lan BANG NHAU', async () => {
     const store = createMemoryAuthStore(makeSource([account()]));
     for (let i = 0; i < 5; i++) {

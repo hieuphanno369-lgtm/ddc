@@ -31,7 +31,7 @@ function makeSource(accounts: UserAccount[]): MemoryAccountSource {
   };
 }
 
-// S-1 (bao-mat.md vong 4) - `hashPassword` gio bat dong bo; tinh 1 lan truoc (beforeAll).
+// S-1 - `hashPassword` gio bat dong bo; tinh 1 lan truoc (beforeAll).
 let REAL_HASH = '';
 beforeAll(async () => {
   REAL_HASH = await hashPassword(REAL_PW);
@@ -490,7 +490,7 @@ describe('resetPasswordWithToken', () => {
     expect(state?.passwordChangedAt).toBe(at(2000).toISOString());
   });
 
-  describe('S-1 (bao-mat.md vong 4) - khong bam mat khau truoc khi biet token co ton tai, gioi han theo IP', () => {
+  describe('S-1 - khong bam mat khau truoc khi biet token co ton tai, gioi han theo IP', () => {
     it('token dung dang nhung KHONG TON TAI trong kho -> invalid_token, hashPassword KHONG DUOC GOI (khong ton CPU bam mat khau)', async () => {
       const store = createMemoryAuthStore(makeSource([account()]));
       const spy = vi.spyOn(passwordLib, 'hashPassword');

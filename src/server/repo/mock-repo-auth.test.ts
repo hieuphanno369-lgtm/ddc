@@ -161,7 +161,7 @@ describe('replaceResetToken / peekResetToken / consumeResetToken', () => {
   });
 });
 
-describe('setPassword - S-2 (bao-mat.md vong 4) huy token dat lai con han cua email do', () => {
+describe('setPassword - S-2 huy token dat lai con han cua email do', () => {
   it('bumpChangedAt = true: doi mat khau xong, token dat lai con han cua email do het dung duoc (peek -> false)', async () => {
     await store.replaceResetToken('a@daidung.com.vn', 'hash-con-han', '2026-09-27T02:00:00.000Z', '1.2.3.4');
     expect(await store.peekResetToken('hash-con-han', '2026-09-27T00:00:00.000Z')).toBe(true);

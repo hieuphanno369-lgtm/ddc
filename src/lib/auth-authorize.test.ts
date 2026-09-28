@@ -11,7 +11,7 @@ import type { UserAccount } from '@/server/repo/types';
 vi.mock('@/lib/activity', () => ({ logActivity: vi.fn() }));
 
 const REAL_PW = 'MatKhauThat1';
-// S-1 (bao-mat.md vong 4) - `hashPassword` gio bat dong bo; tinh 1 lan truoc moi test (beforeAll)
+// S-1 - `hashPassword` gio bat dong bo; tinh 1 lan truoc moi test (beforeAll)
 // thay vi goi truc tiep trong `account()` (ham nay van goi DONG BO tu nhieu noi).
 let REAL_HASH = '';
 let accounts: UserAccount[];

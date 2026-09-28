@@ -1,7 +1,7 @@
 import { compare, hash } from 'bcryptjs';
 
 /**
- * S-1 (bao-mat.md vong 4) - bam BAT DONG BO (`bcryptjs.hash`, khong con `hashSync`) de khong chan
+ * S-1 - bam BAT DONG BO (`bcryptjs.hash`, khong con `hashSync`) de khong chan
  * event loop: `hashPassword` la ham dung CHUNG cho moi noi doi/dat mat khau, doi nhat quan ca ham
  * (khong tach rieng 1 ban bat dong bo chi cho 1 noi goi) de tranh 2 API khac nhau cho cung 1 viec.
  */

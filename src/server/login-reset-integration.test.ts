@@ -61,7 +61,7 @@ function makeMailer(): { mailer: ResetMailer; tokenOf: () => string } {
   };
 }
 
-// S-1 (bao-mat.md vong 4) - `hashPassword` gio bat dong bo; tinh 1 lan truoc (beforeAll).
+// S-1 - `hashPassword` gio bat dong bo; tinh 1 lan truoc (beforeAll).
 let OLD_HASH = '';
 function account(over: Partial<UserAccount> = {}): UserAccount {
   return {

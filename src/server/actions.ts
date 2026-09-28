@@ -347,7 +347,7 @@ export async function removeProjectAction(id: number) {
 
 /**
  * Đổi mật khẩu chính mình.
- * S-2 (bao-mat.md vòng 4, chủ dự án chốt 2026-09-28, thay quyết định Q2=b cũ) - tự đổi mật khẩu
+ * S-2 (chủ dự án chốt 2026-09-28, thay quyết định Q2=b cũ) - tự đổi mật khẩu
  * trong Cài đặt giờ CŨNG bump `passwordChangedAt` để vô hiệu các phiên đăng nhập KHÁC, nhưng phiên
  * hiện tại vẫn dùng được (trừ khi chính lượt gọi này làm khoá tài khoản - xem R3-2 bên dưới).
  * R2-1 (bao-mat.md vòng 2, CAO, sửa lại cách giữ phiên hiện tại) - KHÔNG còn dựa vào client gọi
@@ -541,7 +541,7 @@ export async function resetPasswordAction(email: string, newPassword: string) {
   const parsed = resetPasswordSchema.safeParse({ email, newPassword });
   if (!parsed.success) return { ok: false, error: 'too_short' };
   // S8 (Task 7, Q2 = phương án b) - admin đặt lại mật khẩu -> vô hiệu MỌI phiên đăng nhập cũ
-  // (`bumpChangedAt: true`); S-2 (bao-mat.md vòng 4) - nay `changePasswordAction` (tự đổi trong Cài
+  // (`bumpChangedAt: true`); S-2 - nay `changePasswordAction` (tự đổi trong Cài
   // đặt) CŨNG bump, nhưng giữ phiên hiện tại (khác ở đây: admin đặt lại không có "phiên hiện tại"
   // nào để giữ, nên không cần thêm gì).
   await getAuthStore().setPassword(parsed.data.email.toLowerCase(), await hashPassword(parsed.data.newPassword), true, new Date().toISOString());
