@@ -27,8 +27,17 @@ export default async function globalSetup(): Promise<void> {
     // lần chạy (upsert - đảm bảo lockedAt/failedLoginCount về trạng thái sạch giữa các lần chạy).
     // Vòng sửa bảo mật 4 (S-2) - thêm `e2e-doimk@daidung.com.vn` cho spec tự đổi mật khẩu (giữ
     // phiên hiện tại, đăng xuất phiên khác) - cùng mật khẩu để dùng lại hằng số có sẵn.
+    // Tester, vòng sau sửa bảo mật (R2-1, bao-mat.md vòng 2) - thêm `e2e-r21@daidung.com.vn` riêng
+    // cho spec 24 (tái hiện kịch bản khai thác phiên "hồi sinh" qua POST /api/auth/session), tách
+    // khỏi `e2e-doimk` vì spec 24 đổi mật khẩu nhiều lần trong cùng file, không nên chung tài khoản
+    // với spec 23 (thứ tự chạy giữa 2 file .spec.ts không đảm bảo mật khẩu hiện tại là gì).
     const passwordHash = await hashPassword(E2E_LOCK_PASSWORD);
-    for (const email of ['e2e-khoa@daidung.com.vn', 'e2e-quenmk@daidung.com.vn', 'e2e-doimk@daidung.com.vn']) {
+    for (const email of [
+      'e2e-khoa@daidung.com.vn',
+      'e2e-quenmk@daidung.com.vn',
+      'e2e-doimk@daidung.com.vn',
+      'e2e-r21@daidung.com.vn',
+    ]) {
       await prisma.userRole.upsert({
         where: { email },
         update: { passwordHash, isActive: true, lockedAt: null, failedLoginCount: 0 },
