@@ -50,8 +50,8 @@ describe('account management (mock repo)', () => {
     repo.createAccount(acct('z@daidung.com.vn'));
     repo.changePassword('z@daidung.com.vn', await hashPassword('New@99999'));
     const a = repo.findAccount('z@daidung.com.vn')!;
-    expect(verifyPassword('New@99999', a.passwordHash)).toBe(true);
-    expect(verifyPassword('Pass@12345', a.passwordHash)).toBe(false);
+    expect(await verifyPassword('New@99999', a.passwordHash)).toBe(true);
+    expect(await verifyPassword('Pass@12345', a.passwordHash)).toBe(false);
   });
 
   it('setAccountActive khóa/mở tài khoản', () => {

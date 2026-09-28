@@ -437,3 +437,114 @@ nhưng phiên đang dùng để đổi thì KHÔNG bị đăng xuất.
    ở tầng Next.js) nếu muốn phủ hết trường hợp "phiên B bị đăng xuất" bằng e2e (hiện chưa khả thi).
 3. **S-3** - đây là fix mức "Thấp", đáng đối chiếu lại bằng đo thời gian thực tế (không chỉ đếm số
    lượt gọi DB) nếu có công cụ đo timing side-channel chuyên dụng.
+
+## Vòng sửa bảo mật 2 (sau `security-reviewer` vòng 2, `.bangiao/bao-mat.md`)
+
+Vòng 1 đóng S-1/S-3/I-3 đúng, nhưng cách giữ phiên hiện tại của S-2 (client gọi `update()` next-auth)
+lại mở ra 1 lỗ hổng MỚI mức Cao (R2-1). Phiên điều phối đã chọn **CÁCH VÁ 1** trong `bao-mat.md`
+(gọn nhất - chỉ request đã qua kiểm mật khẩu hiện tại mới làm mới được `pwdAt`, bỏ được
+`SessionProvider` lồng + `update()` phía client).
+
+### R2-1 (Cao) - Phiên đã bị vô hiệu tự "hồi sinh" qua `update()`
+
+- **Gốc lỗi**: `src/lib/auth.ts` callback `jwt`, nhánh `trigger === 'update'` (dòng ~178-190 cũ) chỉ
+  dựa vào `token.email` trong cookie để đọc lại tài khoản, gán `invalid = false` (qua
+  `applyAccountToToken`) rồi ghi đè `token.pwdAt` bằng mốc mới nhất trong DB - KHÔNG so với
+  `token.pwdAt` cũ trước khi ghi đè. `POST /api/auth/session` (kèm `csrfToken` lấy công khai qua
+  `GET /api/auth/csrf`) sinh `trigger: 'update'` cho BẤT KỲ ai đang giữ cookie phiên, kể cả cookie bị
+  đánh cắp - nên ai giữ được cookie phiên (đã bị đá do đổi mật khẩu) đều tự "hồi sinh" lại được, xoá
+  sạch tác dụng của S8/S-2 (khoá vô hiệu phiên cũ khi đổi mật khẩu).
+- **`src/lib/auth.ts`** (callback `jwt`) - bỏ hẳn việc làm mới `pwdAt`/nới lỏng `invalid` trong nhánh
+  `trigger === 'update'`. Nhánh này giờ CHỈ được phép SIẾT CHẶT thêm: đọc tài khoản, so
+  `changedAtMs > token.pwdAt` (giữ nguyên `token.pwdAt` cũ, không ghi đè) rồi đặt `invalid = true` nếu
+  phát hiện mật khẩu đã đổi sau lúc phiên đăng nhập - KHÔNG BAO GIỜ hạ `invalid` từ true về false
+  (không gọi `applyAccountToToken` nữa ở nhánh này). Vì `ChangePasswordModal` không còn gọi
+  `update()`, nhánh này gần như trở thành hàng rào phòng thủ cho `POST /api/auth/session` (endpoint
+  next-auth vẫn công khai, không tắt được).
+- **`src/lib/auth.ts`** (hàm mới `reissueSessionCookie(email)`) - thay cho việc dựa vào client
+  `update()`: đọc token TỪ COOKIE HIỆN TẠI của chính request (không nhận tham số từ ngoài ngoài
+  `email` đã được `changePasswordAction` xác thực), so `token.email === email` (chỉ làm mới cookie
+  của ĐÚNG người vừa đổi mật khẩu), đọc lại tài khoản từ DB lấy đúng `passwordChangedAt` vừa ghi, gán
+  `token.pwdAt` + `applyAccountToToken`, mã hoá lại bằng `next-auth/jwt` `encode()` (cùng
+  `secret`/`session.maxAge` của `authOptions`, không nhân bản hằng số), rồi `cookies().set()` đúng
+  tên cookie phiên (`next-auth.session-token`, tự thêm tiền tố `__Secure-` khi `NEXTAUTH_URL` là
+  `https://`, cùng quy ước K11 - không bao giờ tin header `Host`), cùng thuộc tính `httpOnly`/
+  `sameSite: 'lax'`/`path: '/'`/`secure` như mặc định next-auth (`defaultCookies`, không có
+  `authOptions.cookies` tuỳ biến). Không xử lý cookie bị chia nhỏ (chunk) - payload JWT app này nhỏ,
+  không chạm ngưỡng ~4KB. Lỗi bất kỳ trong hàm này chỉ log `e.name` (không log message) và KHÔNG được
+  làm hỏng việc đổi mật khẩu đã thành công (chỉ là tiện ích giữ phiên, không phải điều kiện thành
+  công của action).
+- **`src/server/actions.ts`** (`changePasswordAction`) - sau khi `getAuthStore().setPassword(...)`
+  thành công, gọi `reissueSessionCookie(user.email)` (không còn phần client tự `update()`). Đổi
+  `verifyPassword(...)` thành `await verifyPassword(...)` (xem mục kèm theo dưới đây).
+- **`src/components/layout/ChangePasswordModal.tsx`** - bỏ `SessionProvider` bọc riêng, bỏ
+  `useSession()`/`update()`. Không đổi hành vi hiển thị: vẫn không đăng xuất, vẫn hiện
+  `authSecurity.changePasswordDone` khi thành công.
+- **Kèm theo (theo yêu cầu)**: `src/lib/password.ts` `verifyPassword` đổi từ `bcryptjs.compareSync`
+  (đồng bộ) sang `bcryptjs.compare` (bất đồng bộ) - nhất quán với `hashPassword` đã bất đồng bộ từ
+  vòng sửa 1. Cập nhật mọi nơi gọi thêm `await`: `src/server/actions.ts` (`changePasswordAction`),
+  `src/server/login-guard.ts` (4 chỗ, cả 3 nhánh bcrypt giả + nhánh mật khẩu thật), test
+  `src/server/repo/account.test.ts`. `src/server/login-guard.test.ts` không cần sửa (chỉ spy
+  `verifyPassword`, không gọi trực tiếp).
+- **Test đỏ → xanh**:
+  - `src/lib/auth-access-recheck.test.ts` (thay hẳn 2 test cũ của mô tả "S-2 trigger 'update'..." bằng
+    3 test mới, mô tả "R2-1 trigger 'update' CHI duoc siet chat, khong bao gio noi long"): token đang
+    `invalid: true` + DB `passwordChangedAt` mới hơn `pwdAt` → `invalid` VẪN true, `pwdAt` KHÔNG bị
+    ghi đè; token `pwdAt` cũ hơn DB (dù `accessCheckedAt` vừa kiểm xong, không chờ
+    `ACCESS_RECHECK_INTERVAL_MS`) → `invalid = true` ngay; token `pwdAt` đã khớp DB → không tự đặt
+    `invalid` (không tự hạ thấp quyền một cách vô cớ).
+  - `src/lib/auth-reissue-session-cookie.test.ts` (file mới, 4 test) - giải mã lại cookie mới do
+    `reissueSessionCookie` set để xác nhận nội dung thật (không chỉ spy lời gọi): không có cookie
+    phiên nào đang mở → không làm gì, không ném lỗi; cookie hiện tại thuộc email KHÁC → không cấp lại
+    (không làm mới nhầm phiên người khác); đúng email vừa đổi mật khẩu → cookie mới giải mã ra
+    `pwdAt` = `passwordChangedAt` mới từ DB, `invalid = false`, `role`/`canViewFinance` làm mới theo
+    DB; `getAccountState` trả `null` (tài khoản bị xoá giữa chừng) → cookie mới có `invalid = true`.
+  - `src/server/actions-reset-password-session.test.ts` (mock `@/lib/auth` để spy
+    `reissueSessionCookie`) - đổi mật khẩu thành công → gọi `reissueSessionCookie('admin@daidung.com.vn')`
+    (đúng email, đúng SAU KHI `setPassword` thành công); mật khẩu hiện tại sai → KHÔNG gọi
+    `setPassword` VÀ KHÔNG gọi `reissueSessionCookie`.
+- e2e: `e2e/23-doi-mat-khau.spec.ts` (đã có từ vòng sửa 1) không cần sửa, vẫn xanh - chứng minh phiên
+  A vẫn dùng được ngay sau khi tự đổi mật khẩu, giờ qua đường cookie server tự cấp lại (không còn qua
+  `update()` client).
+
+### R2-2 (Thấp) - chỉ ghi nhận, không sửa code (theo yêu cầu chủ dự án)
+
+- Khoá `'unknown'` dùng chung cho `reset_submit_ip` (giống R4/R5 ở đăng nhập, đã chấp nhận từ vòng
+  trước): proxy không gửi `x-forwarded-for`/`x-real-ip` → mọi người dùng chung 1 khoá giới hạn IP cho
+  chức năng đặt lại mật khẩu, có thể tự khoá lẫn nhau 15 phút. Đã thêm mục 10 vào "Việc cho tài liệu
+  deploy" bên dưới.
+
+### Việc cho tài liệu deploy (bổ sung thêm, cùng nhóm với các mục đã có ở trên)
+
+10. **R2-2 (bao-mat.md vòng 2)** - bắt buộc cấu hình đúng header IP (`X-Forwarded-For`/`X-Real-Ip`) +
+    `TRUSTED_PROXY_HOPS` (xem mục 4 ở trên) - áp dụng cho CẢ khoá đăng nhập (`login_fail_ip`) VÀ khoá
+    gửi đặt lại mật khẩu (`reset_submit_ip`), cùng chung khoá `'unknown'` khi thiếu header. Theo dõi
+    cảnh báo `warnUnknownIpOnce` (log 1 lần khi rơi vào khoá `'unknown'`) sau khi deploy để phát hiện
+    sớm nếu reverse proxy cấu hình sai.
+
+### Cổng kiểm (vòng sửa bảo mật 2)
+
+- `npx tsc --noEmit`: sạch.
+- `npm test`: **237 file/2653 test** (2646 xanh + 7 skip - đúng 7 skip cũ của
+  `prisma-repo-auth-real-db.test.ts`, không tăng thêm; đã chạy tay riêng file này với `DATABASE_URL`
+  trỏ `ddc_control_tower_c`: 7/7 xanh).
+- `npm run check:read`: OK.
+- `NEXT_FONT_GOOGLE_MOCKED_RESPONSES=... npm run build`: qua sạch.
+- `npm run test:e2e` (toàn bộ, không lọc spec): **93/93 xanh** (không tăng/giảm so với vòng sửa 1 -
+  không thêm spec mới, chỉ đổi cách phiên hiện tại được giữ), đã seed lại DB `_c` sau khi chạy.
+
+### Cho Tester nên soi kỹ (bổ sung riêng cho vòng sửa bảo mật 2 này)
+
+1. **R2-1** - đây là lỗ hổng mức Cao, đáng kiểm độc lập bằng cách tái hiện đúng kịch bản khai thác cũ:
+   2 context (A đổi mật khẩu, B giữ cookie cũ của A trước khi đổi) → B gọi
+   `GET /api/auth/csrf` lấy `csrfToken` rồi `POST /api/auth/session` với cookie cũ - phải KHÔNG hồi
+   sinh được phiên B (B vẫn bị đá trong tối đa 5 phút như S8/S-2 dự định), khác với trước khi vá (B
+   gọi được `update()` để tự làm mới `pwdAt`).
+2. **`reissueSessionCookie`** - soi kỹ điều kiện `token.email !== email` (chỉ làm mới đúng phiên của
+   người vừa đổi mật khẩu) và trường hợp không có cookie phiên nào (`raw` rỗng) - cả 2 đều phải thoát
+   êm, không ném lỗi ra ngoài `changePasswordAction`.
+3. **Nhánh `trigger === 'update'` còn lại** - sau khi bỏ `update()` ở `ChangePasswordModal`, nhánh
+   này trong `jwt` callback không còn được gọi từ UI nào của app nữa, chỉ còn là hàng rào phòng thủ
+   cho `POST /api/auth/session` (next-auth expose công khai, không tắt được) - nên kiểm tra thêm nếu
+   sau này có tính năng mới gọi `update()` (ví dụ đồng bộ `session` phía client) thì đọc lại đoạn
+   comment ở `auth.ts` trước khi thêm logic mới vào nhánh này.

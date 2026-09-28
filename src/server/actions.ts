@@ -7,6 +7,7 @@ import { Prisma } from '@prisma/client';
 import { getCurrentUser, type CurrentUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
 import { hashPassword, verifyPassword } from '@/lib/password';
+import { reissueSessionCookie } from '@/lib/auth';
 import { calcChainPctActual, findCurrentStage, isSameStageSet, normPct, StagesChangedError, stageOrder, validateStageWeights } from '@/lib/stages';
 import { isReservedProjectCode, ProjectCodeTakenError } from '@/lib/project-code';
 import { cellText, type CellValue } from '@/lib/daily-import';
@@ -345,10 +346,14 @@ export async function removeProjectAction(id: number) {
  * Đổi mật khẩu chính mình.
  * S-2 (bao-mat.md vòng 4, chủ dự án chốt 2026-09-28, thay quyết định Q2=b cũ) - tự đổi mật khẩu
  * trong Cài đặt giờ CŨNG bump `passwordChangedAt` (qua `getAuthStore().setPassword(..., true, ...)`)
- * để vô hiệu các phiên đăng nhập KHÁC, nhưng phiên hiện tại vẫn dùng được (client tự cập nhật
- * `token.pwdAt` của chính phiên qua `update()` next-auth ngay sau khi action này trả `ok: true` -
- * xem `ChangePasswordModal.tsx`, callback `jwt` ở `auth.ts`). `setPassword` cũng huỷ mọi token đặt
- * lại còn hạn của email này (không còn cần `repo.changePassword` nữa).
+ * để vô hiệu các phiên đăng nhập KHÁC, nhưng phiên hiện tại vẫn dùng được. `setPassword` cũng huỷ
+ * mọi token đặt lại còn hạn của email này (không còn cần `repo.changePassword` nữa).
+ * R2-1 (bao-mat.md vòng 2, CAO, sửa lại cách giữ phiên hiện tại) - KHÔNG còn dựa vào client gọi
+ * `update()` (next-auth) để làm mới phiên (lỗ hổng: `update()` gọi được từ MỌI cookie phiên đang
+ * giữ, kể cả cookie bị đánh cắp - xem callback `jwt` ở `auth.ts`). Thay vào đó, NGAY SAU KHI đã kiểm
+ * `currentPassword` đúng và đổi mật khẩu thành công, server tự cấp lại cookie phiên MỚI cho CHÍNH
+ * phiên gọi action này (`reissueSessionCookie`) - chỉ request đã qua kiểm mật khẩu hiện tại mới làm
+ * mới được `pwdAt` của phiên.
  */
 export async function changePasswordAction(currentPassword: string, newPassword: string) {
   const user = await getCurrentUser();
@@ -357,10 +362,11 @@ export async function changePasswordAction(currentPassword: string, newPassword:
   if (!parsed.success) return { ok: false, error: 'invalid' };
   const account = await repo.findAccount(user.email);
   // Tài khoản chỉ Google (passwordHash rỗng) - tránh gọi verifyPassword với hash rỗng (bcrypt ném lỗi).
-  if (!account || account.passwordHash === '' || !verifyPassword(currentPassword, account.passwordHash)) {
+  if (!account || account.passwordHash === '' || !(await verifyPassword(currentPassword, account.passwordHash))) {
     return { ok: false, error: 'current' };
   }
   await getAuthStore().setPassword(user.email, await hashPassword(parsed.data.newPassword), true, new Date().toISOString());
+  await reissueSessionCookie(user.email);
   await logActivity(user, 'change_password');
   return { ok: true };
 }

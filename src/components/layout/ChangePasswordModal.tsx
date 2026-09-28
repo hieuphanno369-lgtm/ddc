@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { SessionProvider, useSession } from 'next-auth/react';
 import { useTranslations } from 'next-intl';
 import { changePasswordAction } from '@/server/actions';
 import { IconClose } from '@/components/icons';
@@ -9,22 +8,14 @@ import { PasswordInput } from '@/components/ui/PasswordInput';
 
 /**
  * S-2 (bao-mat.md vòng 4, chủ dự án chốt 2026-09-28, thay quyết định Q2=b cũ) - tự đổi mật khẩu
- * KHÔNG còn đăng xuất phiên hiện tại (trước đây `signOut()` ngay sau khi đổi xong). `useSession()`
- * cần `SessionProvider` trong cây React - repo này chưa có 1 cái ở layout gốc (chỉ dùng
- * `getServerSession`/session server-side), nên bọc RIÊNG quanh modal này (không đổi kiến trúc đăng
- * nhập toàn app) chỉ để lấy `update()`.
+ * KHÔNG còn đăng xuất phiên hiện tại (trước đây `signOut()` ngay sau khi đổi xong).
+ * R2-1 (bao-mat.md vòng 2, CAO) - bỏ `useSession()`/`update()` và `SessionProvider` bọc riêng: phiên
+ * hiện tại giờ được server tự cấp lại cookie mới ngay trong `changePasswordAction`
+ * (`reissueSessionCookie` ở `src/lib/auth.ts`), không còn cần client tự gọi `update()` (đường đó
+ * cho phép BẤT KỲ ai giữ cookie phiên "hồi sinh" phiên đã bị vô hiệu qua `POST /api/auth/session`).
  */
 export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
-  return (
-    <SessionProvider>
-      <ChangePasswordModalInner onClose={onClose} />
-    </SessionProvider>
-  );
-}
-
-function ChangePasswordModalInner({ onClose }: { onClose: () => void }) {
   const t = useTranslations();
-  const { update } = useSession();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -50,10 +41,8 @@ function ChangePasswordModalInner({ onClose }: { onClose: () => void }) {
     const res = await changePasswordAction(current, next);
     setBusy(false);
     if (res.ok) {
-      // S-2 - mật khẩu đã đổi bump `passwordChangedAt` (vô hiệu các phiên KHÁC trong tối đa 5 phút
-      // - ACCESS_RECHECK_INTERVAL_MS); CHÍNH phiên này làm mới `token.pwdAt` NGAY qua `update()` để
-      // không bị vô hiệu nhầm, KHÔNG cần đăng nhập lại.
-      await update();
+      // R2-1 - server đã tự cấp lại cookie phiên mới cho CHÍNH phiên này (reissueSessionCookie),
+      // không cần làm gì thêm ở client, KHÔNG cần đăng nhập lại.
       setCurrent('');
       setNext('');
       setConfirm('');

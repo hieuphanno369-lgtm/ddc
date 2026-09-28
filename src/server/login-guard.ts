@@ -78,7 +78,7 @@ export async function checkCredentials(
   const account = await store.getAccountState(email);
 
   if (!account) {
-    verifyPassword(password, await getDummyHash());
+    await verifyPassword(password, await getDummyHash());
     await store.recordThrottle('login_fail_unknown_email', email, nowIso);
     const sinceUnknownIso = new Date(now.getTime() - UNKNOWN_EMAIL_WINDOW_MS).toISOString();
     const count = await store.countThrottle('login_fail_unknown_email', email, sinceUnknownIso);
@@ -88,7 +88,7 @@ export async function checkCredentials(
   if (account.lockedAt !== null) {
     // L1 - chạy bcrypt giả TRƯỚC KHI trả, để nhánh này tốn thời gian giống hệt nhánh email lạ ở
     // trên (không cho kẻ tấn công đo thời gian phân biệt "email tồn tại và đã khoá" với "email lạ").
-    verifyPassword(password, await getDummyHash());
+    await verifyPassword(password, await getDummyHash());
     // S-3 (bao-mat.md vòng 4) - nhánh này TRƯỚC ĐÂY không đụng DB nào sau bcrypt giả, trong khi
     // nhánh "email lạ" ở trên chạy thêm 1 INSERT (`recordThrottle`) + 1 SELECT (`countThrottle`) -
     // chênh lệch đo được khi lấy trung bình nhiều lần, lộ ra "tài khoản thật đang khoá" khác với
@@ -108,14 +108,14 @@ export async function checkCredentials(
     // đặt `lockedAt` (không ảnh hưởng đăng nhập Google thật). Trước đây nhánh này luôn trả `invalid`
     // trong khi nhánh email lạ báo `locked` từ lần 5 - lộ ra email nào là tài khoản chỉ Google (sai
     // 5 lần vẫn `invalid` mãi = chắc chắn tồn tại). Nay `reason` giống hệt nhánh email lạ.
-    verifyPassword(password, await getDummyHash());
+    await verifyPassword(password, await getDummyHash());
     await store.recordThrottle('login_fail_unknown_email', email, nowIso);
     const sinceUnknownIso = new Date(now.getTime() - UNKNOWN_EMAIL_WINDOW_MS).toISOString();
     const count = await store.countThrottle('login_fail_unknown_email', email, sinceUnknownIso);
     return { ok: false, reason: count >= LOGIN_LOCK_THRESHOLD ? 'locked' : 'invalid' };
   }
 
-  const passwordMatches = verifyPassword(password, account.passwordHash);
+  const passwordMatches = await verifyPassword(password, account.passwordHash);
 
   if (!passwordMatches || !account.isActive) {
     const result = await store.registerFailedLogin(email, LOGIN_LOCK_THRESHOLD, nowIso);
