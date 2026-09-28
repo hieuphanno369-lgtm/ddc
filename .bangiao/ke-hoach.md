@@ -77,6 +77,7 @@ Chữ cũ nói "Tự lấy tỷ giá Vietcombank mỗi tháng", không còn đú
 - **K3 - Xin link mới thì xoá mọi token cũ của email đó** (trong 1 transaction với lệnh tạo token mới).
 - **K4 - Dùng token nguyên tử**: `updateMany where tokenHash, usedAt null, expiresAt > now` rồi đổi mật khẩu trong cùng `$transaction`; 2 request đồng thời chỉ 1 cái thắng.
 - **K5 - Ngưỡng giới hạn** (hằng số trong `src/lib/login-policy.ts`): khoá tài khoản ở lần sai liên tiếp thứ 5; IP bị chặn khi có 20 lần đăng nhập sai trong 15 phút (chặn 15 phút trượt); xin link đặt lại tối đa 3 lần/giờ/email và 10 lần/giờ/IP.
+  **(Task 5, đề xuất, chủ dự án có thể đổi)** `GOOGLE_DENIED_LIMIT = 5`, `GOOGLE_DENIED_WINDOW_MS = 24 * 3_600_000` (bằng `UNKNOWN_EMAIL_WINDOW_MS`) cho `ThrottleKind` mới `'google_denied'` (R7 phần 3, G4): mục đích chỉ là chặn `activity_log` bị spam bởi các lần Google từ chối lặp lại của CÙNG 1 email, không phải khoá đăng nhập (Google không đi qua form mật khẩu nên không dùng `LOGIN_LOCK_THRESHOLD`/`IP_FAIL_LIMIT`) - tái dùng đúng ngưỡng và cửa sổ đã có của `login_fail_unknown_email` (cùng mục đích "hạn chế ghi log theo email", đã được duyệt) thay vì bịa 1 cặp số mới không có cơ sở.
 - **K6 - Không lộ email tồn tại ở màn đăng nhập**: email không có tài khoản vẫn chạy 1 lần bcrypt giả (cân thời gian) và vẫn bị đếm; sai 5 lần trong 24 giờ cũng hiện thông báo "đã bị khoá" như tài khoản thật.
   Giới hạn đã biết: với email không tồn tại, "khoá" tự hết sau 24 giờ; ghi vào `thay-doi.md`.
 - **K7 - Tài khoản chỉ Google, tài khoản bị tắt nhập mật khẩu**: trả "sai email hoặc mật khẩu" và vẫn tăng bộ đếm, để không lộ tài khoản nào là chỉ Google.
@@ -85,7 +86,8 @@ Chữ cũ nói "Tự lấy tỷ giá Vietcombank mỗi tháng", không còn đú
 - **K10 - Đặt lại thành công**: tài khoản chưa khoá thì bộ đếm sai về 0; đang khoá thì giữ nguyên khoá và bộ đếm (đúng yêu cầu "không mở khoá").
 - **K11 - Link trong email dựng từ `NEXTAUTH_URL`**, không bao giờ từ header `Host` (chống giả host); thiếu `NEXTAUTH_URL` coi như chưa cấu hình gửi email.
 - **K12 - Vô hiệu phiên cũ**: cột `passwordChangedAt`; JWT giữ `pwdAt` (ms) lúc đăng nhập; callback `jwt` so ở nhịp kiểm lại có sẵn `ACCESS_RECHECK_INTERVAL_MS` (5 phút, cơ chế T-5 đã được duyệt); trễ tối đa 5 phút, ghi vào `thay-doi.md`.
-- **K13 - IP khách**: `clientIpFrom(headers)` lấy phần tử đầu `x-forwarded-for`, rồi `x-real-ip`, cắt 64 ký tự (cùng quy ước `src/lib/activity.ts`); không lấy được IP thì bỏ qua giới hạn IP (không gộp mọi người vào 1 khoá chung).
+- **K13 (ĐÃ THAY bởi L2, `.bangiao/bao-mat.md`) - IP khách**: `clientIpFrom(headers)` lấy phần tử đầu `x-forwarded-for`, rồi `x-real-ip`, cắt 64 ký tự (cùng quy ước `src/lib/activity.ts`); không lấy được IP thì bỏ qua giới hạn IP (không gộp mọi người vào 1 khoá chung).
+  Hành vi hiện tại (L2): lấy theo `TRUSTED_PROXY_HOPS` (mặc định 1) tính từ PHẢI của `x-forwarded-for`, không có header nào thì gom khoá `'unknown'` (KHÔNG bỏ qua giới hạn) - xem `src/lib/client-ip.ts` và bước 4.2.
   Reverse proxy lúc deploy phải GHI ĐÈ `X-Forwarded-For` bằng IP thật: ghi vào `thay-doi.md` mục "Việc cho tài liệu deploy (C, T17)".
 - **K14 - Đóng L-11**: `resolveAccess` bỏ fallback `ROLE_SEED`/`viewer`; không có tài khoản hoặc DB lỗi thì trả `null` và phiên bị vô hiệu (fail-closed); quyền dựng thẳng từ 1 lần đọc tài khoản.
 - **K15 - Google chỉ vào khi `profile.email_verified === true`**, email Google (chữ thường) có trong `user_roles`, `isActive`, chưa khoá. Tên hiển thị lấy từ tài khoản DB nếu khác rỗng.
@@ -312,30 +314,12 @@ export function isWellFormedResetToken(token: unknown): token is string; // /^[A
 export function clientIpFrom(h: Pick<Headers, 'get'>): string; // '' khi không có
 
 // src/server/repo/types.ts
-export type ThrottleKind = 'login_fail_ip' | 'login_fail_unknown_email' | 'reset_req_email' | 'reset_req_ip';
-export interface AuthAccountState {
-  email: string; name: string; passwordHash: string; role: Role; canViewFinance: boolean;
-  isActive: boolean; failedLoginCount: number; lockedAt: string | null; passwordChangedAt: string | null;
-}
-export interface AuthStore {
-  getAccountState(email: string): Promise<AuthAccountState | null>;
-  /** +1 bộ đếm sai; đạt threshold và chưa khoá thì khoá; null nếu không có tài khoản. */
-  registerFailedLogin(email: string, threshold: number, nowIso: string): Promise<{ count: number; locked: boolean; justLocked: boolean } | null>;
-  resetFailedLogin(email: string): Promise<void>;
-  /** Xoá khoá + bộ đếm; false nếu không có tài khoản. */
-  unlockAccount(email: string): Promise<boolean>;
-  /** Đổi mật khẩu; bumpChangedAt = true thì passwordChangedAt = now. */
-  setPassword(email: string, passwordHash: string, bumpChangedAt: boolean, nowIso: string): Promise<boolean>;
-  recordThrottle(kind: ThrottleKind, key: string, nowIso: string): Promise<void>;
-  countThrottle(kind: ThrottleKind, key: string, sinceIso: string): Promise<number>;
-  /** Xoá mọi token cũ của email rồi tạo token mới (1 transaction). */
-  replaceResetToken(email: string, tokenHash: string, expiresAtIso: string, requestIp: string): Promise<void>;
-  /** Token còn dùng được (chưa dùng, chưa hết hạn, tài khoản còn, có mật khẩu, isActive)? */
-  peekResetToken(tokenHash: string, nowIso: string): Promise<boolean>;
-  /** Nguyên tử: đánh dấu token đã dùng + đặt mật khẩu + passwordChangedAt = now + bộ đếm về 0 nếu chưa khoá + vô hiệu token khác của email. */
-  consumeResetToken(tokenHash: string, passwordHash: string, nowIso: string): Promise<{ ok: true; email: string; name: string; locked: boolean } | { ok: false }>;
-  pruneAuthData(beforeIso: string): Promise<void>;
-}
+// Nguồn sự thật DUY NHẤT cho ThrottleKind/AuthAccountState/AuthStore là chính file này, không chép lại
+// chữ ký ở đây: qua 3 vòng sửa bảo mật (L3, R2/N2, G2) chữ ký đã đổi nhiều lần (`resetFailedLogin`
+// -> `Promise<boolean>`, `recordThrottle`/`countThrottle` -> `reserveThrottle`/`releaseThrottle` id-based)
+// và bản chép ở đây từng bị lệch theo - đọc thẳng `src/server/repo/types.ts` (mục "P3E: khoá đăng nhập
+// sai...", ngay sau `SapQueueItem`) để lấy đúng chữ ký + JSDoc hiện hành trước khi cài Task 5.
+// Task 5 thêm `'google_denied'` vào `ThrottleKind` (R7 phần 3, G4 - xem K5, Task 6 bước 6.3).
 
 // src/server/repo/mock-repo-auth.ts
 export interface MemoryAccountSource {
@@ -441,7 +425,7 @@ Log: `logActivity(who, 'password_reset_request', detail)` với `who = { name: e
 **Luật `resetPasswordWithToken`:** token sai định dạng -> `invalid_token`; `newPassword.length < 8` -> `too_short` (kiểm TRƯỚC khi đụng token để không đốt token); `consumeResetToken(hashResetToken(token), hashPassword(newPassword), now)` `ok: false` -> `invalid_token`; ok -> `logActivity(who, 'password_reset_done')`, trả `{ ok: true, locked }`.
 
 - [ ] 4.1 Test đỏ `reset-token.test.ts`: token 43 ký tự base64url; hash 64 ký tự hex; `hashResetToken(token) === tokenHash`; hash khác token; 100 lần sinh không trùng; `isWellFormedResetToken` từ chối `''`, 42/44 ký tự, ký tự `+ / =`, không phải string.
-- [ ] 4.2 Test đỏ `client-ip.test.ts`: `'1.2.3.4, 10.0.0.1'` -> `1.2.3.4`; chỉ `x-real-ip` -> giá trị đó; không có -> `''`; chuỗi 200 ký tự -> cắt 64.
+- [ ] 4.2 Test đỏ `client-ip.test.ts` (L2, ĐÃ THAY hành vi K13 gốc phía trên): `TRUSTED_PROXY_HOPS` mặc định 1 -> lấy phần tử CUỐI của `x-forwarded-for` (`'1.2.3.4, 10.0.0.1'` -> `10.0.0.1`); đặt `TRUSTED_PROXY_HOPS=2` -> lấy phần tử thứ 2 tính từ phải; giá trị `TRUSTED_PROXY_HOPS` không hợp lệ coi như 1; chỉ có `x-real-ip` -> giá trị đó; không có header nào -> `'unknown'` (KHÔNG còn `''`); chuỗi 200 ký tự -> cắt 64.
 - [ ] 4.3 Test đỏ `mock-repo-auth.test.ts` cho từng hàm `AuthStore` (khoá ở đúng lần thứ 5, `justLocked` chỉ 1 lần, `countThrottle` theo cửa sổ, `replaceResetToken` xoá token cũ, `consumeResetToken` lần 2 trả `ok: false`, hết hạn trả `ok: false`, khoá giữ nguyên sau consume, bộ đếm về 0 nếu chưa khoá, `pruneAuthData`).
 - [ ] 4.4 Test đỏ `login-guard.test.ts` (mock `@/lib/activity`, kho bộ nhớ, `now` truyền vào):
   4 lần sai -> `invalid`, lần 5 -> `locked`, `logActivity` gọi đúng 1 lần với `'login_locked'`;
@@ -500,9 +484,10 @@ Trước khi sửa: `git merge main`, `npx prisma migrate deploy` (DB `ddc_contr
 - Create: `prisma/rollback/<cùng tên>.down.sql`
 - Create: `src/server/repo/prisma-repo-auth.ts`, `src/server/repo/prisma-repo-auth.test.ts`
 - Create: `src/server/auth-store.ts`
-- Modify: `src/server/repo/types.ts` (`UserAccount` thêm `lockedAt: string | null`; thêm `AdminUserRow`)
+- Modify: `src/server/repo/types.ts` (`UserAccount` thêm `lockedAt: string | null`; thêm `AdminUserRow`; `ThrottleKind` thêm `'google_denied'` - R7 phần 3, G4)
 - Modify: `src/server/repo/prisma-repo.ts` (`getUserRoles`, `findAccount` map `lockedAt`)
 - Modify: `src/server/repo/mock-repo.ts`, `src/data/seed/history.ts` (`lockedAt: null` cho tài khoản mẫu)
+- Modify: `src/server/password-reset.ts` (R6 - đổi `console.error` dòng ghi lỗi hàng đợi nền từ `e.message` sang `e.name`/mã lỗi, cùng tinh thần G5 không lộ message gốc ra console/log)
 - Modify: `prisma/seed.ts` (xoá `projectPhoto.deleteMany`, `'project_photos'` trong `syncSequences`; thêm `await prisma.authThrottle.deleteMany(); await prisma.passwordResetToken.deleteMany();` TRƯỚC `userRole.deleteMany`; thêm `'password_reset_token'`, `'auth_throttle'` vào `syncSequences`; câu log cuối không đổi)
 - Modify: `prisma/rls.sql` (xoá dòng `project_photos`, thêm 2 dòng `enable row level security` cho `password_reset_token`, `auth_throttle` cùng kiểu dòng 36)
 - Modify: `src/lib/schema-meta/docs.ts` (xoá `project_photos` ở 2 chỗ dòng 215, 608; thêm mô tả + vị trí ERD cho 2 bảng mới theo mẫu các entry có sẵn; mô tả 3 cột mới của `user_roles`)
@@ -556,6 +541,7 @@ Sửa comment `JobRun.jobName` thành `// 'alerts_daily'` và comment đầu mod
 - `registerFailedLogin`: `prisma.userRole.update({ data: { failedLoginCount: { increment: 1 } } })` (không có dòng -> bắt `P2025` trả null), rồi nếu `count >= threshold`: `updateMany({ where: { email, lockedAt: null }, data: { lockedAt: now } })`, `justLocked = count === 1`.
 - **`resetFailedLogin` (L3, vòng sửa bảo mật 1 - `.bangiao/bao-mat.md`)**: interface đổi từ `Promise<void>` sang `Promise<boolean>` - PHẢI nguyên tử, ví dụ `updateMany({ where: { email, lockedAt: null }, data: { failedLoginCount: 0 } })`, trả `false` khi `count === 0` (đã bị khoá bởi request khác); đọc kỹ JSDoc trong `types.ts`.
 - `consumeResetToken`, `replaceResetToken`: dùng `prisma.$transaction(async (tx) => ...)`, luật ở Task 4 mục Interfaces. **L5**: `consumeResetToken` phải kiểm `isActive`/`passwordHash !== ''` NGAY TRONG câu `UPDATE`/điều kiện của transaction (không chỉ tin token còn hạn), giống `peekResetToken`; FK cascade `PasswordResetToken.user` (đã có trong schema dưới) đảm bảo xoá tài khoản thì token cũ mất theo.
+- **`reserveThrottle`/`releaseThrottle` (đóng N2, đọc kỹ JSDoc `AuthStore.reserveThrottle`/`releaseThrottle` trong `types.ts` trước khi cài)**: `reserveThrottle` chạy trong `prisma.$transaction(async (tx) => ...)`, MỌI câu lệnh bên trong dùng qua `tx` (không gọi `prisma` trực tiếp); mở đầu bằng `tx.$executeRaw` gọi `pg_advisory_xact_lock(hashtext(kind || ':' || key))` để khoá đúng theo cặp `kind:key` (tự nhả khi transaction kết thúc, không chặn `kind:key` khác); rồi đếm số dòng `auth_throttle` có `kind`, `key`, `createdAt >= sinceIso` bằng `tx.authThrottle.count`, còn chỗ (< `limit`) thì `tx.authThrottle.create({ data: { kind, key, createdAt: nowIso } })` và trả `id` vừa tạo, hết chỗ trả `null` (không tạo dòng). `releaseThrottle(id)`: `prisma.authThrottle.deleteMany({ where: { id } })` (KHÔNG dùng `delete` vì ném lỗi `P2025` khi dòng đã bị `pruneAuthData` dọn trước đó; `deleteMany` với `id` không tồn tại chỉ trả `count: 0`, không ném lỗi).
 
 - [ ] 5.1 Sửa `schema.prisma` như trên; `npx prisma format`.
 - [ ] 5.2 Tạo migration: `npx prisma migrate dev --create-only --name p3e_dang_nhap_bo_anh` trên DB `ddc_control_tower` (DB đã deploy tới mới nhất); đổi tên thư mục theo mẫu timestamp của repo nếu cần; đọc lại SQL: chỉ có ADD COLUMN x3 (có DEFAULT cho `failedLoginCount`), CREATE TABLE x2 + index + FK cascade, DROP TABLE `project_photos`.
@@ -563,6 +549,7 @@ Sửa comment `JobRun.jobName` thành `// 'alerts_daily'` và comment đầu mod
 - [ ] 5.3 Viết rollback theo mẫu file rollback P3C-A (comment không dấu, `BEGIN/COMMIT`): DROP 2 bảng mới, DROP 3 cột, tạo lại `project_photos` đúng DDL gốc (copy khối CREATE TABLE + INDEX + FK của `project_photos` từ migration đã tạo nó, tìm bằng `project_photos` trong `prisma/migrations/`), xoá dòng `_prisma_migrations` của migration này; ghi chú "ảnh cũ không khôi phục được".
 - [ ] 5.4 Diễn tập trên DB tạm e2e (KHÔNG trên DB của B/C): đặt `$env:DATABASE_URL` và `$env:DIRECT_URL` trỏ `ddc_control_tower_e2e_a`, chạy `npx prisma migrate deploy`, `npx prisma db execute --file prisma/rollback/<tên>.down.sql --schema prisma/schema.prisma`, rồi `npx prisma migrate deploy` lại; ghi kết quả vào `thay-doi.md`. Sau đó `npx prisma migrate deploy` trên DB `ddc_control_tower`.
 - [ ] 5.5 Test đỏ `prisma-repo-auth.test.ts` (mock `@/server/db`, mẫu `prisma-repo-notify.test.ts`): `registerFailedLogin` gọi `update` với `increment: 1`, lần đạt ngưỡng gọi `updateMany` có `lockedAt: null` trong `where`; không có tài khoản trả null; `consumeResetToken` khi `updateMany` token trả `count: 0` thì không gọi update mật khẩu; `replaceResetToken` gọi `deleteMany({ where: { email } })` trước `create`; `peekResetToken` lọc `usedAt: null`, `expiresAt: { gt }`.
+  Test DB THẬT (chạy trên DB tạm e2e đã diễn tập ở bước 5.4, KHÔNG mock `@/server/db` - chỉ có Postgres thật mới chứng minh được `pg_advisory_xact_lock` khoá đúng, mock không lộ race): 30 lời gọi `reserveThrottle` cùng `kind:key` chạy song song qua `Promise.all`, `limit=20` -> đúng 20 lời gọi trả `id` khác `null`, 10 lời gọi còn lại trả `null`; chèn tay 2 dòng `auth_throttle` trùng `createdAt` bằng SQL rồi `releaseThrottle(id)` -> chỉ xoá đúng 1 dòng (đóng N2); `consumeResetToken` trả `{ ok: false }` khi tài khoản đã tắt hoặc đã chuyển sang chỉ Google dù token còn hạn (L5); `resetFailedLogin` trả `false` khi tài khoản đã bị khoá bởi 1 request khác (L3); 5 lời gọi `registerFailedLogin` song song cùng email đạt ngưỡng khoá -> `justLocked` đúng `true` ở duy nhất 1 lời gọi.
 - [ ] 5.6 Cài đặt `prisma-repo-auth.ts`, `auth-store.ts`, mapping `lockedAt`, seed, rls, docs, prune; `npx prisma generate`.
 - [ ] 5.7 Cổng kiểm + `npm run check:read` + `npm run test:e2e:a` (toàn bộ, xác nhận seed chạy được trên schema mới).
 - [ ] 5.8 Commit `feat(p3e): schema dang nhap an toan + xoa bang anh (migration + rollback)`, nhả khoá schema/migrations/prisma-repo.ts trong `phien-A.md`.
@@ -606,7 +593,9 @@ export async function unlockAccountCli(store: AuthStore, rawEmail: string, log: 
 
 - [ ] 6.1 Test đỏ `auth-authorize.test.ts` (mock `next/headers` trả `x-forwarded-for`, mock `@/server/auth-store` trả kho bộ nhớ, mock `@/lib/activity`): gọi `authorize` của CredentialsProvider (lấy từ `authOptions.providers`, gọi `options.authorize`) 5 lần sai -> 4 lần `null`, lần 5 ném `locked`; IP bị giới hạn -> ném `ip_limited`; email > 254 ký tự -> `null`; đúng -> object `{ id, email, name }`.
 - [ ] 6.2 Sửa `authorize`: `normalizeEmail`, thiếu mật khẩu -> `null`; `ip = clientIpFrom(await headers())`; `checkCredentials(getAuthStore(), ...)`; `invalid` -> `null`; `locked`/`ip_limited` -> `throw new Error(reason)`; `ok` -> `touchLastLogin`, trả user. Xoá TODO dòng 118 (rate-limit).
+  (G5) Bọc lời gọi `checkCredentials` trong try/catch: bắt lỗi, nếu là `Error` với `message` đúng `'locked'`/`'ip_limited'` thì `throw` lại NGUYÊN VĂN lỗi đó (next-auth cần đúng 2 chuỗi này ở `res.error`); lỗi khác (ví dụ Prisma mất kết nối) thì `console.error('[authorize]', e instanceof Error ? e.name : String(e))` (KHÔNG log `e.message` - có thể chứa chuỗi kết nối DB) rồi trả `null` (next-auth hiện `CredentialsSignin` chung, không lộ chi tiết lỗi hạ tầng cho người dùng). Test thêm "G5": `store.getAccountState` ném lỗi bất kỳ -> `authorize` trả `null`, không ném lại, `console.error` không chứa nội dung `message` gốc.
 - [ ] 6.3 `signIn` Google: truyền `lockedAt` thật từ `getAuthStore().getAccountState(email)` vào `googleAccessDecision`; test thêm vào `auth-google.test.ts`: tài khoản đang khoá -> `false`; Google thành công không đổi `failedLoginCount`.
+  (R7 phần 3, G4) Nhánh `decision !== 'allow'`: gọi `getAuthStore().reserveThrottle('google_denied', email, now, now - GOOGLE_DENIED_WINDOW_MS, GOOGLE_DENIED_LIMIT)` TRƯỚC `logActivity`; còn chỗ (`id` khác `null`) thì ghi log như cũ (không cần `releaseThrottle` - đây là đếm để hạn chế log, không có nhánh "đúng" để nhả lại); hết chỗ (`id === null`) thì VẪN trả `false` (từ chối đăng nhập Google) nhưng KHÔNG gọi `logActivity` (giống cách `requestPasswordReset` bỏ log khi hết chỗ IP - L4, tránh chính việc chặn spam log lại làm log bị spam). Test thêm "R7 phần 3": 5 lần từ chối liên tiếp cùng email ghi đủ 5 dòng `login_google_denied`, lần thứ 6 trả `false` nhưng không gọi `logActivity` thêm lần nào.
 - [ ] 6.4 (Chờ Q1) Q1=b: nhánh kiểm lại định kỳ của `jwt` coi `lockedAt !== null` là `token.invalid = true`, thêm test. Q1=a: không đổi, thêm test khẳng định phiên đang mở vẫn hợp lệ khi tài khoản bị khoá.
 - [ ] 6.5 `LoginForm.tsx`: `res.error === 'locked'` -> `t('authSecurity.locked')`; `'ip_limited'` -> `t('authSecurity.ipLimited')`; còn lại -> `t('auth.invalidCredentials')`.
 - [ ] 6.6 Test đỏ `actions-account-lock.test.ts` (mẫu `actions.test.ts` 13-34, mock `@/server/auth-store`): viewer/bod/data-entry -> Forbidden; email sai -> `Invalid input`; không có -> `Not found`; admin mở -> `lockedAt null`, bộ đếm 0, `logActivity` action `account_unlock`; `tempPassword` 1-7 ký tự -> `too_short`, không mở khoá; `tempPassword` hợp lệ -> mở khoá + đặt mật khẩu (`bumpChangedAt` theo Q2: b/c -> true, a -> false).
@@ -623,7 +612,7 @@ export async function unlockAccountCli(store: AuthStore, rawEmail: string, log: 
 - [ ] 6.9 i18n: thêm các key `authSecurity` của Task 6 và cuối nhóm `activity`: `login_locked`, `account_unlock`, `account_unlock_cli` (xem bảng key). Thêm vào `messages.test.ts` mảng `required` 3 key `activity.account_unlock_cli`, `authSecurity.locked`, `authSecurity.unlock` và thêm `'LoginForm': 'src/components/layout/LoginForm.tsx'`, `'UserEditor': 'src/components/admin/UserEditor.tsx'` vào `CHANGED_SOURCES`.
 - [ ] 6.10 `e2e/global-setup.ts`: sau seed, `prisma.userRole.upsert` 2 tài khoản viewer `e2e-khoa@daidung.com.vn` và `e2e-quenmk@daidung.com.vn`, mật khẩu hash bằng `hashPassword` (import `../src/lib/password`) từ hằng `E2E_LOCK_PASSWORD = 'E2e-Khoa-2026!'` đặt trong `e2e/helpers/env.ts` (DB tạm, không phải mật khẩu thật).
   e2e `21-khoa-tai-khoan.spec.ts`: 4 lần sai -> `auth.invalidCredentials`; lần 5 -> `authSecurity.locked`; mật khẩu đúng -> vẫn `authSecurity.locked`; context admin mở `/vi/admin` thấy email trong khối khoá, bấm `authSecurity.unlock`; context mới đăng nhập đúng -> về `/vi/overview`.
-  Kiểm thêm (ghi kết quả vào `thay-doi.md`): sau khi chạy spec, `activity_log.ip` của dòng `login` có giá trị hay rỗng (xác minh `x-forwarded-for` có trên dev server; rỗng thì giới hạn IP bị bỏ qua theo K13).
+  Kiểm thêm (ghi kết quả vào `thay-doi.md`): sau khi chạy spec, `activity_log.ip` của dòng `login` khác `'unknown'` (K13 ĐÃ THAY bởi L2 - không lấy được IP thì gom khoá `'unknown'` chứ không còn trả `''`); gọi `GET /api/health` phải trả `clientIpResolved: true` (R4) - xác nhận `x-forwarded-for` có tới được dev server và cấu hình `TRUSTED_PROXY_HOPS` đúng, `false` thì soi lại cấu hình trước khi coi Task 6 xong.
 - [ ] 6.11 Cổng kiểm + e2e `01-login`, `07-admin`, `20-dang-nhap-google`, `21-khoa-tai-khoan`.
 - [ ] 6.12 Commit `feat(p3e): D3 khoa tai khoan sau 5 lan sai, mo khoa admin + lenh server`.
 
@@ -657,12 +646,15 @@ export async function submitPasswordResetAction(token: string, newPassword: stri
 ```
 Không đặt tên `resetPasswordAction` (đã có hàm admin trùng tên trong `actions.ts`).
 - `requestPasswordResetAction`: `locale` không thuộc `routing.locales` thì dùng `'vi'`; `ip = clientIpFrom(await headers())`; gọi `requestPasswordReset(getAuthStore(), resetMailer, { email, ip, locale, baseUrl: process.env.NEXTAUTH_URL })`.
+  (G5) Bọc lời gọi `requestPasswordReset` trong try/catch: ném lỗi (ví dụ `store`/Prisma lỗi hạ tầng) thì `console.error('[requestPasswordResetAction]', e instanceof Error ? e.name : String(e))` (không log `message`) rồi trả `{ status: 'accepted' }` - GIỐNG HỆT phản hồi bình thường, không lộ cho người gọi biết có lỗi hạ tầng (đúng tinh thần S3/K8 "luôn trả về giống nhau").
 - `submitPasswordResetAction`: `newPassword !== confirm` -> `mismatch` (trước mọi thứ); rồi `resetPasswordWithToken`.
+  (G5) Bọc `resetPasswordWithToken` trong try/catch: ném lỗi thì `console.error` như trên rồi trả `{ ok: false, error: 'invalid_token' }` (phản hồi chung, không lộ chi tiết lỗi hạ tầng).
 - JWT: lúc đăng nhập `token.pwdAt = passwordChangedAt ? Date.parse(passwordChangedAt) : 0`; nhánh kiểm lại: `Date.parse(account.passwordChangedAt ?? '') > (token.pwdAt ?? 0)` -> `token.invalid = true`.
   Bổ sung kiểu `pwdAt?: number` vào khai báo JWT hiện có (`src/types/next-auth.d.ts`, khối `declare module 'next-auth/jwt'`).
 
 - [ ] 7.1 Test đỏ `middleware-auth.test.ts`: chưa đăng nhập mở `/vi/quen-mat-khau`, `/en/dat-lai-mat-khau?token=x` -> không redirect `/login`; `/vi/quen-mat-khau-gia` -> redirect (so khớp đúng đường dẫn, dùng `isPublicPath` có sẵn).
 - [ ] 7.2 Test đỏ `actions-password-reset.test.ts` (mock `next/headers`, `@/server/auth-store`, `@/server/auth-mail` trả `resetMailer` giả có `getSmtp` trả cfg giả, `compose` trả chuỗi chứa link, `queue` là spy, `@/lib/activity`): `locale: 'fr'` -> link chứa `/vi/`; `mismatch`; `NEXTAUTH_URL` rỗng -> `smtp_missing`; luồng đủ: xin link -> lấy token từ link trong lời gọi `queue` giả -> `submitPasswordResetAction` ok -> đăng nhập (`checkCredentials`) bằng mật khẩu mới ok, mật khẩu cũ `invalid`.
+  (G5) Thêm test: `getAuthStore` (mock) ném lỗi bất kỳ -> `requestPasswordResetAction` vẫn trả `{ status: 'accepted' }`, không ném lại, `console.error` không chứa `message` gốc; tương tự `submitPasswordResetAction` khi `resetPasswordWithToken` ném lỗi -> trả `{ ok: false, error: 'invalid_token' }`.
   Chốt Q6 ở `getAuthSmtpConfig` trong bước này.
 - [ ] 7.3 Test đỏ `auth-access-recheck.test.ts`: token `pwdAt` cũ hơn `passwordChangedAt` -> `invalid`; bằng nhau -> hợp lệ; token không có `pwdAt` + `passwordChangedAt null` -> hợp lệ.
   (Chờ Q2 phần b/c) Q2=b: test `resetPasswordAction` (admin) đặt `passwordChangedAt`; Q2=c: thêm `changePasswordAction`.
@@ -694,7 +686,7 @@ Không đặt tên `resetPasswordAction` (đã có hàm admin trùng tên trong 
 - [ ] 8.1 Tìm lại trong `src/`, `app/`, `scripts/`, `e2e/`: `ROLE_SEED`, `isAllowedDomain` (nếu Q3=a), `projectPhoto`, `ProjectPhoto`, `photo-upload`, `/api/photos`, `rates_monthly`, `VCB_RATE_URL`: không còn.
 - [ ] 8.2 `src/server/api-routes-guard.test.ts`: danh sách route khớp đúng 6 route còn lại (`auth/[...nextauth]`, `health`, `cron/[job]`, `export`, `report/export`, `templates/daily-resources`).
 - [ ] 8.3 `.env.example` cuối cùng: không có `VCB_RATE_URL`, `ROLE_SEED` (và `ALLOWED_EMAIL_DOMAINS` nếu Q3=a); comment `NEXTAUTH_URL` ghi "dùng để dựng link đặt lại mật khẩu, phải là URL thật khi deploy".
-- [ ] 8.4 Viết `.bangiao/thay-doi.md`: danh sách file, kết quả cổng kiểm (dán output), kết quả diễn tập rollback, giới hạn đã biết (K6, K12, K13), câu hỏi còn chờ, mục "Việc cho tài liệu deploy (C, T17)": Google OAuth Client theo `docs/HUONG_DAN_GOOGLE_OAUTH.md`, SMTP bắt buộc, `NEXTAUTH_URL` đúng domain, **reverse proxy BẮT BUỘC tự NỐI THÊM (append, không ghi đè) IP khách vào `X-Forwarded-For` đúng `TRUSTED_PROXY_HOPS` tầng khai trong `.env.example` (R4/R5, `.bangiao/bao-mat.md` vòng 2) - thiếu bước này thì mọi người dùng rơi vào khoá `'unknown'` dùng chung, có thể tự khoá lẫn nhau; kiểm nhanh sau deploy bằng `GET /api/health` -> `clientIpResolved` phải là `true`, `false` thì soi lại cấu hình proxy**, **reverse proxy đặt giới hạn tần suất cho `POST` quên mật khẩu theo IP (L1, `.bangiao/bao-mat.md` vòng 4: chủ dự án chọn không tính lượt bấm dư của 1 email vào hạn mức IP, nên chặn spam ở tầng proxy)**, lệnh `npm run unlock-account -- <email>`, cron chỉ `alerts_daily`, không còn thư mục ảnh cần backup.
+- [ ] 8.4 Viết `.bangiao/thay-doi.md`: danh sách file, kết quả cổng kiểm (dán output), kết quả diễn tập rollback, giới hạn đã biết (K6, K12, G1, khoá chung `'unknown'` của R4, L1 phương án b), câu hỏi còn chờ, mục "Việc cho tài liệu deploy (C, T17)": Google OAuth Client theo `docs/HUONG_DAN_GOOGLE_OAUTH.md`, SMTP bắt buộc, `NEXTAUTH_URL` đúng domain, **reverse proxy BẮT BUỘC tự NỐI THÊM (append, không ghi đè) IP khách vào `X-Forwarded-For` đúng `TRUSTED_PROXY_HOPS` tầng khai trong `.env.example` (R4/R5, `.bangiao/bao-mat.md` vòng 2) - thiếu bước này thì mọi người dùng rơi vào khoá `'unknown'` dùng chung, có thể tự khoá lẫn nhau; kiểm nhanh sau deploy bằng `GET /api/health` -> `clientIpResolved` phải là `true`, `false` thì soi lại cấu hình proxy**, **reverse proxy đặt giới hạn tần suất cho `POST` quên mật khẩu theo IP (L1, `.bangiao/bao-mat.md` vòng 4: chủ dự án chọn không tính lượt bấm dư của 1 email vào hạn mức IP, nên chặn spam ở tầng proxy)**, lệnh `npm run unlock-account -- <email>`, cron chỉ `alerts_daily`, không còn thư mục ảnh cần backup.
 - [ ] 8.5 Cổng kiểm đầy đủ + `npm run test:e2e:a` toàn bộ (không lọc spec); đỏ thì sửa, chập chờn thì tìm gốc.
 - [ ] 8.6 Commit `chore(p3e): kiem tong, cap nhat ho so ban giao`.
 

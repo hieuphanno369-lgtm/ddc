@@ -63,16 +63,11 @@ export async function checkCredentials(
   // đúng hay sai mật khẩu: đóng race TOCTOU khi N yêu cầu chạy đồng thời (`Promise.all`) cùng đọc
   // thấy số đếm CŨ trước khi ai kịp ghi, khiến cả N đều lọt qua và chạy bcrypt (xem `reserveThrottle`
   // ở `types.ts`/`mock-repo-auth.ts`). Nếu cuối cùng lượt này ĐÚNG mật khẩu (không tính là 1 lần
-  // sai) thì `releaseIpSlot()` rút chỗ vừa đặt ra.
+  // sai) thì `store.releaseThrottle(ipReserved)` rút chỗ vừa đặt ra (gọi đúng 1 lần duy nhất ở nhánh
+  // "đúng" bên dưới, không cần cờ chống gọi trùng).
   const sinceIso = new Date(now.getTime() - IP_FAIL_WINDOW_MS).toISOString();
   const ipReserved = await store.reserveThrottle('login_fail_ip', ipKey, nowIso, sinceIso, IP_FAIL_LIMIT);
   if (ipReserved === null) return { ok: false, reason: 'ip_limited' };
-  let ipSlotReleased = false;
-  const releaseIpSlot = async () => {
-    if (ipSlotReleased) return;
-    ipSlotReleased = true;
-    await store.releaseThrottle(ipReserved);
-  };
 
   const account = await store.getAccountState(email);
 
@@ -116,7 +111,7 @@ export async function checkCredentials(
   }
 
   // Đúng mật khẩu: lượt này KHÔNG tính là 1 lần sai theo IP - rút lại chỗ đã đặt ở đầu hàm.
-  await releaseIpSlot();
+  await store.releaseThrottle(ipReserved);
 
   // L3 - xác nhận nguyên tử, LUÔN gọi (kể cả `failedLoginCount === 0`): xem docstring hàm.
   const confirmed = await store.resetFailedLogin(email);

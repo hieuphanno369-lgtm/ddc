@@ -576,14 +576,13 @@ export interface SapQueueItem {
 
 // ---- P3E: khoá đăng nhập sai + giới hạn theo IP/email + token đặt lại mật khẩu ----
 
-export type ThrottleKind = 'login_fail_ip' | 'login_fail_unknown_email' | 'reset_req_email' | 'reset_req_ip';
-
 /**
  * R1 (bao-mat.md vòng 2) - `login_fail_unknown_email` (khoá theo `email`, cửa sổ 24h) dùng CHUNG cho
  * cả email không có tài khoản LẪN tài khoản CHỈ Google (`passwordHash === ''`) sai ở form mật khẩu:
  * cả 2 phải trả `reason` GIỐNG HỆT nhau qua từng lần sai (không lộ "email này là tài khoản chỉ
  * Google" qua khác biệt reason/`lockedAt`), xem `login-guard.ts`.
  */
+export type ThrottleKind = 'login_fail_ip' | 'login_fail_unknown_email' | 'reset_req_email' | 'reset_req_ip';
 
 export interface AuthAccountState {
   email: string;
@@ -597,9 +596,22 @@ export interface AuthAccountState {
   passwordChangedAt: string | null;
 }
 
+/**
+ * Mọi tham số `email` của các hàm dưới đây đều đã được BÊN GỌI chuẩn hoá (`trim().toLowerCase()`,
+ * qua `normalizeEmail()` ở `src/lib/login-policy.ts` hoặc chuẩn hoá thủ công cùng công thức trong
+ * `login-guard.ts`) TRƯỚC khi gọi vào `AuthStore` - implementation (`mock-repo-auth.ts`,
+ * `prisma-repo-auth.ts`) KHÔNG tự chuẩn hoá lại, chỉ dùng `email` đúng như nhận được làm khoá tra
+ * cứu/khoá throttle.
+ */
 export interface AuthStore {
   getAccountState(email: string): Promise<AuthAccountState | null>;
-  /** +1 bộ đếm sai; đạt threshold và chưa khoá thì khoá; null nếu không có tài khoản. */
+  /**
+   * +1 bộ đếm sai; đạt `threshold` VÀ chưa khoá thì khoá luôn trong CÙNG lần ghi - PHẢI NGUYÊN TỬ:
+   * tăng bằng `increment` rồi khoá bằng điều kiện `lockedAt IS NULL` tại thời điểm ghi (không dựa vào
+   * giá trị đọc trước đó), để nhiều lời gọi song song cho CÙNG 1 email chỉ có đúng 1 lời gọi thấy
+   * `justLocked: true` (lời gọi đưa bộ đếm chạm `threshold` đầu tiên), các lời gọi khác (kể cả đến
+   * sau khi đã khoá) vẫn tăng bộ đếm nhưng `justLocked: false`. `null` nếu không có tài khoản.
+   */
   registerFailedLogin(
     email: string,
     threshold: number,
@@ -636,6 +648,8 @@ export interface AuthStore {
    * nhả khi transaction kết thúc, không chặn các `kind:key` khác) rồi mới đếm cửa sổ + ghi dòng mới -
    * chỉ như vậy mọi giao dịch cùng `kind:key` mới chạy TUẦN TỰ với nhau. "1 câu SQL đơn thuần ở READ
    * COMMITTED" (không khoá) là KHÔNG ĐỦ, dù có `RETURNING`.
+   * Cửa sổ đếm là `createdAt >= sinceIso` (TÍNH CẢ BIÊN - dòng có `createdAt` đúng bằng `sinceIso`
+   * vẫn được tính vào cửa sổ, không phải `>` nghiêm ngặt).
    * Trả về `id` (khoá chính) của dòng vừa ghi (`nowIso`) nếu số dòng trong cửa sổ (TRƯỚC khi ghi) <
    * `limit`; trả `null` (KHÔNG ghi thêm) nếu đã đủ `limit` - giữ đúng hành vi cũ "vượt ngưỡng thì
    * không ghi thêm dòng nào" (không để bộ đếm phình vô hạn khi bị spam). `id` dùng để `releaseThrottle`
@@ -669,5 +683,10 @@ export interface AuthStore {
     passwordHash: string,
     nowIso: string,
   ): Promise<{ ok: true; email: string; name: string; locked: boolean } | { ok: false }>;
+  /**
+   * Dọn dữ liệu cũ: xoá mọi dòng `auth_throttle` VÀ mọi token đặt lại mật khẩu có `createdAt <
+   * beforeIso` - token bị xoá THEO TUỔI, BẤT KỂ đã dùng (`usedAt` khác `null`) hay chưa, còn hạn hay
+   * đã hết hạn (K19, gọi định kỳ từ job `alerts_daily`).
+   */
   pruneAuthData(beforeIso: string): Promise<void>;
 }
