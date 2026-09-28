@@ -168,30 +168,29 @@ model Project {
   createdBy             String
   updatedBy             String
 
-  customer        Customer                  @relation(fields: [customerId], references: [id])
-  team            TeamKd                    @relation(fields: [teamKdId], references: [id])
-  currency        Currency                  @relation(fields: [currencyCode], references: [code])
-  factory         Factory?                  @relation(fields: [factoryId], references: [id], onDelete: Restrict)
-  aliases         ProjectAlias[]
-  sapCodes        ProjectSapCode[]
-  assignments     ProjectAssignment[]
-  facts           FactProgressMonthly[]
-  valueChain      ValueChainProgress[]
-  financials      FactFinancial[]
-  volumes         FactVolume[]
-  history         ProjectHistory[]
-  alerts          AlertLog[]
-  photos          ProjectPhoto[]
-  sapQueue        SapQueue[]
-  stageWeights    ProjectStageWeight[]
-  workItems       ProjectWorkItem[]
-  workItemFacts   FactStageWorkItem[]
-  stageMilestones FactStageMilestone[]
-  keyMilestones   ProjectKeyMilestone[]
-  contractors     ProjectContractor[]
-  dailyManpower   FactDailyManpower[]
-  dailyEquipment  FactDailyEquipmentUsage[]
-  equipmentPlans  ProjectEquipmentPlan[]
+  customer           Customer                   @relation(fields: [customerId], references: [id])
+  team               TeamKd                     @relation(fields: [teamKdId], references: [id])
+  currency           Currency                   @relation(fields: [currencyCode], references: [code])
+  factory            Factory?                   @relation(fields: [factoryId], references: [id], onDelete: Restrict)
+  aliases            ProjectAlias[]
+  sapCodes           ProjectSapCode[]
+  assignments        ProjectAssignment[]
+  facts              FactProgressMonthly[]
+  valueChain         ValueChainProgress[]
+  financials         FactFinancial[]
+  volumes            FactVolume[]
+  history            ProjectHistory[]
+  alerts             AlertLog[]
+  sapQueue           SapQueue[]
+  stageWeights       ProjectStageWeight[]
+  workItems          ProjectWorkItem[]
+  workItemFacts      FactStageWorkItem[]
+  stageMilestones    FactStageMilestone[]
+  keyMilestones      ProjectKeyMilestone[]
+  contractors        ProjectContractor[]
+  dailyManpower      FactDailyManpower[]
+  dailyEquipment     FactDailyEquipmentUsage[]
+  equipmentPlans     ProjectEquipmentPlan[]
   equipmentQuotas    ProjectEquipmentQuota[]
   manpowerPlanMonths ProjectManpowerPlanMonth[]
   shiftRatios        ProjectShiftRatio[]
@@ -250,16 +249,52 @@ model ProjectAssignment {
 }
 
 model UserRole {
-  email          String    @id
-  name           String    @default("")
-  passwordHash   String    @default("")
-  role           String
-  canViewFinance Boolean   @default(true)
-  isActive       Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  lastLoginAt    DateTime?
+  email             String               @id
+  name              String               @default("")
+  passwordHash      String               @default("")
+  role              String
+  canViewFinance    Boolean              @default(true)
+  isActive          Boolean              @default(true)
+  createdAt         DateTime             @default(now())
+  lastLoginAt       DateTime?
+  // ---- P3E: khoá đăng nhập sai + đặt lại mật khẩu ----
+  failedLoginCount  Int                  @default(0)
+  lockedAt          DateTime?
+  passwordChangedAt DateTime?
+  resetTokens       PasswordResetToken[]
 
   @@map("user_roles")
+}
+
+/**
+ * P3E: token đặt lại mật khẩu - chỉ lưu SHA-256, hết hạn 30 phút, dùng 1 lần.
+ */
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement())
+  email     String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  requestIp String    @default("")
+  user      UserRole  @relation(fields: [email], references: [email], onDelete: Cascade)
+
+  @@index([email])
+  @@map("password_reset_token")
+}
+
+/**
+ * P3E: nhật ký đếm lần thử (đăng nhập sai theo IP, xin link theo email/IP) - dọn sau 24 giờ.
+ */
+model AuthThrottle {
+  id        Int      @id @default(autoincrement())
+  kind      String // ThrottleKind trong src/server/repo/types.ts
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([kind, key, createdAt])
+  @@index([createdAt])
+  @@map("auth_throttle")
 }
 
 // ---- Fact ----
@@ -375,24 +410,24 @@ model ProjectHistory {
 
 // ---- Log / phụ ----
 model AlertLog {
-  id            Int       @id @default(autoincrement())
-  projectId     Int
-  alertType     AlertType
-  ruleTriggered String
-  message       String
-  openedAt      DateTime
-  closedAt      DateTime?
-  owner         String
-  action        String    @default("")
-  deadline      String
-  ruleCode      String?
-  dedupeKey     String?
-  closedBy      String?
-  closeNote     String    @default("")
-  notifyChannel String? // P3B: danh sach kenh da gui, dang 'webhook:1,email:2'; null = chua gui
-  notifySentAt  DateTime?
-  notifyError   String?
-  notifyAttempts Int      @default(0)
+  id             Int       @id @default(autoincrement())
+  projectId      Int
+  alertType      AlertType
+  ruleTriggered  String
+  message        String
+  openedAt       DateTime
+  closedAt       DateTime?
+  owner          String
+  action         String    @default("")
+  deadline       String
+  ruleCode       String?
+  dedupeKey      String?
+  closedBy       String?
+  closeNote      String    @default("")
+  notifyChannel  String? // P3B: danh sach kenh da gui, dang 'webhook:1,email:2'; null = chua gui
+  notifySentAt   DateTime?
+  notifyError    String?
+  notifyAttempts Int       @default(0)
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -417,21 +452,6 @@ model AuditLog {
   @@index([changedAt])
   @@index([tableName, recordId])
   @@map("audit_log")
-}
-
-model ProjectPhoto {
-  id         Int      @id @default(autoincrement())
-  projectId  Int
-  yearMonth  String
-  url        String
-  caption    String   @default("")
-  uploadedBy String
-  uploadedAt DateTime @default(now())
-
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@index([projectId, yearMonth])
-  @@map("project_photos")
 }
 
 model SapQueue {
@@ -655,7 +675,9 @@ model FactDailyManpower {
   @@map("fact_daily_manpower")
 }
 
-/** Ca làm việc - bảng mở rộng được (thêm ca = INSERT, không migration). */
+/**
+ * Ca làm việc - bảng mở rộng được (thêm ca = INSERT, không migration).
+ */
 model Shift {
   code      String  @id
   nameVi    String
@@ -663,14 +685,16 @@ model Shift {
   sortOrder Int
   isActive  Boolean @default(true)
 
-  manpower FactDailyManpower[]
+  manpower      FactDailyManpower[]
   manpowerPlans ProjectManpowerPlanMonth[]
   shiftRatios   ProjectShiftRatio[]
 
   @@map("dim_shift")
 }
 
-/** Lịch ngày cho nhóm theo tuần ISO (Thứ 2 đầu tuần). Đổ sẵn trong migration, không seed. */
+/**
+ * Lịch ngày cho nhóm theo tuần ISO (Thứ 2 đầu tuần). Đổ sẵn trong migration, không seed.
+ */
 model CalendarDate {
   date      DateTime @id @db.Date
   yearMonth String
@@ -684,12 +708,14 @@ model CalendarDate {
   @@map("dim_date")
 }
 
-/** Kế hoạch dùng thiết bị theo đợt (P3C-A): 1 dòng = 1 đợt, qty = SL dùng. Dòng cũ P3A theo từng chiếc có unitNo, qty = 1. */
+/**
+ * Kế hoạch dùng thiết bị theo đợt (P3C-A): 1 dòng = 1 đợt, qty = SL dùng. Dòng cũ P3A theo từng chiếc có unitNo, qty = 1.
+ */
 model ProjectEquipmentPlan {
   id            Int      @id @default(autoincrement())
   projectId     Int
   equipmentId   Int
-  unitNo        Int?     // P3A: số chiếc; P3C-A: null với đợt nhập theo SL
+  unitNo        Int? // P3A: số chiếc; P3C-A: null với đợt nhập theo SL
   qty           Int      @default(1) // SL dùng trong đợt (>= 1)
   workItemId    Int?
   plannedStart  DateTime @db.Date
@@ -707,7 +733,9 @@ model ProjectEquipmentPlan {
   @@map("project_equipment_plan")
 }
 
-/** Tổng SL mỗi loại thiết bị của dự án (P3C-A, T4). */
+/**
+ * Tổng SL mỗi loại thiết bị của dự án (P3C-A, T4).
+ */
 model ProjectEquipmentQuota {
   projectId   Int
   equipmentId Int
@@ -722,7 +750,9 @@ model ProjectEquipmentQuota {
   @@map("project_equipment_quota")
 }
 
-/** KH nhân lực theo tháng × ca (P3C-A, T5). Tổng tháng = cộng các ca, KHÔNG lưu riêng. */
+/**
+ * KH nhân lực theo tháng × ca (P3C-A, T5). Tổng tháng = cộng các ca, KHÔNG lưu riêng.
+ */
 model ProjectManpowerPlanMonth {
   projectId Int
   yearMonth String
@@ -739,7 +769,9 @@ model ProjectManpowerPlanMonth {
   @@map("project_manpower_plan_month")
 }
 
-/** Tỷ lệ chia ca theo dự án (P3C-A, T5). Không có dòng = mặc định DEFAULT_SHIFT_RATIO. */
+/**
+ * Tỷ lệ chia ca theo dự án (P3C-A, T5). Không có dòng = mặc định DEFAULT_SHIFT_RATIO.
+ */
 model ProjectShiftRatio {
   projectId Int
   shiftCode String
@@ -777,12 +809,14 @@ model FactDailyEquipmentUsage {
   @@map("fact_daily_equipment_usage")
 }
 
-/** Nhật ký chạy job định kỳ (tỷ giá, cảnh báo hằng ngày). */
+/**
+ * Nhật ký chạy job định kỳ (cảnh báo hằng ngày).
+ */
 model JobRun {
   id         Int       @id @default(autoincrement())
-  jobName    String    // 'alerts_daily' | 'rates_monthly'
-  trigger    String    // 'cron' | 'lazy' | 'admin'
-  status     String    // 'running' | 'ok' | 'error'
+  jobName    String // 'alerts_daily'
+  trigger    String // 'cron' | 'lazy' | 'admin'
+  status     String // 'running' | 'ok' | 'error'
   detail     String    @default("")
   startedAt  DateTime  @default(now())
   finishedAt DateTime?
@@ -792,7 +826,9 @@ model JobRun {
   @@map("job_run")
 }
 
-/** Nền thông báo P3B: 1 dòng = 1 kênh. Bí mật (webhook URL / mật khẩu SMTP) chỉ nằm trong secretEnc (AES-256-GCM). */
+/**
+ * Nền thông báo P3B: 1 dòng = 1 kênh. Bí mật (webhook URL / mật khẩu SMTP) chỉ nằm trong secretEnc (AES-256-GCM).
+ */
 model NotifyChannel {
   id          Int               @id @default(autoincrement())
   kind        NotifyKind
@@ -809,7 +845,9 @@ model NotifyChannel {
   @@map("notify_channel")
 }
 
-/** Người nhận email theo kênh + mức độ tối thiểu. */
+/**
+ * Người nhận email theo kênh + mức độ tối thiểu.
+ */
 model NotifyRecipient {
   id          Int           @id @default(autoincrement())
   channelId   Int

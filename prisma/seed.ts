@@ -167,8 +167,6 @@ async function main() {
     })),
   });
 
-  await prisma.projectPhoto.deleteMany();
-
   await prisma.sapQueue.deleteMany();
   await prisma.projectHistory.deleteMany();
   await prisma.auditLog.deleteMany();
@@ -176,6 +174,9 @@ async function main() {
   await prisma.jobRun.deleteMany();
 
   // ---- User accounts (4, từ seed history) ----
+  // P3E: dọn dữ liệu khoá đăng nhập/token đặt lại TRƯỚC khi xoá user_roles (dù FK cascade đã tự xoá theo).
+  await prisma.authThrottle.deleteMany();
+  await prisma.passwordResetToken.deleteMany();
   await prisma.userRole.deleteMany();
   await prisma.userRole.createMany({
     data: data.userRoles.map((u) => ({
@@ -210,7 +211,6 @@ async function syncSequences() {
     'project_history',
     'alert_log',
     'audit_log',
-    'project_photos',
     'sap_queue',
     'activity_log',
     'project_work_item',
@@ -218,6 +218,8 @@ async function syncSequences() {
     'dim_contractor',
     'dim_equipment',
     'project_equipment_plan',
+    'password_reset_token',
+    'auth_throttle',
   ];
   for (const t of tables) {
     await prisma.$executeRawUnsafe(

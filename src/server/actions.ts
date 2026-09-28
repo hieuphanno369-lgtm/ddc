@@ -380,6 +380,7 @@ export async function createAccountAction(email: string, name: string, role: Rol
       isActive: true,
       createdAt: now,
       lastLoginAt: null,
+      lockedAt: null,
     });
   } catch (e) {
     // Đua 2 request cùng tạo 1 email (findAccount ở trên không khoá) - email là khoá chính

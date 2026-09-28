@@ -63,7 +63,7 @@ describe('setProjectMemberAction - tai khoan PIC bi khoa (khac ca Backup bi khoa
     login(ADMIN);
     repo.createAccount({
       email: 'de-khoa@daidung.com.vn', name: 'DE Khoa', passwordHash: 'x', role: 'data-entry',
-      canViewFinance: true, isActive: false, createdAt: new Date().toISOString(), lastLoginAt: null,
+      canViewFinance: true, isActive: false, createdAt: new Date().toISOString(), lastLoginAt: null, lockedAt: null,
     });
     const res = await setProjectMemberAction(16, 'de-khoa@daidung.com.vn', 'PIC');
     expect(res).toEqual({ ok: false, error: 'user_not_found' });
@@ -83,7 +83,7 @@ describe('Tich hop authz - doi PIC sang Backup va quyen doc du an chua duoc gan'
     login(ADMIN);
     repo.createAccount({
       email: 'de-moi@daidung.com.vn', name: 'DE Moi', passwordHash: 'x', role: 'data-entry',
-      canViewFinance: true, isActive: true, createdAt: new Date().toISOString(), lastLoginAt: null,
+      canViewFinance: true, isActive: true, createdAt: new Date().toISOString(), lastLoginAt: null, lockedAt: null,
     });
     // Chuyen pm@ (PIC cu) sang Backup truoc (khong the co 2 PIC), roi gan PIC moi.
     const changed = await setProjectMemberAction(1, 'pm@daidung.com.vn', 'Backup');
@@ -99,7 +99,7 @@ describe('Tich hop authz - doi PIC sang Backup va quyen doc du an chua duoc gan'
     login(ADMIN);
     repo.createAccount({
       email: 'chua-gan@daidung.com.vn', name: 'Chua Gan', passwordHash: 'x', role: 'data-entry',
-      canViewFinance: true, isActive: true, createdAt: new Date().toISOString(), lastLoginAt: null,
+      canViewFinance: true, isActive: true, createdAt: new Date().toISOString(), lastLoginAt: null, lockedAt: null,
     });
     const outsider: CurrentUser = { name: 'Chua Gan', email: 'chua-gan@daidung.com.vn', role: 'data-entry', canViewFinance: true };
     await expect(requireProjectRead(outsider, 16)).rejects.toThrow('NEXT_NOT_FOUND');

@@ -33,8 +33,9 @@ alter table "fact_financial"             enable row level security;
 alter table "fact_volume"                enable row level security;
 alter table "alert_log"                  enable row level security;
 alter table "audit_log"                  enable row level security;
-alter table "project_photos"             enable row level security;
 alter table "sap_queue"                  enable row level security;
+alter table "password_reset_token"       enable row level security;
+alter table "auth_throttle"              enable row level security;
 
 -- ===== Read: mọi user đã đăng nhập đọc được (dashboard) =====
 create policy "read_dim_project" on "dim_project" for select using (current_user_role() is not null);

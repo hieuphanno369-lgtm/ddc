@@ -93,7 +93,7 @@ describe('guard /ho-so-du-an - bien them cua Tester', () => {
     const { repo } = await import('@/server/repo/mock-repo');
     repo.createAccount({
       email: 'de-trong@daidung.com.vn', name: 'DE Trong', passwordHash: 'x', role: 'data-entry',
-      canViewFinance: true, isActive: true, createdAt: new Date().toISOString(), lastLoginAt: null,
+      canViewFinance: true, isActive: true, createdAt: new Date().toISOString(), lastLoginAt: null, lockedAt: null,
     });
     login(user('data-entry', 'de-trong@daidung.com.vn'));
     expect(await visit()).toBeNull();

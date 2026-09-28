@@ -155,7 +155,8 @@ export async function requestPasswordReset(
   resetRequestQueueTail = resetRequestQueueTail
     .then(() => withTimeout(finishPasswordResetRequest(store, mailer, smtp, email, ip, locale, baseUrl, now), RESET_JOB_TIMEOUT_MS))
     .catch((e) => {
-      console.error('[password-reset] loi xu ly nen', e instanceof Error ? e.message : String(e));
+      // R6/G5 - KHONG log `e.message` (co the chua thong tin ha tang/DB), chi log ten loi/ma loi.
+      console.error('[password-reset] loi xu ly nen', e instanceof Error ? e.name : String(e));
     });
 
   return { status: 'accepted' };

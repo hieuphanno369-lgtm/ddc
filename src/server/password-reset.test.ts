@@ -34,6 +34,7 @@ function account(over: Partial<UserAccount> = {}): UserAccount {
   return {
     email: 'a@daidung.com.vn', name: 'A', passwordHash: hashPassword(REAL_PW), role: 'viewer',
     canViewFinance: false, isActive: true, createdAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null,
+    lockedAt: null,
     ...over,
   };
 }

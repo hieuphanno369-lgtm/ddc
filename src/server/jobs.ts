@@ -1,9 +1,11 @@
 import { todayIso } from '@/lib/clock';
 import { isAlertsDailyDue } from '@/lib/job-schedule';
+import { AUTH_DATA_RETENTION_MS } from '@/lib/login-policy';
 import type { JobName, JobTrigger } from './repo/types';
 import { repo } from './repo';
 import { runAlertEngine } from './alert-engine';
 import { retryPendingNotifications } from './notify/dispatch';
+import { getAuthStore } from './auth-store';
 
 /** Chạy 1 job, luôn ghi job_run (running → ok/error) - KHÔNG BAO GIỜ throw. */
 export async function runJob(
@@ -15,6 +17,14 @@ export async function runJob(
   try {
     const r = await runAlertEngine({});
     await retryPendingNotifications();
+    // K19 - dọn auth_throttle + token đặt lại mật khẩu cũ hơn 24 giờ; lỗi ở đây KHÔNG được làm hỏng
+    // cả job (bọc try/catch riêng, chỉ log).
+    try {
+      await getAuthStore().pruneAuthData(new Date(Date.now() - AUTH_DATA_RETENTION_MS).toISOString());
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[jobs] pruneAuthData loi (khong lam hong job):', e instanceof Error ? e.name : String(e));
+    }
     const result = { status: 'ok' as const, detail: `checked=${r.checked} created=${r.created}` };
     await repo.finishJobRun(id, result.status, result.detail);
     return result;

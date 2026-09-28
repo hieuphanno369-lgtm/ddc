@@ -438,7 +438,12 @@ export interface UserAccount {
   isActive: boolean;
   createdAt: string;
   lastLoginAt: string | null;
+  /** P3E (Task 5) - khác null nghĩa là đang bị khoá do sai mật khẩu 5 lần liên tiếp. */
+  lockedAt: string | null;
 }
+
+/** P3E (Task 6) - hàng hiển thị trang quản trị: KHÔNG có `passwordHash` (S15, không lộ hash ra trình duyệt). */
+export type AdminUserRow = Omit<UserAccount, 'passwordHash'> & { hasPassword: boolean };
 
 /** Activity log - ghi user làm gì lúc nào (retention 14 ngày). */
 export interface ActivityLogEntry {
@@ -588,7 +593,17 @@ export interface SapQueueItem {
  * cả 2 phải trả `reason` GIỐNG HỆT nhau qua từng lần sai (không lộ "email này là tài khoản chỉ
  * Google" qua khác biệt reason/`lockedAt`), xem `login-guard.ts`.
  */
-export type ThrottleKind = 'login_fail_ip' | 'login_fail_unknown_email' | 'reset_req_email' | 'reset_req_ip';
+/**
+ * R7 phần 3, G4 (bao-mat.md) - `'google_denied'` chỉ dùng để hạn chế `activity_log` bị spam bởi các
+ * lần Google từ chối lặp lại của CÙNG 1 email (Google không đi qua form mật khẩu nên không dùng
+ * `login_fail_ip`/`login_fail_unknown_email`/`LOGIN_LOCK_THRESHOLD`); không phải khoá đăng nhập.
+ */
+export type ThrottleKind =
+  | 'login_fail_ip'
+  | 'login_fail_unknown_email'
+  | 'reset_req_email'
+  | 'reset_req_ip'
+  | 'google_denied';
 
 export interface AuthAccountState {
   email: string;

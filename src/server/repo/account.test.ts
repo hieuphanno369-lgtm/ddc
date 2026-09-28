@@ -13,6 +13,7 @@ function acct(email: string, role: UserAccount['role'] = 'viewer'): UserAccount 
     isActive: true,
     createdAt: new Date().toISOString(),
     lastLoginAt: null,
+    lockedAt: null,
   };
 }
 

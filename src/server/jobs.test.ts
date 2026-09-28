@@ -34,6 +34,35 @@ describe('runJob', () => {
   });
 });
 
+describe('pruneAuthData trong runJob (K19)', () => {
+  it("alerts_daily goi getAuthStore().pruneAuthData voi moc 'now - 24h'", async () => {
+    const { getAuthStore } = await import('./auth-store');
+    const spy = vi.spyOn(getAuthStore(), 'pruneAuthData').mockResolvedValue(undefined);
+    try {
+      const before = Date.now();
+      await runJob('alerts_daily', 'cron');
+      expect(spy).toHaveBeenCalledTimes(1);
+      const beforeIso = spy.mock.calls[0][0];
+      const deltaMs = before - Date.parse(beforeIso);
+      expect(deltaMs).toBeGreaterThanOrEqual(24 * 3_600_000 - 1000);
+      expect(deltaMs).toBeLessThanOrEqual(24 * 3_600_000 + 5000);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('pruneAuthData nem loi - job VAN ok, khong lam hong job chinh', async () => {
+    const { getAuthStore } = await import('./auth-store');
+    const spy = vi.spyOn(getAuthStore(), 'pruneAuthData').mockRejectedValue(new Error('boom-prune'));
+    try {
+      const res = await runJob('alerts_daily', 'cron');
+      expect(res.status).toBe('ok');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
 describe('runDueJobs', () => {
   it('goi 2 lan lien chi chay 1 lan (throttle)', async () => {
     await runDueJobs('lazy');

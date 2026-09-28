@@ -41,6 +41,7 @@ erDiagram
     dim_factory ||--o{ fact_volume : "factoryId"
     dim_project ||--o{ fact_volume : "projectId"
     notify_channel ||--o{ notify_recipient : "channelId"
+    user_roles ||--o{ password_reset_token : "email"
     dim_project ||--o{ project_assignments : "projectId"
     dim_contractor ||--o{ project_contractor : "contractorId"
     dim_project ||--o{ project_contractor : "projectId"
@@ -53,7 +54,6 @@ erDiagram
     dim_project ||--o{ project_key_milestone : "projectId"
     dim_project ||--o{ project_manpower_plan_month : "projectId"
     dim_shift ||--o{ project_manpower_plan_month : "shiftCode"
-    dim_project ||--o{ project_photos : "projectId"
     dim_project ||--o{ project_sap_codes : "projectId"
     dim_project ||--o{ project_shift_ratio : "projectId"
     dim_shift ||--o{ project_shift_ratio : "shiftCode"
@@ -102,6 +102,12 @@ erDiagram
       String changedBy
       DateTime changedAt
       String note
+    }
+    auth_throttle {
+      Int id PK
+      String kind
+      String key
+      DateTime createdAt
     }
     dim_contractor {
       Int id PK
@@ -344,6 +350,15 @@ erDiagram
       AlertType minSeverity
       Boolean isEnabled
     }
+    password_reset_token {
+      Int id PK
+      String email FK
+      String tokenHash
+      DateTime expiresAt
+      DateTime usedAt
+      DateTime createdAt
+      String requestIp
+    }
     project_assignments {
       Int projectId PK,FK
       String userEmail PK
@@ -400,15 +415,6 @@ erDiagram
       DateTime updatedAt
       String updatedBy
     }
-    project_photos {
-      Int id PK
-      Int projectId FK
-      String yearMonth
-      String url
-      String caption
-      String uploadedBy
-      DateTime uploadedAt
-    }
     project_sap_codes {
       Int id PK
       Int projectId FK
@@ -453,6 +459,9 @@ erDiagram
       Boolean isActive
       DateTime createdAt
       DateTime lastLoginAt
+      Int failedLoginCount
+      DateTime lockedAt
+      DateTime passwordChangedAt
     }
 ```
 <!-- ERD:END -->

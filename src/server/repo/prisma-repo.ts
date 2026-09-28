@@ -552,6 +552,7 @@ const coreRepo = {
       isActive: u.isActive,
       createdAt: u.createdAt.toISOString(),
       lastLoginAt: iso(u.lastLoginAt),
+      lockedAt: iso(u.lockedAt),
     }));
   },
 
@@ -567,6 +568,7 @@ const coreRepo = {
       isActive: u.isActive,
       createdAt: u.createdAt.toISOString(),
       lastLoginAt: iso(u.lastLoginAt),
+      lockedAt: iso(u.lockedAt),
     };
   },
 

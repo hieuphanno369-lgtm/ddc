@@ -1,0 +1,118 @@
+/**
+ * P3E (Task 5, bước 5.5) - test DB THẬT cho `prismaAuthStore` (KHÔNG mock `@/server/db`): chỉ
+ * Postgres thật mới chứng minh được `pg_advisory_xact_lock` khoá đúng - mock không lộ race (N2).
+ * Bỏ qua hoàn toàn khi chạy `npm test` bình thường (không có `DATABASE_URL`, xem `vitest.config.ts`);
+ * chạy tay bằng:
+ *   $env:DATABASE_URL='postgresql://postgres:Admin.301197@localhost:5433/ddc_control_tower_c?schema=public'
+ *   npx vitest run src/server/repo/prisma-repo-auth-real-db.test.ts
+ * Tự tạo + tự dọn dữ liệu test (email `test-p3e-real-db-*@daidung.com.vn`, các dòng `auth_throttle`
+ * kind bắt đầu bằng `test_p3e_`), KHÔNG đụng dữ liệu seed/e2e khác trên DB `ddc_control_tower_c`.
+ */
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+const hasDb = Boolean(process.env.DATABASE_URL);
+
+describe.skipIf(!hasDb)('prismaAuthStore tren Postgres that (DB _c)', () => {
+  // Import động: chỉ chạm `@/server/db` (kết nối Prisma thật) khi có DATABASE_URL, để file này
+  // không làm hỏng các lần `npm test` bình thường (không DATABASE_URL) dù không bị skip sớm.
+  let prisma: typeof import('@/server/db').prisma;
+  let prismaAuthStore: typeof import('./prisma-repo-auth').prismaAuthStore;
+
+  const EMAIL_A = 'test-p3e-real-db-a@daidung.com.vn';
+  const EMAIL_B = 'test-p3e-real-db-b@daidung.com.vn';
+  const THROTTLE_KIND: 'login_fail_ip' = 'login_fail_ip';
+  const THROTTLE_KEY_PREFIX = 'test-p3e-real-db-';
+
+  beforeAll(async () => {
+    ({ prisma } = await import('@/server/db'));
+    ({ prismaAuthStore } = await import('./prisma-repo-auth'));
+    await prisma.userRole.deleteMany({ where: { email: { in: [EMAIL_A, EMAIL_B] } } });
+    // Chỉ xoá dòng auth_throttle DO CHÍNH FILE NÀY tạo (key có tiền tố riêng) - `login_fail_ip` là
+    // kind THẬT dùng cho khoá đăng nhập, KHÔNG được xoá sạch (có thể có dòng thật của e2e khác).
+    await prisma.authThrottle.deleteMany({ where: { kind: THROTTLE_KIND, key: { startsWith: THROTTLE_KEY_PREFIX } } });
+    await prisma.userRole.create({
+      data: { email: EMAIL_A, name: 'Test P3E A', passwordHash: 'x', role: 'viewer', canViewFinance: false, isActive: true },
+    });
+    await prisma.userRole.create({
+      data: { email: EMAIL_B, name: 'Test P3E B', passwordHash: 'x', role: 'viewer', canViewFinance: false, isActive: true },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.passwordResetToken.deleteMany({ where: { email: { in: [EMAIL_A, EMAIL_B] } } });
+    await prisma.authThrottle.deleteMany({ where: { kind: THROTTLE_KIND, key: { startsWith: THROTTLE_KEY_PREFIX } } });
+    await prisma.userRole.deleteMany({ where: { email: { in: [EMAIL_A, EMAIL_B] } } });
+    await prisma.$disconnect();
+  });
+
+  it('N2 - 30 loi goi reserveThrottle cung kind:key song song, limit=20 -> dung 20 id, 10 null', async () => {
+    const now = new Date().toISOString();
+    const since = new Date(Date.now() - 60_000).toISOString();
+    const key = `${THROTTLE_KEY_PREFIX}khoa-30`;
+    const results = await Promise.all(
+      Array.from({ length: 30 }, () => prismaAuthStore.reserveThrottle(THROTTLE_KIND, key, now, since, 20)),
+    );
+    const ok = results.filter((r) => r !== null);
+    const blocked = results.filter((r) => r === null);
+    expect(ok).toHaveLength(20);
+    expect(blocked).toHaveLength(10);
+    // Khong id nao trung nhau (khong dem 2 lan cung 1 dong).
+    expect(new Set(ok).size).toBe(20);
+  });
+
+  it('N2 - releaseThrottle(id) chi xoa DUNG 1 dong dung id, du co 2 dong trung createdAt', async () => {
+    const key = `${THROTTLE_KEY_PREFIX}trung-mili-giay`;
+    const sameCreatedAt = new Date('2026-09-28T01:00:00.000Z');
+    const rowA = await prisma.authThrottle.create({ data: { kind: THROTTLE_KIND, key, createdAt: sameCreatedAt } });
+    const rowB = await prisma.authThrottle.create({ data: { kind: THROTTLE_KIND, key, createdAt: sameCreatedAt } });
+
+    await prismaAuthStore.releaseThrottle(rowA.id);
+
+    const remaining = await prisma.authThrottle.findMany({ where: { kind: THROTTLE_KIND, key } });
+    expect(remaining.map((r) => r.id)).toEqual([rowB.id]);
+    await prisma.authThrottle.deleteMany({ where: { id: rowB.id } });
+  });
+
+  it('L3 - resetFailedLogin tra false khi tai khoan da bi khoa boi 1 request khac', async () => {
+    const nowIso = new Date().toISOString();
+    await prismaAuthStore.registerFailedLogin(EMAIL_A, 1, nowIso); // khoa ngay lan sai dau (threshold=1)
+    const confirmed = await prismaAuthStore.resetFailedLogin(EMAIL_A);
+    expect(confirmed).toBe(false);
+    const state = await prismaAuthStore.getAccountState(EMAIL_A);
+    expect(state?.lockedAt).not.toBeNull();
+    await prismaAuthStore.unlockAccount(EMAIL_A);
+  });
+
+  it('5 loi goi registerFailedLogin dong thoi cung email dat nguong khoa -> justLocked dung true o DUY NHAT 1 loi goi', async () => {
+    await prismaAuthStore.unlockAccount(EMAIL_B);
+    const nowIso = new Date().toISOString();
+    const results = await Promise.all(Array.from({ length: 5 }, () => prismaAuthStore.registerFailedLogin(EMAIL_B, 5, nowIso)));
+    const justLockedCount = results.filter((r) => r?.justLocked).length;
+    expect(justLockedCount).toBe(1);
+    // Postgres tang failedLoginCount NGUYEN TU tung dong 1: chi loi goi nao nhan dung count=5 (hoac
+    // hon) moi thay locked=true NGAY LUC DO; 4 loi goi con lai nhan count 1..4 (< threshold) nen dung
+    // dan bao locked=false o thoi diem CHINH NO tra ve - trang thai CUOI CUNG cua tai khoan moi la noi
+    // chac chan da bi khoa (kiem qua getAccountState, khong dua vao ket qua tung loi goi rieng le).
+    const state = await prismaAuthStore.getAccountState(EMAIL_B);
+    expect(state?.lockedAt).not.toBeNull();
+    expect(state?.failedLoginCount).toBe(5);
+    await prismaAuthStore.unlockAccount(EMAIL_B);
+  });
+
+  it('L5 - consumeResetToken tra { ok: false } khi tai khoan da chuyen sang chi-Google du token con han', async () => {
+    const nowIso = new Date().toISOString();
+    const expiresAtIso = new Date(Date.now() + 30 * 60_000).toISOString();
+    await prismaAuthStore.replaceResetToken(EMAIL_A, 'hash-real-db-google-only', expiresAtIso, '1.2.3.4');
+    // Tai khoan chuyen sang chi-Google SAU khi token da cap (passwordHash rong).
+    await prisma.userRole.update({ where: { email: EMAIL_A }, data: { passwordHash: '' } });
+
+    const result = await prismaAuthStore.consumeResetToken('hash-real-db-google-only', 'hash-moi', nowIso);
+    expect(result).toEqual({ ok: false });
+
+    // Token KHONG bi dot (usedAt van null) - dung hanh vi kho bo nho khi tai khoan khong hop le.
+    const row = await prisma.passwordResetToken.findUnique({ where: { tokenHash: 'hash-real-db-google-only' } });
+    expect(row?.usedAt).toBeNull();
+
+    await prisma.userRole.update({ where: { email: EMAIL_A }, data: { passwordHash: 'x' } });
+  });
+});

@@ -60,6 +60,7 @@ async function findAccount(email: string): Promise<UserAccount | null> {
         isActive: row.isActive,
         createdAt: row.createdAt.toISOString(),
         lastLoginAt: row.lastLoginAt?.toISOString() ?? null,
+        lockedAt: row.lockedAt?.toISOString() ?? null,
       };
     } catch {
       return null;
