@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { addDaysIso, type IsoDate } from '@/lib/clock';
 import { formatDate } from '@/lib/format';
 import { HelpTip } from '@/components/ui/HelpTip';
+import { DateField } from '@/components/ui/DateField';
 import { IconChevronRight } from '@/components/icons';
 
 /**
@@ -54,17 +55,7 @@ export function ResourceDayNav({
         <IconChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
         {t('asOf.prevWeek')}
       </button>
-      <input
-        type="date"
-        className="inp"
-        style={{ width: 'auto', padding: '6px 10px', fontSize: 'var(--t-caption1)', minWidth: 138 }}
-        value={day}
-        min={min}
-        max={max}
-        aria-label={t('asOf.pickDay')}
-        onChange={(e) => e.target.value && setDay(e.target.value)}
-        data-testid="day-input"
-      />
+      <DateField ariaLabel={t('asOf.pickDay')} value={day} min={min} max={max} onChange={setDay} testId="day-input" />
       <button type="button" className="btn ghost" style={navBtn} disabled={!canNext} onClick={() => setDay(next)} data-testid="day-next">
         {t('asOf.nextWeek')}
         <IconChevronRight size={14} />

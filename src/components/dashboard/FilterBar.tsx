@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { marketKey, statusKey, typeKey } from '@/lib/labels';
 import { IconFilter } from '@/components/icons';
 import { HelpTip } from '@/components/ui/HelpTip';
+import { DateField } from '@/components/ui/DateField';
 import { MARKETS, PRIORITIES, STATUSES, TYPES } from '@/lib/overview-params';
 import type { IsoDate, YearMonth } from '@/lib/clock';
 import type { Period } from '@/lib/period';
@@ -97,7 +98,6 @@ export function FilterBar({
     );
   };
 
-  const periodInputStyle = { ...selStyle, minWidth: 138 } as const;
   const summary = t('period.summary', {
     from: formatDate(period.from, locale),
     to: formatDate(period.to, locale),
@@ -120,23 +120,11 @@ export function FilterBar({
         </span>
         <label className="flex items-center gap-1.5 text-caption1 text-label2">
           {t('period.from')}
-          <input
-            type="date"
-            className={selectCls}
-            style={periodInputStyle}
-            value={period.from}
-            onChange={(e) => updatePeriod('from', e.target.value)}
-          />
+          <DateField ariaLabel={t('period.from')} value={period.from} onChange={(v) => updatePeriod('from', v)} testId="period-from" />
         </label>
         <label className="flex items-center gap-1.5 text-caption1 text-label2">
           {t('period.to')}
-          <input
-            type="date"
-            className={selectCls}
-            style={periodInputStyle}
-            value={period.to}
-            onChange={(e) => updatePeriod('to', e.target.value)}
-          />
+          <DateField ariaLabel={t('period.to')} value={period.to} onChange={(v) => updatePeriod('to', v)} testId="period-to" />
         </label>
 
         {select('status', t('common.status'), STATUSES.map((v) => ({ value: v, text: t(statusKey[v]) })))}

@@ -6,6 +6,7 @@ import type { YearMonth } from '@/lib/clock';
 import type { Period } from '@/lib/period';
 import { formatMonthShort } from '@/lib/period-format';
 import { HelpTip } from '@/components/ui/HelpTip';
+import { DateField } from '@/components/ui/DateField';
 import { IconChevronRight } from '@/components/icons';
 
 /**
@@ -82,11 +83,11 @@ export function DetailTimeBar({
 
       <label className="ml-auto flex items-center gap-1.5 text-caption1 text-label2">
         {t('period.from')}
-        <input type="date" className="inp" style={inpStyle} value={period.from} onChange={(e) => setEdge('from', e.target.value)} />
+        <DateField ariaLabel={t('period.from')} value={period.from} onChange={(v) => setEdge('from', v)} testId="period-from" />
       </label>
       <label className="flex items-center gap-1.5 text-caption1 text-label2">
         {t('period.to')}
-        <input type="date" className="inp" style={inpStyle} value={period.to} onChange={(e) => setEdge('to', e.target.value)} />
+        <DateField ariaLabel={t('period.to')} value={period.to} onChange={(v) => setEdge('to', v)} testId="period-to" />
       </label>
     </div>
   );

@@ -156,7 +156,7 @@
     "groupType": "Loại hình",
     "groupMarket": "Thị trường",
     "capacity": "Sản lượng gia công vs Công suất nhà máy",
-    "backlogOverdue": "Backlog & Công nợ quá hạn",
+    "backlogOverdue": "HĐ chưa khởi công & Công nợ quá hạn",
     "spiCpiTrend": "Xu hướng SPI/CPI",
     "sCurve": "Đường cong S - PV/EV/AC lũy kế",
     "watchlist": "Dự án cần lưu ý",
@@ -1370,7 +1370,11 @@
     "oneMonth": "Kỳ chỉ có 1 tháng",
     "vsPrev": "so với kỳ trước cùng độ dài",
     "chartRange": "Tháng {m1} - {m2}",
-    "invalid": "Kỳ không hợp lệ, đang dùng kỳ mặc định"
+    "invalid": "Kỳ không hợp lệ, đang dùng kỳ mặc định",
+    "dateInvalid": "Ngày không hợp lệ, nhập dạng dd/mm/yyyy",
+    "dateOutOfRange": "Ngày phải trong khoảng {min} - {max}",
+    "datePlaceholder": "dd/mm/yyyy",
+    "pickDate": "Chọn ngày từ lịch"
   },
   "filterChip": {
     "named": "{dim}: {value}",
