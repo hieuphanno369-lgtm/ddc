@@ -32,7 +32,11 @@ async function collect(page: Page): Promise<void> {
 }
 
 async function settle(page: Page, route: string): Promise<void> {
-  await page.waitForLoadState('networkidle');
+  // Tren `next start` yeu cau /_next/image?w=48 (logo 38px) treo mai khi thieu sharp (loi co san, xem
+  // .bangiao/ket-qua-test.md), nen networkidle khong toi. Cho toi da 15 giay roi do tiep, khong de spec chet vi no.
+  await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {
+    test.info().annotations.push({ type: 'khong-idle', description: `${route}: mang khong yen sau 15 giay` });
+  });
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await page.waitForTimeout(500);
   const found = (await page.evaluate(() => (window as unknown as { __csp: Violation[] }).__csp)) as Violation[];

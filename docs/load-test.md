@@ -117,5 +117,66 @@ Nhấn Ctrl+C sẽ dừng sớm và vẫn in bảng, nhưng lượt đó tính l
 
 ## 9. Kết quả đo
 
-Tester điền sau khi chạy: ngày, commit, tham số, bảng kết quả, kết luận (mức nào bắt đầu vượt tiêu chí).
+Đo ngày 2026-09-29 trên commit `11caa2d` (nhánh `feature/p5-b-bao-mat-qa`), bản build production, `next start -p 3001`, DB `ddc_control_tower_b` với 10.064.500 dòng do `perf:seed` tạo (500 dự án PERF).
+Máy dev chạy cả app, DB lẫn công cụ tải nên đây chỉ là mốc so sánh, không phải năng lực của server thật.
+Tham số chung: 5 phút, ramp 30 giây, nghỉ 1 đến 3 giây, seed 1, XFF riêng từng người dùng ảo, 3 tài khoản admin, bod, viewer.
+Số p50, p95, p99 chỉ tính trên yêu cầu thành công (đơn vị mili giây).
 
+### 9.1. Mức 100 người dùng ảo (mặc định)
+
+Lệnh: `npm run perf:load -- --out=<ngoài repo>`. Kết luận của script: KHÔNG ĐẠT.
+
+| Kịch bản | n | lỗi | lỗi% | p50 | p95 | p99 | max | rps |
+|---|---|---|---|---|---|---|---|---|
+| project_detail | 1271 | 413 | 32,49% | 5187 | 8604 | 11097 | 15826 | 4,2 |
+| api_export | 69 | 0 | 0,00% | 4992 | 7506 | 8625 | 8625 | 0,2 |
+| overview_month | 1120 | 0 | 0,00% | 5221 | 8407 | 10638 | 11955 | 3,7 |
+| api_health | 290 | 0 | 0,00% | 156 | 524 | 839 | 1094 | 1,0 |
+| overview_all | 438 | 0 | 0,00% | 5261 | 8361 | 9037 | 12030 | 1,5 |
+| projects_list | 610 | 610 | 100,00% | - | - | - | - | 2,0 |
+| alerts | 231 | 88 | 38,10% | 5256 | 8195 | 8560 | 9481 | 0,8 |
+| report | 209 | 77 | 36,84% | 5797 | 8750 | 11113 | 11329 | 0,7 |
+| trang (gộp) | 3879 | 1188 | 30,63% | 5256 | 8444 | 10638 | 15826 | 12,9 |
+| TỔNG | 4238 | 1188 | 28,03% | 5001 | 8400 | 9462 | 15826 | 14,1 |
+
+Vi phạm tiêu chí: tỷ lệ lỗi 28,03% > 1%, trang p95 8444 ms > 3000 ms, trang p99 10638 ms > 5000 ms. Xuất Excel p95 7506 ms đạt (ngưỡng 8000 ms).
+
+### 9.2. Mức 30 người dùng ảo (mốc so sánh)
+
+Lệnh: `npm run perf:load -- --vus=30 --out=<ngoài repo>`. Kết luận của script: KHÔNG ĐẠT.
+
+| Kịch bản | n | lỗi | lỗi% | p50 | p95 | p99 | max | rps |
+|---|---|---|---|---|---|---|---|---|
+| project_detail | 763 | 255 | 33,42% | 1641 | 3119 | 3684 | 4333 | 2,5 |
+| api_export | 65 | 0 | 0,00% | 1613 | 3042 | 3837 | 3837 | 0,2 |
+| overview_month | 672 | 0 | 0,00% | 1543 | 3168 | 3778 | 4398 | 2,2 |
+| api_health | 187 | 0 | 0,00% | 37 | 206 | 291 | 332 | 0,6 |
+| overview_all | 267 | 0 | 0,00% | 1454 | 3266 | 3651 | 4338 | 0,9 |
+| projects_list | 370 | 370 | 100,00% | - | - | - | - | 1,2 |
+| alerts | 141 | 53 | 37,59% | 1352 | 2833 | 3264 | 3264 | 0,5 |
+| report | 129 | 49 | 37,98% | 1911 | 3472 | 4604 | 4604 | 0,4 |
+| trang (gộp) | 2342 | 727 | 31,04% | 1573 | 3171 | 3711 | 4604 | 7,8 |
+| TỔNG | 2594 | 727 | 28,03% | 1437 | 3119 | 3698 | 4604 | 8,6 |
+
+Vi phạm tiêu chí: tỷ lệ lỗi 28,03% > 1%, trang p95 3171 ms > 3000 ms. Trang p99 3711 ms và xuất Excel p95 3042 ms đạt.
+
+### 9.3. Đọc kết quả
+
+Tỷ lệ lỗi 28% ở cả hai mức KHÔNG phản ánh app lỗi, mà do bộ kịch bản của script sinh lỗi giả. Đã đối chiếu từng nguồn lỗi bằng cách gọi tay từng đường dẫn với từng vai:
+
+- `projects_list` (`/vi/projects`) luôn trả 307 chuyển sang `/vi/projects/1` theo thiết kế của trang, nên script tính 100% là lỗi `redirect` (610 ở mức 100, 370 ở mức 30).
+- Vai viewer nhận 404 với mọi dự án PERF (viewer chỉ thấy dự án được phân quyền), nên `project_detail` của viewer là lỗi `status` (413 ở mức 100, 255 ở mức 30).
+- Vai viewer bị chuyển (307) khỏi `/vi/alerts` và `/vi/report`, nên hai kịch bản này của viewer là lỗi `redirect` (165 ở mức 100, 102 ở mức 30).
+
+Ở mức 100: 610 + 413 + 165 = 1188, đúng bằng số lỗi. Ở mức 30: 370 + 255 + 102 = 727, đúng bằng số lỗi. Nghĩa là không còn lỗi thật nào (không timeout, không lỗi mạng, không 429, không 5xx).
+
+Độ trễ là tín hiệu thật:
+
+- Mức 30: trang p50 khoảng 1,5 giây, p95 khoảng 3,2 giây, vượt nhẹ ngưỡng 3 giây. Một yêu cầu đơn lẻ lúc làm nóng chỉ 150 đến 320 ms, nên độ trễ tăng theo tải đồng thời.
+- Mức 100: trang p50 khoảng 5,3 giây, p95 khoảng 8,4 giây, p99 khoảng 10,6 giây, xa ngưỡng. Thông lượng chỉ đạt 14,1 yêu cầu mỗi giây, gần như không tăng so với mức 30 (8,6), cho thấy máy dev đã bão hoà (một tiến trình Node cùng DB và công cụ tải chung máy).
+- Kết luận: mức đầu tiên vượt tiêu chí trang là 30 người dùng ảo (p95 vượt khoảng 6%); ở 100 người dùng vượt gần gấp 3. Xuất Excel đạt ở cả hai mức. `/api/health` luôn nhanh.
+- Chưa có mức 50. Cần sửa kịch bản (xem `.bangiao/ket-qua-test.md`) rồi chạy lại để có số lỗi sạch, và đo lại trên server thật ở P6.
+
+Sau cả hai lượt: `admin@`, `bod@`, `viewer@daidung.com.vn` đều `lockedAt` rỗng và `failedLoginCount` bằng 0. Đăng nhập tuần tự 100 lượt và 30 lượt không gặp 429 nào.
+
+Lưu ý: `npx playwright test` chạy `prisma db seed` ở global setup và ĐÃ xoá dữ liệu PERF (sau khi chạy e2e, DB còn 0 dự án PERF, 17 dự án thường). Muốn chạy lại load test phải `perf:seed` lại.

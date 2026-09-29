@@ -85,9 +85,27 @@ Cần đối chiếu các điểm sau, chạy lại e2e 27 rồi cập nhật m�
 
 ## 8. Danh sách vi phạm đã đo
 
-Để trống, tester điền sau khi chạy e2e 27 trên `next start`.
-Bảng gồm: trang, chỉ thị, nguồn bị chặn, đề xuất xử lý.
+Đo ngày 2026-09-29 bằng `e2e/27-csp-vi-pham.spec.ts` trên bản build production chạy `next start -p 3001` (không có `'unsafe-eval'`), Chromium của Playwright, DB `ddc_control_tower_b`.
+Kết quả: 0 vi phạm trên 11 trang, không có tài nguyên nào bị chặn (mọi vi phạm sẽ có disposition `report`).
+Dòng tổng hợp của spec: `[csp] Tong 0 vi pham (Report-Only)`.
 
 | Trang | Chỉ thị | Nguồn bị chặn | Đề xuất xử lý |
 |---|---|---|---|
-| | | | |
+| `/vi/login` | không có | không có | không cần |
+| `/vi/quen-mat-khau` | không có | không có | không cần |
+| `/vi/dat-lai-mat-khau?token=x` | không có | không có | không cần |
+| `/vi/overview` (phiên admin, có biểu đồ Recharts) | không có | không có | không cần |
+| `/vi/overview?month=all` | không có | không có | không cần |
+| `/vi/projects` | không có | không có | không cần |
+| `/vi/projects/1` (có biểu đồ) | không có | không có | không cần |
+| `/vi/report` | không có | không có | không cần |
+| `/vi/alerts` | không có | không có | không cần |
+| `/vi/admin` | không có | không có | không cần |
+| `/vi/nhap-lieu` | không có | không có | không cần |
+
+Ghi chú khi đọc số liệu:
+
+- Nút Google không được bấm vì `.env` của B để trống `GOOGLE_CLIENT_ID`, nên luồng chuyển hướng sang `accounts.google.com` chưa đo (chỉ thị `form-action 'self'` có thể chặn bước này, phải đo lại trên môi trường có Google).
+- Trang quên mật khẩu chưa đo phần form vì B không có SMTP (trang chỉ hiện thông báo thiếu SMTP).
+- Xuất PDF/JPG của P4-X chưa có trên nhánh này, xem mục 6.
+- Khi duyệt bằng Playwright MCP, log server có 2 cặp báo cáo `documentPath=/vi/login`, `blocked=inline` và `blocked=eval`, `source` và `line` đều rỗng. Đây là do công cụ điều khiển trình duyệt tự chèn script, không phải mã của app: cùng trang đó chạy bằng Playwright test không sinh thêm dòng nào.
