@@ -53,7 +53,7 @@ export default async function OverviewPage({
   // (kể cả month=all cũ) rơi về kỳ mặc định. Bộ lọc: chỉ nhận giá trị trong danh sách enum (parseDashboardFilters).
   // CÙNG 1 object period/filters truyền xuống mọi widget để React cache (so theo tham chiếu) còn memo.
   const period = parsePeriod({ from: p(sp, 'from'), to: p(sp, 'to'), month: p(sp, 'month') }, defaultOverviewPeriod(todayIso()));
-  const filters = parseDashboardFilters(sp);
+  const filters = parseDashboardFilters(sp, dims.teams.map((t) => t.name));
   const groupBy = filters.groupBy ?? 'team';
 
   const canViewFinance = user?.canViewFinance ?? false;

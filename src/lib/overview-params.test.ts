@@ -53,4 +53,13 @@ describe('parseDashboardFilters (chỉ nhận giá trị hợp lệ, để khoá
     expect(MARKETS).toEqual(['TN', 'XK', 'NoiBo']);
     expect(TYPES).toHaveLength(9);
   });
+
+  it('groupKey chỉ giữ khi groupBy hợp lệ và thuộc tập nhóm thật (T-1)', () => {
+    expect(parseDashboardFilters({ groupKey: 'EPC' }).groupKey).toBeUndefined();
+    expect(parseDashboardFilters({ groupBy: 'type', groupKey: 'la' }).groupKey).toBeUndefined();
+    expect(parseDashboardFilters({ groupBy: 'market', groupKey: 'XK' }).groupKey).toBe('XK');
+    expect(parseDashboardFilters({ groupBy: 'team', groupKey: 'P.KD 01' }, ['P.KD 01']).groupKey).toBe('P.KD 01');
+    expect(parseDashboardFilters({ groupBy: 'team', groupKey: 'la' }, ['P.KD 01']).groupKey).toBeUndefined();
+    expect(parseDashboardFilters({ groupBy: 'team', groupKey: '-' }, ['P.KD 01']).groupKey).toBe('-');
+  });
 });

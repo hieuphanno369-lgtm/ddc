@@ -30,6 +30,7 @@ import {
   loadTonnageByGroup, profileTag, trendTag,
 } from './cache';
 
+const TEAM_NAMES = ['P.KD 01', 'P.KD 03'];
 type Sp = Record<string, string | string[] | undefined>;
 const s = (v: string | string[] | undefined) => (typeof v === 'string' ? v : '');
 
@@ -37,7 +38,7 @@ const s = (v: string | string[] | undefined) => (typeof v === 'string' ? v : '')
 async function keysFor(sp: Sp): Promise<string[]> {
   calls.length = 0;
   const period = parsePeriod({ from: s(sp.from), to: s(sp.to), month: s(sp.month) }, defaultOverviewPeriod(todayIso()));
-  const filters = parseDashboardFilters(sp);
+  const filters = parseDashboardFilters(sp, TEAM_NAMES);
   await loadPortfolioKpis(period, filters);
   await loadProjectCounts(period, filters);
   await loadStatusBreakdown(period, filters);
@@ -106,6 +107,16 @@ describe('P4 khoá cache: tham số rác không sinh khoá mới', () => {
     const base = await keysFor({});
     const junk = await keysFor({ groupKey: 'gia-tri-ngau-nhien-123' });
     expect(junk).toEqual(base);
+  });
+
+  it('groupKey type/market ngoài enum, team không có thật: cùng khoá với không có groupKey (T-1)', async () => {
+    for (const sp of [
+      { groupBy: 'team', groupKey: 'team-khong-co' },
+      { groupBy: 'type', groupKey: 'kieu-la' },
+      { groupBy: 'market', groupKey: 'cho-la' },
+    ] as Sp[]) {
+      expect(await keysFor(sp)).toEqual(await keysFor({ groupBy: sp.groupBy }));
+    }
   });
 
   it('groupKey đi kèm groupBy=team hợp lệ thì có khoá riêng (drill từ biểu đồ)', async () => {

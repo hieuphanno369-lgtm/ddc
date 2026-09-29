@@ -38,9 +38,26 @@ function positiveInt(v: string): number | 'all' {
   return POSITIVE_INT.test(v) ? Number(v) : 'all';
 }
 
-export function parseDashboardFilters(sp: Record<string, string | string[] | undefined>): DashboardFilters {
-  const groupBy = str(sp.groupBy);
-  const groupKey = str(sp.groupKey).slice(0, GROUP_KEY_MAX_LENGTH);
+function isRealGroup(groupBy: GroupBy, key: string, teamNames?: readonly string[]): boolean {
+  if (!key) return false;
+  if (groupBy === 'type') return (TYPES as string[]).includes(key);
+  if (groupBy === 'market') return (MARKETS as string[]).includes(key);
+  // Dự án chưa gán team được queries gọi là '-'.
+  return teamNames ? key === '-' || teamNames.includes(key) : true;
+}
+
+/**
+ * `groupKey` chỉ giữ khi `groupBy` hợp lệ VÀ giá trị thuộc tập nhóm thật (T-1): type/market theo enum,
+ * team theo `teamNames` (tên team lấy từ dims). Không thì bỏ, để `?groupKey=<rác>` không sinh thêm khoá cache.
+ * Không truyền `teamNames` thì team chỉ bị chặn bởi điều kiện `groupBy` (chỉ dùng ở test).
+ */
+export function parseDashboardFilters(
+  sp: Record<string, string | string[] | undefined>,
+  teamNames?: readonly string[],
+): DashboardFilters {
+  const groupBy = (GROUP_BYS as string[]).includes(str(sp.groupBy)) ? (str(sp.groupBy) as GroupBy) : undefined;
+  const rawKey = str(sp.groupKey).slice(0, GROUP_KEY_MAX_LENGTH);
+  const groupKey = groupBy && isRealGroup(groupBy, rawKey, teamNames) ? rawKey : undefined;
   return {
     status: oneOf(str(sp.status), STATUSES),
     teamKdId: positiveInt(str(sp.team)),
@@ -48,7 +65,7 @@ export function parseDashboardFilters(sp: Record<string, string | string[] | und
     priority: oneOf(str(sp.priority), PRIORITIES),
     market: oneOf(str(sp.market), MARKETS),
     projectType: oneOf(str(sp.type), TYPES),
-    groupBy: (GROUP_BYS as string[]).includes(groupBy) ? (groupBy as GroupBy) : undefined,
-    groupKey: groupKey || undefined,
+    groupBy,
+    groupKey,
   };
 }
