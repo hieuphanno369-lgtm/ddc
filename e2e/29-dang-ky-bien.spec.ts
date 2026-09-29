@@ -46,6 +46,7 @@ test.describe('29 - dang ky: truong hop bien', () => {
     const ctx = await anon(browser);
     const page = await ctx.newPage();
     await page.goto('/vi/dang-ky');
+    await page.waitForLoadState('networkidle'); // cho hydrate, tranh bam submit truoc khi form co handler
     await fill(page, { dept: DEPT, email: email('pb') });
 
     const admin = await adminCtx(browser);
@@ -59,8 +60,15 @@ test.describe('29 - dang ky: truong hop bien', () => {
     await expect(page.locator('[data-auth="signup-done"]')).toHaveCount(0);
     await expect(page.locator('#signup-department option', { hasText: DEPT })).toHaveCount(0);
 
-    await ap.locator(`[data-department-row="${DEPT}"]`).getByRole('button', { name: vi('department.show'), exact: true }).click();
-    await expect(ap.locator(`[data-department-row="${DEPT}"]`)).toContainText(vi('department.active'));
+    // Khoi phuc phong ban: idempotent (chi bam khi con o trang thai an), vi luc suite chay day tai mot cu bam co the roi
+    // dung luc bang tai lai sau router.refresh().
+    const deptRow = ap.locator(`[data-department-row="${DEPT}"]`);
+    await expect(async () => {
+      if ((await deptRow.textContent())?.includes(vi('department.hidden'))) {
+        await deptRow.getByRole('button', { name: vi('department.show'), exact: true }).click({ timeout: 3000 });
+      }
+      await expect(deptRow).toContainText(vi('department.active'), { timeout: 4000 });
+    }).toPass({ timeout: 25_000 });
     await admin.close();
     await ctx.close();
   });
@@ -71,6 +79,7 @@ test.describe('29 - dang ky: truong hop bien', () => {
     const urls: string[] = [];
     page.on('request', (r) => urls.push(r.url()));
     await page.goto('/vi/dang-ky');
+    await page.waitForLoadState('networkidle'); // cho hydrate, tranh bam submit truoc khi form co handler
     await fill(page, { dept: DEPT, email: email('mk'), password: SECRET });
     await submit(page);
     await expect(page.getByText(vi('signup.doneTitle'))).toBeVisible();
@@ -91,6 +100,7 @@ test.describe('29 - dang ky: truong hop bien', () => {
     const urls: string[] = [];
     page.on('request', (r) => urls.push(r.url()));
     await page.goto('/vi/login');
+    await page.waitForLoadState('networkidle'); // cho hydrate, tranh bam submit truoc khi form co handler
     await page.locator('#auth-email').fill(email('mk'));
     await page.locator('#auth-password').fill(SECRET);
     await page.getByRole('button', { name: vi('auth.signIn') }).click();
@@ -104,6 +114,7 @@ test.describe('29 - dang ky: truong hop bien', () => {
     const ctx = await anon(browser);
     const page = await ctx.newPage();
     await page.goto('/vi/dang-ky');
+    await page.waitForLoadState('networkidle'); // cho hydrate, tranh bam submit truoc khi form co handler
     await fill(page, { dept: DEPT, email: email('hoa').toUpperCase() });
     await submit(page);
     await expect(page.getByText(vi('signup.doneTitle'))).toBeVisible();
@@ -120,6 +131,7 @@ test.describe('29 - dang ky: truong hop bien', () => {
     const ctx = await anon(browser);
     const page = await ctx.newPage();
     await page.goto('/vi/dang-ky');
+    await page.waitForLoadState('networkidle'); // cho hydrate, tranh bam submit truoc khi form co handler
     for (const bad of ['ten@mail.daidung.vn', 'ten@daidung.vn.evil.com', 'ten@daidung.vn@daidung.vn']) {
       await fill(page, { dept: DEPT, email: bad });
       await submit(page);
@@ -135,6 +147,7 @@ test.describe('29 - dang ky: truong hop bien', () => {
       const ctx = await anon(browser);
       const page = await ctx.newPage();
       await page.goto('/vi/dang-ky');
+      await page.waitForLoadState('networkidle'); // cho hydrate, tranh bam submit truoc khi form co handler
       await fill(page, { dept: DEPT, email: target });
       await submit(page);
       await expect(page.getByText(vi('signup.doneTitle'))).toBeVisible();
@@ -143,10 +156,31 @@ test.describe('29 - dang ky: truong hop bien', () => {
     const ctx = await anon(browser);
     const page = await ctx.newPage();
     await page.goto('/vi/dang-ky');
+    await page.waitForLoadState('networkidle'); // cho hydrate, tranh bam submit truoc khi form co handler
     await fill(page, { dept: DEPT, email: target });
     await submit(page);
     await expect(page.getByText(vi('signup.rateLimited'))).toBeVisible();
     await expect(page.locator('[data-auth="signup-done"]')).toHaveCount(0);
+    await ctx.close();
+  });
+
+  test('8. trang cong khai (dang nhap, quen/dat lai mat khau, dang ky, dieu khoan; vi + en) khong goi API du lieu du an', async ({ browser }) => {
+    const ctx = await anon(browser);
+    const page = await ctx.newPage();
+    const apis: string[] = [];
+    page.on('request', (r) => {
+      const u = new URL(r.url());
+      if (u.pathname.startsWith('/api/')) apis.push(u.pathname);
+    });
+    for (const loc of ['vi', 'en']) {
+      for (const path of ['login', 'dang-ky', 'dieu-khoan', 'login?mode=forgot', 'login?token=abc']) {
+        await page.goto(`/${loc}/${path}`);
+        await page.waitForLoadState('networkidle');
+      }
+    }
+    // Chi duoc phep cac diem cua xac thuc + bao cao CSP; khong co /api/projects, /api/export, ... nao.
+    const bad = apis.filter((a) => !/^\/api\/(auth\/|csp-report)/.test(a));
+    expect(bad, `API la tren trang cong khai: ${bad.join(', ')}`).toEqual([]);
     await ctx.close();
   });
 

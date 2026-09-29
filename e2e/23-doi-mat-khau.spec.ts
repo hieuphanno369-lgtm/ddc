@@ -44,7 +44,8 @@ async function fillChangePassword(page: Page, current: string, next: string, con
 
 test.describe('23 - tu doi mat khau trong Cai dat (S-2)', () => {
   test('doi mat khau thanh cong -> phien hien tai van dung duoc; mat khau cu het dung duoc cho lan dang nhap moi', async ({ browser }) => {
-    const ctxA = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    test.setTimeout(120_000); // 3 lan dang nhap + 1 lan doi mat khau (bcrypt): 60s mac dinh khong du khi may e2e dang tai nang
+    const ctxA =await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const pageA = await ctxA.newPage();
     await login(pageA, EMAIL, E2E_LOCK_PASSWORD);
     await pageA.waitForURL('**/vi/overview**');
