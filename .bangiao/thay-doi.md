@@ -143,3 +143,39 @@ Máy nào có Docker Desktop (hoặc cài được `pg_dump`/`pg_restore`/`psql`
 7. `8894b19` docs(p5b-ht): T17 viet lai DEPLOY.md cho server cong ty (Docker Compose)
 
 Không có migration Prisma, không đụng `schema.prisma`, không đụng trang/component UI nào, không thêm dependency npm, không đổi `package-lock.json`, không push remote.
+
+---
+
+## Vá lỗi debugger: race condition khoá `pg-backup.sh` (theo test đỏ của tester)
+
+**Root cause:** trong `scripts/backup/pg-backup.sh`, `trap cleanup EXIT` được đăng ký NGAY TỪ ĐẦU script,
+TRƯỚC khi thử giành khoá bằng `mkdir "$LOCK_DIR"`. Khi một tiến trình thua cuộc giành khoá (`mkdir` thất
+bại vì tiến trình khác đang giữ) thoát mã 3, `cleanup()` vẫn chạy do trap đã đăng ký từ đầu, và `cleanup()`
+gọi `rmdir "$LOCK_DIR"` **vô điều kiện** - tự tay xoá khoá của tiến trình đang thắng (đang chạy `pg_dump`
+dở dang). Hệ quả: một tiến trình thứ 3 khởi động ngay sau đó `mkdir` thành công (khoá đã bị xoá hộ) và
+chạy `pg_dump` song song thật sự với tiến trình đầu - vô hiệu hoá hoàn toàn cơ chế khoá chống chạy trùng
+ngay từ lần trùng đầu tiên. Tester đã viết test tự động (`src/server/backup-scripts-lock.test.ts`) chạy
+thật script qua `sh` với binary `pg_dump`/`pg_restore` giả lập, tái hiện đúng lỗi (đỏ trước khi vá).
+
+**Cách sửa (tối thiểu, đúng đề xuất của tester):** di chuyển dòng `trap cleanup EXIT` xuống SAU khối
+`if ! mkdir "$LOCK_DIR" ...; then ... exit 3; fi`. Nhờ vậy tiến trình thua khoá thoát mã 3 mà KHÔNG đăng
+ký trap nào - không có gì để nó tự dọn (nó chưa từng tạo `.lock` hay `.partial`). Chỉ tiến trình THẬT SỰ
+giành được khoá mới đăng ký trap, nên khi nó thoát (thành công hay lỗi) mới tự xoá `.partial` dở dang của
+chính nó và mở khoá `.lock` của chính nó. Hàm `cleanup()` giữ nguyên không đổi (`rm -f "$PARTIAL"` +
+`rmdir "$LOCK_DIR"`) vì cả hai phần dọn đó chỉ cần chạy cho tiến trình đã giữ khoá.
+
+**Đã kiểm không có chỗ khác cùng lỗi:** đọc lại toàn bộ `scripts/backup/pg-restore-test.sh` - script này
+đăng ký `trap cleanup EXIT` (dòng 66) ĐÚNG chỗ, tức là SAU tất cả các gate thoát sớm (kiểm file backup tồn
+tại - exit 2, kiểm sha256 - exit 4, kiểm tên DB tạm hợp lệ/khác `PGDATABASE` - exit 5) và TRƯỚC `createdb`.
+Không có tiến trình nào thoát sớm qua các gate đó mà vẫn kích hoạt cleanup oan - không cần sửa gì ở file
+này.
+
+**Kiểm chứng:**
+- `npx vitest run src/server/backup-scripts-lock.test.ts`: từ ĐỎ (tester) sang XANH (1/1 pass) sau khi vá.
+- `npx tsc --noEmit`: sạch.
+- `npm test`: 255 file/1 skip (256) - 2903 test/15 skip (2918) xanh, không giảm/skip thêm test nào so
+  với mốc 253 file/2897 test + 15 skip trước đó (tăng thêm đúng 2 file test mới tester bổ sung:
+  `logger-bien.test.ts`, `backup-scripts-lock.test.ts`).
+
+**File sửa:** `scripts/backup/pg-backup.sh` (chỉ di chuyển 1 dòng `trap cleanup EXIT` + thêm 1 dòng
+comment giải thích, không sửa gì khác).

@@ -48,12 +48,14 @@ cleanup() {
   rm -f "$PARTIAL"
   rmdir "$LOCK_DIR" 2>/dev/null || true
 }
-trap cleanup EXIT
 
 if ! mkdir "$LOCK_DIR" 2>/dev/null; then
   log_err backup.failed ',"reason":"lock_busy"'
   exit 3
 fi
+# Chi dang ky trap SAU KHI da gianh duoc khoa: tien trinh thua khoa (exit 3 o tren)
+# khong duoc dang ky trap nay, nen khong bao gio tu xoa khoa cua tien trinh dang giu.
+trap cleanup EXIT
 
 log backup.start ",\"file\":\"$NAME\""
 
