@@ -38,3 +38,4 @@ Không lỗi chặn.
 
 1. Cột "Đúng tiến độ" (và SPI cam/xanh) trong bảng dự án ở Tổng quan: (a) giữ nguyên, đề xuất; (b) đổi trung tính.
 2. Thẻ Top xếp trễ lên trước nhưng không còn nhãn/subtitle nói điều này: (a) giữ ngầm, đề xuất (chủ dự án đã chốt giữ thứ tự); (b) thứ tự trung tính; (c) ghi vào subtitle.
+- Chủ dự án chốt 2026-09-29: cột "Đúng tiến độ" trong bảng dự án ở Tổng quan giữ nguyên; thẻ Top giữ thứ tự trễ xếp trước (không ghi vào subtitle).
