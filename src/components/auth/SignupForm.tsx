@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { IconCheck } from '@/components/icons';
 import { Link, useRouter } from '@/i18n/navigation';
 import { SIGNUP_NAME_MAX } from '@/lib/login-policy';
-import { hasInvisibleChars, isCompanyEmail } from '@/lib/signup-policy';
+import { hasInvisibleChars, isCompanyEmail, normalizeSignupName } from '@/lib/signup-policy';
 import { submitSignupAction } from '@/server/actions-signup';
 import s from './auth.module.css';
 import { cx } from './cx';
@@ -51,7 +51,7 @@ export function SignupForm({
 
   function validateLocal(): FieldErrors {
     const next: FieldErrors = {};
-    const trimmed = name.trim();
+    const trimmed = normalizeSignupName(name);
     if (trimmed.length < 1 || trimmed.length > SIGNUP_NAME_MAX || hasInvisibleChars(trimmed)) next.name = t('signup.nameError');
     if (hasDepartments && !departmentId) next.department = t('signup.departmentError');
     if (!isCompanyEmail(email)) next.email = t('signup.emailDomainError');

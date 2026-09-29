@@ -230,3 +230,15 @@ describe('phong ban', () => {
     expect(await deleteDepartmentAction(2)).toEqual({ ok: false, error: 'not_found' });
   });
 });
+
+describe('T3 (security vong 2) - loi ghi nhat ky khong duoc chan gui loi moi', () => {
+  it('logActivity nem loi sau khi bat: van gui link dat mat khau, van tra ok', async () => {
+    await req('t3@daidung.vn');
+    const id = await pendingId('t3@daidung.vn');
+    vi.mocked(logActivity).mockRejectedValueOnce(new Error('db chap chon'));
+    expect(await approveSignupAction(id, 'viewer')).toEqual({ ok: true, mailed: true });
+    expect(replaceResetToken).toHaveBeenCalledTimes(1);
+    expect(queue).toHaveBeenCalledTimes(1);
+    expect(accounts.map((a) => a.email)).toEqual(['t3@daidung.vn']);
+  });
+});

@@ -6,7 +6,7 @@ import {
   SIGNUP_WINDOW_MS,
   normalizeEmail,
 } from '@/lib/login-policy';
-import { hasInvisibleChars, isCompanyEmail } from '@/lib/signup-policy';
+import { hasInvisibleChars, isCompanyEmail, normalizeSignupName } from '@/lib/signup-policy';
 import type { SignupStore } from './repo/signup-types';
 import type { AuthStore } from './repo/types';
 
@@ -96,7 +96,7 @@ async function validate(
   | { ok: true; name: string; email: string; departmentId: number | null }
   | { ok: false; field: SignupField }
 > {
-  const name = typeof input.name === 'string' ? input.name.trim() : '';
+  const name = normalizeSignupName(input.name);
   if (name.length < 1 || name.length > SIGNUP_NAME_MAX || hasInvisibleChars(name)) return { ok: false, field: 'name' };
 
   const active = await signup.listActiveDepartments();

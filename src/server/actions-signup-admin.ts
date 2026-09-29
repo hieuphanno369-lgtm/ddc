@@ -68,8 +68,15 @@ export async function approveSignupAction(
   const result = await getSignupStore().approveRequest(id, { role, canViewFinance: role !== 'viewer', passwordHash });
   if (result === 'not_found' || result === 'duplicate_account') return { ok: false, error: result };
 
-  await logActivity(user, 'signup_approve', `${result.email}:${role}`);
-  return { ok: true, mailed: await sendInvite(result, smtp, baseUrl) };
+  // T3 (security vòng 2) - tài khoản đã tạo: gửi lời mời TRƯỚC, lỗi ghi nhật ký không được làm mất lời mời hay báo lỗi cho admin
+  // (bấm lại sẽ nhận `not_found` vì đăng ký đã bị xoá).
+  const mailed = await sendInvite(result, smtp, baseUrl);
+  try {
+    await logActivity(user, 'signup_approve', `${result.email}:${role}`);
+  } catch (e) {
+    console.error('[approveSignupAction] ghi nhat ky loi', e instanceof Error ? e.name : String(e));
+  }
+  return { ok: true, mailed };
 }
 
 /** Admin từ chối đăng ký: xoá khỏi danh sách chờ, KHÔNG gửi email (quyết định chủ dự án). */
