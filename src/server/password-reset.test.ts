@@ -1,7 +1,8 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hashPassword } from '@/lib/password';
 import * as passwordLib from '@/lib/password';
-import { RESET_EMAIL_LIMIT, RESET_IP_LIMIT, RESET_SUBMIT_IP_LIMIT, RESET_TOKEN_TTL_MS } from '@/lib/login-policy';
+import { RESET_EMAIL_LIMIT, RESET_IP_LIMIT, RESET_SUBMIT_IP_LIMIT, RESET_TOKEN_TTL_MS, SIGNUP_INVITE_TTL_MS } from '@/lib/login-policy';
+import { generateResetToken } from '@/lib/reset-token';
 import { createMemoryAuthStore, type MemoryAccountSource } from './repo/mock-repo-auth';
 import type { UserAccount } from './repo/types';
 import type { SmtpConfig } from './notify/email';
@@ -11,7 +12,7 @@ vi.mock('@/lib/activity', () => ({ logActivity: vi.fn() }));
 import { logActivity } from '@/lib/activity';
 import {
   __resetRequestQueueIdleForTest,
-  isResetTokenUsable,
+  getResetTokenKind,
   requestPasswordReset,
   resetPasswordWithToken,
   type ResetMailer,
@@ -144,14 +145,14 @@ describe('requestPasswordReset - khong lo email ton tai (S3)', () => {
     const store = createMemoryAuthStore(makeSource([account()]));
     const replaceSpy = vi.spyOn(store, 'replaceResetToken');
     const consumeSpy = vi.spyOn(store, 'consumeResetToken');
-    const peekSpy = vi.spyOn(store, 'peekResetToken');
+    const peekSpy = vi.spyOn(store, 'peekResetTokenKind');
     const { mailer, composed } = makeMailer();
 
     await requestPasswordReset(store, mailer, { email: 'a@daidung.com.vn', ip: '', locale: 'vi', baseUrl: BASE_URL }, at(0));
     await __resetRequestQueueIdleForTest();
     const token = tokenFromLink(composed[0].link);
     await resetPasswordWithToken(store, { token, newPassword: 'MatKhauMoi1' }, at(1000));
-    await isResetTokenUsable(store, token, at(0));
+    await getResetTokenKind(store, token, at(0));
 
     const allArgs = [...replaceSpy.mock.calls, ...consumeSpy.mock.calls, ...peekSpy.mock.calls].flat();
     expect(allArgs).not.toContain(token);
@@ -534,13 +535,51 @@ describe('resetPasswordWithToken', () => {
   });
 });
 
-describe('isResetTokenUsable', () => {
+describe('getResetTokenKind (link dung duoc)', () => {
   it('token dung dinh dang + con han -> true; sai dinh dang -> false', async () => {
     const store = createMemoryAuthStore(makeSource([account()]));
     const token = await requestAndGetTokenHelper(store, 'a@daidung.com.vn', at(0));
 
-    expect(await isResetTokenUsable(store, token, at(1000))).toBe(true);
-    expect(await isResetTokenUsable(store, 'khong-dung-dinh-dang', at(1000))).toBe(false);
+    expect(await getResetTokenKind(store, token, at(1000))).toBe('reset');
+    expect(await getResetTokenKind(store, 'khong-dung-dinh-dang', at(1000))).toBeNull();
+  });
+});
+
+describe('T1 - loi moi (admin bat) song chung voi "Quen mat khau"', () => {
+  async function inviteToken(store: ReturnType<typeof createMemoryAuthStore>, email: string) {
+    const { token, tokenHash } = generateResetToken();
+    // Giong `sendInvite` (actions-signup-admin.ts): han 72 gio, khong co IP.
+    await store.replaceResetToken(email, tokenHash, new Date(Date.now() + SIGNUP_INVITE_TTL_MS).toISOString(), '');
+    return token;
+  }
+
+  it('bat tai khoan -> nguoi khac gui Quen mat khau -> link loi moi VAN dung duoc, link quen mat khau cung dung duoc', async () => {
+    const store = createMemoryAuthStore(makeSource([account()]));
+    const invite = await inviteToken(store, 'a@daidung.com.vn');
+    const reset = await requestAndGetTokenHelper(store, 'a@daidung.com.vn', new Date());
+
+    expect(await getResetTokenKind(store, invite)).toBe('invite');
+    expect(await getResetTokenKind(store, reset)).toBe('reset');
+    expect(await resetPasswordWithToken(store, { token: invite, newPassword: 'MatKhauMoi123', ip: '1.1.1.1' })).toEqual({ ok: true, locked: false });
+  });
+
+  it('dat mat khau bang link quen mat khau -> link loi moi hong', async () => {
+    const store = createMemoryAuthStore(makeSource([account()]));
+    const invite = await inviteToken(store, 'a@daidung.com.vn');
+    const reset = await requestAndGetTokenHelper(store, 'a@daidung.com.vn', new Date());
+
+    expect(await resetPasswordWithToken(store, { token: reset, newPassword: 'MatKhauMoi123', ip: '1.1.1.1' })).toEqual({ ok: true, locked: false });
+    expect(await getResetTokenKind(store, invite)).toBeNull();
+    expect(await resetPasswordWithToken(store, { token: invite, newPassword: 'MatKhauKhac123', ip: '1.1.1.1' })).toEqual({ ok: false, error: 'invalid_token' });
+  });
+
+  it('dat mat khau bang link loi moi -> link quen mat khau hong', async () => {
+    const store = createMemoryAuthStore(makeSource([account()]));
+    const invite = await inviteToken(store, 'a@daidung.com.vn');
+    const reset = await requestAndGetTokenHelper(store, 'a@daidung.com.vn', new Date());
+
+    expect(await resetPasswordWithToken(store, { token: invite, newPassword: 'MatKhauMoi123', ip: '1.1.1.1' })).toEqual({ ok: true, locked: false });
+    expect(await getResetTokenKind(store, reset)).toBeNull();
   });
 });
 

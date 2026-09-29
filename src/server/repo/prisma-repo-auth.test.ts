@@ -3,12 +3,13 @@
  * mock thẳng `@/server/db`, không đụng DB thật. Phần "test DB thật" (advisory lock, race) nằm ở
  * `prisma-repo-auth-real-db.test.ts` (chạy tay với `DATABASE_URL` trỏ `ddc_control_tower_c`).
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '@prisma/client';
 
 const {
   userRoleFindUnique, userRoleUpdate, userRoleUpdateMany,
   passwordResetTokenDeleteMany, passwordResetTokenCreate, passwordResetTokenUpdateMany, passwordResetTokenFindUnique,
+  passwordResetTokenFindMany,
   authThrottleCreate, authThrottleCount, authThrottleDeleteMany,
   executeRaw, transaction,
 } = vi.hoisted(() => {
@@ -19,6 +20,7 @@ const {
   const passwordResetTokenCreate = vi.fn(async (): Promise<unknown> => ({}));
   const passwordResetTokenUpdateMany = vi.fn(async (): Promise<{ count: number }> => ({ count: 0 }));
   const passwordResetTokenFindUnique = vi.fn(async (): Promise<unknown> => null);
+  const passwordResetTokenFindMany = vi.fn(async (): Promise<unknown[]> => []);
   const authThrottleCreate = vi.fn(async (args: { data: { id?: number } }) => ({ id: 1, ...args.data }));
   const authThrottleCount = vi.fn(async (): Promise<number> => 0);
   const authThrottleDeleteMany = vi.fn(async (): Promise<{ count: number }> => ({ count: 0 }));
@@ -32,6 +34,7 @@ const {
         create: passwordResetTokenCreate,
         updateMany: passwordResetTokenUpdateMany,
         findUnique: passwordResetTokenFindUnique,
+        findMany: passwordResetTokenFindMany,
       },
       authThrottle: { create: authThrottleCreate, count: authThrottleCount, deleteMany: authThrottleDeleteMany },
       $executeRaw: executeRaw,
@@ -40,6 +43,7 @@ const {
   return {
     userRoleFindUnique, userRoleUpdate, userRoleUpdateMany,
     passwordResetTokenDeleteMany, passwordResetTokenCreate, passwordResetTokenUpdateMany, passwordResetTokenFindUnique,
+    passwordResetTokenFindMany,
     authThrottleCreate, authThrottleCount, authThrottleDeleteMany,
     executeRaw, transaction,
   };
@@ -53,6 +57,7 @@ vi.mock('@/server/db', () => ({
       create: passwordResetTokenCreate,
       updateMany: passwordResetTokenUpdateMany,
       findUnique: passwordResetTokenFindUnique,
+      findMany: passwordResetTokenFindMany,
     },
     authThrottle: { create: authThrottleCreate, count: authThrottleCount, deleteMany: authThrottleDeleteMany },
     $executeRaw: executeRaw,
@@ -331,8 +336,21 @@ describe('reserveThrottle / releaseThrottle', () => {
   });
 });
 
-describe('replaceResetToken (K3)', () => {
-  it('goi deleteMany({ where: { email } }) TRUOC create', async () => {
+describe('replaceResetToken (K3, T1)', () => {
+  const T0 = new Date();
+  const at = (ms: number) => new Date(T0.getTime() + ms);
+  const MIN = 60_000;
+  const HOUR = 3_600_000;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(T0);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('loi moi (han 72 gio): deleteMany MOI token cua email TRUOC create', async () => {
     const order: string[] = [];
     passwordResetTokenDeleteMany.mockImplementationOnce(async () => {
       order.push('delete');
@@ -342,22 +360,56 @@ describe('replaceResetToken (K3)', () => {
       order.push('create');
       return {};
     });
-    await prismaAuthStore.replaceResetToken('a@daidung.com.vn', 'hash-token', '2026-09-28T00:30:00.000Z', '1.2.3.4');
+    await prismaAuthStore.replaceResetToken('a@daidung.com.vn', 'hash-token', at(72 * HOUR).toISOString(), '');
     expect(order).toEqual(['delete', 'create']);
+    expect(passwordResetTokenFindMany).not.toHaveBeenCalled();
     expect(passwordResetTokenDeleteMany).toHaveBeenCalledWith({ where: { email: 'a@daidung.com.vn' } });
     expect(passwordResetTokenCreate).toHaveBeenCalledWith({
-      data: {
-        email: 'a@daidung.com.vn', tokenHash: 'hash-token',
-        expiresAt: new Date('2026-09-28T00:30:00.000Z'), requestIp: '1.2.3.4',
-      },
+      data: { email: 'a@daidung.com.vn', tokenHash: 'hash-token', expiresAt: at(72 * HOUR), requestIp: '' },
     });
+  });
+
+  it('quen mat khau (han 30 phut): giu loi moi con han + chua dung, xoa phan con lai, roi create', async () => {
+    passwordResetTokenFindMany.mockResolvedValueOnce([
+      { id: 1, createdAt: at(-HOUR), expiresAt: at(71 * HOUR), usedAt: null }, // loi moi con han -> giu
+      { id: 2, createdAt: at(-5 * MIN), expiresAt: at(25 * MIN), usedAt: null }, // quen mat khau cu -> xoa
+      { id: 3, createdAt: at(-80 * HOUR), expiresAt: at(-8 * HOUR), usedAt: null }, // loi moi het han -> xoa
+      { id: 4, createdAt: at(-HOUR), expiresAt: at(71 * HOUR), usedAt: at(-MIN) }, // loi moi da dung -> xoa
+    ]);
+    const order: string[] = [];
+    passwordResetTokenDeleteMany.mockImplementationOnce(async () => {
+      order.push('delete');
+      return { count: 3 };
+    });
+    passwordResetTokenCreate.mockImplementationOnce(async () => {
+      order.push('create');
+      return {};
+    });
+    await prismaAuthStore.replaceResetToken('a@daidung.com.vn', 'hash-quen', at(30 * MIN).toISOString(), '1.2.3.4');
+    expect(order).toEqual(['delete', 'create']);
+    expect(passwordResetTokenDeleteMany).toHaveBeenCalledWith({ where: { email: 'a@daidung.com.vn', id: { notIn: [1] } } });
+    expect(passwordResetTokenCreate).toHaveBeenCalledWith({
+      data: { email: 'a@daidung.com.vn', tokenHash: 'hash-quen', expiresAt: at(30 * MIN), requestIp: '1.2.3.4' },
+    });
+  });
+
+  it('quen mat khau, khong co loi moi con han: xoa het token cu cua email', async () => {
+    passwordResetTokenFindMany.mockResolvedValueOnce([{ id: 2, createdAt: at(-5 * MIN), expiresAt: at(25 * MIN), usedAt: null }]);
+    await prismaAuthStore.replaceResetToken('a@daidung.com.vn', 'hash-quen', at(30 * MIN).toISOString(), '1.2.3.4');
+    expect(passwordResetTokenDeleteMany).toHaveBeenCalledWith({ where: { email: 'a@daidung.com.vn', id: { notIn: [] } } });
+  });
+
+  it('quen mat khau lay khoa tu van theo email trong cung transaction (chong 2 yeu cau dong thoi)', async () => {
+    await prismaAuthStore.replaceResetToken('a@daidung.com.vn', 'hash-quen', at(30 * MIN).toISOString(), '1.2.3.4');
+    expect(executeRaw).toHaveBeenCalledTimes(1);
   });
 });
 
 describe('peekResetToken (S12 - chi doc)', () => {
   it('loc dung usedAt: null, expiresAt: { gt }; tai khoan hop le -> true', async () => {
     passwordResetTokenFindUnique.mockResolvedValueOnce({
-      tokenHash: 'h', email: 'a@daidung.com.vn', usedAt: null, expiresAt: new Date('2026-09-28T00:30:00.000Z'),
+      tokenHash: 'h', email: 'a@daidung.com.vn', usedAt: null, createdAt: new Date('2026-09-28T00:00:00.000Z'),
+      expiresAt: new Date('2026-09-28T00:30:00.000Z'),
       user: { isActive: true, passwordHash: 'x' },
     });
     const r = await (prismaAuthStore.peekResetToken as (t: string, n: string) => Promise<boolean>)('h', NOW_ISO);

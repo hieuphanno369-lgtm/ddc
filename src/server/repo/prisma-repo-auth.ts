@@ -1,10 +1,21 @@
 import { prisma } from '@/server/db';
 import { Prisma } from '@prisma/client';
-import { resetTokenKindOf } from '@/lib/login-policy';
+import { resetTokenKindOf, type ResetTokenKind } from '@/lib/login-policy';
 import type { AuthAccountState, AuthStore, Role } from './types';
 
 /** Date | null → ISO string | null (khớp `prisma-repo.ts`). */
 const iso = (d: Date | null | undefined): string | null => (d ? d.toISOString() : null);
+
+/** Chỉ đọc: loại link nếu token còn dùng được (chưa dùng, chưa hết hạn, tài khoản còn, có mật khẩu, isActive), ngược lại `null`. */
+async function peekResetTokenKind(tokenHash: string, nowIso: string): Promise<ResetTokenKind | null> {
+  const t = await prisma.passwordResetToken.findUnique({
+    where: { tokenHash },
+    include: { user: true },
+  });
+  if (!t || t.usedAt !== null || t.expiresAt.getTime() <= new Date(nowIso).getTime()) return null;
+  if (!t.user.isActive || t.user.passwordHash === '') return null;
+  return resetTokenKindOf(t.createdAt, t.expiresAt);
+}
 
 interface UserRoleAuthRow {
   email: string;
@@ -185,7 +196,24 @@ export const prismaAuthStore: AuthStore = {
 
   async replaceResetToken(email, tokenHash, expiresAtIso, requestIp) {
     await prisma.$transaction(async (tx) => {
-      await tx.passwordResetToken.deleteMany({ where: { email } });
+      const now = new Date();
+      if (resetTokenKindOf(now, new Date(expiresAtIso)) === 'invite') {
+        // Lời mời (admin bật): thay MỌI token cũ của email.
+        await tx.passwordResetToken.deleteMany({ where: { email } });
+      } else {
+        // T1: "Quên mật khẩu" chỉ thay token quên mật khẩu cũ (và dòng đã dùng/hết hạn), KHÔNG huỷ lời mời còn hạn
+        // chưa dùng. Loại token suy từ hạn nên phải đọc rồi loại trừ theo `id`; khoá tư vấn theo email để 2 yêu cầu
+        // đồng thời không cùng đọc một tập cũ (cùng kiểu khoá của `reserveThrottle`).
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'reset_token:' + email}))`;
+        const rows = await tx.passwordResetToken.findMany({
+          where: { email },
+          select: { id: true, createdAt: true, expiresAt: true, usedAt: true },
+        });
+        const liveInviteIds = rows
+          .filter((r) => r.usedAt === null && r.expiresAt.getTime() > now.getTime() && resetTokenKindOf(r.createdAt, r.expiresAt) === 'invite')
+          .map((r) => r.id);
+        await tx.passwordResetToken.deleteMany({ where: { email, id: { notIn: liveInviteIds } } });
+      }
       await tx.passwordResetToken.create({
         data: { email, tokenHash, expiresAt: new Date(expiresAtIso), requestIp },
       });
@@ -193,24 +221,10 @@ export const prismaAuthStore: AuthStore = {
   },
 
   async peekResetToken(tokenHash, nowIso) {
-    const t = await prisma.passwordResetToken.findUnique({
-      where: { tokenHash },
-      include: { user: true },
-    });
-    if (!t || t.usedAt !== null || t.expiresAt.getTime() <= new Date(nowIso).getTime()) return false;
-    if (!t.user.isActive || t.user.passwordHash === '') return false;
-    return true;
+    return (await peekResetTokenKind(tokenHash, nowIso)) !== null;
   },
 
-  async peekResetTokenKind(tokenHash, nowIso) {
-    const t = await prisma.passwordResetToken.findUnique({
-      where: { tokenHash },
-      include: { user: true },
-    });
-    if (!t || t.usedAt !== null || t.expiresAt.getTime() <= new Date(nowIso).getTime()) return null;
-    if (!t.user.isActive || t.user.passwordHash === '') return null;
-    return resetTokenKindOf(t.createdAt, t.expiresAt);
-  },
+  peekResetTokenKind,
 
   async consumeResetToken(tokenHash, passwordHash, nowIso) {
     return prisma.$transaction(async (tx) => {

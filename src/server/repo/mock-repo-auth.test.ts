@@ -388,3 +388,49 @@ describe('pruneAuthData', () => {
     expect(await store.peekResetToken('hash-cu', hours(-31))).toBe(false);
   });
 });
+
+describe('T1 - replaceResetToken khong huy loi moi con han khi la yeu cau quen mat khau', () => {
+  const hours = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
+  const minutes = (m: number) => new Date(Date.now() + m * 60_000).toISOString();
+
+  it('token quen mat khau moi KHONG xoa loi moi con han; van thay token quen mat khau cu', async () => {
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-moi', hours(72), '');
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-quen-1', minutes(30), '1.2.3.4');
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-quen-2', minutes(30), '1.2.3.4');
+    expect(await store.peekResetTokenKind('hash-moi', new Date().toISOString())).toBe('invite');
+    expect(await store.peekResetToken('hash-quen-1', new Date().toISOString())).toBe(false);
+    expect(await store.peekResetTokenKind('hash-quen-2', new Date().toISOString())).toBe('reset');
+  });
+
+  it('admin bat (loi moi moi) van thay MOI token cu, ke ca loi moi cu va token quen mat khau', async () => {
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-moi-1', hours(72), '');
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-quen', minutes(30), '1.2.3.4');
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-moi-2', hours(72), '');
+    const now = new Date().toISOString();
+    expect(await store.peekResetToken('hash-moi-1', now)).toBe(false);
+    expect(await store.peekResetToken('hash-quen', now)).toBe(false);
+    expect(await store.peekResetToken('hash-moi-2', now)).toBe(true);
+  });
+
+  it('dat mat khau bang link quen mat khau -> loi moi con lai het hieu luc, va nguoc lai', async () => {
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-moi', hours(72), '');
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-quen', minutes(30), '1.2.3.4');
+    const now = new Date().toISOString();
+    expect((await store.consumeResetToken('hash-quen', 'hash-pw', now)).ok).toBe(true);
+    expect(await store.peekResetToken('hash-moi', now)).toBe(false);
+    expect(await store.consumeResetToken('hash-moi', 'hash-pw2', now)).toEqual({ ok: false });
+
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-moi-b', hours(72), '');
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-quen-b', minutes(30), '1.2.3.4');
+    expect((await store.consumeResetToken('hash-moi-b', 'hash-pw3', now)).ok).toBe(true);
+    expect(await store.peekResetToken('hash-quen-b', now)).toBe(false);
+  });
+
+  it('loi moi da het han hoac da dung thi yeu cau quen mat khau van don di', async () => {
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-moi-het', hours(72), '');
+    await store.consumeResetToken('hash-moi-het', 'hash-pw', new Date().toISOString());
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-quen', minutes(30), '1.2.3.4');
+    expect(await store.peekResetToken('hash-moi-het', new Date().toISOString())).toBe(false);
+    expect(await store.peekResetToken('hash-quen', new Date().toISOString())).toBe(true);
+  });
+});

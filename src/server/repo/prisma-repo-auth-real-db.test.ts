@@ -248,4 +248,45 @@ describe.skipIf(!hasDb)('prismaAuthStore tren Postgres that (DB _c)', () => {
     const row = await prisma.passwordResetToken.findUnique({ where: { tokenHash: 'hash-real-db-race' } });
     expect(row?.usedAt).not.toBeNull();
   });
+
+  it('T1 - Quen mat khau khong huy loi moi con han; admin bat thay het; dat mat khau bang 1 link -> link kia hong', async () => {
+    const now = () => new Date().toISOString();
+    const inHours = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
+    const inMinutes = (m: number) => new Date(Date.now() + m * 60_000).toISOString();
+    await prisma.passwordResetToken.deleteMany({ where: { email: EMAIL_A } });
+
+    await prismaAuthStore.replaceResetToken(EMAIL_A, 'hash-t1-invite', inHours(72), '');
+    await prismaAuthStore.replaceResetToken(EMAIL_A, 'hash-t1-reset-1', inMinutes(30), '1.2.3.4');
+    await prismaAuthStore.replaceResetToken(EMAIL_A, 'hash-t1-reset-2', inMinutes(30), '1.2.3.4');
+    expect(await prismaAuthStore.peekResetTokenKind('hash-t1-invite', now())).toBe('invite');
+    expect(await prismaAuthStore.peekResetToken('hash-t1-reset-1', now())).toBe(false);
+    expect(await prismaAuthStore.peekResetTokenKind('hash-t1-reset-2', now())).toBe('reset');
+
+    // Dat mat khau bang link quen mat khau -> loi moi het hieu luc.
+    expect((await prismaAuthStore.consumeResetToken('hash-t1-reset-2', 'hash-t1-pw', now())).ok).toBe(true);
+    expect(await prismaAuthStore.peekResetToken('hash-t1-invite', now())).toBe(false);
+
+    // Admin bat lai: loi moi moi thay MOI token cu (ke ca token quen mat khau con han).
+    await prismaAuthStore.replaceResetToken(EMAIL_A, 'hash-t1-reset-3', inMinutes(30), '1.2.3.4');
+    await prismaAuthStore.replaceResetToken(EMAIL_A, 'hash-t1-invite-2', inHours(72), '');
+    expect(await prismaAuthStore.peekResetToken('hash-t1-reset-3', now())).toBe(false);
+    expect(await prismaAuthStore.peekResetToken('hash-t1-invite-2', now())).toBe(true);
+
+    // 2 yeu cau quen mat khau dong thoi: khong huy loi moi, con dung 1 token quen mat khau song.
+    await Promise.all([
+      prismaAuthStore.replaceResetToken(EMAIL_A, 'hash-t1-race-1', inMinutes(30), '1.2.3.4'),
+      prismaAuthStore.replaceResetToken(EMAIL_A, 'hash-t1-race-2', inMinutes(30), '1.2.3.4'),
+    ]);
+    expect(await prismaAuthStore.peekResetToken('hash-t1-invite-2', now())).toBe(true);
+    const raceAlive = [
+      await prismaAuthStore.peekResetToken('hash-t1-race-1', now()),
+      await prismaAuthStore.peekResetToken('hash-t1-race-2', now()),
+    ].filter(Boolean);
+    expect(raceAlive).toHaveLength(1);
+
+    // Dat mat khau bang loi moi -> token quen mat khau hong.
+    expect((await prismaAuthStore.consumeResetToken('hash-t1-invite-2', 'hash-t1-pw2', now())).ok).toBe(true);
+    expect(await prismaAuthStore.peekResetToken('hash-t1-race-1', now())).toBe(false);
+    expect(await prismaAuthStore.peekResetToken('hash-t1-race-2', now())).toBe(false);
+  });
 });

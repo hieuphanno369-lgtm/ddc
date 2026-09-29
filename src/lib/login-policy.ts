@@ -88,7 +88,7 @@ export type ResetTokenKind = 'reset' | 'invite';
 /**
  * Server tự suy loại link từ thời hạn đã lưu (không tin tham số URL): link quên mật khẩu sống `RESET_TOKEN_TTL_MS`,
  * lời mời sống lâu hơn hẳn (`SIGNUP_INVITE_TTL_MS`). Ngưỡng gấp đôi hạn quên mật khẩu để chịu được lệch đồng hồ giữa app
- * và DB (`createdAt` do DB đặt, `expiresAt` do app tính). Không cần cột đánh dấu nên không cần migration.
+ * và DB (`createdAt` do Prisma gán lúc tạo dòng theo giờ app, `expiresAt` do app tính lúc trước đó vài mili giây; ngưỡng vẫn dư sức). Không cần cột đánh dấu nên không cần migration.
  */
 export function resetTokenKindOf(createdAt: Date, expiresAt: Date): ResetTokenKind {
   return expiresAt.getTime() - createdAt.getTime() > 2 * RESET_TOKEN_TTL_MS ? 'invite' : 'reset';

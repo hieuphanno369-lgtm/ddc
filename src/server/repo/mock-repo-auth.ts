@@ -1,4 +1,4 @@
-import { resetTokenKindOf } from '@/lib/login-policy';
+import { resetTokenKindOf, type ResetTokenKind } from '@/lib/login-policy';
 import type { AuthAccountState, AuthStore, ThrottleKind, UserAccount } from './types';
 
 /**
@@ -47,6 +47,14 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
 
   function countersFor(email: string): Counters {
     return counters.get(email) ?? { failedLoginCount: 0, lockedAt: null, passwordChangedAt: null };
+  }
+
+  async function peekResetTokenKind(tokenHash: string, nowIso: string): Promise<ResetTokenKind | null> {
+    const t = resetTokens.find((x) => x.tokenHash === tokenHash);
+    if (!t || t.usedAt !== null || nowIso > t.expiresAt) return null;
+    const account = source.findAccount(t.email);
+    if (!account || account.passwordHash === '' || !account.isActive) return null;
+    return resetTokenKindOf(new Date(t.createdAt), new Date(t.expiresAt));
   }
 
   return {
@@ -194,23 +202,26 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
 
     async replaceResetToken(email, tokenHash, expiresAtIso, requestIp) {
       const e = email.toLowerCase();
-      resetTokens = resetTokens.filter((t) => t.email !== e);
-      resetTokens.push({ email: e, tokenHash, expiresAt: expiresAtIso, usedAt: null, createdAt: new Date().toISOString(), requestIp });
+      const now = new Date();
+      const nowIso = now.toISOString();
+      // T1: yêu cầu "Quên mật khẩu" chỉ thay token quên mật khẩu cũ, KHÔNG huỷ lời mời còn hạn và chưa dùng.
+      const keepLiveInvites = resetTokenKindOf(now, new Date(expiresAtIso)) === 'reset';
+      resetTokens = resetTokens.filter(
+        (t) =>
+          t.email !== e ||
+          (keepLiveInvites &&
+            t.usedAt === null &&
+            nowIso <= t.expiresAt &&
+            resetTokenKindOf(new Date(t.createdAt), new Date(t.expiresAt)) === 'invite'),
+      );
+      resetTokens.push({ email: e, tokenHash, expiresAt: expiresAtIso, usedAt: null, createdAt: nowIso, requestIp });
     },
 
     async peekResetToken(tokenHash, nowIso) {
-      const t = resetTokens.find((x) => x.tokenHash === tokenHash);
-      if (!t || t.usedAt !== null || nowIso > t.expiresAt) return false;
-      const account = source.findAccount(t.email);
-      if (!account || account.passwordHash === '' || !account.isActive) return false;
-      return true;
+      return (await peekResetTokenKind(tokenHash, nowIso)) !== null;
     },
 
-    async peekResetTokenKind(tokenHash, nowIso) {
-      if (!(await this.peekResetToken(tokenHash, nowIso))) return null;
-      const t = resetTokens.find((x) => x.tokenHash === tokenHash);
-      return t ? resetTokenKindOf(new Date(t.createdAt), new Date(t.expiresAt)) : null;
-    },
+    peekResetTokenKind,
 
     async consumeResetToken(tokenHash, passwordHash, nowIso) {
       const t = resetTokens.find((x) => x.tokenHash === tokenHash && x.usedAt === null && nowIso <= x.expiresAt);

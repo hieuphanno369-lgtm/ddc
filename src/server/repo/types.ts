@@ -767,7 +767,10 @@ export interface AuthStore {
    * `pruneAuthData` dọn trước đó).
    */
   releaseThrottle(id: number): Promise<void>;
-  /** Xoá mọi token cũ của email rồi tạo token mới (1 transaction). */
+  /**
+   * Tạo token mới cho email (1 transaction). Loại token mới suy từ hạn (`resetTokenKindOf`): lời mời (admin bật) thay MỌI
+   * token cũ; quên mật khẩu chỉ thay token cũ của quên mật khẩu (và dòng đã dùng/hết hạn), KHÔNG huỷ lời mời còn hạn (T1).
+   */
   replaceResetToken(email: string, tokenHash: string, expiresAtIso: string, requestIp: string): Promise<void>;
   /** Token còn dùng được (chưa dùng, chưa hết hạn, tài khoản còn, có mật khẩu, isActive)? */
   peekResetToken(tokenHash: string, nowIso: string): Promise<boolean>;
