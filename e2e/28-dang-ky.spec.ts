@@ -1,5 +1,8 @@
 import { test, expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { PrismaClient } from '@prisma/client';
 import { mkdirSync } from 'node:fs';
+import { generateResetToken } from '../src/lib/reset-token';
+import { loadE2eEnv, resolveE2eTarget } from './helpers/env';
 import { en, vi } from './helpers/i18n';
 import { fillLogin } from './helpers/login';
 
@@ -10,12 +13,18 @@ import { fillLogin } from './helpers/login';
  * cua dang ky va khoa IP dang nhap dung chung voi cac spec khac.
  * Don dep cuoi spec: tu choi moi dang ky con cho co tien to `e2e-dangky-` va xoa phong ban khong ai dung.
  */
+const { databaseUrl } = resolveE2eTarget(loadE2eEnv());
+const prisma = new PrismaClient({ datasourceUrl: databaseUrl });
+const CHANNEL_NAME = 'E2E dang ky smtp';
+const NEW_PASSWORD = 'E2e-Dang-Ky-2026!';
+
 const SHOTS = '.bangiao/anh-p3f';
 mkdirSync(SHOTS, { recursive: true });
 
 const TS = Date.now();
 const NO_AUTH = { cookies: [], origins: [] };
 const EMAIL_PREFIX = 'e2e-dangky-';
+/** Mat khau ke tan cong doan (form dang ky KHONG con o mat khau, S1): khong bao gio dang nhap duoc. */
 const PASSWORD = 'Abcdef1!';
 const DEPT_A = `E2E PB ${TS}`;
 const DEPT_B = `E2E PB2 ${TS}`;
@@ -35,11 +44,10 @@ async function adminContext(browser: Browser): Promise<BrowserContext> {
   return browser.newContext({ storageState: 'e2e/.auth/admin.json' });
 }
 
-async function fillSignup(page: Page, opts: { name?: string; dept?: string; email: string; password?: string }) {
+async function fillSignup(page: Page, opts: { name?: string; dept?: string; email: string }) {
   await page.locator('#signup-name').fill(opts.name ?? 'E2E Dang Ky');
   if (opts.dept) await page.locator('#signup-department').selectOption({ label: opts.dept });
   await page.locator('#signup-email').fill(opts.email);
-  await page.locator('#signup-password').fill(opts.password ?? PASSWORD);
 }
 
 async function submitSignup(page: Page) {
@@ -49,6 +57,24 @@ async function submitSignup(page: Page) {
 test.describe.configure({ mode: 'serial' });
 
 test.describe('28 - dang ky cho admin bat', () => {
+  test.afterAll(async () => {
+    await prisma.notifyChannel.deleteMany({ where: { name: CHANNEL_NAME } });
+    await prisma.$disconnect();
+  });
+
+  test('0. chua co kenh email -> trang dang ky tat form va bao thieu email (S1); tao kenh email de chay tiep', async ({ browser }) => {
+    await prisma.notifyChannel.deleteMany({ where: { name: CHANNEL_NAME } });
+    const ctx = await anonContext(browser);
+    const page = await ctx.newPage();
+    await page.goto('/vi/dang-ky');
+    await expect(page.getByText(vi('signup.smtpMissing'))).toBeVisible();
+    await expect(page.locator('#signup-name')).toHaveCount(0);
+    await ctx.close();
+    await prisma.notifyChannel.create({
+      data: { kind: 'email', name: CHANNEL_NAME, isEnabled: false, settings: { smtpHost: 'smtp.invalid', fromAddress: 'noreply@daidung.vn' } },
+    });
+  });
+
   test('1. admin them 2 phong ban o the Phong ban', async ({ browser }) => {
     const ctx = await adminContext(browser);
     const page = await ctx.newPage();
@@ -75,7 +101,8 @@ test.describe('28 - dang ky cho admin bat', () => {
     await expect(page.locator('[data-auth="signup-done"]')).toHaveCount(0);
 
     await page.locator('#signup-email').fill(EMAIL_1);
-    await expect(page.getByText(vi('authPage.strength4'), { exact: true })).toBeVisible();
+    await expect(page.locator('#signup-password')).toHaveCount(0);
+    await expect(page.locator('input[type="password"]')).toHaveCount(0);
     await submitSignup(page);
     await expect(page.getByText(vi('signup.doneTitle'))).toBeVisible();
     await ctx.close();
@@ -118,17 +145,42 @@ test.describe('28 - dang ky cho admin bat', () => {
     const msg = page.locator('[data-auth="signup-msg"]');
     await expect(msg).toBeVisible();
     const text = (await msg.innerText()).trim();
-    expect([vi('signup.approvedMailed', { email: EMAIL_1 }), vi('signup.approvedNoMail', { email: EMAIL_1 })]).toContain(text);
+    expect(text).toBe(vi('signup.approvedMailed', { email: EMAIL_1 }));
     await expect(row).toHaveCount(0);
     await ctx.close();
+
+    // Token dat mat khau: 1 dong, chi luu hash SHA-256, han 72 gio.
+    const tokens = await prisma.passwordResetToken.findMany({ where: { email: EMAIL_1 } });
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0].tokenHash).toMatch(/^[0-9a-f]{64}$/);
+    const hours = (tokens[0].expiresAt.getTime() - Date.now()) / 3_600_000;
+    expect(hours).toBeGreaterThan(71.9);
+    expect(hours).toBeLessThanOrEqual(72);
   });
 
-  test('6. nguoi dang ky dang nhap lai -> vao duoc /vi/overview', async ({ browser }) => {
+  test('6. bat xong van khong dang nhap duoc bang mat khau nao; dat mat khau qua link (token 72 gio) roi moi vao duoc, link dung 1 lan', async ({ browser }) => {
     const ctx = await anonContext(browser);
     const page = await ctx.newPage();
     await fillLogin(page, EMAIL_1, PASSWORD);
+    await expect(page.locator('[data-auth="notice-error"]')).toContainText(vi('auth.invalidCredentials'));
+
+    // Link that nam trong email (khong doc duoc tu e2e): thay bang token tu sinh, cung 72 gio, cung trang /dat-lai-mat-khau.
+    const { token, tokenHash } = generateResetToken();
+    await prisma.passwordResetToken.deleteMany({ where: { email: EMAIL_1 } });
+    await prisma.passwordResetToken.create({ data: { email: EMAIL_1, tokenHash, expiresAt: new Date(Date.now() + 72 * 3_600_000) } });
+    await page.goto(`/vi/dat-lai-mat-khau?token=${token}`);
+    await page.waitForLoadState('networkidle');
+    await page.getByLabel(vi('auth.newPassword'), { exact: true }).fill(NEW_PASSWORD);
+    await page.getByLabel(vi('auth.confirmPassword'), { exact: true }).fill(NEW_PASSWORD);
+    await page.getByRole('button', { name: vi('authSecurity.resetSubmit') }).click();
+    await expect(page.getByText(vi('authSecurity.resetDone'))).toBeVisible();
+
+    await fillLogin(page, EMAIL_1, NEW_PASSWORD);
     await page.waitForURL((u) => !u.pathname.includes('/login'));
     await expect(page).toHaveURL(/\/vi\/overview/);
+
+    await page.goto(`/vi/dat-lai-mat-khau?token=${token}`);
+    await expect(page.getByText(vi('authSecurity.resetInvalid'))).toBeVisible();
     await ctx.close();
   });
 

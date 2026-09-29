@@ -1,4 +1,6 @@
 import { test, expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { PrismaClient } from '@prisma/client';
+import { loadE2eEnv, resolveE2eTarget } from './helpers/env';
 import { vi } from './helpers/i18n';
 
 /**
@@ -7,6 +9,9 @@ import { vi } from './helpers/i18n';
  * tien to ten mien con bi tu choi tai form. Chay TUAN TU. Moi ngu canh chua dang nhap co x-forwarded-for gia rieng.
  * Don dep cuoi spec: tu choi dang ky con cho `e2e-dangky-` va xoa phong ban `E2E PB29`.
  */
+const { databaseUrl } = resolveE2eTarget(loadE2eEnv());
+const prisma = new PrismaClient({ datasourceUrl: databaseUrl });
+const CHANNEL_NAME = 'E2E dang ky bien smtp';
 const TS = Date.now();
 const NO_AUTH = { cookies: [], origins: [] };
 const PREFIX = 'e2e-dangky-';
@@ -21,17 +26,27 @@ const anon = (browser: Browser): Promise<BrowserContext> =>
   browser.newContext({ storageState: NO_AUTH, extraHTTPHeaders: { 'x-forwarded-for': fakeIp() } });
 const adminCtx = (browser: Browser): Promise<BrowserContext> => browser.newContext({ storageState: 'e2e/.auth/admin.json' });
 
-async function fill(page: Page, o: { dept?: string; email: string; password?: string }) {
-  await page.locator('#signup-name').fill('E2E Bien');
+async function fill(page: Page, o: { dept?: string; email: string; name?: string }) {
+  await page.locator('#signup-name').fill(o.name ?? 'E2E Bien');
   if (o.dept) await page.locator('#signup-department').selectOption({ label: o.dept });
   await page.locator('#signup-email').fill(o.email);
-  await page.locator('#signup-password').fill(o.password ?? 'Abcdef1!');
 }
 const submit = (page: Page) => page.getByRole('button', { name: vi('signup.submit') }).click();
 
 test.describe.configure({ mode: 'serial' });
 
 test.describe('29 - dang ky: truong hop bien', () => {
+  test.beforeAll(async () => {
+    await prisma.notifyChannel.deleteMany({ where: { name: CHANNEL_NAME } });
+    await prisma.notifyChannel.create({
+      data: { kind: 'email', name: CHANNEL_NAME, isEnabled: false, settings: { smtpHost: 'smtp.invalid', fromAddress: 'noreply@daidung.vn' } },
+    });
+  });
+  test.afterAll(async () => {
+    await prisma.notifyChannel.deleteMany({ where: { name: CHANNEL_NAME } });
+    await prisma.$disconnect();
+  });
+
   test('1. admin them phong ban', async ({ browser }) => {
     const ctx = await adminCtx(browser);
     const page = await ctx.newPage();
@@ -73,24 +88,24 @@ test.describe('29 - dang ky: truong hop bien', () => {
     await ctx.close();
   });
 
-  test('3. mat khau khong lot vao URL, localStorage, sessionStorage, cookie hay duong dan yeu cau', async ({ browser }) => {
+  test('3. form khong co o mat khau, yeu cau gui di khong mang truong mat khau, khong luu gi vao kho trinh duyet (S1)', async ({ browser }) => {
     const ctx = await anon(browser);
     const page = await ctx.newPage();
-    const urls: string[] = [];
-    page.on('request', (r) => urls.push(r.url()));
+    const posted: string[] = [];
+    page.on('request', (r) => {
+      if (r.method() === 'POST') posted.push(r.postData() ?? '');
+    });
     await page.goto('/vi/dang-ky');
     await page.waitForLoadState('networkidle'); // cho hydrate, tranh bam submit truoc khi form co handler
-    await fill(page, { dept: DEPT, email: email('mk'), password: SECRET });
+    await expect(page.locator('input[type="password"]')).toHaveCount(0);
+    await expect(page.locator('#signup-password')).toHaveCount(0);
+    await fill(page, { dept: DEPT, email: email('mk') });
     await submit(page);
     await expect(page.getByText(vi('signup.doneTitle'))).toBeVisible();
 
-    expect(page.url()).not.toContain(SECRET);
-    expect(urls.filter((u) => u.includes(SECRET) || u.includes(encodeURIComponent(SECRET)))).toEqual([]);
-    const stores = await page.evaluate(() => JSON.stringify([{ ...localStorage }, { ...sessionStorage }, document.cookie]));
-    expect(stores).not.toContain(SECRET);
-    expect(JSON.stringify(await ctx.cookies())).not.toContain(SECRET);
-    // Man thanh cong khong con o nhap nao giu mat khau.
-    await expect(page.locator('#signup-password')).toHaveCount(0);
+    expect(posted.filter((b) => /password|matkhau/i.test(b))).toEqual([]);
+    const stores = await page.evaluate(() => JSON.stringify([{ ...localStorage }, { ...sessionStorage }]));
+    expect(stores).toBe('[{},{}]');
     await ctx.close();
   });
 
@@ -136,6 +151,20 @@ test.describe('29 - dang ky: truong hop bien', () => {
       await fill(page, { dept: DEPT, email: bad });
       await submit(page);
       await expect(page.getByText(vi('signup.emailDomainError')).first()).toBeVisible();
+      await expect(page.locator('[data-auth="signup-done"]')).toHaveCount(0);
+    }
+    await ctx.close();
+  });
+
+  test('6b. ho ten co ky tu an (zero-width, RTL) bi bao loi ten tai form, khong gui (S2)', async ({ browser }) => {
+    const ctx = await anon(browser);
+    const page = await ctx.newPage();
+    await page.goto('/vi/dang-ky');
+    await page.waitForLoadState('networkidle'); // cho hydrate, tranh bam submit truoc khi form co handler
+    for (const name of ['E2E\u200bBien', 'E2E\u202eBien']) {
+      await fill(page, { dept: DEPT, email: email('an'), name });
+      await submit(page);
+      await expect(page.getByText(vi('signup.nameError'))).toBeVisible();
       await expect(page.locator('[data-auth="signup-done"]')).toHaveCount(0);
     }
     await ctx.close();
