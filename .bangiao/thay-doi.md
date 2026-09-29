@@ -21,3 +21,12 @@
 - Race 2 yeu cau Quen mat khau dong thoi (test real-db chung minh con dung 1 token reset song, loi moi con).
 - Khong lo them trang thai: phan hoi `requestPasswordReset` khong doi.
 - Rate limit P3E, L5 khong dong toi.
+
+## Thêm: rule hiển thị Priority (C làm, commit `93cd961`, chủ dự án chốt 2026-09-29)
+
+- `src/components/ui/Badges.tsx`: `PRIORITY_TONE` P0 = `gold` (class `c-gold` có sẵn trong `globals.css`), P1 = `info` (navy), P2/P3 = `neutral`. Độ ưu tiên không còn dùng đỏ/cam; đỏ/cam chỉ dành cho trễ tiến độ và phạt.
+- `src/components/ui/Badge.tsx`: thêm tone `gold` -> `c-gold`.
+- `src/components/dashboard/TopPriorityList.tsx`: vẫn là P0 đang triển khai, trễ xếp trước (sắp ở tầng query, không đổi), nhưng bỏ nhãn "Trễ tiến độ"/"Đúng tiến độ" và chấm đỏ/xanh; chấm luôn `var(--gold)`. Trễ/phạt xem ở trang Chi tiết khi bấm vào.
+- i18n: subtitle thẻ Top đổi thành "Priority P0 · đang triển khai · bấm để xem chi tiết" (en "tap for details"); bỏ key `topPriority.behind`, `topPriority.onTrack`.
+- Test: `PriorityBadge.test.ts` (mới), `TopPriorityList*.test.ts` sửa theo rule mới (đỏ trước 9 ca), e2e `30-priority-mau.spec.ts` (mới, sáng/tối, soi ảnh); `npm test` xanh, e2e 30 + 11 xanh.
+- Cột "Đúng tiến độ" trong bảng dự án ở Tổng quan KHÔNG đổi (chưa có quyết định).
