@@ -4,13 +4,17 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { repo } from '@/server/repo';
 import { getProjectSummary } from '@/server/queries';
-import { currentMonth, isValidYearMonth, todayIso } from '@/lib/clock';
+import { todayIso } from '@/lib/clock';
+import { resolveDetailTime } from '@/lib/detail-time';
+import { pickAsOf } from '@/lib/as-of';
+import { dataStateLabel } from '@/lib/data-state-label';
+import { periodAsOfDate, periodMonths } from '@/lib/period';
+import { formatMonthShort } from '@/lib/period-format';
 import { requireUser } from '@/lib/require-user';
 import { requireProjectRead } from '@/server/authz';
 import type { FactFinancial } from '@/server/repo/types';
 import { maskAlertMessage } from '@/lib/finance-gate';
 import { THRESHOLDS } from '@/lib/thresholds';
-import { calcScheduleGap } from '@/lib/evm';
 import { calcScheduleGap as calcKpiScheduleGap } from '@/lib/schedule-gap';
 import { buildPlanActualTimeline } from '@/lib/timeline';
 import { buildStageTimelineRows } from '@/lib/stage-timeline';
@@ -43,6 +47,8 @@ import { getManpowerMonthChartData, getWeeklyChartData } from '@/server/manpower
 import { getEquipmentPlanGantt } from '@/server/equipment-plan-gantt-queries';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { WhatIf } from '@/components/project/WhatIf';
+import { DetailTimeBar } from '@/components/project/DetailTimeBar';
+import { ResourceDayNav } from '@/components/project/ResourceDayNav';
 import { ProjectSwitcher } from '@/components/project/ProjectSwitcher';
 import {
   IconChevronRight,
@@ -68,9 +74,9 @@ export default async function ProjectDetailPage({
   // thu tu getLocale roi moi toi requireUser.
   const { id: rawId } = await params;
   const sp = await searchParams;
-  // month rác (vd ?month=abc) từng lọt qua thẳng vào endOfMonth() và ném RangeError (500) -
-  // validate đúng format 'YYYY-MM' trước khi dùng, sai thì rơi về tháng hiện tại.
-  const month = typeof sp.month === 'string' && isValidYearMonth(sp.month) ? sp.month : currentMonth();
+  // from/to/month/day chỉ lấy khi là chuỗi; resolveDetailTime (src/lib/detail-time.ts) validate từng giá trị,
+  // rác (vd ?month=abc, ?day=2026-02-30) rơi về mặc định, không ném lỗi (từng gây 500 ở endOfMonth).
+  const str = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
   const locale = await getLocale();
   const user = await requireUser(locale);
   // L-1 (security P3D-B): matcher middleware bỏ qua đường dẫn có dấu chấm ('/vi/projects/1.0'),
@@ -88,30 +94,39 @@ export default async function ProjectDetailPage({
   if (!project) notFound();
 
   const today = todayIso();
+  // Kỳ/mốc/ngày phụ thuộc số của dự án (mốc mặc định = tháng gần nhất có số) nên đọc facts trước, phần còn lại gom Promise.all.
+  const facts = await repo.getFacts(id);
+  const t2 = resolveDetailTime(
+    { from: str('from'), to: str('to'), month: str('month'), day: str('day') },
+    project,
+    facts.map((f) => f.yearMonth),
+    today,
+  );
 
   // T1 Bước 6: gom mọi lệnh đọc ĐỘC LẬP (không phụ thuộc kết quả của nhau) vào 1 Promise.all -
   // trang Chi tiết trước đây await tuần tự từng dòng (>20 round-trip nối tiếp).
+  // Chuỗi giá trị lấy tháng lớn nhất <= mốc (mang số tháng trước); bảng so sánh hạng mục dùng đúng tháng nguồn đó.
+  const chainPromise = repo.readValueChainAsOf(id, t2.asOfMonth);
   const [
-    summaryOrNull, lastUpdate, facts, chain, financial, alerts, aliases, sapCodes, dims,
+    summaryOrNull, lastUpdate, chain, financial, alerts, aliases, sapCodes, dims,
     resources, breakdown, tracking, keyMilestones, stageWeights, stageMilestones, compare,
     projectsList, monthChart, weekly, planGantt, stages,
   ] = await Promise.all([
-    getProjectSummary(id, month),
+    getProjectSummary(id, t2.asOfMonth),
     repo.readLastAuditAt(),
-    repo.getFacts(id),
-    repo.getValueChain(id, month),
+    chainPromise,
     canViewFinance ? repo.getFinancial(id) : Promise.resolve([] as FactFinancial[]),
     repo.getAlerts(id),
     repo.getAliases(id),
     repo.getSapCodes(id),
     repo.getDims(),
-    getResourceSnapshot(id, month),
-    getResourceBreakdown(id, month),
-    getWeeklyTracking(id, month),
+    getResourceSnapshot(id, t2.day),
+    getResourceBreakdown(id, t2.day),
+    getWeeklyTracking(id, t2.day),
     repo.getKeyMilestones(id),
     repo.getStageWeights(id),
     repo.getStageMilestones(id),
-    getWorkItemComparison(id, month),
+    chainPromise.then((c) => getWorkItemComparison(id, c[0]?.yearMonth ?? t2.asOfMonth)),
     repo.listProjects(),
     getManpowerMonthChartData(id, locale),
     getWeeklyChartData(id, project),
@@ -124,23 +139,16 @@ export default async function ProjectDetailPage({
     actualStart: project.actualStartDate, pctActual: summary.pctActual, today,
   });
   const startDelay = timeline?.startDelayDays ?? null;
-  const gap = summary.pctPlan != null ? calcScheduleGap(summary.pctPlan, summary.pctActual) : null;
-  // Vong bo sung P2B: dong "Cham/Nhanh N ngay · ±x,x%" duoi the %TT hero - cong thuc rieng
-  // (gapDays quy doi ra ngay), khac voi `gap` phia tren (chi la diem % dung cho dong chan timeline).
+  // D-17: một câu "Chậm N ngày (x điểm %)" dùng chung cho thẻ %TT và chân timeline (công thức calcScheduleGap của P2B).
   const kpiScheduleGap = calcKpiScheduleGap(summary.pctPlan, summary.pctActual, project.plannedStartDate, project.plannedFinishDate);
-  const scheduleGapNote = kpiScheduleGap
-    ? {
-        direction: kpiScheduleGap.direction,
-        text: t(`kpiSchedule.${kpiScheduleGap.direction}`, {
-          days: Math.abs(kpiScheduleGap.gapDays),
-          pct: new Intl.NumberFormat(locale === 'vi' ? 'vi-VN' : 'en-US', {
-            minimumFractionDigits: 1,
-            maximumFractionDigits: 1,
-          }).format(Math.abs(kpiScheduleGap.gapPct) * 100),
-        }),
-      }
-    : undefined;
-  const latest = facts[facts.length - 1];
+  const gapSentence = kpiScheduleGap
+    ? t(`scheduleGapSentence.${kpiScheduleGap.direction}`, {
+        days: Math.abs(kpiScheduleGap.gapDays),
+        pts: Math.round(Math.abs(kpiScheduleGap.gapPct) * 100),
+      })
+    : null;
+  const scheduleGapNote = kpiScheduleGap && gapSentence ? { direction: kpiScheduleGap.direction, text: gapSentence } : undefined;
+  const latest = pickAsOf(facts, t2.asOfMonth)?.row;
   const canEditMs = user?.role === 'admin' || user?.role === 'data-entry';
   // P7-C2: danh sách + tên giai đoạn giờ đọc từ dim_stage (repo.getStages()), không còn hằng cứng.
   const order = stageOrder(stages);
@@ -151,8 +159,29 @@ export default async function ProjectDetailPage({
   const team = dims.teams.find((x) => x.id === project.teamKdId);
   const switcherProjects = projectsList.map((p) => ({ id: p.id, name: p.projectName, code: p.currentAliasCode }));
 
-  const sCurve = canViewFinance ? facts.map((f) => ({ month: f.yearMonth, pv: Math.round(f.pv), ev: Math.round(f.ev), ac: Math.round(f.ac) })) : [];
-  const trend = facts.map((f) => ({ month: f.yearMonth, spi: f.spi, cpi: f.cpi }));
+  // Chart theo kỳ: mỗi tháng của kỳ (tới mốc của kỳ) lấy số gần nhất <= tháng đó, tháng trước tháng có số đầu tiên bỏ.
+  const capMonth = periodAsOfDate(t2.period, today).slice(0, 7);
+  const chartMonths = periodMonths(t2.period).filter((m) => m <= capMonth);
+  const carried = chartMonths.flatMap((m) => {
+    const at = pickAsOf(facts, m);
+    return at ? [{ month: m, f: at.row }] : [];
+  });
+  const sCurve = canViewFinance ? carried.map(({ month, f }) => ({ month, pv: Math.round(f.pv), ev: Math.round(f.ev), ac: Math.round(f.ac) })) : [];
+  const trend = carried.map(({ month, f }) => ({ month, spi: f.spi, cpi: f.cpi }));
+  const chartRange = carried.length
+    ? t('period.chartRange', { m1: formatMonthShort(carried[0].month), m2: formatMonthShort(carried[carried.length - 1].month) })
+    : undefined;
+  const asOfLabel = (() => {
+    const l = dataStateLabel(summary.dataState);
+    return t(l.key, { month: l.month });
+  })();
+  const chainMonth = chain[0]?.yearMonth;
+  const chainLabel = chainMonth
+    ? t(chainMonth === t2.asOfMonth ? 'asOf.month' : 'asOf.carried', { month: formatMonthShort(chainMonth) })
+    : t('asOf.none');
+  const helpOf = (key: string) => ({ text: t(`helpTip.${key}`), label: t('common.explain') });
+  const financialRows = financial.filter((f) => f.yearMonth <= t2.asOfMonth && f.yearMonth >= t2.period.from.slice(0, 7)).reverse();
+  const dayCap = periodAsOfDate(t2.period, today);
   const bottleneck = chain.find((c) => c.stageCode === latest?.bottleneckStage);
   const chainFooter = chainFooterSummary(chain, stageWeights, order);
   // Dich san ten cac giai doan cho ValueChainModeChip (client component, muc 4d) - tranh goi
@@ -180,6 +209,14 @@ export default async function ProjectDetailPage({
       <p className="hintline">
         {t('admin.lastUpdate')}: {lastUpdate ? formatDateTime(lastUpdate, locale) : '-'}
       </p>
+
+      {/* P4 D-14: kỳ + mốc tháng (đổi URL, server render lại) */}
+      <DetailTimeBar
+        period={t2.period}
+        asOfMonth={t2.asOfMonth}
+        monthsInPeriod={chartMonths}
+        lastDataMonth={t2.lastDataMonth}
+      />
 
       {/* Header */}
       <Card>
@@ -219,26 +256,27 @@ export default async function ProjectDetailPage({
 
       {/* 6 KPI - 3 the "Trong tam" (%TT, SPI, CPI) dung canh nhau nhu mock-up dong 646-649 */}
       <Rise className="kpis">
-        <KpiCard label={t('metric.pctPlan')} value={formatPct(summary.pctPlan, locale)} delta={null} tone="neutral" icon={IconProject} />
-        <KpiCard label={t('metric.pctActual')} value={formatPct(summary.pctActual, locale)} delta={null} tone="neutral" hero scheduleGap={scheduleGapNote} icon={IconAlert} />
-        <KpiCard label={t('metric.spi')} value={formatRatio(summary.spi)} delta={null} tone={summary.spi != null && summary.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'} hero icon={IconTrend} />
-        <KpiCard label={t('metric.cpi')} value={formatRatio(summary.cpi)} delta={null} tone={summary.cpi != null && summary.cpi < THRESHOLDS.cpiWarn ? 'warn' : 'ok'} hero icon={IconMoney} />
+        <KpiCard label={t('metric.pctPlan')} value={formatPct(summary.pctPlan, locale)} delta={null} sub={asOfLabel} tone="neutral" icon={IconProject} help={helpOf('dtPctPlan')} />
+        <KpiCard label={t('metric.pctActual')} value={formatPct(summary.pctActual, locale)} delta={null} sub={asOfLabel} tone="neutral" hero scheduleGap={scheduleGapNote} icon={IconAlert} help={helpOf('dtPctActual')} />
+        <KpiCard label={t('metric.spi')} value={formatRatio(summary.spi)} delta={null} tone={summary.spi != null && summary.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'} hero sub={asOfLabel} icon={IconTrend} help={helpOf('dtSpi')} />
+        <KpiCard label={t('metric.cpi')} value={formatRatio(summary.cpi)} delta={null} tone={summary.cpi != null && summary.cpi < THRESHOLDS.cpiWarn ? 'warn' : 'ok'} hero sub={asOfLabel} icon={IconMoney} help={helpOf('dtCpi')} />
         <KpiCard label={t('resourceKpi.manpowerTotal')}
           value={resources.manpowerAsOfDate ? formatQty(resources.manpowerActual, locale) : '-'}
           sub={resources.manpowerAsOfDate ? t('resourceKpi.asOf', { date: formatDayMonth(resources.manpowerAsOfDate) }) : t('detail.noDailyData')}
           note={resources.manpowerAsOfDate ? t('resourceKpi.planContractors', { planned: formatQty(resources.manpowerPlanned, locale), n: resources.manpowerContractors }) : undefined}
-          href="#res-manpower" delta={null} tone="neutral" icon={IconProject} />
+          href="#res-manpower" delta={null} tone="neutral" icon={IconProject} help={helpOf('dtResource')} />
         <KpiCard label={t('resourceKpi.equipmentTotal')}
           value={resources.equipmentAsOfDate ? formatQty(resources.equipmentActual, locale) : '-'}
           sub={resources.equipmentAsOfDate ? t('resourceKpi.asOf', { date: formatDayMonth(resources.equipmentAsOfDate) }) : t('detail.noDailyData')}
           note={resources.equipmentAsOfDate ? t('resourceKpi.planContractors', { planned: formatQty(resources.equipmentPlanned, locale), n: resources.equipmentContractors }) : undefined}
-          href="#res-equipment" delta={null} tone="neutral" icon={IconGauge} />
+          href="#res-equipment" delta={null} tone="neutral" icon={IconGauge} help={helpOf('dtResource')} />
       </Rise>
 
       {/* Timeline KH vs TT dang thanh (mock-up dong 655-676) */}
-      <Card>
+      <Card className="overflow-visible">
         <CardHeader
           title={t('detail.timeline')}
+          titleExtra={<HelpTip text={t('helpTip.dtTimeline')} label={t('common.explain')} />}
           action={<Legend items={[
             { label: t('detail.planned'), color: 'var(--s-plan)' },
             { label: t('detail.actual'), color: 'var(--s-actual)' },
@@ -265,7 +303,7 @@ export default async function ProjectDetailPage({
             <span>{t('form.contractDate')}: {formatDate(project.contractDate, locale)}</span>
             <span>{t('form.committedHandover')}: <b style={{ color: 'var(--label)' }}>{formatDate(project.committedHandoverDate, locale)}</b></span>
             <span>{t('detail.tl.startDelay')}: <b style={{ color: startDelay != null && startDelay > 0 ? 'var(--danger)' : 'var(--label)' }}>{startDelay == null ? '-' : t('detail.tl.days', { n: Math.max(startDelay, 0) })}</b></span>
-            <span>{t('detail.tl.gap')}: <b style={{ color: !gap ? 'var(--label)' : gap.direction === 'behind' && gap.pct > 0 ? 'var(--danger)' : 'var(--ok)' }}>{gap ? formatPct(gap.pct, locale) : '-'}</b></span>
+            <span>{t('detail.tl.gap')}: <b style={{ color: !kpiScheduleGap ? 'var(--label)' : kpiScheduleGap.direction === 'behind' ? 'var(--danger)' : kpiScheduleGap.direction === 'ahead' ? 'var(--ok)' : 'var(--label)' }}>{gapSentence ?? '-'}</b></span>
           </div>
         </CardBody>
       </Card>
@@ -299,9 +337,11 @@ export default async function ProjectDetailPage({
           Bao trong StageSelectionProvider (muc 4d) de chip goc noi voi giai doan dang chon o
           StageExplorer ben duoi, khong phai viet lai StageExplorer. */}
       <StageSelectionProvider>
-        <Card className="valueChainCard">
+        <Card className="valueChainCard overflow-visible">
           <CardHeader
             title={t('detail.valueChain')}
+            subtitle={chainLabel}
+            titleExtra={<HelpTip text={t('helpTip.dtValueChain')} label={t('common.explain')} />}
             action={
               <div className="flex flex-wrap items-center gap-2">
                 <ValueChainModeChip allStagesLabel={t('valueChainCard.allStages')} stageLabels={stageLabels} />
@@ -352,11 +392,19 @@ export default async function ProjectDetailPage({
         <StageExplorer rows={stageRows} compare={compare} today={today} locale={locale} stages={stages} />
       </StageSelectionProvider>
 
-      {/* Tang 4 - Huy dong nguon luc (mock-up dong 759-767) */}
+      {/* Tang 4 - Huy dong nguon luc (mock-up dong 759-767). P4 D-15: dieu huong ngay cho ca nhom. */}
+      <ResourceDayNav
+        day={t2.day}
+        min={t2.period.from}
+        max={dayCap}
+        manpowerAsOf={resources.manpowerAsOfDate}
+        equipmentAsOf={resources.equipmentAsOfDate}
+      />
       <div className="g2">
         <Card id="res-manpower" style={{ scrollMarginTop: 72 }}>
           <CardHeader
             title={t('detail.res.manTitle')}
+            subtitle={breakdown.manpowerAsOfDate ? t('asOf.day', { date: formatDate(breakdown.manpowerAsOfDate, locale) }) : undefined}
             titleExtra={<span className="chip c-plain">{t('detail.res.manual')}</span>}
             action={<Legend items={[{ label: t('detail.planned'), color: 'var(--s-plan)' }, { label: t('detail.actual'), color: 'var(--s-third)' }]} />}
           />
@@ -365,6 +413,7 @@ export default async function ProjectDetailPage({
         <Card id="res-equipment" style={{ scrollMarginTop: 72 }}>
           <CardHeader
             title={t('detail.res.eqpTitle')}
+            subtitle={breakdown.equipmentAsOfDate ? t('asOf.day', { date: formatDate(breakdown.equipmentAsOfDate, locale) }) : undefined}
             titleExtra={<span className="chip c-plain">{t('detail.res.manual')}</span>}
             action={<Legend items={[{ label: t('detail.planned'), color: 'var(--s-plan)' }, { label: t('detail.actual'), color: 'var(--s-cost)' }]} />}
           />
@@ -387,7 +436,7 @@ export default async function ProjectDetailPage({
           title={t('manpowerMonthChart.title')}
           titleExtra={<HelpTip text={t('manpowerMonthChart.help')} label={t('common.explain')} />}
         />
-        <CardBody>{monthChart ? <ManpowerMonthChart model={monthChart} /> : <p className="empty">{t('manpowerMonthChart.noData')}</p>}</CardBody>
+        <CardBody>{monthChart ? <ManpowerMonthChart model={monthChart} markerMonth={t2.asOfMonth} /> : <p className="empty">{t('manpowerMonthChart.noData')}</p>}</CardBody>
       </Card>
 
       {/* T12b(b) - chart cot chong nhan luc theo tuan x nha thau, dat cuoi trang theo yeu cau */}
@@ -397,7 +446,7 @@ export default async function ProjectDetailPage({
           titleExtra={<HelpTip text={t('manpowerCharts.weeklyHelp')} label={t('common.explain')} />}
         />
         <CardBody>
-          {weekly ? <WeeklyManpowerStackChart data={weekly} initialMonth={month} /> : <p className="empty">{t('manpowerCharts.noData')}</p>}
+          {weekly ? <WeeklyManpowerStackChart data={weekly} initialMonth={t2.asOfMonth} markerMonth={t2.asOfMonth} /> : <p className="empty">{t('manpowerCharts.noData')}</p>}
         </CardBody>
       </Card>
 
@@ -415,17 +464,19 @@ export default async function ProjectDetailPage({
       {/* Charts */}
       <div className={canViewFinance ? 'g2' : ''}>
         {canViewFinance && (
-          <Card>
-            <CardHeader title={t('detail.sCurve12')} />
+          <Card className="overflow-visible">
+            <CardHeader title={t('detail.sCurve12')} subtitle={chartRange} titleExtra={<HelpTip text={t('helpTip.dtSCurve')} label={t('common.explain')} />} />
             <CardBody>
-              <SCurve data={sCurve} />
+              <SCurve data={sCurve} markerMonth={t2.asOfMonth} />
+              <p className="hintline mt-2">{t('chartHowTo.dtSCurve')}</p>
             </CardBody>
           </Card>
         )}
-        <Card>
-          <CardHeader title={t('detail.spiCpi12')} />
+        <Card className="overflow-visible">
+          <CardHeader title={t('detail.spiCpi12')} subtitle={chartRange} titleExtra={<HelpTip text={t('helpTip.ovSpiCpi')} label={t('common.explain')} />} />
           <CardBody>
-            <SpiCpiLine data={trend} />
+            <SpiCpiLine data={trend} markerMonth={t2.asOfMonth} />
+            <p className="hintline mt-2">{t('chartHowTo.dtSpiCpi')}</p>
           </CardBody>
         </Card>
       </div>
@@ -515,8 +566,9 @@ export default async function ProjectDetailPage({
 
         {canViewFinance && (
         <Card>
-          <CardHeader title={t('detail.financial')} />
+          <CardHeader title={t('detail.financial')} subtitle={t('asOf.month', { month: formatMonthShort(t2.asOfMonth) })} />
           <CardBody>
+            <div style={{ maxHeight: 320, overflowY: 'auto' }}>
             <table className="tbl">
               <thead>
                 <tr>
@@ -527,7 +579,7 @@ export default async function ProjectDetailPage({
                 </tr>
               </thead>
               <tbody>
-                {financial.slice(-6).reverse().map((f) => (
+                {financialRows.map((f) => (
                   <tr key={f.yearMonth}>
                     <td>{f.yearMonth}</td>
                     <td className="num">{formatTyd(f.revenueCumulative, locale)}</td>
@@ -537,6 +589,7 @@ export default async function ProjectDetailPage({
                 ))}
               </tbody>
             </table>
+            </div>
           </CardBody>
         </Card>
         )}

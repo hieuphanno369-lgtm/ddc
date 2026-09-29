@@ -53,7 +53,7 @@ function tooltipRows(m: MonthDatum, shifts: MonthShift[], t: ReturnType<typeof u
   ];
 }
 
-export function ManpowerMonthChart({ model }: { model: ManpowerMonthModel }) {
+export function ManpowerMonthChart({ model, markerMonth }: { model: ManpowerMonthModel; markerMonth?: string }) {
   const t = useTranslations();
   const { tip, show, hide } = useChartTip();
   const [containerWidth, setContainerWidth] = useState(800);
@@ -140,6 +140,19 @@ export function ManpowerMonthChart({ model }: { model: ManpowerMonthModel }) {
               </text>
             </g>
           ))}
+
+          {/* P4 D-19: vạch đỏ nét đứt tại tháng mốc đang xem (cùng kiểu vạch "Hôm nay" ở các chart khác). */}
+          {markerMonth && months.some((m) => m.yearMonth === markerMonth) && (
+            <line
+              data-testid="marker-line"
+              x1={cxOf(months.findIndex((m) => m.yearMonth === markerMonth))}
+              x2={cxOf(months.findIndex((m) => m.yearMonth === markerMonth))}
+              y1={MT}
+              y2={MT + PLOT_H}
+              strokeDasharray="4 4"
+              style={{ stroke: 'var(--danger)' }}
+            />
+          )}
 
           {months.map((m, i) => {
             const cx = cxOf(i);

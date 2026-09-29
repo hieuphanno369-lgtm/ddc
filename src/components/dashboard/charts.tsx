@@ -5,6 +5,7 @@ import {
   AreaChart,
   Bar,
   BarChart,
+  Brush,
   CartesianGrid,
   Cell,
   ComposedChart,
@@ -215,6 +216,9 @@ export function CapacityBar({
   );
 }
 
+/** Quá ngưỡng này thì thêm thanh kéo chọn khoảng tháng (D-20); kéo chỉ phóng to chart, không đổi URL/kỳ. */
+const BRUSH_MIN_POINTS = 13;
+
 type TrendRow = { month: string; spi: number | null; cpi: number | null; carriedProjects?: number };
 
 export function SpiCpiLine({
@@ -260,7 +264,7 @@ export function SpiCpiLine({
       <div className="mb-1 flex justify-end">
         <LabelModeSwitch mode={mode} onChange={setMode} />
       </div>
-      <ResponsiveContainer width="100%" height={200}>
+      <ResponsiveContainer width="100%" height={data.length >= BRUSH_MIN_POINTS ? 226 : 200}>
         <LineChart data={rows} margin={{ top: 8, right: 18, left: 4, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
           <XAxis dataKey="month" tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} />
@@ -278,6 +282,7 @@ export function SpiCpiLine({
           )}
           {line('spi', c.actual, spiSel, 'SPI')}
           {line('cpi', c.third, cpiSel, 'CPI')}
+          {data.length >= BRUSH_MIN_POINTS && <Brush dataKey="month" height={22} stroke={c.axis} fill="transparent" travellerWidth={8} />}
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -301,7 +306,7 @@ export function SCurve({
   const rows = withRunKeys(data, ['pv', 'ev', 'ac'], runs);
   const strokes = { pv: c.plan, ev: c.actual, ac: c.cost } as const;
   return (
-    <ResponsiveContainer width="100%" height={240}>
+    <ResponsiveContainer width="100%" height={data.length >= BRUSH_MIN_POINTS ? 266 : 240}>
       <ComposedChart data={rows} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
         <defs>
           <linearGradient id="pvGrad" x1="0" y1="0" x2="0" y2="1">
@@ -343,6 +348,7 @@ export function SCurve({
             />
           )),
         )}
+        {data.length >= BRUSH_MIN_POINTS && <Brush dataKey="month" height={22} stroke={c.axis} fill="transparent" travellerWidth={8} />}
       </ComposedChart>
     </ResponsiveContainer>
   );

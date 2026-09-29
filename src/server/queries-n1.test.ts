@@ -37,6 +37,8 @@ vi.mock('@/components/ui/Badges', () => ({
 }));
 vi.mock('@/components/project/WhatIf', () => ({ WhatIf: () => null }));
 vi.mock('@/components/project/ProjectSwitcher', () => ({ ProjectSwitcher: () => null }));
+vi.mock('@/components/project/DetailTimeBar', () => ({ DetailTimeBar: () => null }));
+vi.mock('@/components/project/ResourceDayNav', () => ({ ResourceDayNav: () => null }));
 
 import { getCurrentUser } from '@/lib/session';
 import { repo } from '@/server/repo';
