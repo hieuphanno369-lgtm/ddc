@@ -35,6 +35,11 @@ Lưu ý: `CLAUDE.md` ghi "Next 14" nhưng `package.json` là 15.5.26; `searchPar
 
 ## 0. CÂU HỎI CÒN BỎ NGỎ (chặn code, phải có trả lời của chủ dự án)
 
+> **CHỦ DỰ ÁN ĐÃ CHỐT 2026-09-29 (tối): theo ĐÚNG phương án đề xuất ở mọi mục, không sửa mục nào.**
+> Mục 0.1: duyệt toàn bộ D-1..D-25; D-9 kỳ 1 tháng vẽ 1 điểm + ghi chú; D-20 thanh kéo chỉ phóng to chart, không đổi kỳ/URL; D-22 giữ ô tháng trong chart "Nhân lực theo tuần"; D-24 thẻ nhập bù đặt ở Hồ sơ dự án.
+> Mục 0.2: Q1 = 12 tháng gần nhất; Q2 = so kỳ trước cùng độ dài; Q3 = HĐ chưa khởi công không phụ thuộc kỳ; Q4 = thiếu ngày bắt đầu thì lấy ngày ký HĐ, thiếu cả ngày ký thì thuộc mọi kỳ; Q5 = giữ cờ bị phạt hiện tại + ghi chú ở "?"; Q6 = Chi tiết mặc định kỳ cả vòng đời, thu hẹp kỳ thì chart theo kỳ; Q7 = ngày trống hiện số ngày gần nhất trước đó; Q8 = mang số sang không giới hạn; Q9 = (b) siết luật tháng ở server, PIC chỉ nhập tháng hiện tại và tháng trước, cũ hơn phải có khoảng nhập bù (làm Task F4, giữ `actions.ts`); Q10 = nhập bù không vượt khoá sổ; Q11 = chỉ admin; Q12 = tối đa 24 tháng, tự hết hiệu lực sau 30 ngày; Q13 = không duyệt, chỉ ghi nhật ký.
+> Mọi nhóm A-G đã đủ điều kiện code.
+
 Nhóm A (Task A1-A3) KHÔNG phụ thuộc câu trả lời nào, coder làm trước được.
 Nhóm B cần câu Q1, Q2, Q3, Q4, Q5.
 Nhóm C, D cần mục 0.1 được duyệt.
