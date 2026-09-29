@@ -240,3 +240,63 @@ Không sửa `vi.json`, `en.json`, `actions.ts`, `prisma-repo.ts`, `schema.prism
 - Ảnh chụp đã soi (1440 và 390, sáng và tối) ở `.bangiao/anh-p4/`: `tong-quan-*`, `full-*`, `kpi-*`, `chi-tiet-*`.
 - Lệch pixel còn lại, chưa sửa vì cần sửa `globals.css` (không được phép): nhãn dài của thẻ KPI hẹp ("Tổng số nhân lực", "HĐ chưa khởi công") đẩy dấu "?" xuống dòng riêng ở 1440px.
 - Chưa đo hiệu năng (Task G1) và chưa soi Nhập liệu, Hồ sơ dự án (thuộc nhóm F, G).
+
+---
+
+# P4 - Vòng sửa sau tester
+
+Nhánh `feature/p4-logic-bo-loc`, tài khoản C, DB `ddc_control_tower_c`, dev server cổng 3003.
+Nguồn: `.bangiao/ket-qua-test.md` (T-1 đến T-6) và các quyết định chốt của chủ dự án.
+Skill đã dùng: `coding-standards`, `frontend-patterns`.
+File nóng đã giữ: `app/globals.css`, `vi.json`, `en.json`, `queries.ts`. Không sửa `project-queries.ts`, `actions.ts`, `prisma-repo.ts`, `schema.prisma`; `queries.ts` cuối cùng không cần sửa.
+
+## 1. Commit
+
+- `0d1bf85` fix(p4-t1): `groupKey` chỉ giữ khi `groupBy` hợp lệ và thuộc tập nhóm thật.
+- `309cac9` feat(p4-ngay): ô ngày riêng dd/mm/yyyy `DateField`, đổi tên thẻ `overview.backlogOverdue`.
+- `1a9fd60` fix(p4-t2-t6): Báo cáo dùng chung kỳ với Tổng quan, export nhận kỳ, báo kỳ lỗi.
+- fix(p4-t3): chuỗi giá trị hiện "-" khi mốc chưa có số.
+- feat(p4-d10-ct): Chi tiết vẽ nét đứt cho tháng mang số sang.
+- fix(p4-t4-t5): dấu "?", đơn vị tấn, nhãn trục X, thanh kỳ Chi tiết, timeline 390px.
+- test(p4): e2e, chờ chart vẽ xong, `global-setup` chờ dev server; test(p4): `DateField data-ready`, chữ ký route export.
+
+## 2. Từng mục và file
+
+- T-1: `src/lib/overview-params.ts` (`parseDashboardFilters(sp, teamNames?)`: type/market theo enum, team theo tên team thật + "-" cho dự án chưa gán team, không thì bỏ `groupKey`). `overview/page.tsx` truyền `dims.teams` names. Route `/api/export` không dùng khoá cache nên không đổi. Test `cache-key.test.ts` (đỏ T-1 nay xanh, thêm ca team/type/market lạ), `overview-params.test.ts`.
+- T-2: `src/server/report.ts` (`getReportData(period)`), `report/page.tsx` (đọc `from/to/month`, mặc định 12 tháng, dòng tóm tắt kỳ, nhãn delta "so với kỳ trước cùng độ dài", link export mang kỳ), `ReportPeriodBar.tsx` (mới), `app/api/report/export/route.ts` (nhận Request, kỳ giống trang, thêm dòng "Kỳ báo cáo" ở sheet KPI). Test cập nhật: `report-export-route`, `export-finance-gate`, `operation-pages-render` (ca kỳ, mặc định, rác), `finance-gate-pages`, `pages-role-guard`, `queries-n1`.
+- T-3: `projects/[id]/page.tsx` (`noChain` -> "-" ở từng giai đoạn và tổng). Test `projects-detail-page-render`.
+- T-4: `KpiCard.tsx` bọc 2 từ cuối của nhãn cùng "?" trong span `nowrap`. `globals.css`: `.kpi .vl` thêm `white-space:nowrap`.
+- T-5: `KpiCard.tsx` prop `unit` (thẻ "Sản lượng trong kỳ": số + chữ "tấn" nhỏ, không xuống dòng, hai thẻ cùng cao). `charts.tsx` `GroupBar`: `interval=0`, xoay nhãn -35 độ khi mỗi cột dưới 72px (đo bằng `onResize`). `DetailTimeBar.tsx`: hai ô ngày là một khối, nhãn trên ô dưới. `PlanActualTimeline.tsx` + `globals.css`: dưới 560px nhãn xếp trên thanh (`--tl-off:0px`), chip % không đè chữ ngày.
+- T-6: `period.ts` `parsePeriodChecked` (from/to/month có trên URL mà không dùng được thì `invalid`); Tổng quan, Chi tiết (`resolveDetailTime` trả `invalidPeriod`), Báo cáo hiện `<p class="hintline" data-testid="period-invalid">` với chuỗi `period.invalid`. Chi tiết chỉ xét `from/to`.
+- Ô ngày riêng: `src/lib/date-input.ts` (`formatDmy`, `maskDmy`, `parseDmy`), `src/components/ui/DateField.tsx`. Ô chữ dd/mm/yyyy, tự chèn "/", bàn phím số, Enter hoặc rời ô để áp dụng, sai thì báo lỗi (`role="alert"`, `aria-invalid`, class `.inp.bad`), ngoài min/max cũng báo. Nút lịch là `input[type=date]` gốc trong suốt phủ lên biểu tượng nên chạm mở lịch gốc của điện thoại; không thêm thư viện. Dùng ở `FilterBar`, `DetailTimeBar`, `ReportPeriodBar`, `ResourceDayNav` (ô ngày nguồn lực Chi tiết). Key i18n mới cuối nhóm `period`: `dateInvalid`, `dateOutOfRange`, `datePlaceholder`, `pickDate`.
+- Nét đứt ở Chi tiết: trang truyền `carriedProjects` (1 nếu tháng dùng số tháng trước) cho `SCurve`/`SpiCpiLine`, prop `single` để tooltip ghi "Dùng số tháng trước" (`asOf.carriedTipOne`, cuối nhóm `asOf`). Test mới `projects-detail-carried.test.ts`.
+- D-6: `overview.backlogOverdue` vi "HĐ chưa khởi công & Công nợ quá hạn", en "Contracts not started & Overdue Receivables".
+- e2e: `32`, `33` chờ chart vẽ xong qua `e2e/helpers/chart-ready.ts`, đổi sang ô ngày mới (thêm ca nhập sai, lịch, kỳ lỗi, Báo cáo chung kỳ, export, thanh kỳ 390px); `34` thêm ca T-3.
+- Mục 11 (`10-ten-app` ERR_CONNECTION_REFUSED): `global-setup` chờ `${baseURL}/vi/login` sẵn sàng (`e2e/helpers/wait-server.ts` + test). Xem mục 3.
+
+## 3. Điểm lệch và lưu ý
+
+- Ô ngày ở Nhập liệu (`ResourceEntryPanel`, `ProjectForm`...) vẫn là `input[type=date]` gốc: ngoài phạm vi (thuộc nhóm F/Hồ sơ), tôi hiểu "ô chọn ngày nguồn lực" là `ResourceDayNav` ở Chi tiết.
+- Mục 11: không tái hiện được. Webserver của Playwright chạy trước `global-setup`; chờ sẵn sàng chỉ chữa được trường hợp server đang khởi động hoặc biên dịch lại lúc bắt đầu. Nếu server chết giữa suite (nghi do tiến trình `next dev` cổng 3003 bị dừng ngoài ý muốn) thì không có cách chắc chắn ở phía test.
+- `?month=all` (link cũ) nay hiện dòng "Kỳ không hợp lệ" vì là tham số kỳ không dùng được (theo T-6). Nếu chủ dự án muốn link cũ này im lặng thì nói.
+- Export Excel: sheet KPI vẫn ghi nhãn cũ "Tổng số dự án" và "Backlog (tỷ)" (test hiện có khoá nhãn đó), chỉ thêm dòng "Kỳ báo cáo".
+- `.kpi .vl` nowrap: giá trị quá dài sẽ bị cắt thay vì xuống dòng (đã kiểm 390px).
+
+## 4. Chỗ Tester nên soi kỹ
+
+- Ô ngày: gõ 8 chữ số liền, xoá lùi qua "/", dán "1/2/2026", năm ngoài 2000-2999, trình duyệt giao diện tiếng Anh (phải luôn dd/mm/yyyy), chạm lịch trên điện thoại thật (iOS Safari, Android Chrome), Tab/Enter bằng bàn phím.
+- Ô ngày nguồn lực: ngày ngoài [đầu kỳ, mốc] báo lỗi khoảng hợp lệ; nút Tuần trước/sau vẫn hoạt động.
+- Báo cáo: đổi kỳ thì thẻ và bảng khớp Tổng quan cùng kỳ; export mở được với kỳ rác.
+- Chi tiết: dự án có tháng thiếu số (đoạn nét đứt và tooltip); tháng có số thật thì nét liền.
+- 390px: thanh kỳ Chi tiết, timeline, nhãn trục X `GroupBar`, thẻ Doanh thu/Sản lượng cao bằng nhau; sáng/tối.
+- `groupKey`: `?groupBy=team&groupKey=<tên có thật>` vẫn lọc; tên lạ bị bỏ.
+
+## 5. Kết quả kiểm vòng sửa
+
+- `npx tsc --noEmit`: sạch.
+- `npm test`: 295 file xanh, 4 bỏ qua; 3438 test xanh, 47 bỏ qua, 0 đỏ (trước vòng sửa 3403 xanh, 1 đỏ).
+- Real-db trên `ddc_control_tower_c` (set `DATABASE_URL`): 4 file, 46 test xanh.
+- e2e toàn bộ (cổng 3003): 275 xanh, 2 đỏ, 14,0 phút. Hai ca đỏ là `28-kich-ban-load-test` (`api_health` admin: ECONNRESET; `overview_month` viewer: ECONNREFUSED ::1:3003). Chạy lại riêng `28` và `10-ten-app`: 21/21 xanh.
+- Nguyên nhân hai ca đỏ và cả ca `10-ten-app` của tester (mục 11): tiến trình dev server cổng 3003 (PID 37212) có `StartTime` 23:28, tức bị dừng rồi khởi động lại trong lúc suite đang chạy (suite bắt đầu khoảng 23:19); tiến trình mới đang ở 2,3 GB bộ nhớ. Đây là lỗi môi trường (dev server tự chết/bị khởi động lại), không phải code P4. `global-setup` chờ sẵn sàng chỉ chữa được lúc bắt đầu suite. Đề xuất cho điều phối: chạy e2e trên `next start` (bản build) hoặc nâng `NODE_OPTIONS=--max-old-space-size` cho dev server cổng 3003 nếu còn tái diễn.
+- Ảnh soi sau sửa: `.bangiao/anh-p4-sua/sau-{tq,ct,bc}-{1440,390}-{light,dark}.png` (12 ảnh) và `r1.png`, `r2.png` (Báo cáo). Đã soi: "?" không rớt dòng, hai thẻ Doanh thu/Sản lượng cùng cao, đủ 5 nhãn trục X ở 390px, thanh kỳ Chi tiết thẳng cột, timeline 390px không đè chữ, Báo cáo khớp Tổng quan (17, 15, 11).
+- Không cập nhật `D:\_project\DDC_dieu-phoi\phien-C.md` (ngoài worktree), điều phối ghi.
