@@ -3,6 +3,7 @@
 import { headers } from 'next/headers';
 import { clientIpFrom } from '@/lib/client-ip';
 import { routing, type Locale } from '@/i18n/routing';
+import { signupMailer } from './auth-mail';
 import { getAuthStore } from './auth-store';
 import { getSignupStore } from './signup-store';
 import { requestSignup, type SignupResult } from './signup';
@@ -19,16 +20,16 @@ export async function submitSignupAction(input: {
   name: string;
   departmentId: number | null;
   email: string;
-  password: string;
   locale: string;
 }): Promise<SignupResult> {
   try {
+    // S1: không gửi được link đặt mật khẩu thì không nhận đăng ký (giống trang Quên mật khẩu khi thiếu SMTP).
+    if (!process.env.NEXTAUTH_URL || !(await signupMailer.getSmtp())) return { status: 'smtp_missing' };
     const ip = clientIpFrom(await headers());
     return await requestSignup(getSignupStore(), getAuthStore(), {
       name: input.name,
       departmentId: input.departmentId,
       email: input.email,
-      password: input.password,
       locale: toLocale(input.locale),
       ip,
     });

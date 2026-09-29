@@ -111,6 +111,7 @@ export function createMemorySignupStore(source: MemorySignupSource): SignupStore
           departmentName: departments.find((d) => d.id === r.departmentId)?.name ?? null,
           locale: r.locale,
           createdAt: r.createdAtIso,
+          requestIp: r.requestIp,
         }));
       return rows;
     },
@@ -127,7 +128,7 @@ export function createMemorySignupStore(source: MemorySignupSource): SignupStore
         {
           email: req.email,
           name: req.name,
-          passwordHash: req.passwordHash,
+          passwordHash: input.passwordHash,
           role: input.role,
           canViewFinance: input.canViewFinance,
           isActive: true,
@@ -146,6 +147,12 @@ export function createMemorySignupStore(source: MemorySignupSource): SignupStore
       if (!req) return 'not_found';
       requests = requests.filter((r) => r.id !== id);
       return { email: req.email };
+    },
+
+    async pruneStale(beforeIso) {
+      const before = requests.length;
+      requests = requests.filter((r) => r.createdAtIso >= beforeIso);
+      return before - requests.length;
     },
   };
 }

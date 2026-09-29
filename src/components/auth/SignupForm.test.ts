@@ -32,18 +32,23 @@ describe('SignupForm (P3F-3)', () => {
     expect(render([])).not.toContain('id="signup-department"');
   });
 
-  it('co o ho ten, email, mat khau voi id, autocomplete va nhan gan dung', () => {
+  it('co o ho ten, email voi id, autocomplete va nhan gan dung', () => {
     const html = render([]);
     expect(html).toContain('id="signup-name"');
     expect(html).toMatch(/autocomplete="name"/i);
     expect(html).toContain('id="signup-email"');
     expect(html).toContain('type="email"');
-    expect(html).toContain('id="signup-password"');
-    expect(html).toMatch(/autocomplete="new-password"/i);
     expect(html).toContain('<label for="signup-name"');
     expect(html).toContain('<label for="signup-email"');
-    expect(html).toContain('<label for="signup-password"');
     expect(html).toContain('signup.emailHint');
+  });
+
+  it('KHONG co o mat khau, o nhap lai, dong ho do manh (S1: mat khau chi dat sau khi admin bat, qua link email)', () => {
+    const html = render([{ id: 1, name: 'A' }]);
+    expect(html).not.toContain('type="password"');
+    expect(html).not.toContain('signup-password');
+    expect(html).not.toContain('new-password');
+    expect(html).not.toContain('authPage.strength');
   });
 
   it('co link Dieu khoan va link ve dang nhap', () => {

@@ -6,9 +6,12 @@ vi.mock('@/server/repo', async () => {
   return { repo: mockRepo.repo };
 });
 
+vi.mock('@/lib/activity', () => ({ logActivity: vi.fn() }));
+
 import { __resetJobThrottleForTest, runDueJobs, runJob } from './jobs';
 
 beforeEach(() => {
+  vi.clearAllMocks();
   repo.reset();
   __resetJobThrottleForTest();
 });
@@ -57,6 +60,41 @@ describe('pruneAuthData trong runJob (K19)', () => {
     try {
       const res = await runJob('alerts_daily', 'cron');
       expect(res.status).toBe('ok');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe('don dang ky cho qua 14 ngay trong runJob (S3)', () => {
+  it('goi pruneStale voi moc now - 14 ngay va ghi nhat ky signup_expire khi co dong bi xoa', async () => {
+    const { getSignupStore } = await import('./signup-store');
+    const { logActivity } = await import('@/lib/activity');
+    const spy = vi.spyOn(getSignupStore(), 'pruneStale').mockResolvedValue(3);
+    const log = vi.mocked(logActivity);
+    try {
+      const before = Date.now();
+      await runJob('alerts_daily', 'cron');
+      expect(spy).toHaveBeenCalledTimes(1);
+      const deltaMs = before - Date.parse(spy.mock.calls[0][0]);
+      expect(deltaMs).toBeGreaterThanOrEqual(14 * 24 * 3_600_000 - 1000);
+      expect(deltaMs).toBeLessThanOrEqual(14 * 24 * 3_600_000 + 5000);
+      expect(log).toHaveBeenCalledWith({ name: 'system', email: 'system' }, 'signup_expire', '3');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('khong xoa dong nao -> khong ghi nhat ky; pruneStale nem loi -> job VAN ok', async () => {
+    const { getSignupStore } = await import('./signup-store');
+    const { logActivity } = await import('@/lib/activity');
+    const log = vi.mocked(logActivity);
+    const spy = vi.spyOn(getSignupStore(), 'pruneStale').mockResolvedValue(0);
+    try {
+      await runJob('alerts_daily', 'cron');
+      expect(log).not.toHaveBeenCalledWith(expect.anything(), 'signup_expire', expect.anything());
+      spy.mockRejectedValue(new Error('boom-signup'));
+      expect((await runJob('alerts_daily', 'cron')).status).toBe('ok');
     } finally {
       spy.mockRestore();
     }

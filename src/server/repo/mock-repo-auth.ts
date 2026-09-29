@@ -225,7 +225,8 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
 
     async pruneAuthData(beforeIso) {
       throttle = throttle.filter((t) => t.createdAt >= beforeIso);
-      resetTokens = resetTokens.filter((t) => t.createdAt >= beforeIso);
+      // S1: dọn theo hạn dùng (hết hạn hoặc đã dùng quá mốc), không theo tuổi tạo: lời mời sống 72 giờ.
+      resetTokens = resetTokens.filter((t) => t.expiresAt >= beforeIso && (t.usedAt === null || t.usedAt >= beforeIso));
     },
   };
 }

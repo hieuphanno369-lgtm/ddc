@@ -426,9 +426,10 @@ describe('consumeResetToken (K4, L5 - nguyen tu)', () => {
 });
 
 describe('pruneAuthData (K19)', () => {
-  it('xoa auth_throttle VA token cu hon beforeIso, bat ke da dung/con han', async () => {
+  it('xoa auth_throttle cu hon beforeIso; token chi bi xoa khi het han hoac da dung qua moc (loi moi 72 gio con han khong bi xoa)', async () => {
+    const before = new Date('2026-09-27T00:00:00.000Z');
     await prismaAuthStore.pruneAuthData('2026-09-27T00:00:00.000Z');
-    expect(authThrottleDeleteMany).toHaveBeenCalledWith({ where: { createdAt: { lt: new Date('2026-09-27T00:00:00.000Z') } } });
-    expect(passwordResetTokenDeleteMany).toHaveBeenCalledWith({ where: { createdAt: { lt: new Date('2026-09-27T00:00:00.000Z') } } });
+    expect(authThrottleDeleteMany).toHaveBeenCalledWith({ where: { createdAt: { lt: before } } });
+    expect(passwordResetTokenDeleteMany).toHaveBeenCalledWith({ where: { OR: [{ expiresAt: { lt: before } }, { usedAt: { lt: before } }] } });
   });
 });

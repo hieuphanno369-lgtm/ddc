@@ -534,7 +534,6 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
       email: 'email công ty của người đăng ký (duy nhất)',
       name: 'họ và tên',
       departmentId: 'FK tới dim_department.id (null khi danh mục phòng ban trống)',
-      passwordHash: 'mật khẩu đã băm, chuyển sang user_roles khi admin bật',
       locale: 'ngôn ngữ lúc đăng ký (vi | en) - dùng khi gửi email báo',
       requestIp: 'IP gửi đăng ký',
       createdAt: 'thời điểm gửi đăng ký',

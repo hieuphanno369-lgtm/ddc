@@ -1,29 +1,26 @@
 import { logActivity } from '@/lib/activity';
-import { hashPassword } from '@/lib/password';
 import {
   SIGNUP_EMAIL_LIMIT,
   SIGNUP_IP_LIMIT,
   SIGNUP_NAME_MAX,
-  SIGNUP_PASSWORD_MAX,
-  SIGNUP_PASSWORD_MIN,
   SIGNUP_WINDOW_MS,
   normalizeEmail,
 } from '@/lib/login-policy';
-import { isCompanyEmail } from '@/lib/signup-policy';
+import { hasInvisibleChars, isCompanyEmail } from '@/lib/signup-policy';
 import type { SignupStore } from './repo/signup-types';
 import type { AuthStore } from './repo/types';
 
-export type SignupField = 'name' | 'department' | 'email_domain' | 'too_short' | 'too_long';
+export type SignupField = 'name' | 'department' | 'email_domain';
 export type SignupResult =
   | { status: 'accepted' }
   | { status: 'invalid'; field: SignupField }
-  | { status: 'rate_limited' };
+  | { status: 'rate_limited' }
+  | { status: 'smtp_missing' };
 
 export interface SignupInput {
   name: unknown;
   departmentId: unknown;
   email: unknown;
-  password: unknown;
   locale: 'vi' | 'en';
   ip: string;
 }
@@ -67,7 +64,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 async function finishSignup(
   signup: SignupStore,
-  row: { email: string; name: string; departmentId: number | null; passwordHash: string; locale: 'vi' | 'en'; ip: string },
+  row: { email: string; name: string; departmentId: number | null; locale: 'vi' | 'en'; ip: string },
   now: Date,
 ): Promise<void> {
   const duplicate = () =>
@@ -80,7 +77,6 @@ async function finishSignup(
     email: row.email,
     name: row.name,
     departmentId: row.departmentId,
-    passwordHash: row.passwordHash,
     locale: row.locale,
     requestIp: row.ip,
     createdAtIso: now.toISOString(),
@@ -92,16 +88,16 @@ async function finishSignup(
   await logActivity({ name: row.name, email: row.email }, 'signup_request', 'created');
 }
 
-/** Kiểm dữ liệu nhập theo thứ tự name -> department -> email_domain -> password, trả lỗi đầu tiên. */
+/** Kiểm dữ liệu nhập theo thứ tự name -> department -> email_domain, trả lỗi đầu tiên. */
 async function validate(
   signup: SignupStore,
   input: SignupInput,
 ): Promise<
-  | { ok: true; name: string; email: string; password: string; departmentId: number | null }
+  | { ok: true; name: string; email: string; departmentId: number | null }
   | { ok: false; field: SignupField }
 > {
   const name = typeof input.name === 'string' ? input.name.trim() : '';
-  if (name.length < 1 || name.length > SIGNUP_NAME_MAX) return { ok: false, field: 'name' };
+  if (name.length < 1 || name.length > SIGNUP_NAME_MAX || hasInvisibleChars(name)) return { ok: false, field: 'name' };
 
   const active = await signup.listActiveDepartments();
   const rawDepartment = input.departmentId ?? null;
@@ -118,22 +114,18 @@ async function validate(
   const email = normalizeEmail(input.email);
   if (!email || !isCompanyEmail(email)) return { ok: false, field: 'email_domain' };
 
-  const password = typeof input.password === 'string' ? input.password : '';
-  if (password.length < SIGNUP_PASSWORD_MIN) return { ok: false, field: 'too_short' };
-  if (password.length > SIGNUP_PASSWORD_MAX) return { ok: false, field: 'too_long' };
-
-  return { ok: true, name, email, password, departmentId };
+  return { ok: true, name, email, departmentId };
 }
 
 /**
- * Đăng ký tài khoản chờ admin bật (trang công khai, KHÔNG cần đăng nhập). Thứ tự (K10-K12):
+ * Đăng ký tài khoản chờ admin bật (trang công khai, KHÔNG cần đăng nhập). Form KHÔNG nhận mật khẩu (S1): người đăng ký
+ * chưa chứng minh sở hữu email, nên mật khẩu chỉ được đặt sau khi admin bật, qua link gửi tới đúng email đó. Thứ tự (K10-K11):
  * 1. Kiểm dữ liệu nhập - chỉ phụ thuộc dữ liệu nhập và danh mục phòng ban công khai, không đọc tài khoản.
  * 2. "Đặt chỗ" nguyên tử theo IP (10/giờ) rồi theo email (3/giờ); email hết chỗ thì nhả lại chỗ IP.
- *    Hết chỗ ở chiều nào cũng KHÔNG băm, KHÔNG ghi nhật ký -> `rate_limited`. Giới hạn tính cho MỌI email nên
+ *    Hết chỗ ở chiều nào cũng KHÔNG ghi nhật ký -> `rate_limited`. Giới hạn tính cho MỌI email nên
  *    không lộ email có tồn tại hay không.
- * 3. Băm mật khẩu cho MỌI yêu cầu còn lại (email mới, đã có tài khoản, đang chờ đều tốn cùng chi phí).
- * 4. Việc nền: email đã có (tài khoản hoặc đăng ký chờ) thì chỉ ghi nhật ký `duplicate`; email mới thì tạo đăng ký.
- * 5. Luôn trả `accepted` giống nhau.
+ * 3. Việc nền: email đã có (tài khoản hoặc đăng ký chờ) thì chỉ ghi nhật ký `duplicate`; email mới thì tạo đăng ký.
+ * 4. Luôn trả `accepted` giống nhau (thời gian phản hồi không phụ thuộc email mới hay đã có).
  */
 export async function requestSignup(
   signup: SignupStore,
@@ -155,13 +147,10 @@ export async function requestSignup(
     return { status: 'rate_limited' };
   }
 
-  const passwordHash = await hashPassword(checked.password);
-
   const row = {
     email: checked.email,
     name: checked.name,
     departmentId: checked.departmentId,
-    passwordHash,
     locale: input.locale,
     ip: input.ip.trim(),
   };

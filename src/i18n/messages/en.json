@@ -600,7 +600,8 @@
     "save_department": "Save department",
     "hide_department": "Hide department",
     "show_department": "Show department again",
-    "delete_department": "Delete department"
+    "delete_department": "Delete department",
+    "signup_expire": "Remove expired pending registrations"
   },
   "dataGuard": {
     "import": {
@@ -1294,8 +1295,6 @@
     "companyEmail": "Company email",
     "emailHint": "Only @daidung.vn or @daidung.com.vn addresses are accepted",
     "emailDomainError": "Please use your company email (@daidung.vn or @daidung.com.vn)",
-    "passwordPlaceholder": "At least 8 characters",
-    "passwordTooLong": "Password can be at most 128 characters",
     "nameError": "Please enter your full name (up to 100 characters)",
     "departmentError": "Please select a department",
     "departmentChanged": "The department list has changed, please select again.",
@@ -1303,7 +1302,7 @@
     "terms": "By creating an account, you agree to the company's <link>Terms of use</link>.",
     "haveAccount": "Already have an account?",
     "doneTitle": "Welcome aboard!",
-    "doneBody": "Your registration has been received. When your account is ready, we will let you know at your company email so you can sign in.",
+    "doneBody": "Your registration has been received. When an administrator activates your account, we will send an email to your company mailbox so you can set your password and sign in.",
     "rateLimited": "Too many requests. Please try again in an hour.",
     "pendingTitle": "Pending registrations ({n})",
     "pendingEmpty": "No pending registrations.",
@@ -1312,14 +1311,17 @@
     "approve": "Activate account",
     "reject": "Decline",
     "rejectConfirm": "Decline the registration from {email}? No email will be sent to them.",
-    "approvedMailed": "Account activated and {email} has been notified by email.",
-    "approvedNoMail": "Account {email} activated. No email was sent because email sending is not configured.",
+    "approvedMailed": "Account {email} activated and a set-password email was sent (the link is valid for 72 hours).",
+    "approvedNoMail": "Account {email} activated, but the set-password email could not be sent. The user can use \"Forgot password\" on the sign-in page to get a link.",
     "errDuplicateAccount": "This email already has an account. Please decline this registration.",
     "errNotFound": "This registration has already been handled.",
     "reminder": "{n} new registrations are waiting for activation.",
     "reminderLink": "Open Administration",
-    "mailSubject": "Your account is ready",
-    "mailBody": "Hello {name},\n\nYour account {email} on Management Reports is ready. You can sign in at:\n{link}\n\nIf you did not register for this account, please tell an administrator."
+    "colIp": "Sent from IP",
+    "errSmtpMissing": "Email sending is not configured, so the account cannot be activated yet. Configure email in Administration and try again.",
+    "smtpMissing": "Email sending is not configured, so registrations are not accepted yet. Please contact an administrator.",
+    "mailSubject": "Set a password for your account",
+    "mailBody": "The account {email} on Management Reports has been activated.\n\nOpen the link below within 72 hours to set your password (it can be used once):\n{link}\n\nIf the link has expired, use \"Forgot password\" on the sign-in page to get a new one.\n\nIf you did not register for this account, ignore this email or tell an administrator."
   },
   "terms": {
     "title": "Terms of use",

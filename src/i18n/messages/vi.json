@@ -600,7 +600,8 @@
     "save_department": "Lưu phòng ban",
     "hide_department": "Ẩn phòng ban",
     "show_department": "Hiện lại phòng ban",
-    "delete_department": "Xoá phòng ban"
+    "delete_department": "Xoá phòng ban",
+    "signup_expire": "Xoá đăng ký chờ quá hạn"
   },
   "dataGuard": {
     "import": {
@@ -1294,8 +1295,6 @@
     "companyEmail": "Email công ty",
     "emailHint": "Chỉ nhận email công ty có đuôi @daidung.vn hoặc @daidung.com.vn",
     "emailDomainError": "Vui lòng dùng email công ty (@daidung.vn hoặc @daidung.com.vn)",
-    "passwordPlaceholder": "Tối thiểu 8 ký tự",
-    "passwordTooLong": "Mật khẩu tối đa 128 ký tự",
     "nameError": "Vui lòng nhập họ và tên (tối đa 100 ký tự)",
     "departmentError": "Vui lòng chọn phòng ban",
     "departmentChanged": "Danh sách phòng ban vừa thay đổi, vui lòng chọn lại.",
@@ -1303,7 +1302,7 @@
     "terms": "Khi tạo tài khoản, bạn đồng ý với <link>Điều khoản sử dụng</link> của công ty.",
     "haveAccount": "Đã có tài khoản?",
     "doneTitle": "Chào mừng bạn!",
-    "doneBody": "Đăng ký của bạn đã được ghi nhận. Khi tài khoản sẵn sàng, chúng tôi sẽ báo qua email công ty để bạn đăng nhập.",
+    "doneBody": "Đăng ký của bạn đã được ghi nhận. Khi quản trị viên bật tài khoản, chúng tôi sẽ gửi email tới hộp thư công ty để bạn đặt mật khẩu và đăng nhập.",
     "rateLimited": "Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau 1 giờ.",
     "pendingTitle": "Đăng ký đang chờ ({n})",
     "pendingEmpty": "Không có đăng ký nào đang chờ.",
@@ -1312,14 +1311,17 @@
     "approve": "Bật tài khoản",
     "reject": "Từ chối",
     "rejectConfirm": "Từ chối đăng ký của {email}? Người đăng ký sẽ không nhận được email báo.",
-    "approvedMailed": "Đã bật tài khoản và gửi email báo cho {email}.",
-    "approvedNoMail": "Đã bật tài khoản {email}. Chưa gửi được email vì hệ thống chưa cấu hình gửi email.",
+    "approvedMailed": "Đã bật tài khoản {email} và gửi email đặt mật khẩu (liên kết có hạn 72 giờ).",
+    "approvedNoMail": "Đã bật tài khoản {email} nhưng chưa gửi được email đặt mật khẩu. Người dùng có thể dùng \"Quên mật khẩu\" ở trang đăng nhập để nhận liên kết.",
     "errDuplicateAccount": "Email này đã có tài khoản. Hãy từ chối đăng ký này.",
     "errNotFound": "Đăng ký này đã được xử lý.",
     "reminder": "Có {n} đăng ký mới đang chờ bật.",
     "reminderLink": "Xem trong Quản trị",
-    "mailSubject": "Tài khoản của bạn đã sẵn sàng",
-    "mailBody": "Chào {name},\n\nTài khoản {email} trên hệ thống Báo cáo quản trị đã sẵn sàng. Bạn có thể đăng nhập tại:\n{link}\n\nNếu bạn không đăng ký tài khoản này, hãy báo cho quản trị viên."
+    "colIp": "IP gửi",
+    "errSmtpMissing": "Hệ thống chưa cấu hình gửi email nên chưa bật được tài khoản. Hãy cấu hình email trong Quản trị rồi thử lại.",
+    "smtpMissing": "Hệ thống chưa cấu hình gửi email nên chưa nhận đăng ký tài khoản. Vui lòng liên hệ quản trị viên.",
+    "mailSubject": "Đặt mật khẩu cho tài khoản của bạn",
+    "mailBody": "Tài khoản {email} trên hệ thống Báo cáo quản trị đã được bật.\n\nMở liên kết sau trong vòng 72 giờ để đặt mật khẩu (chỉ dùng được 1 lần):\n{link}\n\nNếu liên kết hết hạn, hãy dùng \"Quên mật khẩu\" ở trang đăng nhập để nhận liên kết mới.\n\nNếu bạn không đăng ký tài khoản này, hãy bỏ qua email này hoặc báo cho quản trị viên."
   },
   "terms": {
     "title": "Điều khoản sử dụng",

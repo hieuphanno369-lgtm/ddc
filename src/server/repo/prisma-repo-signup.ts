@@ -71,14 +71,20 @@ export const prismaSignupStore: SignupStore = {
   },
 
   async deleteDepartment(id) {
-    return prisma.$transaction(async (tx) => {
-      const exists = await tx.department.count({ where: { id } });
-      if (exists === 0) return 'not_found' as const;
-      const inUse = (await tx.userRole.count({ where: { departmentId: id } })) + (await tx.signupRequest.count({ where: { departmentId: id } }));
-      if (inUse > 0) return { inUse };
-      await tx.department.delete({ where: { id } });
-      return 'ok' as const;
-    });
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const exists = await tx.department.count({ where: { id } });
+        if (exists === 0) return 'not_found' as const;
+        const inUse = (await tx.userRole.count({ where: { departmentId: id } })) + (await tx.signupRequest.count({ where: { departmentId: id } }));
+        if (inUse > 0) return { inUse };
+        await tx.department.delete({ where: { id } });
+        return 'ok' as const;
+      });
+    } catch (e) {
+      // I1: có đăng ký chen vào giữa lúc đếm và lúc xoá, FK RESTRICT chặn đúng, trả `in_use` thay vì lỗi 500.
+      if (isKnown(e, 'P2003')) return { inUse: 1 };
+      throw e;
+    }
   },
 
   async emailTaken(email) {
@@ -96,7 +102,6 @@ export const prismaSignupStore: SignupStore = {
           email: row.email,
           name: row.name,
           departmentId: row.departmentId,
-          passwordHash: row.passwordHash,
           locale: row.locale,
           requestIp: row.requestIp,
           createdAt: new Date(row.createdAtIso),
@@ -122,6 +127,7 @@ export const prismaSignupStore: SignupStore = {
       departmentName: r.department?.name ?? null,
       locale: r.locale === 'en' ? 'en' : 'vi',
       createdAt: r.createdAt.toISOString(),
+      requestIp: r.requestIp,
     }));
     return out;
   },
@@ -140,7 +146,7 @@ export const prismaSignupStore: SignupStore = {
             data: {
               email: req.email,
               name: req.name,
-              passwordHash: req.passwordHash,
+              passwordHash: input.passwordHash,
               role: input.role,
               canViewFinance: input.canViewFinance,
               isActive: true,
@@ -169,5 +175,10 @@ export const prismaSignupStore: SignupStore = {
       if (isKnown(e, 'P2025')) return 'not_found';
       throw e;
     }
+  },
+
+  async pruneStale(beforeIso) {
+    const result = await prisma.signupRequest.deleteMany({ where: { createdAt: { lt: new Date(beforeIso) } } });
+    return result.count;
   },
 };

@@ -53,19 +53,22 @@ export const resetMailer: ResetMailer = {
   queue: queueAuthEmail,
 };
 
-/** P3F-3 - email báo "tài khoản đã sẵn sàng" khi admin bật đăng ký. Dùng chung kênh SMTP và hàng đợi với quên mật khẩu. */
+/**
+ * P3F-3 (S1) - email "đặt mật khẩu" khi admin bật đăng ký: link đặt mật khẩu hạn 72 giờ. Không chứa họ tên do người
+ * đăng ký tự gõ (S2). Dùng chung kênh SMTP và hàng đợi với quên mật khẩu.
+ */
 export interface SignupMailer {
   getSmtp(): Promise<SmtpConfig | null>;
-  compose(locale: Locale, name: string, email: string, link: string): Promise<{ subject: string; text: string }>;
+  compose(locale: Locale, email: string, link: string): Promise<{ subject: string; text: string }>;
   /** Xếp hàng gửi nền - không throw, không được `await`. */
   queue(cfg: SmtpConfig, to: string, subject: string, text: string): void;
 }
 
 export const signupMailer: SignupMailer = {
   getSmtp: getAuthSmtpConfig,
-  async compose(locale, name, email, link) {
+  async compose(locale, email, link) {
     const t = await getTranslations({ locale });
-    return { subject: t('signup.mailSubject'), text: t('signup.mailBody', { name, email, link }) };
+    return { subject: t('signup.mailSubject'), text: t('signup.mailBody', { email, link }) };
   },
   queue: queueAuthEmail,
 };

@@ -8,7 +8,8 @@ import { createMemorySignupStore } from '@/server/repo/mock-repo-signup';
 import type { UserAccount } from '@/server/repo/types';
 
 vi.mock('@/lib/activity', () => ({ logActivity: vi.fn() }));
-vi.mock('@/lib/password', () => ({ hashPassword: vi.fn(async (p: string) => `hashed:${p}`) }));
+let smtpOk = true;
+vi.mock('@/server/auth-mail', () => ({ signupMailer: { getSmtp: async () => (smtpOk ? { host: 'smtp.x' } : null) } }));
 vi.mock('next/headers', () => ({
   headers: async () => new Map([['x-forwarded-for', '1.2.3.4']]) as unknown as Headers,
 }));
@@ -22,10 +23,12 @@ vi.mock('@/server/auth-store', () => ({ getAuthStore: () => authStore }));
 import { submitSignupAction } from '@/server/actions-signup';
 import { __signupQueueIdleForTest } from '@/server/signup';
 
-const valid = { name: 'Nguyen Van A', departmentId: null, email: 'ten@daidung.vn', password: 'Abcdef1!', locale: 'vi' };
+const valid = { name: 'Nguyen Van A', departmentId: null, email: 'ten@daidung.vn', locale: 'vi' };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  smtpOk = true;
+  process.env.NEXTAUTH_URL = 'https://app.example.com';
   const accounts: UserAccount[] = [];
   signupStore = createMemorySignupStore({
     findAccount: (e) => accounts.find((a) => a.email === e),
@@ -40,6 +43,16 @@ describe('submitSignupAction', () => {
     expect(await submitSignupAction(valid)).toEqual({ status: 'accepted' });
     await __signupQueueIdleForTest();
     expect(await signupStore.countPending()).toBe(1);
+  });
+
+  it('thieu SMTP hoac NEXTAUTH_URL -> smtp_missing, khong tao dang ky cho (S1)', async () => {
+    smtpOk = false;
+    expect(await submitSignupAction(valid)).toEqual({ status: 'smtp_missing' });
+    smtpOk = true;
+    delete process.env.NEXTAUTH_URL;
+    expect(await submitSignupAction(valid)).toEqual({ status: 'smtp_missing' });
+    await __signupQueueIdleForTest();
+    expect(await signupStore.countPending()).toBe(0);
   });
 
   it('du lieu sai tra invalid dung truong', async () => {

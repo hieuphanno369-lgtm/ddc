@@ -29,7 +29,7 @@ vi.mock('@/server/auth-store', () => ({ getAuthStore: () => auth }));
 const queue = vi.fn();
 vi.mock('./auth-mail', () => ({
   signupMailer: {
-    getSmtp: async () => null,
+    getSmtp: async () => ({ host: 'smtp.test' }),
     compose: async () => ({ subject: 's', text: 't' }),
     queue: (...a: unknown[]) => queue(...a),
   },
@@ -42,6 +42,7 @@ import { __signupQueueIdleForTest, requestSignup } from './signup';
 
 const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.vn', role: 'admin', canViewFinance: true };
 const PW = 'Abcdef1!';
+// Form khong con o mat khau (S1): PW chi dung de doan dang nhap.
 const NOW = new Date('2026-09-29T03:00:00.000Z');
 
 let accounts: UserAccount[];
@@ -56,7 +57,7 @@ const authorize = (): Authorize =>
   (authOptions.providers.find((p) => p.id === 'credentials') as unknown as { options: { authorize: Authorize } }).options.authorize;
 
 function input(over: Partial<Parameters<typeof requestSignup>[2]> = {}) {
-  return { name: 'Nguyen Van A', departmentId: null, email: 'ten@daidung.vn', password: PW, locale: 'vi' as const, ip: '203.0.113.1', ...over };
+  return { name: 'Nguyen Van A', departmentId: null, email: 'ten@daidung.vn', locale: 'vi' as const, ip: '203.0.113.1', ...over };
 }
 
 beforeEach(() => {
@@ -75,12 +76,12 @@ beforeEach(() => {
       if (a) a.passwordHash = h;
     },
   });
-  delete process.env.NEXTAUTH_URL;
+  process.env.NEXTAUTH_URL = 'https://ddc.test';
 });
 afterEach(() => vi.restoreAllMocks());
 
 describe('tai khoan cho bat', () => {
-  it('khong dang nhap duoc bang mat khau vua dang ky, bat xong thi vao duoc bang chinh mat khau do', async () => {
+  it('khong dang nhap duoc khi cho bat; bat xong van khong vao duoc bang mat khau doan (chi qua link gui toi email)', async () => {
     expect(await requestSignup(signup, auth, input({ email: 'Cho@DaiDung.vn' }), NOW)).toEqual({ status: 'accepted' });
     await __signupQueueIdleForTest();
     expect((await signup.listPending()).map((r) => r.email)).toEqual(['cho@daidung.vn']);
@@ -89,10 +90,10 @@ describe('tai khoan cho bat', () => {
     expect(accounts).toHaveLength(0);
 
     const id = (await signup.listPending())[0].id;
-    expect(await approveSignupAction(id, 'viewer')).toEqual({ ok: true, mailed: false });
-    const user = (await authorize()({ email: 'cho@daidung.vn', password: PW })) as { email: string } | null;
-    expect(user?.email).toBe('cho@daidung.vn');
+    expect(await approveSignupAction(id, 'viewer')).toEqual({ ok: true, mailed: true });
+    expect(await authorize()({ email: 'cho@daidung.vn', password: PW })).toBeNull();
     expect(accounts[0].role).toBe('viewer');
+    expect(queue).toHaveBeenCalledTimes(1);
   });
 
   it('bi tu choi roi thi khong dang nhap duoc, cung khong co tai khoan', async () => {
@@ -195,35 +196,5 @@ describe('phong ban thay doi giua chung', () => {
     expect((await requestSignup(signup, auth, input({ departmentId: null }), NOW)).status).toBe('accepted');
     await saveDepartmentAction({ name: 'Kho' });
     expect(await requestSignup(signup, auth, input({ email: 'b@daidung.vn', departmentId: null }), NOW)).toEqual({ status: 'invalid', field: 'department' });
-  });
-});
-
-describe('mat khau khong ro ri', () => {
-  const SECRET = 'Sieu-Bi-Mat-Khong-Duoc-Lo-9!';
-  const CONSOLE = ['log', 'error', 'warn', 'info', 'debug'] as const;
-
-  function everythingLogged(): string {
-    const consoleCalls = CONSOLE.map((m) => vi.mocked(console[m]).mock.calls);
-    return JSON.stringify([consoleCalls, vi.mocked(logActivity).mock.calls]);
-  }
-
-  it('thanh cong, trung, sai dau vao, het luot: mat khau khong nam trong console, nhat ky hay du lieu luu', async () => {
-    for (const m of CONSOLE) vi.spyOn(console, m).mockImplementation(() => {});
-    await requestSignup(signup, auth, input({ password: SECRET }), NOW);
-    await requestSignup(signup, auth, input({ password: SECRET }), NOW);
-    await requestSignup(signup, auth, input({ password: SECRET, email: 'x@gmail.com' }), NOW);
-    for (let i = 0; i < 5; i++) await requestSignup(signup, auth, input({ password: SECRET, ip: `1.1.1.${i}` }), NOW);
-    await __signupQueueIdleForTest();
-    expect(everythingLogged()).not.toContain(SECRET);
-    expect(JSON.stringify(await signup.listPending())).not.toContain(SECRET);
-  });
-
-  it('loi ha tang o viec nen: log chi co ten loi, khong co mat khau', async () => {
-    for (const m of CONSOLE) vi.spyOn(console, m).mockImplementation(() => {});
-    vi.spyOn(signup, 'emailTaken').mockRejectedValue(new Error(`boom ${SECRET}`));
-    await requestSignup(signup, auth, input({ password: SECRET }), NOW);
-    await __signupQueueIdleForTest();
-    expect(everythingLogged()).not.toContain(SECRET);
-    expect(console.error).toHaveBeenCalled();
   });
 });

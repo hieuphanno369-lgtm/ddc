@@ -6,13 +6,10 @@ import type { SignupStore } from './repo/signup-types';
 import type { AuthStore, UserAccount } from './repo/types';
 
 vi.mock('@/lib/activity', () => ({ logActivity: vi.fn() }));
-vi.mock('@/lib/password', () => ({ hashPassword: vi.fn(async (p: string) => `hashed:${p}`) }));
 
 import { logActivity } from '@/lib/activity';
-import { hashPassword } from '@/lib/password';
 import { __signupQueueIdleForTest, requestSignup } from './signup';
 
-const GOOD_PW = 'Abcdef1!';
 const NOW = new Date('2026-09-29T03:00:00.000Z');
 
 let accounts: UserAccount[];
@@ -41,7 +38,6 @@ function input(over: Partial<Parameters<typeof requestSignup>[2]> = {}) {
     name: 'Nguyen Van A',
     departmentId: null,
     email: 'ten@daidung.vn',
-    password: GOOD_PW,
     locale: 'vi' as const,
     ip: '203.0.113.1',
     ...over,
@@ -64,6 +60,23 @@ describe('requestSignup - kiem du lieu nhap', () => {
     expect(await requestSignup(signup, auth, input({ name }), NOW)).toEqual({ status: 'invalid', field });
   });
 
+  it.each([
+    ['xuong dong', 'A\n\nVui long xac nhan tai http://gia-mao'],
+    ['tab', 'A\tB'],
+    ['ky tu dieu khien NUL', 'A\u0000B'],
+    ['zero-width space', 'A​B'],
+    ['RTL override', 'A‮B'],
+    ['BOM', 'A﻿B'],
+  ])('ten chua %s (nhom Unicode C) -> invalid name, khong dat cho, khong ghi log (S2)', async (_l, name) => {
+    expect(await requestSignup(signup, auth, input({ name }), NOW)).toEqual({ status: 'invalid', field: 'name' });
+    expect(await auth.countThrottle('signup_ip', '203.0.113.1', '2026-01-01T00:00:00.000Z')).toBe(0);
+    expect(logActivity).not.toHaveBeenCalled();
+  });
+
+  it('ten tieng Viet co dau va dau cach van hop le (khong chan nham)', async () => {
+    expect((await requestSignup(signup, auth, input({ name: 'Nguyễn Thị Hương Giang' }), NOW)).status).toBe('accepted');
+  });
+
   it('ten khong phai chuoi -> invalid name', async () => {
     expect(await requestSignup(signup, auth, input({ name: 42 }), NOW)).toEqual({ status: 'invalid', field: 'name' });
   });
@@ -75,13 +88,6 @@ describe('requestSignup - kiem du lieu nhap', () => {
   it('nhan ca hai duoi cong ty (Q2 = c)', async () => {
     expect((await requestSignup(signup, auth, input({ email: 'a@daidung.com.vn' }), NOW)).status).toBe('accepted');
     expect((await requestSignup(signup, auth, input({ email: 'b@daidung.vn', ip: '203.0.113.2' }), NOW)).status).toBe('accepted');
-  });
-
-  it('mat khau < 8 -> too_short; > 128 -> too_long; khong phai chuoi -> too_short', async () => {
-    expect(await requestSignup(signup, auth, input({ password: 'Abc1!' }), NOW)).toEqual({ status: 'invalid', field: 'too_short' });
-    expect(await requestSignup(signup, auth, input({ password: 'a'.repeat(129) }), NOW)).toEqual({ status: 'invalid', field: 'too_long' });
-    expect(await requestSignup(signup, auth, input({ password: 5 }), NOW)).toEqual({ status: 'invalid', field: 'too_short' });
-    expect((await requestSignup(signup, auth, input({ password: 'a'.repeat(128) }), NOW)).status).toBe('accepted');
   });
 
   it('danh muc co phong ban dang dung: null, khong nguyen, khong ton tai, da an -> invalid department', async () => {
@@ -102,28 +108,23 @@ describe('requestSignup - kiem du lieu nhap', () => {
     expect((await requestSignup(signup, auth, input({ departmentId: null }), NOW)).status).toBe('accepted');
   });
 
-  it('thu tu kiem: name -> department -> email_domain -> password (tra loi dau tien)', async () => {
+  it('thu tu kiem: name -> department -> email_domain (tra loi dau tien)', async () => {
     await signup.saveDepartment({ name: 'Ke toan' }, 'admin');
-    const bad = { name: '', departmentId: null, email: 'x@gmail.com', password: '1' };
+    const bad = { name: '', departmentId: null, email: 'x@gmail.com' };
     expect(await requestSignup(signup, auth, input(bad), NOW)).toEqual({ status: 'invalid', field: 'name' });
     expect(await requestSignup(signup, auth, input({ ...bad, name: 'A' }), NOW)).toEqual({ status: 'invalid', field: 'department' });
     expect(await requestSignup(signup, auth, input({ ...bad, name: 'A', departmentId: 1 }), NOW)).toEqual({ status: 'invalid', field: 'email_domain' });
-    expect(await requestSignup(signup, auth, input({ ...bad, name: 'A', departmentId: 1, email: 'x@daidung.vn' }), NOW)).toEqual({
-      status: 'invalid',
-      field: 'too_short',
-    });
   });
 
-  it('du lieu sai: khong bam mat khau, khong dat cho throttle, khong ghi log', async () => {
+  it('du lieu sai: khong dat cho throttle, khong ghi log', async () => {
     await requestSignup(signup, auth, input({ email: 'x@gmail.com' }), NOW);
-    expect(hashPassword).not.toHaveBeenCalled();
     expect(await auth.countThrottle('signup_ip', '203.0.113.1', '2026-01-01T00:00:00.000Z')).toBe(0);
     expect(logActivity).not.toHaveBeenCalled();
   });
 });
 
 describe('requestSignup - hop le', () => {
-  it('email moi -> accepted; sau hang doi co dung 1 dang ky cho, hash khac mat khau goc, co locale + ip; log created', async () => {
+  it('email moi -> accepted; sau hang doi co dung 1 dang ky cho, co locale + ip, KHONG luu mat khau nao; log created', async () => {
     const createRequest = vi.fn(signup.createRequest);
     const spied: SignupStore = { ...signup, createRequest };
     const res = await requestSignup(spied, auth, input({ locale: 'en', email: '  Ten@DaiDung.vn ', ip: '198.51.100.7' }), NOW);
@@ -131,13 +132,11 @@ describe('requestSignup - hop le', () => {
     await __signupQueueIdleForTest();
     expect(createRequest).toHaveBeenCalledTimes(1);
     const row = createRequest.mock.calls[0][0];
-    expect(row.passwordHash).toBe(`hashed:${GOOD_PW}`);
-    expect(row.passwordHash).not.toBe(GOOD_PW);
+    expect(Object.keys(row).sort()).toEqual(['createdAtIso', 'departmentId', 'email', 'locale', 'name', 'requestIp']);
     expect(row).toMatchObject({ locale: 'en', requestIp: '198.51.100.7', createdAtIso: NOW.toISOString() });
     const pending = await signup.listPending();
     expect(pending).toHaveLength(1);
     expect(pending[0]).toMatchObject({ email: 'ten@daidung.vn', name: 'Nguyen Van A', locale: 'en', departmentId: null });
-    expect(hashPassword).toHaveBeenCalledTimes(1);
     expect(calls(logActivity)).toHaveLength(1);
     expect(calls(logActivity)[0]).toEqual([{ name: 'Nguyen Van A', email: 'ten@daidung.vn' }, 'signup_request', 'created']);
   });
@@ -148,25 +147,23 @@ describe('requestSignup - hop le', () => {
     expect((await signup.listPending())[0].name).toBe('Le Thi B');
   });
 
-  it('email da co tai khoan -> VAN accepted, van bam dung 1 lan, khong tao dong moi, log duplicate co dinh', async () => {
+  it('email da co tai khoan -> VAN accepted, khong tao dong moi, log duplicate co dinh', async () => {
     accounts.push({
       email: 'ten@daidung.vn', name: 'Co san', passwordHash: 'x', role: 'viewer', canViewFinance: false, isActive: true,
       createdAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, lockedAt: null,
     });
     expect(await requestSignup(signup, auth, input(), NOW)).toEqual({ status: 'accepted' });
     await __signupQueueIdleForTest();
-    expect(hashPassword).toHaveBeenCalledTimes(1);
     expect(await signup.countPending()).toBe(0);
     expect(calls(logActivity)).toEqual([[{ name: 'dang-ky-trung', email: 'dang-ky-trung' }, 'signup_request', 'duplicate']]);
   });
 
-  it('email da co dang ky cho -> VAN accepted, van bam 1 lan, khong tao dong thu 2', async () => {
+  it('email da co dang ky cho -> VAN accepted, khong tao dong thu 2', async () => {
     await requestSignup(signup, auth, input(), NOW);
     await __signupQueueIdleForTest();
     vi.clearAllMocks();
     expect(await requestSignup(signup, auth, input({ ip: '203.0.113.2' }), NOW)).toEqual({ status: 'accepted' });
     await __signupQueueIdleForTest();
-    expect(hashPassword).toHaveBeenCalledTimes(1);
     expect(await signup.countPending()).toBe(1);
     expect(calls(logActivity)).toEqual([[{ name: 'dang-ky-trung', email: 'dang-ky-trung' }, 'signup_request', 'duplicate']]);
   });
@@ -208,14 +205,13 @@ describe('requestSignup - hop le', () => {
 });
 
 describe('requestSignup - gioi han tan suat', () => {
-  it(`lan thu ${SIGNUP_IP_LIMIT + 1} trong 1 gio cung IP -> rate_limited, khong bam, khong log`, async () => {
+  it(`lan thu ${SIGNUP_IP_LIMIT + 1} trong 1 gio cung IP -> rate_limited, khong log`, async () => {
     for (let i = 0; i < SIGNUP_IP_LIMIT; i++) {
       expect((await requestSignup(signup, auth, input({ email: `u${i}@daidung.vn` }), NOW)).status).toBe('accepted');
     }
     await __signupQueueIdleForTest();
     vi.clearAllMocks();
     expect(await requestSignup(signup, auth, input({ email: 'them@daidung.vn' }), NOW)).toEqual({ status: 'rate_limited' });
-    expect(hashPassword).not.toHaveBeenCalled();
     expect(logActivity).not.toHaveBeenCalled();
   });
 
@@ -232,7 +228,6 @@ describe('requestSignup - gioi han tan suat', () => {
     await __signupQueueIdleForTest();
     vi.clearAllMocks();
     expect(await requestSignup(signup, auth, input({ ip: '203.0.113.99' }), NOW)).toEqual({ status: 'rate_limited' });
-    expect(hashPassword).not.toHaveBeenCalled();
     expect(logActivity).not.toHaveBeenCalled();
     const since = new Date(NOW.getTime() - SIGNUP_WINDOW_MS).toISOString();
     expect(await auth.countThrottle('signup_ip', '203.0.113.99', since)).toBe(0);

@@ -79,6 +79,7 @@ export const SIGNUP_IP_LIMIT = 10;
 export const SIGNUP_EMAIL_LIMIT = 3;
 export const SIGNUP_WINDOW_MS = 3_600_000;
 export const SIGNUP_NAME_MAX = 100;
-export const SIGNUP_PASSWORD_MIN = 8;
-/** Chặn gửi chuỗi quá dài vào bcrypt. */
-export const SIGNUP_PASSWORD_MAX = 128;
+/** S1: link đặt mật khẩu gửi khi admin bật tài khoản có hạn 72 giờ (dùng 1 lần, chỉ lưu hash). */
+export const SIGNUP_INVITE_TTL_MS = 72 * 3_600_000;
+/** S3: đăng ký chờ quá 14 ngày bị job dọn tự xoá. */
+export const SIGNUP_PENDING_MAX_AGE_MS = 14 * 24 * 3_600_000;

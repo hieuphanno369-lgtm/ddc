@@ -376,4 +376,15 @@ describe('pruneAuthData', () => {
 
     expect(await store.peekResetToken('hash-old', '2026-01-01T00:00:00.000Z')).toBe(false);
   });
+
+  it('S1: token con han (loi moi 72 gio) KHONG bi xoa du createdAt cu hon moc don; token het han tu lau thi bi xoa', async () => {
+    const hours = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-moi', hours(60), '');
+    await store.pruneAuthData(hours(0));
+    expect(await store.peekResetToken('hash-moi', hours(1))).toBe(true);
+
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-cu', hours(-30), '');
+    await store.pruneAuthData(hours(-24));
+    expect(await store.peekResetToken('hash-cu', hours(-31))).toBe(false);
+  });
 });

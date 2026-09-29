@@ -35,6 +35,8 @@ export function SignupRequestList({ requests }: { requests: SignupRequestRow[] }
       router.refresh();
     } else if (res.error === 'duplicate_account') {
       setMsg({ tone: 'bad', text: t('signup.errDuplicateAccount') });
+    } else if (res.error === 'smtp_missing') {
+      setMsg({ tone: 'bad', text: t('signup.errSmtpMissing') });
     } else if (res.error === 'not_found') {
       setMsg({ tone: 'bad', text: t('signup.errNotFound') });
       router.refresh();
@@ -67,13 +69,14 @@ export function SignupRequestList({ requests }: { requests: SignupRequestRow[] }
         <p className="hintline">{t('signup.pendingEmpty')}</p>
       ) : (
         <div className="scroll" style={{ maxHeight: 360 }}>
-          <table className="tbl sticky" style={{ minWidth: 760 }}>
+          <table className="tbl sticky" style={{ minWidth: 840 }}>
             <thead>
               <tr>
                 <th>{t('signup.fullName')}</th>
                 <th>{t('signup.companyEmail')}</th>
                 <th>{t('signup.department')}</th>
                 <th>{t('signup.colSubmitted')}</th>
+                <th>{t('signup.colIp')}</th>
                 <th>{t('signup.colRole')}</th>
                 <th />
               </tr>
@@ -85,6 +88,7 @@ export function SignupRequestList({ requests }: { requests: SignupRequestRow[] }
                   <td>{r.email}</td>
                   <td>{r.departmentName ?? '-'}</td>
                   <td>{formatDate(r.createdAt, locale)}</td>
+                  <td>{r.requestIp || '-'}</td>
                   <td>
                     <select
                       className="inp"

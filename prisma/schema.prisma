@@ -320,7 +320,6 @@ model SignupRequest {
   email        String      @unique
   name         String
   departmentId Int?
-  passwordHash String
   locale       String      @default("vi")
   requestIp    String      @default("")
   createdAt    DateTime    @default(now())

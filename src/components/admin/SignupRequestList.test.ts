@@ -15,8 +15,8 @@ vi.mock('@/server/actions-signup-admin', () => ({ approveSignupAction: vi.fn(), 
 import { SignupRequestList } from './SignupRequestList';
 
 const rows: SignupRequestRow[] = [
-  { id: 1, email: 'a@daidung.vn', name: 'Nguyen A', departmentId: 3, departmentName: 'Ke toan', locale: 'vi', createdAt: '2026-09-29T02:00:00.000Z' },
-  { id: 2, email: 'b@daidung.com.vn', name: 'Tran B', departmentId: null, departmentName: null, locale: 'en', createdAt: '2026-09-28T02:00:00.000Z' },
+  { id: 1, email: 'a@daidung.vn', name: 'Nguyen A', departmentId: 3, departmentName: 'Ke toan', locale: 'vi', createdAt: '2026-09-29T02:00:00.000Z', requestIp: '203.0.113.5' },
+  { id: 2, email: 'b@daidung.com.vn', name: 'Tran B', departmentId: null, departmentName: null, locale: 'en', createdAt: '2026-09-28T02:00:00.000Z', requestIp: '' },
 ];
 
 const render = (requests: SignupRequestRow[]) => renderToStaticMarkup(React.createElement(SignupRequestList, { requests }));
@@ -50,7 +50,7 @@ describe('SignupRequestList', () => {
     expect((html.match(/signup\.reject</g) ?? [])).toHaveLength(2);
   });
 
-  it('man hep: bang co minWidth 760 de cuon ngang trong .scroll', () => {
-    expect(render(rows)).toContain('min-width:760px');
+  it('man hep: bang co minWidth 840 de cuon ngang trong .scroll', () => {
+    expect(render(rows)).toContain('min-width:840px');
   });
 });

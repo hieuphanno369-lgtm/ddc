@@ -6,6 +6,14 @@ import { normalizeEmail } from './login-policy';
  */
 export const COMPANY_EMAIL_DOMAINS: readonly string[] = ['daidung.vn', 'daidung.com.vn'];
 
+/**
+ * S2 - họ tên không được chứa ký tự nhóm `\p{C}` (xuống dòng, điều khiển, zero-width, RTL...): chúng làm tên
+ * hiển thị sai trong bảng admin và cho phép chèn nội dung giả vào email.
+ */
+export function hasInvisibleChars(name: string): boolean {
+  return /\p{C}/u.test(name);
+}
+
 const LOCAL_PART = /^[a-z0-9._%+-]{1,64}$/;
 
 /** `normalizeEmail` rồi so khớp phần tên với `LOCAL_PART` và phần đuôi với đúng 1 đuôi trong danh sách. */

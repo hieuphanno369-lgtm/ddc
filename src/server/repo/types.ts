@@ -783,9 +783,9 @@ export interface AuthStore {
     nowIso: string,
   ): Promise<{ ok: true; email: string; name: string; locked: boolean } | { ok: false }>;
   /**
-   * Dọn dữ liệu cũ: xoá mọi dòng `auth_throttle` VÀ mọi token đặt lại mật khẩu có `createdAt <
-   * beforeIso` - token bị xoá THEO TUỔI, BẤT KỂ đã dùng (`usedAt` khác `null`) hay chưa, còn hạn hay
-   * đã hết hạn (K19, gọi định kỳ từ job `alerts_daily`).
+   * Dọn dữ liệu cũ: xoá mọi dòng `auth_throttle` có `createdAt < beforeIso` VÀ mọi token đặt lại mật khẩu đã
+   * hết hạn (`expiresAt < beforeIso`) hoặc đã dùng (`usedAt < beforeIso`) - K19, gọi định kỳ từ job `alerts_daily`.
+   * S1: token theo HẠN DÙNG chứ không theo tuổi tạo, vì link đặt mật khẩu của lời mời sống 72 giờ.
    */
   pruneAuthData(beforeIso: string): Promise<void>;
 }

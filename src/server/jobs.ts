@@ -1,11 +1,13 @@
 import { todayIso } from '@/lib/clock';
 import { isAlertsDailyDue } from '@/lib/job-schedule';
-import { AUTH_DATA_RETENTION_MS } from '@/lib/login-policy';
+import { logActivity } from '@/lib/activity';
+import { AUTH_DATA_RETENTION_MS, SIGNUP_PENDING_MAX_AGE_MS } from '@/lib/login-policy';
 import type { JobName, JobTrigger } from './repo/types';
 import { repo } from './repo';
 import { runAlertEngine } from './alert-engine';
 import { retryPendingNotifications } from './notify/dispatch';
 import { getAuthStore } from './auth-store';
+import { getSignupStore } from './signup-store';
 
 /** Chạy 1 job, luôn ghi job_run (running → ok/error) - KHÔNG BAO GIỜ throw. */
 export async function runJob(
@@ -24,6 +26,15 @@ export async function runJob(
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error('[jobs] pruneAuthData loi (khong lam hong job):', e instanceof Error ? e.name : String(e));
+    }
+    // S3 - đăng ký chờ quá 14 ngày bị xoá (IP nằm lại vô thời hạn, admin bật nhầm người đã nghỉ việc); ghi nhật ký. Cùng
+    // cách bọc lỗi riêng như trên.
+    try {
+      const removed = await getSignupStore().pruneStale(new Date(Date.now() - SIGNUP_PENDING_MAX_AGE_MS).toISOString());
+      if (removed > 0) await logActivity({ name: 'system', email: 'system' }, 'signup_expire', String(removed));
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[jobs] pruneStale dang ky cho loi (khong lam hong job):', e instanceof Error ? e.name : String(e));
     }
     const result = { status: 'ok' as const, detail: `checked=${r.checked} created=${r.created}` };
     await repo.finishJobRun(id, result.status, result.detail);

@@ -1,9 +1,15 @@
 'use server';
 
+import { randomBytes } from 'node:crypto';
 import { logActivity } from '@/lib/activity';
+import { SIGNUP_INVITE_TTL_MS } from '@/lib/login-policy';
+import { hashPassword } from '@/lib/password';
+import { generateResetToken } from '@/lib/reset-token';
 import { routing, type Locale } from '@/i18n/routing';
 import { requireRoleUser } from './action-guards';
+import { getAuthStore } from './auth-store';
 import { signupMailer } from './auth-mail';
+import type { SmtpConfig } from './notify/email';
 import { normalizeDepartmentName } from './repo/signup-types';
 import type { Role } from './repo/types';
 import { getSignupStore } from './signup-store';
@@ -17,39 +23,53 @@ const isId = (id: unknown): id is number => typeof id === 'number' && Number.isI
 const toLocale = (raw: string): Locale => ((routing.locales as readonly string[]).includes(raw) ? (raw as Locale) : routing.defaultLocale);
 
 /**
- * Gửi email "tài khoản đã sẵn sàng" qua kênh email đầu tiên có đủ SMTP (P3E). Thiếu SMTP hoặc `NEXTAUTH_URL`,
- * hoặc lỗi khi soạn/xếp hàng: KHÔNG làm hỏng việc bật tài khoản, chỉ báo `mailed: false`.
+ * S1 - sinh link đặt mật khẩu (hạn 72 giờ, dùng 1 lần, chỉ lưu hash) và gửi tới đúng email đăng ký. Lỗi ở đây KHÔNG hoàn
+ * tác việc bật tài khoản (tài khoản đã tạo, người dùng vẫn lấy được link qua "Quên mật khẩu"), chỉ báo `mailed: false`.
  */
-async function notifyApproved(person: { email: string; name: string; locale: 'vi' | 'en' }): Promise<boolean> {
+async function sendInvite(person: { email: string; locale: 'vi' | 'en' }, smtp: SmtpConfig, baseUrl: string): Promise<boolean> {
   try {
-    const smtp = await signupMailer.getSmtp();
-    const baseUrl = process.env.NEXTAUTH_URL;
-    if (!smtp || !baseUrl) return false;
     const locale = toLocale(person.locale);
-    const link = `${baseUrl.replace(/\/$/, '')}/${locale}/login`;
-    const { subject, text } = await signupMailer.compose(locale, person.name, person.email, link);
+    const { token, tokenHash } = generateResetToken();
+    const expiresAtIso = new Date(Date.now() + SIGNUP_INVITE_TTL_MS).toISOString();
+    await getAuthStore().replaceResetToken(person.email, tokenHash, expiresAtIso, '');
+    const link = `${baseUrl.replace(/\/$/, '')}/${locale}/dat-lai-mat-khau?token=${token}`;
+    const { subject, text } = await signupMailer.compose(locale, person.email, link);
     signupMailer.queue(smtp, person.email, subject, text);
     return true;
   } catch (e) {
-    console.error('[approveSignupAction] gui email loi', e instanceof Error ? e.name : String(e));
+    console.error('[approveSignupAction] gui email dat mat khau loi', e instanceof Error ? e.name : String(e));
     return false;
   }
 }
 
-/** Admin bật tài khoản cho 1 đăng ký chờ, chọn vai trò. Quyền xem tài chính theo vai trò (khuôn `createAccountAction`). */
+/**
+ * Admin bật tài khoản cho 1 đăng ký chờ, chọn vai trò. Quyền xem tài chính theo vai trò (khuôn `createAccountAction`).
+ * S1: người đăng ký chưa chứng minh sở hữu email nên tài khoản được tạo với mật khẩu ngẫu nhiên không ai biết; chỉ chủ hộp
+ * thư đặt được mật khẩu thật qua link. Chưa cấu hình gửi email (SMTP hoặc `NEXTAUTH_URL`) thì KHÔNG bật, trả `smtp_missing`.
+ */
 export async function approveSignupAction(
   id: number,
   role: Role,
-): Promise<{ ok: true; mailed: boolean } | { ok: false; error: 'Forbidden' | 'Invalid input' | 'not_found' | 'duplicate_account' }> {
+): Promise<
+  | { ok: true; mailed: boolean }
+  | { ok: false; error: 'Forbidden' | 'Invalid input' | 'not_found' | 'duplicate_account' | 'smtp_missing' }
+> {
   const user = await requireRoleUser(['admin']);
   if (!user) return { ok: false, error: 'Forbidden' };
   if (!isId(id) || !ROLES.includes(role)) return { ok: false, error: 'Invalid input' };
 
-  const result = await getSignupStore().approveRequest(id, { role, canViewFinance: role !== 'viewer' });
+  const smtp = await signupMailer.getSmtp();
+  const baseUrl = process.env.NEXTAUTH_URL;
+  if (!smtp || !baseUrl) return { ok: false, error: 'smtp_missing' };
+
+  // Chuỗi ngẫu nhiên được băm rồi vứt: không ai đăng nhập được bằng mật khẩu cho tới khi đặt qua link. Dùng hash thật (không để
+  // rỗng) vì rỗng nghĩa là tài khoản chỉ Google, bị chặn đặt lại mật khẩu (L5), còn "Quên mật khẩu" phải dùng được nếu link hết hạn.
+  const passwordHash = await hashPassword(randomBytes(32).toString('hex'));
+  const result = await getSignupStore().approveRequest(id, { role, canViewFinance: role !== 'viewer', passwordHash });
   if (result === 'not_found' || result === 'duplicate_account') return { ok: false, error: result };
 
   await logActivity(user, 'signup_approve', `${result.email}:${role}`);
-  return { ok: true, mailed: await notifyApproved(result) };
+  return { ok: true, mailed: await sendInvite(result, smtp, baseUrl) };
 }
 
 /** Admin từ chối đăng ký: xoá khỏi danh sách chờ, KHÔNG gửi email (quyết định chủ dự án). */

@@ -2,6 +2,7 @@
  * P3F-3 (Task 7) - server action quan tri dang ky cho + phong ban. Kho bo nho that (`createMemorySignupStore`)
  * duoc boc spy de chung minh nguoi khong phai admin KHONG cham duoc store; mailer gia de dem so lan gui.
  */
+import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CurrentUser } from '@/lib/session';
 import { createMemorySignupStore } from '@/server/repo/mock-repo-signup';
@@ -20,9 +21,13 @@ vi.mock('./signup-store', () => ({ getSignupStore: () => store }));
 
 const smtp = { host: 'smtp.x.com', port: 587, secure: false, user: null, pass: null, from: 'noreply@daidung.vn' };
 const getSmtp = vi.fn(async () => smtp as typeof smtp | null);
-const compose = vi.fn(async (_l: string, name: string, email: string, link: string) => ({ subject: 'Tai khoan san sang', text: `${name} ${email} ${link}` }));
+const compose = vi.fn(async (_l: string, email: string, link: string) => ({ subject: 'Dat mat khau', text: `${email} ${link}` }));
 const queue = vi.fn();
-vi.mock('./auth-mail', () => ({ signupMailer: { getSmtp: () => getSmtp(), compose: (...a: [string, string, string, string]) => compose(...a), queue: (...a: unknown[]) => queue(...a) } }));
+vi.mock('./auth-mail', () => ({ signupMailer: { getSmtp: () => getSmtp(), compose: (...a: [string, string, string]) => compose(...a), queue: (...a: unknown[]) => queue(...a) } }));
+
+const replaceResetToken = vi.fn(async () => {});
+vi.mock('./auth-store', () => ({ getAuthStore: () => ({ replaceResetToken }) }));
+vi.mock('@/lib/password', () => ({ hashPassword: vi.fn(async (p: string) => `hashed:${p}`) }));
 
 import { logActivity } from '@/lib/activity';
 import {
@@ -40,7 +45,7 @@ let accounts: UserAccount[];
 let spy: { [K in keyof SignupStore]: ReturnType<typeof vi.fn> };
 
 function req(email: string, locale: 'vi' | 'en' = 'vi', departmentId: number | null = null) {
-  return store.createRequest({ email, name: 'Nguyen A', departmentId, passwordHash: 'h', locale, requestIp: '1.1.1.1', createdAtIso: new Date().toISOString() });
+  return store.createRequest({ email, name: 'Nguyen A', departmentId, locale, requestIp: '1.1.1.1', createdAtIso: new Date().toISOString() });
 }
 const pendingId = async (email: string) => (await store.listPending()).find((r) => r.email === email)!.id;
 
@@ -91,41 +96,62 @@ describe('kiem dau vao', () => {
 });
 
 describe('bat tai khoan', () => {
-  it('goi approveRequest voi canViewFinance = role khac viewer; log; gui dung 1 email co link dang nhap theo locale', async () => {
+  it('approveRequest nhan hash cua chuoi ngau nhien (khong rong), canViewFinance = role khac viewer; log; link dat mat khau theo locale', async () => {
     await req('nguoi@daidung.vn', 'en');
     const id = await pendingId('nguoi@daidung.vn');
     expect(await approveSignupAction(id, 'bod')).toEqual({ ok: true, mailed: true });
-    expect(spy.approveRequest).toHaveBeenCalledWith(id, { role: 'bod', canViewFinance: true });
+    expect(spy.approveRequest).toHaveBeenCalledWith(id, { role: 'bod', canViewFinance: true, passwordHash: expect.stringMatching(/^hashed:[0-9a-f]{64}$/) });
     expect(logActivity).toHaveBeenCalledWith(ADMIN, 'signup_approve', 'nguoi@daidung.vn:bod');
     expect(queue).toHaveBeenCalledTimes(1);
     const [, to] = queue.mock.calls[0];
     expect(to).toBe('nguoi@daidung.vn');
-    expect(compose).toHaveBeenCalledWith('en', 'Nguyen A', 'nguoi@daidung.vn', 'https://app.example.com/en/login');
+    expect(compose).toHaveBeenCalledWith('en', 'nguoi@daidung.vn', expect.stringMatching(/^https:\/\/app\.example\.com\/en\/dat-lai-mat-khau\?token=[A-Za-z0-9_-]{43}$/));
     expect(accounts[0]).toMatchObject({ email: 'nguoi@daidung.vn', role: 'bod', canViewFinance: true });
+  });
+
+  it('token: luu dung 1 hash SHA-256 (khong luu token tho), han 72 gio, link chua token tho', async () => {
+    await req('t@daidung.vn');
+    const t0 = Date.now();
+    await approveSignupAction(await pendingId('t@daidung.vn'), 'viewer');
+    expect(replaceResetToken).toHaveBeenCalledTimes(1);
+    const [email, tokenHash, expiresAtIso] = replaceResetToken.mock.calls[0] as unknown as [string, string, string];
+    expect(email).toBe('t@daidung.vn');
+    expect(tokenHash).toMatch(/^[0-9a-f]{64}$/);
+    const ttl = Date.parse(expiresAtIso) - t0;
+    expect(ttl).toBeGreaterThanOrEqual(72 * 3_600_000 - 1000);
+    expect(ttl).toBeLessThanOrEqual(72 * 3_600_000 + 5000);
+    const link = compose.mock.calls[0][2] as string;
+    const token = link.split('token=')[1];
+    expect(token).not.toBe(tokenHash);
+    expect(createHash('sha256').update(token).digest('hex')).toBe(tokenHash);
   });
 
   it('vai tro viewer -> canViewFinance false', async () => {
     await req('v@daidung.vn');
     await approveSignupAction(await pendingId('v@daidung.vn'), 'viewer');
-    expect(spy.approveRequest).toHaveBeenCalledWith(expect.any(Number), { role: 'viewer', canViewFinance: false });
+    expect(spy.approveRequest).toHaveBeenCalledWith(expect.any(Number), expect.objectContaining({ role: 'viewer', canViewFinance: false }));
   });
 
-  it('thieu SMTP -> van ok, mailed false, khong gui', async () => {
+  it('thieu SMTP -> KHONG bat, error smtp_missing, dang ky van con, khong cham approveRequest, khong log, khong gui', async () => {
     getSmtp.mockResolvedValue(null);
     await req('a@daidung.vn');
-    expect(await approveSignupAction(await pendingId('a@daidung.vn'), 'viewer')).toEqual({ ok: true, mailed: false });
+    expect(await approveSignupAction(await pendingId('a@daidung.vn'), 'viewer')).toEqual({ ok: false, error: 'smtp_missing' });
+    expect(spy.approveRequest).not.toHaveBeenCalled();
     expect(queue).not.toHaveBeenCalled();
-    expect(accounts).toHaveLength(1);
+    expect(logActivity).not.toHaveBeenCalled();
+    expect(accounts).toHaveLength(0);
+    expect(await store.countPending()).toBe(1);
   });
 
-  it('thieu NEXTAUTH_URL -> van ok, mailed false, khong gui', async () => {
+  it('thieu NEXTAUTH_URL -> KHONG bat, error smtp_missing', async () => {
     delete process.env.NEXTAUTH_URL;
     await req('a@daidung.vn');
-    expect(await approveSignupAction(await pendingId('a@daidung.vn'), 'viewer')).toEqual({ ok: true, mailed: false });
-    expect(queue).not.toHaveBeenCalled();
+    expect(await approveSignupAction(await pendingId('a@daidung.vn'), 'viewer')).toEqual({ ok: false, error: 'smtp_missing' });
+    expect(spy.approveRequest).not.toHaveBeenCalled();
+    expect(accounts).toHaveLength(0);
   });
 
-  it('loi khi soan/gui email khong lam hong viec bat tai khoan, chi log ten loi', async () => {
+  it('loi khi soan/gui email khong hoan tac viec bat tai khoan, mailed false, chi log ten loi', async () => {
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     compose.mockRejectedValueOnce(new TypeError('chi tiet nhay cam'));
     await req('a@daidung.vn');
@@ -135,12 +161,23 @@ describe('bat tai khoan', () => {
     errSpy.mockRestore();
   });
 
-  it('not_found va duplicate_account tra dung, khong ghi log, khong gui mail', async () => {
+  it('loi luu token -> tai khoan van duoc bat, mailed false, khong gui', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    replaceResetToken.mockRejectedValueOnce(new Error('db down'));
+    await req('a@daidung.vn');
+    expect(await approveSignupAction(await pendingId('a@daidung.vn'), 'viewer')).toEqual({ ok: true, mailed: false });
+    expect(queue).not.toHaveBeenCalled();
+    expect(accounts).toHaveLength(1);
+    errSpy.mockRestore();
+  });
+
+  it('not_found va duplicate_account tra dung, khong ghi log, khong tao token, khong gui mail', async () => {
     expect(await approveSignupAction(99, 'viewer')).toEqual({ ok: false, error: 'not_found' });
     await req('trung@daidung.vn');
     accounts.push({ email: 'trung@daidung.vn', name: 'x', passwordHash: 'x', role: 'viewer', canViewFinance: false, isActive: true, createdAt: '', lastLoginAt: null, lockedAt: null });
     expect(await approveSignupAction(await pendingId('trung@daidung.vn'), 'viewer')).toEqual({ ok: false, error: 'duplicate_account' });
     expect(logActivity).not.toHaveBeenCalled();
+    expect(replaceResetToken).not.toHaveBeenCalled();
     expect(queue).not.toHaveBeenCalled();
   });
 });

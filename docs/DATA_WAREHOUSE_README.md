@@ -464,7 +464,6 @@ erDiagram
       String email
       String name
       Int departmentId FK
-      String passwordHash
       String locale
       String requestIp
       DateTime createdAt

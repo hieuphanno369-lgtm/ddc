@@ -34,7 +34,6 @@ function newRequest(email: string, over: Partial<NewSignupRequest> = {}): NewSig
     email,
     name: 'Nguyen Van Test',
     departmentId: null,
-    passwordHash: 'hash-test',
     locale: 'vi',
     requestIp: '203.0.113.9',
     createdAtIso: new Date().toISOString(),
@@ -125,7 +124,7 @@ export function runSignupStoreContract(name: string, makeHarness: () => Promise<
       await store.createRequest(newRequest(mail('moi'), { createdAtIso: '2026-09-02T00:00:00.000Z' }));
       const mine = (await store.listPending()).filter((r) => r.email.startsWith(TEST_PREFIX));
       expect(mine.map((r) => r.email)).toEqual([mail('cu'), mail('moi')]);
-      expect(mine[0]).toMatchObject({ departmentId: a.id, departmentName: deptName('ds'), locale: 'en', name: 'Nguyen Van Test' });
+      expect(mine[0]).toMatchObject({ departmentId: a.id, departmentName: deptName('ds'), locale: 'en', name: 'Nguyen Van Test', requestIp: '203.0.113.9' });
       expect(mine[1]).toMatchObject({ departmentId: null, departmentName: null });
       expect(await store.countPending()).toBeGreaterThanOrEqual(2);
     });
@@ -133,25 +132,25 @@ export function runSignupStoreContract(name: string, makeHarness: () => Promise<
     it('approveRequest: tao tai khoan dung truong, xoa dang ky; goi lan 2 -> not_found', async () => {
       const a = (await store.saveDepartment({ name: deptName('duyet') }, 'admin@x')) as { id: number };
       const email = mail('duyet');
-      await store.createRequest(newRequest(email, { departmentId: a.id, passwordHash: 'hash-duyet', name: 'Tran Duyet', locale: 'en' }));
+      await store.createRequest(newRequest(email, { departmentId: a.id, name: 'Tran Duyet', locale: 'en' }));
       const id = (await store.listPending()).find((r) => r.email === email)!.id;
 
-      const res = await store.approveRequest(id, { role: 'data-entry', canViewFinance: true });
+      const res = await store.approveRequest(id, { role: 'data-entry', canViewFinance: true, passwordHash: 'hash-duyet' });
       expect(res).toEqual({ email, name: 'Tran Duyet', locale: 'en' });
       expect(await h.findAccount(email)).toEqual({
         email, name: 'Tran Duyet', passwordHash: 'hash-duyet', role: 'data-entry', canViewFinance: true, isActive: true, departmentId: a.id,
       });
       expect((await store.listPending()).some((r) => r.email === email)).toBe(false);
-      expect(await store.approveRequest(id, { role: 'data-entry', canViewFinance: true })).toBe('not_found');
+      expect(await store.approveRequest(id, { role: 'data-entry', canViewFinance: true, passwordHash: 'hash-duyet' })).toBe('not_found');
     });
 
     it('approveRequest: email da co tai khoan -> duplicate_account, dang ky VAN con, khong ghi de tai khoan', async () => {
       const email = mail('da-co');
-      await store.createRequest(newRequest(email, { passwordHash: 'hash-moi' }));
+      await store.createRequest(newRequest(email));
       await h.addAccount(email);
       const before = await h.findAccount(email);
       const id = (await store.listPending()).find((r) => r.email === email)!.id;
-      expect(await store.approveRequest(id, { role: 'viewer', canViewFinance: false })).toBe('duplicate_account');
+      expect(await store.approveRequest(id, { role: 'viewer', canViewFinance: false, passwordHash: 'hash-moi' })).toBe('duplicate_account');
       expect((await store.listPending()).some((r) => r.email === email)).toBe(true);
       expect(await h.findAccount(email)).toEqual(before);
     });
@@ -161,8 +160,8 @@ export function runSignupStoreContract(name: string, makeHarness: () => Promise<
       await store.createRequest(newRequest(email));
       const id = (await store.listPending()).find((r) => r.email === email)!.id;
       const results = await Promise.all([
-        store.approveRequest(id, { role: 'viewer', canViewFinance: false }),
-        store.approveRequest(id, { role: 'viewer', canViewFinance: false }),
+        store.approveRequest(id, { role: 'viewer', canViewFinance: false, passwordHash: 'hash-moi' }),
+        store.approveRequest(id, { role: 'viewer', canViewFinance: false, passwordHash: 'hash-moi' }),
       ]);
       expect(results.filter((r) => typeof r === 'object')).toHaveLength(1);
       expect(results.filter((r) => r === 'not_found')).toHaveLength(1);
@@ -176,6 +175,16 @@ export function runSignupStoreContract(name: string, makeHarness: () => Promise<
       expect(await store.rejectRequest(id)).toBe('not_found');
       expect(await store.emailTaken(email)).toBe(false);
       expect(await store.createRequest(newRequest(email))).toBe('created');
+    });
+
+    it('pruneStale: xoa dang ky cho cu hon moc, giu dang ky moi hon, tra so dong da xoa (S3)', async () => {
+      await store.createRequest(newRequest(mail('qua-han'), { createdAtIso: '2026-09-01T00:00:00.000Z' }));
+      await store.createRequest(newRequest(mail('con-han'), { createdAtIso: '2026-09-20T00:00:00.000Z' }));
+      const removed = await store.pruneStale('2026-09-10T00:00:00.000Z');
+      expect(removed).toBeGreaterThanOrEqual(1);
+      const mine = (await store.listPending()).filter((r) => r.email.startsWith(TEST_PREFIX)).map((r) => r.email);
+      expect(mine).toEqual([mail('con-han')]);
+      expect(await store.emailTaken(mail('qua-han'))).toBe(false);
     });
   });
 }

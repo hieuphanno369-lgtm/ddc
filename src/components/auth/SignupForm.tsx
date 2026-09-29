@@ -5,8 +5,8 @@ import { signIn } from 'next-auth/react';
 import { useLocale, useTranslations } from 'next-intl';
 import { IconCheck } from '@/components/icons';
 import { Link, useRouter } from '@/i18n/navigation';
-import { SIGNUP_NAME_MAX, SIGNUP_PASSWORD_MAX, SIGNUP_PASSWORD_MIN } from '@/lib/login-policy';
-import { isCompanyEmail } from '@/lib/signup-policy';
+import { SIGNUP_NAME_MAX } from '@/lib/login-policy';
+import { hasInvisibleChars, isCompanyEmail } from '@/lib/signup-policy';
 import { submitSignupAction } from '@/server/actions-signup';
 import s from './auth.module.css';
 import { cx } from './cx';
@@ -19,18 +19,16 @@ import {
   AuthInput,
   AuthLink,
   AuthNotice,
-  AuthPasswordInput,
   AuthPrimaryButton,
   AuthSelect,
   GoogleButton,
 } from './parts';
-import { PasswordStrength } from './PasswordStrength';
 
-type FieldErrors = { name?: string; department?: string; email?: string; password?: string };
+type FieldErrors = { name?: string; department?: string; email?: string };
 
 /**
  * P3F-3 - form đăng ký (chờ admin bật). Kiểm ở form chỉ là lớp phụ: server (`requestSignup`) kiểm lại toàn bộ.
- * Mật khẩu chỉ nằm trong state React, xoá ngay khi gửi xong; không vào URL, log hay localStorage.
+ * Form KHÔNG nhận mật khẩu (S1): admin bật xong, người dùng đặt mật khẩu qua link gửi tới email đã đăng ký.
  */
 export function SignupForm({
   departments,
@@ -45,7 +43,6 @@ export function SignupForm({
   const [name, setName] = useState('');
   const [departmentId, setDepartmentId] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<FieldErrors>({});
   const [general, setGeneral] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -55,11 +52,9 @@ export function SignupForm({
   function validateLocal(): FieldErrors {
     const next: FieldErrors = {};
     const trimmed = name.trim();
-    if (trimmed.length < 1 || trimmed.length > SIGNUP_NAME_MAX) next.name = t('signup.nameError');
+    if (trimmed.length < 1 || trimmed.length > SIGNUP_NAME_MAX || hasInvisibleChars(trimmed)) next.name = t('signup.nameError');
     if (hasDepartments && !departmentId) next.department = t('signup.departmentError');
     if (!isCompanyEmail(email)) next.email = t('signup.emailDomainError');
-    if (password.length < SIGNUP_PASSWORD_MIN) next.password = t('auth.passwordTooShort');
-    else if (password.length > SIGNUP_PASSWORD_MAX) next.password = t('signup.passwordTooLong');
     return next;
   }
 
@@ -75,18 +70,19 @@ export function SignupForm({
       name,
       departmentId: hasDepartments ? Number(departmentId) : null,
       email,
-      password,
       locale,
     });
     if (res.status === 'accepted') {
-      setPassword('');
       setDone(true);
       return;
     }
     setBusy(false);
     if (res.status === 'rate_limited') {
-      setPassword('');
       setGeneral(t('signup.rateLimited'));
+      return;
+    }
+    if (res.status === 'smtp_missing') {
+      setGeneral(t('signup.smtpMissing'));
       return;
     }
     // invalid: hiện đúng ô. Phòng ban đổi giữa chừng (ẩn/thêm phòng ban đầu tiên) thì tải lại danh sách.
@@ -95,9 +91,7 @@ export function SignupForm({
       setGeneral(t('signup.departmentChanged'));
       router.refresh();
     } else if (res.field === 'name') setErrors({ name: t('signup.nameError') });
-    else if (res.field === 'email_domain') setErrors({ email: t('signup.emailDomainError') });
-    else if (res.field === 'too_short') setErrors({ password: t('auth.passwordTooShort') });
-    else setErrors({ password: t('signup.passwordTooLong') });
+    else setErrors({ email: t('signup.emailDomainError') });
   }
 
   if (done) {
@@ -189,21 +183,6 @@ export function SignupForm({
           {errors.email ?? t('signup.emailHint')}
         </span>
       </AuthField>
-
-      <div className={s.field}>
-        <AuthField id="signup-password" label={t('auth.password')}>
-          <AuthPasswordInput
-            id="signup-password"
-            dense
-            value={password}
-            onChange={setPassword}
-            autoComplete="new-password"
-            placeholder={t('signup.passwordPlaceholder')}
-          />
-          {errors.password && <span className={s.fieldError} role="alert">{errors.password}</span>}
-        </AuthField>
-        <PasswordStrength value={password} />
-      </div>
 
       {general && <AuthNotice tone="error">{general}</AuthNotice>}
 

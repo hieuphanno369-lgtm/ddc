@@ -102,15 +102,16 @@ describe('signupMailer - email bao tai khoan da san sang (P3F-3)', () => {
     expect(signupMailer.queue).toBe(queueAuthEmail);
   });
 
-  it('compose lay chu de + noi dung theo locale, co ten, email va link', async () => {
+  it('compose lay chu de + noi dung dat mat khau theo locale, co email, link va han 72 gio, KHONG co ho ten (S2)', async () => {
     const { signupMailer } = await import('./auth-mail');
-    const vi1 = await signupMailer.compose('vi', 'Nguyen A', 'a@daidung.vn', 'https://app.example.com/vi/login');
-    expect(vi1.subject).toBe('Tài khoản của bạn đã sẵn sàng');
-    expect(vi1.text).toContain('Chào Nguyen A');
+    const vi1 = await signupMailer.compose('vi', 'a@daidung.vn', 'https://app.example.com/vi/dat-lai-mat-khau?token=T');
+    expect(vi1.subject).toBe('Đặt mật khẩu cho tài khoản của bạn');
     expect(vi1.text).toContain('a@daidung.vn');
-    expect(vi1.text).toContain('https://app.example.com/vi/login');
-    const en1 = await signupMailer.compose('en', 'Nguyen A', 'a@daidung.vn', 'https://app.example.com/en/login');
-    expect(en1.subject).toBe('Your account is ready');
-    expect(en1.text).toContain('Hello Nguyen A');
+    expect(vi1.text).toContain('https://app.example.com/vi/dat-lai-mat-khau?token=T');
+    expect(vi1.text).toContain('72 giờ');
+    expect(vi1.text).not.toContain('{name}');
+    const en1 = await signupMailer.compose('en', 'a@daidung.vn', 'https://app.example.com/en/dat-lai-mat-khau?token=T');
+    expect(en1.subject).toBe('Set a password for your account');
+    expect(en1.text).toContain('72 hours');
   });
 });
