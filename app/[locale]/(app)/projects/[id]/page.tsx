@@ -184,6 +184,8 @@ export default async function ProjectDetailPage({
   const dayCap = periodAsOfDate(t2.period, today);
   const bottleneck = chain.find((c) => c.stageCode === latest?.bottleneckStage);
   const chainFooter = chainFooterSummary(chain, stageWeights, order);
+  // T-3: mốc chưa có dòng chuỗi giá trị nào thì hiện "-" (không lẫn với "đã có số và bằng 0").
+  const noChain = chain.length === 0;
   // Dich san ten cac giai doan cho ValueChainModeChip (client component, muc 4d) - tranh goi
   // useTranslations phia client khi khong co NextIntlClientProvider (renderToStaticMarkup trong test).
   const stageLabels = stageNames;
@@ -370,7 +372,7 @@ export default async function ProjectDetailPage({
                         name={stageNames[stage]}
                         weightLabel={stageWeightLabel(stageWeights, stage, locale)}
                         pct={pct}
-                        pctLabel={stagePctLabel(pct, locale)}
+                        pctLabel={noChain ? '-' : stagePctLabel(pct, locale)}
                         isBottleneck={stage === latest?.bottleneckStage}
                         tonnageLabel={tonnage ? t('valueChainAbs.ton', { actual: formatQty(tonnage.actual, locale), planned: formatQty(tonnage.planned, locale) }) : null}
                       />
@@ -385,7 +387,7 @@ export default async function ProjectDetailPage({
                 <b style={{ color: chainFooter.weightOk ? 'var(--label)' : 'var(--warn)' }}>{chainWeightTotalLabel(chainFooter.weightTotal, locale)}</b>
                 {' · '}{t('valueChainCard.footerFormula')}
               </span>
-              <span style={{ fontWeight: 750, color: 'var(--label)', fontSize: 'var(--t-footnote)' }}>{stagePctLabel(chainFooter.pctTotal, locale)}</span>
+              <span style={{ fontWeight: 750, color: 'var(--label)', fontSize: 'var(--t-footnote)' }}>{noChain ? '-' : stagePctLabel(chainFooter.pctTotal, locale)}</span>
             </div>
           </CardBody>
         </Card>

@@ -118,6 +118,23 @@ describe('T13a - cot trong so chuoi gia tri lay that tu project_stage_weight (P1
   });
 });
 
+describe('T-3 - chuoi gia tri o moc chua co so hien "-" thay "0,0%"', () => {
+  it('moc khong co dong chuoi nao: moi giai doan va tong deu la "-", khong co 0,0%', async () => {
+    const spy = vi.spyOn(repo, 'readValueChainAsOf').mockResolvedValue([]);
+    const out = await render();
+    spy.mockRestore();
+    const pcs = [...out.matchAll(/<span class="pc">([^<]*)<\/span>/g)].map((m) => m[1]);
+    expect(pcs.length).toBeGreaterThan(0);
+    expect(pcs.every((x) => x === '-')).toBe(true);
+    expect(out).not.toMatch(/class="pc">0[,.]0%/);
+  });
+  it('du an 1 (co chuoi): van hien % that', async () => {
+    const out = await render();
+    const pcs = [...out.matchAll(/<span class="pc">([^<]*)<\/span>/g)].map((m) => m[1]);
+    expect(pcs.some((x) => x !== '-')).toBe(true);
+  });
+});
+
 describe('T13b - so tuyet doi (tan) canh % o chuoi gia tri (P1B Task 3, nhanh T)', () => {
   it('du an 1: co hien so tan KH/TT cho giai doan dinh luong', async () => {
     const out = await render();
