@@ -258,7 +258,7 @@
   .kpi .lb{font-size:var(--t-caption2);font-weight:700;letter-spacing:.025em;text-transform:uppercase;
     color:var(--label3);white-space:normal;word-break:break-word;line-height:1.3;
     min-height:calc(var(--t-caption2) * 2.6);padding-right:30px}
-  .kpi .vl{font-size:var(--t-title1);font-weight:700;letter-spacing:var(--tr-large);line-height:var(--lh-tight);margin-top:6px}
+  .kpi .vl{font-size:var(--t-title1);font-weight:700;letter-spacing:var(--tr-large);line-height:var(--lh-tight);margin-top:6px;white-space:nowrap}
   .kpi .sb{margin-top:6px;font-size:var(--t-caption1);color:var(--label2);min-height:18px;
     display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   /* Vong bo sung P2B: dong "Cham/Nhanh N ngay · ±x,x%" - cho xuong dong thay vi cat "..."
@@ -539,6 +539,8 @@
   .tl{position:relative;padding-top:26px}
   .tlrow{display:grid;grid-template-columns:76px 1fr;gap:12px;align-items:center;margin-bottom:11px}
   .tlrow:last-child{margin-bottom:0}
+  /* T-5: 390px - nhan xep tren thanh de thanh du rong, chip % khong de len chu ngay. */
+  @media(max-width:560px){.tl{--tl-off:0px}.tlrow{grid-template-columns:1fr;gap:4px}}
   .tlrow .lb{font-size:var(--t-caption1);font-weight:600;color:var(--label2)}
   .tltrack{position:relative;height:30px;border-radius:var(--r-xs);background:var(--fill);border:.5px solid var(--sep)}
   .tlbar{position:absolute;top:4px;bottom:4px;border-radius:7px;display:flex;align-items:center;padding:0 10px;

@@ -85,7 +85,7 @@ export async function KpiGrid({ period, filters, canViewFinance }: { period: Per
         {canViewFinance && (
           <KpiCard label={t('kpiGroup.revenue')} value={formatTyd(kpis.revenueInPeriod, locale)} delta={kpis.delta.revenueInPeriod} deltaSuffix={vsPrev} tone="neutral" icon={IconMoney} help={help('ovRevenue')} />
         )}
-        <KpiCard label={t('kpiGroup.tonnage')} value={`${formatTon(kpis.tonnageInPeriod, locale)} ${t('common.ton')}`} delta={kpis.delta.tonnageInPeriod} deltaSuffix={vsPrev} tone="neutral" icon={IconFactory} help={help('ovTonnage')} />
+        <KpiCard label={t('kpiGroup.tonnage')} value={formatTon(kpis.tonnageInPeriod, locale)} unit={t('common.ton')} delta={kpis.delta.tonnageInPeriod} deltaSuffix={vsPrev} tone="neutral" icon={IconFactory} help={help('ovTonnage')} />
       </Rise>
     </>
   );

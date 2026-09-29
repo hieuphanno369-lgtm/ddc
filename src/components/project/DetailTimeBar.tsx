@@ -81,14 +81,17 @@ export function DetailTimeBar({
         <span className="chip c-warn" data-testid="carried-chip">{t('asOf.carried', { month: formatMonthShort(lastDataMonth) })}</span>
       )}
 
-      <label className="ml-auto flex items-center gap-1.5 text-caption1 text-label2">
-        {t('period.from')}
-        <DateField ariaLabel={t('period.from')} value={period.from} onChange={(v) => setEdge('from', v)} testId="period-from" />
-      </label>
-      <label className="flex items-center gap-1.5 text-caption1 text-label2">
-        {t('period.to')}
-        <DateField ariaLabel={t('period.to')} value={period.to} onChange={(v) => setEdge('to', v)} testId="period-to" />
-      </label>
+      {/* T-5: 2 ô ngày là 1 khối riêng, mỗi ô nhãn trên - ô dưới, luôn thẳng cột (không xuống dòng lệch từng ô). */}
+      <div className="flex flex-wrap items-start gap-2 sm:ml-auto" data-testid="detail-period-fields">
+        <label className="flex flex-col items-start gap-1 text-caption1 text-label2">
+          {t('period.from')}
+          <DateField ariaLabel={t('period.from')} value={period.from} onChange={(v) => setEdge('from', v)} testId="period-from" />
+        </label>
+        <label className="flex flex-col items-start gap-1 text-caption1 text-label2">
+          {t('period.to')}
+          <DateField ariaLabel={t('period.to')} value={period.to} onChange={(v) => setEdge('to', v)} testId="period-to" />
+        </label>
+      </div>
     </div>
   );
 }

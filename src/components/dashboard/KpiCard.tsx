@@ -32,6 +32,8 @@ export interface KpiCardProps {
   href?: string;
   /** Icon "?" giai thich chi so (P4): ngay sau nhan .lb. Co help thi the mo overflow de bong bong khong bi cat. */
   help?: { text: string; label: string };
+  /** Đơn vị đi sau số chính (vd "tấn"): chữ nhỏ hơn, số + đơn vị không xuống dòng (T-5, thẻ hẹp 390px). */
+  unit?: string;
 }
 
 /** Mau chu so chinh theo sac thai. The hero luon chu trang (nen gradient). */
@@ -69,6 +71,7 @@ export function KpiCard({
   scheduleGap,
   href,
   help,
+  unit,
 }: KpiCardProps) {
   const deltaUp = (delta ?? 0) > 0;
   const hasDelta = delta != null && delta !== 0;
@@ -79,6 +82,20 @@ export function KpiCard({
   const heroAlert = hero && (tone === 'warn' || tone === 'danger');
 
   // Có delta + diễn giải dài ("so với kỳ trước cùng độ dài"): cho xuống dòng thay vì cắt "..." ở thẻ hẹp.
+  // T-4: dấu "?" dính với 2 TỪ CUỐI của nhãn (không tách được; tiếng Việt mỗi "từ" là 1 âm tiết nên lấy 2),
+  // nên không rơi xuống dòng riêng khi nhãn xuống dòng. Nhãn 1 từ hoặc không có "?" giữ nguyên markup cũ.
+  const tip = help ? <HelpTip text={help.text} label={help.label} onDark={hero} /> : null;
+  const cut = label.lastIndexOf(' ', label.lastIndexOf(' ') - 1);
+  const labelWithHelp = !tip ? label : cut < 0 && !label.includes(' ') ? (
+    <>{label}{tip}</>
+  ) : cut < 0 ? (
+    <span style={{ whiteSpace: 'nowrap' }}>{label}{tip}</span>
+  ) : (
+    <>
+      {label.slice(0, cut + 1)}
+      <span style={{ whiteSpace: 'nowrap' }}>{label.slice(cut + 1)}{tip}</span>
+    </>
+  );
   const body = (
     <>
       {!hero && (
@@ -87,9 +104,10 @@ export function KpiCard({
         </div>
       )}
 
-      <div className="lb">{label}{help && <HelpTip text={help.text} label={help.label} onDark={hero} />}</div>
+      <div className="lb">{labelWithHelp}</div>
       <div className="vl" style={hero ? (heroAlert ? { color: 'var(--gold)' } : undefined) : { color: TONE_VALUE[tone] }}>
         {value}
+        {unit && <span style={{ fontSize: '.55em', fontWeight: 600, opacity: 0.7 }}> {unit}</span>}
       </div>
 
       {(hasDelta || sub || !scheduleGap) && (

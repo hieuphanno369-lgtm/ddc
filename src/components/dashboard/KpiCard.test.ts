@@ -210,7 +210,8 @@ describe('KpiCard - icon "?" (P4, prop help)', () => {
 
     expect(out).toContain('class="help"');
     expect(out).toContain('Giai thich Y');
-    expect(out).toMatch(/class="lb">Tổng số dự án<button/);
+    // T-4: "?" dính với 2 từ cuối của nhãn trong 1 span nowrap, nên không rơi xuống dòng riêng.
+    expect(out).toMatch(/class="lb">Tổng số <span style="white-space:nowrap">dự án<button/);
     expect(out).toContain('overflow:visible');
   });
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -105,6 +106,9 @@ export function StatusDonut({
   );
 }
 
+/** Bề rộng tối thiểu cho mỗi nhãn trục X của GroupBar trước khi xoay chéo. */
+const GROUP_LABEL_MIN_PX = 72;
+
 export function GroupBar({
   data,
   onSelect,
@@ -116,11 +120,24 @@ export function GroupBar({
 }) {
   const c = useChartTokens();
   const t = useTranslations();
+  // T-5: chart hẹp (điện thoại) thì Recharts tự bỏ bớt nhãn trục X. Luôn hiện đủ nhãn (interval=0) và xoay chéo khi
+  // mỗi cột chỉ còn dưới ~72px.
+  const [width, setWidth] = useState(0);
+  const tilt = width > 0 && width / Math.max(data.length, 1) < GROUP_LABEL_MIN_PX;
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <ResponsiveContainer width="100%" height={tilt ? 290 : 260} onResize={(w) => setWidth(w)}>
       <ComposedChart data={data} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
-        <XAxis dataKey="key" tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} />
+        <XAxis
+          dataKey="key"
+          tick={{ fontSize: 11, fill: c.axis }}
+          tickLine={false}
+          axisLine={false}
+          interval={0}
+          angle={tilt ? -35 : 0}
+          textAnchor={tilt ? 'end' : 'middle'}
+          height={tilt ? 52 : 30}
+        />
         <YAxis
           yAxisId="left"
           tick={{ fontSize: 11, fill: c.axis }}
