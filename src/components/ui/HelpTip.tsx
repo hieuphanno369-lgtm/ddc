@@ -15,7 +15,7 @@ const OPEN_KEYS = ['display', 'opacity', 'visibility', 'transform'] as const;
  * `.bub` (không sửa globals.css); đóng khi bấm lại, Escape, bấm ra ngoài hoặc mất focus. Hover/focus cũ vẫn chạy.
  * Thẻ chứa "?" được nâng z-index lúc mở để bong bóng không bị thẻ kề sau che (mỗi `.kpi` là 1 stacking context).
  */
-export function HelpTip({ text, label, alignRight = false }: { text: string; label: string; alignRight?: boolean }) {
+export function HelpTip({ text, label, alignRight = false, onDark = false }: { text: string; label: string; alignRight?: boolean; onDark?: boolean }) {
   const bubId = useId();
   const btnRef = useRef<HTMLButtonElement>(null);
   const openRef = useRef(false);
@@ -91,6 +91,7 @@ export function HelpTip({ text, label, alignRight = false }: { text: string; lab
   return (
     <button ref={btnRef} type="button" className={alignRight ? 'help rt' : 'help'} aria-label={label} aria-describedby={bubId}
       aria-expanded={open}
+      style={onDark ? { background: 'rgba(255,255,255,.24)', color: '#fff' } : undefined}
       onPointerEnter={place} onFocus={place} onPointerLeave={hide}
       onBlur={(e) => { if (openRef.current) closeIt(); else hide(e); }}
       onClick={(e) => {

@@ -86,7 +86,7 @@ export function KpiCard({
         </div>
       )}
 
-      <div className="lb">{label}{help && <HelpTip text={help.text} label={help.label} />}</div>
+      <div className="lb">{label}{help && <HelpTip text={help.text} label={help.label} onDark={hero} />}</div>
       <div className="vl" style={hero ? (heroAlert ? { color: 'var(--gold)' } : undefined) : { color: TONE_VALUE[tone] }}>
         {value}
       </div>

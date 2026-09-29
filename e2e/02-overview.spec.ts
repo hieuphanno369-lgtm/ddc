@@ -32,4 +32,19 @@ test.describe('02 - Tong quan (admin)', () => {
     await firstProjectLink.click();
     await page.waitForURL(/\/projects\/\d+/);
   });
+
+  test('KPI 2 nhom co tieu de, the doanh thu/san luong, bam "?" mo bong bong', async ({ page }) => {
+    await page.goto('/vi/overview');
+    await expect(page.getByText(vi('kpiGroup.now'), { exact: true })).toBeVisible();
+    await expect(page.getByText(vi('kpiGroup.flow'), { exact: true })).toBeVisible();
+    const flow = page.locator('.kpis').nth(1);
+    await expect(flow.locator('.kpi')).toHaveCount(2);
+    await expect(flow.locator('.kpi').first().locator('.lb')).toContainText(vi('kpiGroup.revenue'));
+    await expect(page.locator('.kpis').first().locator('.kpi').first().locator('.lb')).toContainText(vi('kpi.totalProjects'));
+
+    const help = page.locator('.kpis').first().locator('.help').first();
+    await help.click();
+    await expect(help.locator('.bub')).toBeVisible();
+    await expect(help.locator('.bub')).toContainText('Số dự án có thi công trong kỳ');
+  });
 });

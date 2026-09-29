@@ -20,7 +20,7 @@ test.describe('11 - Tong quan (7.7-7.9)', () => {
 
     const hero = page.locator('.kpis').first().locator('.kpi.key');
     await expect(hero).toHaveCount(1);
-    await expect(hero.locator('.lb')).toHaveText(vi('kpi.inProgress'));
+    await expect(hero.locator('.lb')).toContainText(vi('kpi.inProgress'));
   });
 
   test('bieu do tron dung truoc, co so tong du an o giua', async ({ page }) => {

@@ -13,7 +13,8 @@ import {
 import type { DashboardFilters, GroupBy } from '@/server/queries';
 import type { Period } from '@/lib/period';
 import { getOverdueScorecard, type Scorecard } from '@/server/overdue-scorecard';
-import { formatTyd } from '@/lib/format';
+import { formatDate, formatTon, formatTyd } from '@/lib/format';
+import { formatMonthShort } from '@/lib/period-format';
 import { todayIso } from '@/lib/clock';
 import { periodAsOfDate, periodMonths } from '@/lib/period';
 import { THRESHOLDS } from '@/lib/thresholds';
@@ -58,18 +59,34 @@ export async function KpiGrid({ period, filters, canViewFinance }: { period: Per
   const t = await getTranslations();
   const locale = await getLocale();
   const kpis = await loadPortfolioKpis(period, filters);
-  const prevLabel = t('common.previousMonth');
+  const vsPrev = t('period.vsPrev');
+  const help = (key: string) => ({ text: t(`helpTip.${key}`), label: t('common.explain') });
   return (
-    <Rise className={`kpis${canViewFinance ? '' : ' k5'}`}>
-      <KpiCard label={t('kpi.totalProjects')} value={String(kpis.projectsInPeriod)} delta={kpis.delta.projectsInPeriod} deltaSuffix={prevLabel} icon={IconProject} />
-      <KpiCard label={t('kpi.inProgress')} value={String(kpis.inProgress)} delta={kpis.delta.inProgress} deltaSuffix={prevLabel} tone="ok" hero icon={IconFactory} />
-      <KpiCard label={t('kpi.behindSchedule')} value={String(kpis.behindSchedule)} delta={kpis.delta.behindSchedule} deltaSuffix={prevLabel} tone="warn" invertDelta icon={IconTrend} />
-      <KpiCard label={t('kpi.penaltyRisk')} value={String(kpis.penaltyRisk)} delta={kpis.delta.penaltyRisk} deltaSuffix={prevLabel} tone="warn" invertDelta icon={IconFlag} />
-      <KpiCard label={t('kpi.penalized')} value={String(kpis.penalized)} delta={kpis.delta.penalized} deltaSuffix={prevLabel} tone="danger" invertDelta icon={IconAlert} />
-      {canViewFinance && (
-        <KpiCard label={t('kpi.backlog')} value={formatTyd(kpis.notStartedValue, locale)} delta={kpis.delta.notStartedValue} deltaSuffix={prevLabel} tone="neutral" icon={IconMoney} />
-      )}
-    </Rise>
+    <>
+      {/* Nhóm 1 "Đang thế nào?": số tồn tại ngày cuối kỳ (mốc). */}
+      <div className="sect"><b>{t('kpiGroup.now')}</b><i /></div>
+      <p className="hintline">{t('kpiGroup.nowSub', { date: formatDate(kpis.asOfDate, locale) })}</p>
+      <Rise className={`kpis${canViewFinance ? '' : ' k5'}`}>
+        <KpiCard label={t('kpi.totalProjects')} value={String(kpis.projectsInPeriod)} delta={kpis.delta.projectsInPeriod} deltaSuffix={vsPrev} icon={IconProject} help={help('ovInPeriod')} />
+        <KpiCard label={t('kpi.inProgress')} value={String(kpis.inProgress)} delta={kpis.delta.inProgress} deltaSuffix={vsPrev} note={t('kpiGroup.inProgressNote', { n: kpis.projectsInPeriod })} tone="ok" hero icon={IconFactory} help={help('ovInProgress')} />
+        <KpiCard label={t('kpi.behindSchedule')} value={String(kpis.behindSchedule)} delta={kpis.delta.behindSchedule} deltaSuffix={vsPrev} tone="warn" invertDelta icon={IconTrend} help={help('ovBehind')} />
+        <KpiCard label={t('kpi.penaltyRisk')} value={String(kpis.penaltyRisk)} delta={kpis.delta.penaltyRisk} deltaSuffix={vsPrev} tone="warn" invertDelta icon={IconFlag} help={help('ovPenaltyRisk')} />
+        <KpiCard label={t('kpi.penalized')} value={String(kpis.penalized)} delta={kpis.delta.penalized} deltaSuffix={vsPrev} tone="danger" invertDelta icon={IconAlert} help={help('ovPenalized')} />
+        {canViewFinance && (
+          <KpiCard label={t('kpi.backlog')} value={formatTyd(kpis.notStartedValue, locale)} delta={kpis.delta.notStartedValue} deltaSuffix={vsPrev} tone="neutral" icon={IconMoney} help={help('ovNotStarted')} />
+        )}
+      </Rise>
+
+      {/* Nhóm 2 "Làm được bao nhiêu trong kỳ?": số cộng dồn các tháng của kỳ. */}
+      <div className="sect"><b>{t('kpiGroup.flow')}</b><i /></div>
+      <p className="hintline">{t('kpiGroup.flowSub', { m1: formatMonthShort(kpis.months[0] ?? kpis.asOfDate.slice(0, 7)), m2: formatMonthShort(kpis.months.at(-1) ?? kpis.asOfDate.slice(0, 7)) })}</p>
+      <Rise className="kpis k2">
+        {canViewFinance && (
+          <KpiCard label={t('kpiGroup.revenue')} value={formatTyd(kpis.revenueInPeriod, locale)} delta={kpis.delta.revenueInPeriod} deltaSuffix={vsPrev} tone="neutral" icon={IconMoney} help={help('ovRevenue')} />
+        )}
+        <KpiCard label={t('kpiGroup.tonnage')} value={`${formatTon(kpis.tonnageInPeriod, locale)} ${t('common.ton')}`} delta={kpis.delta.tonnageInPeriod} deltaSuffix={vsPrev} tone="neutral" icon={IconFactory} help={help('ovTonnage')} />
+      </Rise>
+    </>
   );
 }
 
@@ -144,8 +161,8 @@ export async function BacklogOverdueCard({ period, filters }: { period: Period; 
       <CardHeader title={t('overview.backlogOverdue')} />
       <CardBody>
         <Rise className="kpis k2">
-          <KpiCard label={t('kpi.backlog')} value={formatTyd(backlog.value, locale)} delta={backlog.delta} deltaSuffix={t('common.previousMonth')} tone="neutral" icon={IconMoney} />
-          <KpiCard label={t('metric.overdue')} value={formatTyd(overdue.value, locale)} delta={overdue.delta} deltaSuffix={t('common.previousMonth')}
+          <KpiCard label={t('kpi.backlog')} value={formatTyd(backlog.value, locale)} delta={backlog.delta} deltaSuffix={t('period.vsPrev')} tone="neutral" icon={IconMoney} help={{ text: t('helpTip.ovNotStarted'), label: t('common.explain') }} />
+          <KpiCard label={t('metric.overdue')} value={formatTyd(overdue.value, locale)} delta={overdue.delta} deltaSuffix={t('period.vsPrev')}
             tone={overdue.value > 0 ? 'danger' : 'neutral'} invertDelta icon={IconAlert} />
         </Rise>
       </CardBody>
