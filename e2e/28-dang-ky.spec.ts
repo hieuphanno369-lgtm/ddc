@@ -65,7 +65,7 @@ test.describe('28 - dang ky cho admin bat', () => {
     const ctx = await anonContext(browser);
     const page = await ctx.newPage();
     await page.goto('/vi/dang-ky');
- await page.waitForLoadState('networkidle'); // cho hydrate truoc khi dien/bam form
+    await page.waitForLoadState('networkidle'); // cho hydrate truoc khi dien/bam form
     await expect(page.locator('#signup-department option', { hasText: DEPT_A })).toHaveCount(1);
 
     await fillSignup(page, { dept: DEPT_A, email: 'ten@gmail.com' });
@@ -85,7 +85,7 @@ test.describe('28 - dang ky cho admin bat', () => {
     const ctx = await anonContext(browser);
     const page = await ctx.newPage();
     await page.goto('/vi/dang-ky');
- await page.waitForLoadState('networkidle'); // cho hydrate truoc khi dien/bam form
+    await page.waitForLoadState('networkidle'); // cho hydrate truoc khi dien/bam form
     await fillSignup(page, { dept: DEPT_A, email: EMAIL_1 });
     await submitSignup(page);
     await expect(page.getByText(vi('signup.doneTitle'))).toBeVisible();
@@ -136,7 +136,7 @@ test.describe('28 - dang ky cho admin bat', () => {
     const anon = await anonContext(browser);
     const p1 = await anon.newPage();
     await p1.goto('/vi/dang-ky');
- await p1.waitForLoadState('networkidle'); // cho hydrate truoc khi dien/bam form
+    await p1.waitForLoadState('networkidle'); // cho hydrate truoc khi dien/bam form
     await fillSignup(p1, { dept: DEPT_A, email: EMAIL_2 });
     await submitSignup(p1);
     await expect(p1.getByText(vi('signup.doneTitle'))).toBeVisible();
@@ -151,7 +151,7 @@ test.describe('28 - dang ky cho admin bat', () => {
     await expect(row).toHaveCount(0);
 
     await p1.goto('/vi/dang-ky');
- await p1.waitForLoadState('networkidle'); // cho hydrate truoc khi dien/bam form
+    await p1.waitForLoadState('networkidle'); // cho hydrate truoc khi dien/bam form
     await fillSignup(p1, { dept: DEPT_A, email: EMAIL_2 });
     await submitSignup(p1);
     await expect(p1.getByText(vi('signup.doneTitle'))).toBeVisible();
@@ -174,7 +174,7 @@ test.describe('28 - dang ky cho admin bat', () => {
     const anon = await anonContext(browser);
     const page = await anon.newPage();
     await page.goto('/vi/dang-ky');
- await page.waitForLoadState('networkidle'); // cho hydrate truoc khi dien/bam form
+    await page.waitForLoadState('networkidle'); // cho hydrate truoc khi dien/bam form
     const options = await page.locator('#signup-department option').allInnerTexts().catch(() => [] as string[]);
     expect(options).not.toContain(DEPT_A);
     await anon.close();
@@ -196,7 +196,7 @@ test.describe('28 - dang ky cho admin bat', () => {
       await expect(page.getByText('[LIÊN HỆ]')).toBeVisible();
     }
     await page.goto('/vi/dang-ky');
- await page.waitForLoadState('networkidle'); // cho hydrate truoc khi dien/bam form
+    await page.waitForLoadState('networkidle'); // cho hydrate truoc khi dien/bam form
     await page.getByRole('link', { name: vi('terms.title') }).click();
     await expect(page).toHaveURL(/\/vi\/dieu-khoan$/);
     await ctx.close();
@@ -226,7 +226,7 @@ test.describe('28 - dang ky cho admin bat', () => {
       const ctx = await anonContext(browser, { viewport: { width: c.w, height: c.h }, colorScheme: c.scheme, reducedMotion: 'reduce' });
       const page = await ctx.newPage();
       await page.goto('/vi/dang-ky');
- await page.waitForLoadState('networkidle'); // cho hydrate truoc khi dien/bam form
+    await page.waitForLoadState('networkidle'); // cho hydrate truoc khi dien/bam form
       await page.evaluate(() => document.fonts.ready);
       await expect(page.locator('#signup-department option', { hasText: DEPT_A })).toHaveCount(1);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), `cuon ngang dang-ky ${tag}`).toBeLessThanOrEqual(0);
@@ -287,7 +287,7 @@ test.describe('28 - dang ky cho admin bat', () => {
     const ctx = await anonContext(browser);
     const page = await ctx.newPage();
     await page.goto('/vi/dang-ky');
- await page.waitForLoadState('networkidle'); // cho hydrate truoc khi dien/bam form
+    await page.waitForLoadState('networkidle'); // cho hydrate truoc khi dien/bam form
     await page.evaluate(() => document.fonts.ready);
     const remaining = await page.locator('#signup-department').count();
     test.skip(remaining > 0, 'DB con phong ban dang dung khac ngoai phong ban cua test nay');
