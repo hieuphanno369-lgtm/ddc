@@ -340,6 +340,7 @@ Script tạo 1 database TẠM (tên có `_restore_test_`), khôi phục file bac
 Quy trình khôi phục thật khi có sự cố (từng lệnh, làm đúng thứ tự; `<ten-file>` là tên file `.dump` muốn khôi phục, `<BACKUP_DIR>` là đúng giá trị `BACKUP_DIR` trong `.env.docker`, đường dẫn thật trên server):
 
 ```bash
+set -e                                                                       # BẮT BUỘC: dừng ngay nếu 1 lệnh bất kỳ lỗi, không chạy lệnh sau
 docker compose --env-file .env.docker stop app
 docker compose --env-file .env.docker run --rm backup                       # backup bản hiện tại trước khi ghi đè
 (cd "<BACKUP_DIR>" && sha256sum -c <ten-file>.dump.sha256)                   # BẮT BUỘC kiểm bản dump TRƯỚC khi xoá DB thật
@@ -348,11 +349,13 @@ docker compose --env-file .env.docker exec db createdb -U ddc ddc_control_tower
 docker compose --env-file .env.docker run --rm --entrypoint pg_restore backup \
   --no-owner --no-privileges --exit-on-error -d ddc_control_tower /backups/<ten-file>.dump
 docker compose --env-file .env.docker start app
-curl http://127.0.0.1:<APP_PORT>/api/health/db
+curl -f http://127.0.0.1:<APP_PORT>/api/health/db
 ```
 
 Dùng service `backup` (không phải `db`) để chạy `pg_restore`: service này đã mount đúng `${BACKUP_DIR}` vào `/backups` và có sẵn `PGHOST`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`, không cần khai lại `-v` hay mật khẩu (khác bản cũ từng mount cứng `$(pwd)/.backups`, sai với `BACKUP_DIR` thật trỏ ổ dữ liệu bền).
 Kiểm sha256 PHẢI làm trước `dropdb --force`: quy trình cũ xoá DB thật trước khi biết bản dump có hỏng hay không, lỡ hỏng thì mất luôn dữ liệu.
+Dòng `set -e` ở đầu khối là BẮT BUỘC khi dán cả khối vào 1 file script hoặc paste nguyên khối vào shell có hỗ trợ `set -e` (bash): thiếu dòng này thì `sha256sum -c` báo sai vẫn không chặn được `dropdb --force` chạy tiếp ngay sau đó, mất tác dụng của bước kiểm.
+Nếu dán TỪNG DÒNG một cách thủ công (không dùng `set -e`), phải tự dừng ngay khi bất kỳ dòng nào báo lỗi, đặc biệt là dòng `sha256sum -c`.
 
 Khôi phục xong DB vẫn cần đúng `NOTIFY_SECRET_KEY` CŨ (giá trị đang có trong `.env.docker` lúc backup) - đổi khoá này thì phải cấu hình lại toàn bộ kênh thông báo (webhook, mật khẩu SMTP) vì không giải mã lại được giá trị cũ đã lưu.
 
