@@ -8,10 +8,11 @@ import path from 'node:path';
  */
 const API_DIR = path.resolve(__dirname, '../../app/api');
 
-type Guard = 'next-auth' | 'health' | 'cron-secret' | 'session' | 'public-report';
+type Guard = 'next-auth' | 'health' | 'health-db' | 'cron-secret' | 'session' | 'public-report';
 const GUARDS: Record<string, Guard> = {
   'auth/[...nextauth]/route.ts': 'next-auth',
   'health/route.ts': 'health',
+  'health/db/route.ts': 'health-db',
   'csp-report/route.ts': 'public-report',
   'cron/[job]/route.ts': 'cron-secret',
   'export/route.ts': 'session',
@@ -43,6 +44,13 @@ describe('route API deu co cach chan da dang ky', () => {
       expect(src).toContain('timingSafeEqual');
     }
     if (guard === 'health') expect(src).not.toMatch(/@\/server\//);
+    if (guard === 'health-db') {
+      expect(src).toMatch(/rateLimit\(/);
+      expect(src).toContain('clientIpFrom');
+      expect(src).not.toMatch(/getCurrentUser\(/);
+      const serverImports = src.match(/['"]@\/server\/[^'"]+['"]/g) ?? [];
+      expect(serverImports.map((s) => s.slice(1, -1))).toEqual(['@/server/db']);
+    }
     if (guard === 'public-report') {
       expect(src).toMatch(/rateLimit\(/);
       expect(src).toContain('clientIpFrom');
