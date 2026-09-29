@@ -70,6 +70,9 @@ vi.mock('@/lib/session', () => ({ getCurrentUser: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/session';
 import { getReportData } from '@/server/report';
+import { getProjectSummaries } from '@/server/queries';
+import { defaultOverviewPeriod, parsePeriod } from '@/lib/period';
+import { todayIso } from '@/lib/clock';
 import { GET } from '../../app/api/report/export/route';
 
 const MONTH = '2026-09';
@@ -99,10 +102,14 @@ describe('getReportData - nguồn data của /report + export', () => {
     expect(kpis).toBe(KPIS);
   });
 
-  it('rows phủ toàn bộ dự án đang hoạt động, SPI/CPI làm tròn 2 số', async () => {
+  it('R1: rows chỉ gồm dự án thuộc kỳ (cùng tập với Tổng quan), SPI/CPI làm tròn 2 số', async () => {
     const { rows } = await getReportData(MONTH);
 
-    expect(rows).toHaveLength(repo.listProjects().length);
+    const period = parsePeriod({ month: MONTH }, defaultOverviewPeriod(todayIso()));
+    const inPeriod = await getProjectSummaries(period, {});
+    expect(rows.map((r) => r.id)).toEqual(inPeriod.map((s) => s.id));
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.length).toBeLessThanOrEqual(repo.listProjects().length);
     for (const r of rows) {
       if (r.spi != null) expect(r.spi).toBe(Math.round(r.spi * 100) / 100);
       if (r.cpi != null) expect(r.cpi).toBe(Math.round(r.cpi * 100) / 100);
@@ -163,7 +170,7 @@ describe('GET /api/report/export - phân quyền và nội dung file', () => {
     const wb = await loadSheetNames(res);
     expect(wb.worksheets.map((w) => w.name)).toEqual(['KPI', 'P0-Red', 'DanhSachDuAn']);
     expect(wb.getWorksheet('KPI')!.getRow(1).values).toEqual([undefined, 'Chỉ số', 'Giá trị']);
-    expect(wb.getWorksheet('DanhSachDuAn')!.rowCount).toBe(1 + repo.listProjects().length);
+    expect(wb.getWorksheet('DanhSachDuAn')!.rowCount).toBe(1 + (await getReportData(MONTH)).rows.length);
   });
 
   it('bod tải được file (BOD có quyền xem báo cáo)', async () => {

@@ -209,11 +209,6 @@ async function getProjectSummariesUncached(period: Period, filters?: DashboardFi
 /** Dự án thuộc kỳ (đã qua filters) với số tồn tại mốc cuối kỳ. */
 export const getProjectSummaries = requestMemo(getProjectSummariesUncached);
 
-/** Mọi dự án đang hoạt động với số tồn tại mốc cuối kỳ, KHÔNG lọc "thuộc kỳ" (trang Báo cáo liệt kê cả danh mục). */
-export async function getAllProjectSummaries(period: Period): Promise<ProjectSummary[]> {
-  return (await getPeriodBase(period)).entries.map((e) => e.summary);
-}
-
 /** Trang Chi tiết: 1 dự án tại tháng mốc, KHÔNG lọc theo kỳ. Ngày mốc = min(cuối tháng, hôm nay). */
 export async function getProjectSummary(projectId: number, asOfMonth: YearMonth): Promise<ProjectSummary | undefined> {
   // TODO: BOLA - không check quyền đọc project. Viewer/data-entry đọc được detail dự án ngoài scope.
