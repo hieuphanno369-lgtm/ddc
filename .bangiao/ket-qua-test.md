@@ -1,4 +1,4 @@
-KẾT QUẢ: XANH (vòng 2, sau khi debugger vá race condition khoá pg-backup.sh)
+KẾT QUẢ: XANH (vòng 3, đã xác nhận độc lập bản vá B-1..B-4 theo danh-gia.md)
 
 # Kết quả kiểm thử độc lập - P5 hạ tầng go-live (P5-B, nhánh `feature/p5-b-ha-tang`)
 
@@ -358,3 +358,180 @@ không cần lặp lại các phần đó.
 - File test mới thêm ở vòng 2 (2 ca trong `src/server/backup-scripts-lock.test.ts`) nên được giữ lại
   cùng lý do như 2 file test vòng 1: không phụ thuộc Docker/Postgres thật, phủ đúng ca biên vòng 2 yêu
   cầu.
+
+---
+
+# VÒNG 3 - xác nhận vá 4 mục BẮT BUỘC (B-1..B-4) theo `.bangiao/danh-gia.md`
+
+Skill đã dùng: `test-driven-development`, `verification-before-completion`.
+Không đụng UI ở vòng vá này (route API + 2 script `.sh` + tài liệu) nên không cần `mcp__playwright`.
+Không có DB thật nào bị đụng ở vòng này: B-2/B-3 chỉ chạy `sh` với binary `pg_dump`/`pg_restore`/
+`psql`/`createdb`/`dropdb` GIẢ (fake, không kết nối Postgres thật) nên không cần `mcp__postgres` kiểm
+trạng thái dữ liệu sau test - không có dữ liệu thật nào bị chạm tới ở vòng này.
+
+Tôi KHÔNG sửa file code sản phẩm nào ở vòng này, chỉ đọc code, chạy test có sẵn, và tự chạy thêm 1
+thăm dò độc lập (Node script tạm ngoài repo) để kiểm chứng lý do skip ca SIGTERM.
+
+## 1. B-1: đảo thứ tự rate limit `/api/health/db` - ĐÃ XÁC NHẬN ĐÚNG
+
+- Đọc `app/api/health/db/route.ts`: dòng 15-17 kiểm bucket per-IP (`health-db:${ip}`, 60/phút)
+  TRƯỚC, chỉ khi qua mới chạy tiếp dòng 18-19 kiểm bucket toàn cục (`health-db:global`, 300/phút).
+  Đúng thứ tự đã đảo, khớp mô tả coder.
+- Tự chạy `npx vitest run src/server/health-db-route.test.ts`: 4/4 pass, gồm đúng ca mới "IP A gửi
+  400 lần (bị 429 từ lần 61) không được tính vào bộ đếm toàn cục, IP B vẫn nhận 200 (B-1)". Đọc kỹ ca
+  test: mô phỏng đúng kịch bản khai thác của TB-1 (1 IP làm tràn bucket toàn cục), không phải test
+  hời hợt.
+- Đọc `docs/DEPLOY.md` mục 6 (dòng 212-224): có khối Nginx `location = /api/health/db { allow <IP
+  giám sát IT>; allow 127.0.0.1; deny all; proxy_pass ...; }` đúng yêu cầu, kèm ghi chú healthcheck
+  nội bộ container gọi thẳng `127.0.0.1:3000` không đi qua Nginx nên không bị chặn.
+
+Kết luận B-1: ĐẠT.
+
+## 2. B-2: `pg-restore-test.sh` chặn SQL injection qua tên bảng - ĐÃ XÁC NHẬN ĐÚNG, có 1 điểm cần chủ dự án/reviewer xác nhận lại (đánh đổi tính năng)
+
+Đọc toàn bộ 119 dòng `scripts/backup/pg-restore-test.sh` (không chỉ đoạn coder nói đã sửa):
+
+- (a) Kiểm định dạng tên bảng: dòng 105-107, `case "$t" in *[!A-Za-z0-9_]*|[0-9]*) fail
+  "bad_table_name" ;; esac` - tương đương đúng biểu thức `^[A-Za-z_][A-Za-z0-9_]*$` (chặn mọi ký tự
+  ngoài chữ/số/gạch dưới, và chặn tên bắt đầu bằng số). Đứng TRƯỚC dòng ghép `$t` vào SQL (dòng 108).
+  Đúng vị trí, đúng logic.
+- (b) Bỏ hẳn truy vấn PGDATABASE + cột "so_dong_nguon": rà toàn văn `PGDATABASE` trong file chỉ còn
+  6 chỗ, TẤT CẢ đều là kiểm biến môi trường bắt buộc (dòng 12), lấy tên file mặc định (dòng 31), tạo
+  tên DB tạm (dòng 48), so sánh chuỗi để chặn trùng tên (dòng 56), và 2 dòng comment giải thích
+  (103-104). Không còn bất kỳ lệnh `psql`/`pg_restore`/`createdb`/`dropdb` nào nhắm `-d "$PGDATABASE"`
+  hay chạy SQL trên DB nguồn - đã tự rà toàn văn, xác nhận không sót chỗ nào khác. Đóng lỗ hổng TB-2
+  đúng theo nghĩa đen "không bao giờ đụng vào DB thật, kể cả đọc".
+  - Đánh giá đánh đổi tính năng (theo yêu cầu nhiệm vụ, ghi nhận xét rõ): kế hoạch gốc (`ke-hoach.md`
+    dòng 576) mô tả cột "so_dong_nguon" là "chỉ để người xem, không dùng làm điều kiện đỏ" (không
+    phải điều kiện pass/fail, không có test nào của kế hoạch gốc dựa vào). Vì vậy việc bỏ hẳn cột này
+    chỉ mất đi 1 tiện ích hiển thị tham khảo cho người vận hành khi đối chiếu số dòng thủ công, KHÔNG
+    làm mất bất kỳ điều kiện kiểm tra nào đã có (migration, số bảng khớp, tổng số dòng > 0 vẫn giữ
+    nguyên vẹn ở các dòng 75-116). Tôi cho rằng đánh đổi này chấp nhận được và là lựa chọn AN TOÀN
+    HƠN so với phương án chỉ thêm cờ chỉ-đọc (`PGOPTIONS=-c default_transaction_read_only=on`) mà
+    đánh giá gốc đưa ra như 1 trong 2 lựa chọn - vì loại bỏ hẳn khả năng kết nối tới DB thật thay vì
+    chỉ giảm nhẹ rủi ro. Đề nghị chủ dự án/reviewer xác nhận lại 1 lần cuối trước merge, vì đây là
+    thay đổi hành vi so với đặc tả gốc (dù đặc tả gốc đã tự nói tính năng này không quan trọng).
+- (c) Giới hạn độ dài + PID: dòng 48 `RESTORE_DB="${PGDATABASE}_restore_test_$(date -u
+  +%Y%m%d%H%M%S)_$$"` có `_$$` (PID); dòng 60 `[ ${#RESTORE_DB} -le 63 ] || exit 5`. Đúng cả 2 ý của
+  T-1.
+- (d) `trap cleanup EXIT` đúng vị trí: dòng 68 `createdb "$RESTORE_DB"`, dòng 71 `trap cleanup EXIT`
+  - đúng NGAY SAU khi `createdb` thành công, không đăng ký trap nếu `createdb` lỗi (ví dụ trùng tên
+  với 1 lần chạy khác) - khớp đúng yêu cầu T-1.
+
+Tự chạy `npx vitest run src/server/backup-restore-test-script.test.ts`: 2/2 pass. Đọc kỹ 2 ca:
+- Ca 1 dùng `psql` giả đọc biến `FAKE_TABLE_NAMES` trả về đúng chuỗi độc hại `x"; DROP TABLE
+  "user_roles"; --` (mô phỏng file dump bị chỉnh sửa chứa tên bảng độc hại thật), script phải thoát 1
+  với `reason:bad_table_name`, và file nhật ký `PSQL_LOG` (ghi lại MỌI lệnh psql thật sự chạy) không
+  được chứa `DROP TABLE` hay chuỗi độc hại - tức là chứng minh được lệnh nguy hiểm CHƯA BAO GIỜ được
+  thực thi, không chỉ kiểm mã thoát. Đây là test tấn công thật, không hời hợt.
+- Ca 2 (đường thành công, tên bảng hợp lệ `orders`) chạy hết, in đúng `restore_test.ok` - xác nhận
+  bản vá không phá luồng bình thường.
+
+Kết luận B-2: ĐẠT (đóng đúng lỗ hổng SQL injection TB-2 và T-1), kèm 1 ghi chú đánh đổi tính năng nêu
+trên cần xác nhận cuối.
+
+## 3. B-3: khoá `.lock` tự dọn khi có tín hiệu / khoá cũ - ĐÃ XÁC NHẬN ĐÚNG, ca SIGTERM tự skip là chính đáng
+
+- Đọc `scripts/backup/pg-backup.sh`: dòng 69 `trap 'exit 130' INT TERM HUP` đăng ký cùng lúc với
+  `trap cleanup EXIT` (dòng 66), SAU khi giành được khoá. Cú pháp POSIX đúng chuẩn - gọi `exit` bên
+  trong handler tín hiệu sẽ kích hoạt lại trap EXIT để chạy `cleanup()` (hành vi chuẩn của `sh`/POSIX).
+- Cơ chế dọn khoá cũ: dòng 46-58, `STALE_LOCK_MIN=360` (6 giờ), dùng `find "$LOCK_DIR" -maxdepth 0
+  -mmin "+$STALE_LOCK_MIN"` để phát hiện khoá cũ hơn ngưỡng, log `backup.stale_lock_removed` rồi
+  `rmdir`, sau đó tiếp tục giành khoá bình thường (không exit).
+- Tự chạy `npx vitest run src/server/backup-scripts-lock.test.ts`: 5 pass, 1 skip. Đọc kỹ:
+  - Ca "khoá cũ hơn ngưỡng (7h) tự dọn, log `stale_lock_removed`" - xanh.
+  - Ca "khoá mới (trong ngưỡng) vẫn thoát 3 như cũ" - xanh, xác nhận không phá hành vi cũ.
+  - Ca race condition gốc (vòng 1) và 2 ca dọn dẹp bình thường (vòng 2) - vẫn xanh, không bị ảnh
+    hưởng bởi thay đổi B-3.
+  - Ca SIGTERM: `it.skipIf(!signalDeliveryWorks)`.
+- Tự xác minh độc lập lý do skip (không chỉ tin lời coder): viết 1 script Node tạm (ngoài repo, trong
+  thư mục scratchpad, không phải file test) lặp lại đúng thí nghiệm `probeSignalDelivery()` của coder
+  - `spawn('sh', [script])` với script có `trap 'echo x > marker; exit 0' TERM`, rồi
+  `child.kill('SIGTERM')`. Kết quả tự chạy: `child` báo thoát với `sig: SIGTERM` (Node/Windows chấm
+  dứt tiến trình `sh` con trực tiếp) nhưng file `marker` KHÔNG được tạo ra - tức là trap TERM bên
+  trong `sh` không hề được thực thi. Xác nhận độc lập: đúng là môi trường Windows/Git-Bash (MSYS)
+  hiện tại không chuyển được tín hiệu SIGTERM tới tiến trình `sh` con theo cách để trap chạy được -
+  đây là giới hạn hệ điều hành thật, không phải coder né việc.
+- Đọc lại cú pháp `.sh` bằng mắt (không chạy được tín hiệu thật): `trap 'exit 130' INT TERM HUP` là
+  cú pháp POSIX chuẩn, hoàn toàn hợp lệ trên `dash`/`busybox sh` (môi trường thật sẽ dùng ở container
+  `postgres:16-alpine`). Logic không có lỗi rõ ràng khi đọc tĩnh.
+- Ghi nhận rõ theo yêu cầu nhiệm vụ: ca SIGTERM CHƯA được kiểm bằng tín hiệu thật trên máy này (do
+  giới hạn hệ điều hành Windows/Git-Bash đã tự xác minh ở trên), CẦN xác nhận lại trên Linux/Docker
+  thật (container `postgres:16-alpine` hoặc CI Linux) trước khi go-live, đúng như Điều kiện đi kèm đã
+  có trong `danh-gia.md` về việc chạy thật Task 4-5 bằng Docker.
+- Đọc `docs/DEPLOY.md` mục 11 (dòng 300-324): có đoạn giải thích cơ chế stale lock (6 giờ), cách nhận
+  biết `lock_busy` lặp lại bất thường, lệnh gỡ khoá tay `--entrypoint sh backup -c 'rmdir
+  /backups/.lock'`.
+
+Kết luận B-3: ĐẠT (với điều kiện đi kèm: xác nhận lại bằng tín hiệu thật trên Linux/Docker trước
+go-live, đã có sẵn trong "Điều kiện đi kèm" của `danh-gia.md`).
+
+## 4. B-4: sửa cổng và thư mục khôi phục trong `docs/DEPLOY.md` - ĐÃ XÁC NHẬN ĐÚNG
+
+- Tự rà toàn văn `docs/DEPLOY.md` bằng grep: literal `127.0.0.1:3000` chỉ còn ĐÚNG 1 chỗ (dòng 235,
+  ghi chú healthcheck nội bộ container, có giải thích rõ đây là cổng CỐ ĐỊNH bên trong container
+  không đi qua Nginx) - đúng như coder mô tả, đã tự phát hiện thêm 1 chỗ ngoài danh sách đánh giá
+  liệt kê (dòng 105/bảng biến mục 4). Mọi lệnh Nginx/`curl` chạy trên host còn lại đều dùng
+  `127.0.0.1:<APP_PORT>` (đếm được 9 chỗ, đủ ≥7 theo test).
+  - Riêng dòng 437 (`curl http://127.0.0.1:3005/api/health/db`) nằm trong Phụ lục A (dev Windows,
+    KHÔNG áp dụng cho production, đã ghi rõ ngay đầu phụ lục) - dùng số cụ thể `3005` đúng bằng
+    default thật của `.env.docker.example`, không mâu thuẫn với quy ước `<APP_PORT>` áp dụng cho
+    phần production. Không phải lỗi.
+- Quy trình khôi phục (dòng 342-349): `sha256sum -c` (dòng 345) đứng TRƯỚC `dropdb --force` (dòng
+  346) - đúng yêu cầu. Dùng `docker compose run --rm --entrypoint pg_restore backup ...` (dòng 348),
+  không còn mount cứng `-v "$(pwd)/.backups`.
+- Tự chạy `npx vitest run src/server/deploy-files.test.ts`: 16/16 pass (13 ca cũ + 3 ca mới describe
+  `docs/DEPLOY.md (B-4)`). Đọc kỹ 3 ca mới:
+  - Ca 1 đếm chính xác số lần xuất hiện `127.0.0.1:3000` (phải = 1) và `127.0.0.1:<APP_PORT>` (phải
+    ≥ 7) - kiểm được đúng sự nhất quán cổng bằng đếm số, không phải chỉ kiểm tồn tại 1 chuỗi bất kỳ -
+    không hời hợt.
+  - Ca 2 kiểm vị trí `sha256sum -c` đứng trước `dropdb --force -U ddc ddc_control_tower` bằng so
+    sánh `indexOf`, đúng thứ tự thao tác thật trong văn bản, không chỉ kiểm tồn tại cả 2 chuỗi.
+  - Ca 3 kiểm không còn chuỗi mount cứng `-v "$(pwd)/.backups` VÀ có đúng lệnh `--entrypoint
+    pg_restore backup`.
+
+Kết luận B-4: ĐẠT.
+
+## 5. Cổng kiểm tổng - tự chạy lại độc lập, khớp đúng số coder báo
+
+| Cổng kiểm | Coder báo | Tester vòng 3 tự chạy lại (độc lập) |
+|---|---|---|
+| `npx tsc --noEmit` | sạch | sạch (không có output lỗi) |
+| `npm test` | 257 file (1 skip)/2913 xanh + 16 skip | khớp đúng 100%: 256 passed + 1 skipped (257
+  file) / 2913 passed + 16 skipped (2929) |
+| `npm run build` | qua (CA công ty qua `NEXT_FONT_GOOGLE_MOCKED_RESPONSES`) | qua, exit 0, có đủ
+  route `/api/health/db`, không lỗi |
+
+Đã tự xác nhận +1 skip so với mốc 15 skip cũ (vòng 2) đúng là ca SIGTERM MỚI của B-3 (mục 3 ở trên đã
+xác minh độc lập lý do skip chính đáng), KHÔNG phải 1 ca cũ nào bị skip oan - đối chiếu bằng cách đọc
+toàn bộ nội dung `src/server/backup-scripts-lock.test.ts`, chỉ có đúng 1 `it.skipIf` mới thêm ở vòng
+này, các `describe.skipIf(!shAvailable)` khác là cơ chế bỏ qua có sẵn từ vòng 1 (không đổi).
+
+## 6. Xác nhận phạm vi sửa đổi - N-1..N-10 KHÔNG bị đụng
+
+`git diff --stat 50aac58 984ff39` (từ commit đánh giá reviewer "CẦN SỬA" tới commit vá B-1..B-4) chỉ
+đụng: `app/api/health/db/route.ts`, `docs/DEPLOY.md`, `scripts/backup/pg-backup.sh`,
+`scripts/backup/pg-restore-test.sh`, `src/server/backup-restore-test-script.test.ts` (file mới),
+`src/server/backup-scripts-lock.test.ts`, `src/server/deploy-files.test.ts`,
+`src/server/health-db-route.test.ts`, và `.bangiao/thay-doi.md`.
+
+Đúng khớp: chỉ đụng các file liên quan trực tiếp B-1 (route + test), B-2 (script restore + test
+mới), B-3 (script backup + test), B-4 (DEPLOY.md + test). KHÔNG đụng `src/lib/logger.ts`,
+`.dockerignore`, `Dockerfile`, `docker-compose.yml`, `docs/csp-header-bao-mat.md` hay bất kỳ file
+nào khác liên quan N-1..N-10 - xác nhận coder chỉ sửa đúng phạm vi được giao, để lại sổ nợ hardening
+như đánh giá yêu cầu.
+
+## 7. Kết luận vòng 3
+
+- Cả 4 mục BẮT BUỘC B-1, B-2, B-3, B-4 đều đã được vá đúng gốc rễ và xác nhận độc lập bằng cách tự
+  đọc code, tự chạy test, và tự thăm dò thêm (script Node tạm kiểm SIGTERM) - không chỉ tin lời coder.
+- 3 cổng kiểm tổng (`tsc`, `npm test`, `npm run build`) đều sạch/xanh, khớp đúng số coder báo cáo.
+- Phạm vi sửa đổi đúng như cam kết, không đụng N-1..N-10.
+- 1 điểm cần chủ dự án/reviewer xác nhận lần cuối (không chặn merge theo đánh giá của tester, nhưng
+  là thay đổi hành vi so với đặc tả gốc): B-2 đã bỏ HẲN cột "so_dong_nguon" (chỉ để xem, kế hoạch
+  gốc đã ghi rõ không dùng làm điều kiện đỏ) thay vì chỉ thêm cờ chỉ-đọc - tester đánh giá đây là
+  lựa chọn an toàn hơn và chấp nhận được.
+- Điều kiện đi kèm vẫn còn nguyên (không thuộc phạm vi vòng vá B-1..B-4, đã ghi trong `danh-gia.md`):
+  toàn bộ Dockerfile/compose/2 script backup vẫn CHƯA từng chạy thật với Docker/`pg_dump` thật; riêng
+  ca SIGTERM của B-3 cũng cần xác nhận lại bằng tín hiệu thật trên Linux/Docker trước khi chính thức
+  go-live.
