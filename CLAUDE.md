@@ -56,6 +56,8 @@ cảnh báo usage 90%, hết limit bất ngờ thì chỉ còn lại những gì
 - Mỗi lúc chỉ 1 bên merge vào `main` (ghi `ĐANG MERGE main` vào file phiên, xem `quy-trinh.md` mục 2).
 - Các bên còn lại: trước khi bắt đầu task mới, `git merge main` vào nhánh mình và chạy `npx prisma migrate deploy`
   (nếu có migration mới) + `npm test`.
+- Sau mọi lần merge làm đổi `package-lock.json`: `npm ci` (không dùng `npm install`), xoá `.next`, `npx prisma generate`,
+  rồi kiểm bản Next trên đĩa khớp `package.json` (`quy-trinh.md` mục 2 bước 4). `git merge` không tự cài lại thư viện.
 - Không `git push --force`, không xoá nhánh của bên khác.
 
 ## 6. Khi hết limit / chuyển giao

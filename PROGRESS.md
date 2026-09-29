@@ -3,6 +3,16 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P5-B mục 6-7 - Load test đồng thời, checklist qa-gate, CSP report-only (Tài khoản B) - CHỐT + ĐÃ MERGE vào `main` (2026-09-29)
+Nhánh `feature/p5-b-bao-mat-qa`, từ `main` @ `2171d61`; hồ sơ `.bangiao/archive/p5-b-bao-mat-qa-2026-09-29/`. Chỉ phần không phụ thuộc giao diện P4 của C.
+Coder (8 task) → tester (tái hiện lỗi kịch bản E-1/E-2, `npm ci` sửa `node_modules` lệch lockfile) → security-reviewer CẦN SỬA (M1 phình bộ nhớ rate-limit, L1/L2 phòng thủ thêm, L3/L4/I1 tài liệu) → reviewer CẦN SỬA (đồng bộ) → coder sửa vòng 1 → tester kiểm độc lập XANH → security-reviewer CHỐT vòng 2 → reviewer CHỐT vòng 2. 246 file / 2818 test xanh, e2e 26+27 (header bảo mật + thu vi phạm CSP) xanh trên `next start`.
+- Load test: thư viện thống kê (percentile nearest-rank, tiêu chí p95/p99/lỗi), script chạy đồng thời có kịch bản theo vai + XFF riêng từng người dùng ảo, cookie jar dùng chung với `measure-pages.ts`. 30 người dùng ảo ĐẠT, 50 và 100 KHÔNG ĐẠT trên máy dev (bão hoà ~12-13 rps) — không phải lỗi mã, đo lại ở P6 trên server thật.
+- CSP report-only: nonce sinh mỗi request ở `middleware.ts` (phủ cả nhánh redirect và intl), 6 header bảo mật, endpoint `/api/csp-report` nhận báo cáo (trần 16 KB, giới hạn tần suất IP + toàn hệ thống, lọc ký tự điều khiển/bidi trước khi log). e2e 27 đo 0 vi phạm CSP trên `next start`.
+- qa-gate: checklist 22 mục (`docs/qa-gate-truoc-go-live.md`), nhật ký các lượt đo thật; nhiều mục còn `CHỜ HẠ TẦNG C` (QG-10, QG-12, QG-15-QG-18) hoặc `CHỜ P4-X` (QG-07, QG-20).
+- Bàn giao proxy cho C: `docs/csp-header-bao-mat.md` (không cache HTML/RSC, HSTS `always`, bẫy thừa kế `add_header`, `limit_req` riêng cho `/api/csp-report`, bind nội bộ không publish cổng 3000, gỡ `x-middleware-subrequest`).
+- Debugger vòng 1 (bằng chứng thật): `node_modules` của B lệch lockfile (next 14 thay vì 15) làm sai lệch cả vòng test trước — `npm ci` + `prisma generate` sửa; `/_next/image?w=48` treo do cache ảnh cũ, xoá `.next/cache/images` hết treo.
+- Còn treo, không chặn merge: QG-13 đo lại ở P6; QG-17 (C) cần thêm log xoay vòng; hai lớp chặn đăng nhập P3D-B xác nhận không bị yếu đi qua cả 2 vòng bảo mật.
+
 ### ✅ P3E phần 2 - Đăng nhập: khoá sai mật khẩu, quên/đặt lại mật khẩu qua email, tự đổi mật khẩu, bỏ bảng ảnh (Task 5-8, Tài khoản C làm thay A) - CHỐT + ĐÃ MERGE vào `main` (2026-09-28)
 Nhánh `feature/p3e-c-task5-8` (tách từ `9c74809`); hồ sơ `.bangiao/archive/p3e-task5-8-2026-09-28/`. 238 file / 2700 test xanh + 15 skip (real-db 15/15 chạy tay); e2e 98/98 trên cổng 3003 + DB `ddc_control_tower_c`; build (font mock) qua.
 Coder Task 5-8 -> tester -> security 7 vòng (S-1..S-4, R2-1 Cao, R3-1/R3-2/R4-1 Trung, R4-2..R6-4 Thấp đều đã sửa; vòng 7 CHỐT) -> reviewer CẦN SỬA (Q5 + comment/hồ sơ) -> sửa + tester soi pixel -> chủ dự án đồng ý merge.

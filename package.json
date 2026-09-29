@@ -15,6 +15,7 @@
     "perf:clean": "tsx scripts/perf/seed-perf.ts --clean-only",
     "perf:bench": "tsx scripts/perf/bench-data.ts",
     "perf:pages": "tsx scripts/perf/measure-pages.ts",
+    "perf:load": "tsx scripts/perf/load-test.ts",
     "docs:erd": "tsx scripts/gen-erd-doc.ts",
     "unlock-account": "tsx scripts/unlock-account.ts"
   },
