@@ -1,0 +1,3 @@
+.spin { animation: nutSpin 1s linear infinite; transform-origin: 50% 50%; }
+@keyframes nutSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
