@@ -33,6 +33,7 @@ test.describe('12 - Chuoi gia tri quan ly du an (P7-C2)', () => {
   });
 
   test('/vi/admin: them giai doan moi ben trai -> hien cuoi cot trai + bang trong so 0%; ngung dung -> an khoi the', async ({ page }) => {
+    test.setTimeout(120_000); // dev server bien dich trang theo yeu cau: goto co luc qua 60s khi may tai nang
     const name = `E2E GĐ ${Date.now()}`;
     await page.goto('/vi/admin');
     const card = stageCard(page);

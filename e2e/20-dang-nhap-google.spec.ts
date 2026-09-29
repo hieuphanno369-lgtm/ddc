@@ -32,7 +32,8 @@ test.describe('20 - dang nhap Google (tu choi + tai khoan chi Google)', () => {
     const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const page = await ctx.newPage();
     await fillLogin(page, email, 'mat-khau-bat-ky-123');
-    await expect(page.getByText(vi('auth.invalidCredentials'))).toBeVisible();
+    // Dang nhap tra loi cham khi may e2e tai nang (nut o trang thai dang xu ly hon 5s): cho toi 20s.
+    await expect(page.getByText(vi('auth.invalidCredentials'))).toBeVisible({ timeout: 20_000 });
     await ctx.close();
   });
 });
