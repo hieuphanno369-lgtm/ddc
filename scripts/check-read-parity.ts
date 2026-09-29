@@ -91,6 +91,31 @@ async function main() {
     await mock.readMonthlyEvm(historyMonths(), allProjectIds),
   );
 
+  // P4: 7 ham doc theo moc/ky (ym = thang hien tai, ky = 12 thang gan nhat).
+  const ym = currentMonth();
+  const months = historyMonths();
+  const fromYm = months[0];
+  const toYm = months[months.length - 1];
+  check(`readFactSnapshotsAsOf(${ym})`, await readRepoPrisma.readFactSnapshotsAsOf(ym), await mock.readFactSnapshotsAsOf(ym));
+  check(`readFinancialAsOf(${ym})`, await readRepoPrisma.readFinancialAsOf(ym), await mock.readFinancialAsOf(ym));
+  check(`readRevenueInRange(${fromYm},${toYm})`, await readRepoPrisma.readRevenueInRange(fromYm, toYm), await mock.readRevenueInRange(fromYm, toYm));
+  check(`readVolumeInRange(${fromYm},${toYm})`, await readRepoPrisma.readVolumeInRange(fromYm, toYm), await mock.readVolumeInRange(fromYm, toYm));
+  check(
+    `readFactSeries(${fromYm},${toYm})`,
+    await readRepoPrisma.readFactSeries(fromYm, toYm, allProjectIds),
+    await mock.readFactSeries(fromYm, toYm, allProjectIds),
+  );
+  for (const id of projectIds) {
+    check(`readValueChainAsOf(${id},${ym})`, await readRepoPrisma.readValueChainAsOf(id, ym), await mock.readValueChainAsOf(id, ym));
+    for (const kind of ['manpower', 'equipment'] as const) {
+      check(
+        `readLastDailyDate(${id},${kind})`,
+        await readRepoPrisma.readLastDailyDate(id, kind, `${ym}-28`),
+        await mock.readLastDailyDate(id, kind, `${ym}-28`),
+      );
+    }
+  }
+
   await prisma.$disconnect();
 
   if (failed) {

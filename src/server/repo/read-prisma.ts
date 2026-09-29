@@ -1,9 +1,10 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/server/db';
 import type {
-  AuditLogPageResult, DateRange, FactSnapshot, FinancialSnapshot, ManpowerActualMonthRow,
-  MonthlyEvmRow, ReadRepo, VolumeSnapshot, WeekContractorRow,
+  AuditLogPageResult, DateRange, FactAsOfRow, FactSeriesRow, FactSnapshot, FinancialAsOfRow, FinancialSnapshot,
+  FlowRow, ManpowerActualMonthRow, MonthlyEvmRow, ReadRepo, VolumeFlowRow, VolumeSnapshot, WeekContractorRow,
 } from './read-types';
+import type { ValueChainProgress } from './types';
 
 /**
  * Read repo Prisma (Postgres) - truy vấn tổng hợp cho T12b/T14/T1, tách khỏi `prisma-repo.ts`
@@ -148,5 +149,99 @@ export const readRepoPrisma = {
       FROM "fact_daily_manpower" m WHERE m."projectId" = ${projectId}
       GROUP BY 1 ORDER BY 1
     `);
+  },
+
+  // ---- P4: số tồn theo mốc, số phát sinh theo kỳ ----
+  async readFactSnapshotsAsOf(ym: string): Promise<FactAsOfRow[]> {
+    // LATERAL + LIMIT 1 dùng index [projectId, yearMonth, isLatest], không DISTINCT ON quét cả bảng.
+    return prisma.$queryRaw<FactAsOfRow[]>(Prisma.sql`
+      SELECT f."projectId", f."yearMonth", f."pctActual", f."bac", f."pv", f."ev", f."ac", f."spi", f."cpi", f."bottleneckStage"
+      FROM "dim_project" p
+      CROSS JOIN LATERAL (
+        SELECT * FROM "fact_progress_monthly" x
+        WHERE x."projectId" = p."id" AND x."isLatest" = true AND x."yearMonth" <= ${ym}
+        ORDER BY x."yearMonth" DESC LIMIT 1
+      ) f
+      WHERE p."isActive" = true
+    `);
+  },
+
+  async readFinancialAsOf(ym: string): Promise<FinancialAsOfRow[]> {
+    return prisma.$queryRaw<FinancialAsOfRow[]>(Prisma.sql`
+      SELECT f."projectId", f."yearMonth", f."arOverdue"
+      FROM "dim_project" p
+      CROSS JOIN LATERAL (
+        SELECT * FROM "fact_financial" x
+        WHERE x."projectId" = p."id" AND x."isLatest" = true AND x."yearMonth" <= ${ym}
+        ORDER BY x."yearMonth" DESC LIMIT 1
+      ) f
+      WHERE p."isActive" = true
+    `);
+  },
+
+  async readRevenueInRange(fromYm: string, toYm: string): Promise<FlowRow[]> {
+    return prisma.$queryRaw<FlowRow[]>(Prisma.sql`
+      SELECT "projectId", SUM("revenuePeriod")::float8 AS revenue
+      FROM "fact_financial"
+      WHERE "isLatest" = true AND "yearMonth" >= ${fromYm} AND "yearMonth" <= ${toYm}
+      GROUP BY "projectId"
+    `);
+  },
+
+  async readVolumeInRange(fromYm: string, toYm: string): Promise<VolumeFlowRow[]> {
+    return prisma.$queryRaw<VolumeFlowRow[]>(Prisma.sql`
+      SELECT "projectId", "factoryId", SUM("tonnageProcessed")::float8 AS tonnage
+      FROM "fact_volume"
+      WHERE "yearMonth" >= ${fromYm} AND "yearMonth" <= ${toYm}
+      GROUP BY "projectId", "factoryId"
+    `);
+  },
+
+  async readFactSeries(fromYm: string, toYm: string, projectIds: number[]): Promise<FactSeriesRow[]> {
+    if (projectIds.length === 0) return [];
+    return prisma.$queryRaw<FactSeriesRow[]>(Prisma.sql`
+      SELECT * FROM (
+        SELECT "projectId", "yearMonth", "pctActual", "pv", "ev", "ac"
+        FROM "fact_progress_monthly"
+        WHERE "isLatest" = true AND "projectId" = ANY(${projectIds}::int[])
+          AND "yearMonth" >= ${fromYm} AND "yearMonth" <= ${toYm}
+        UNION ALL
+        SELECT f."projectId", f."yearMonth", f."pctActual", f."pv", f."ev", f."ac"
+        FROM unnest(${projectIds}::int[]) AS pid
+        CROSS JOIN LATERAL (
+          SELECT * FROM "fact_progress_monthly" x
+          WHERE x."projectId" = pid AND x."isLatest" = true AND x."yearMonth" < ${fromYm}
+          ORDER BY x."yearMonth" DESC LIMIT 1
+        ) f
+      ) s ORDER BY "projectId", "yearMonth"
+    `);
+  },
+
+  async readValueChainAsOf(projectId: number, ym: string): Promise<ValueChainProgress[]> {
+    const latest = await prisma.valueChainProgress.findFirst({
+      where: { projectId, yearMonth: { lte: ym } },
+      orderBy: { yearMonth: 'desc' },
+      select: { yearMonth: true },
+    });
+    if (!latest) return [];
+    const rows = await prisma.valueChainProgress.findMany({ where: { projectId, yearMonth: latest.yearMonth } });
+    return rows.map((v) => ({
+      projectId: v.projectId,
+      stageCode: v.stageCode as ValueChainProgress['stageCode'],
+      yearMonth: v.yearMonth,
+      pctComplete: v.pctComplete,
+      applicable: v.applicable,
+    }));
+  },
+
+  async readLastDailyDate(projectId: number, kind: 'manpower' | 'equipment', onOrBefore: string): Promise<string | null> {
+    const rows = kind === 'manpower'
+      ? await prisma.$queryRaw<{ d: string | null }[]>(Prisma.sql`
+          SELECT to_char(MAX("workDate"),'YYYY-MM-DD') AS d FROM "fact_daily_manpower"
+          WHERE "projectId" = ${projectId} AND "workDate" <= ${onOrBefore}::date`)
+      : await prisma.$queryRaw<{ d: string | null }[]>(Prisma.sql`
+          SELECT to_char(MAX("workDate"),'YYYY-MM-DD') AS d FROM "fact_daily_equipment_usage"
+          WHERE "projectId" = ${projectId} AND "workDate" <= ${onOrBefore}::date`);
+    return rows[0]?.d ?? null;
   },
 } satisfies ReadRepo;

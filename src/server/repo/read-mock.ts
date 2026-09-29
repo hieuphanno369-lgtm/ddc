@@ -1,15 +1,26 @@
 import type { RepoData } from '@/data/seed/history';
 import { bucketOf } from '@/lib/daily-series';
 import type {
-  AuditLogPageResult, DateRange, FactSnapshot, FinancialSnapshot, ManpowerActualMonthRow,
-  MonthlyEvmRow, ReadRepo, VolumeSnapshot, WeekContractorRow,
+  AuditLogPageResult, DateRange, FactAsOfRow, FactSeriesRow, FactSnapshot, FinancialAsOfRow, FinancialSnapshot,
+  FlowRow, ManpowerActualMonthRow, MonthlyEvmRow, ReadRepo, VolumeFlowRow, VolumeSnapshot, WeekContractorRow,
 } from './read-types';
-import type { FactProgressMonthly } from './types';
+import type { FactProgressMonthly, ValueChainProgress } from './types';
 
 const pickFactSnapshot = (f: FactProgressMonthly): FactSnapshot => ({
   projectId: f.projectId, yearMonth: f.yearMonth, pctActual: f.pctActual, bac: f.bac,
   pv: f.pv, ev: f.ev, ac: f.ac, spi: f.spi, cpi: f.cpi, bottleneckStage: f.bottleneckStage,
 });
+
+/** Mỗi dự án: dòng có yearMonth lớn nhất <= ym (không có thì bỏ qua dự án). */
+function latestAtOrBefore<T extends { projectId: number; yearMonth: string }>(rows: T[], ym: string): T[] {
+  const map = new Map<number, T>();
+  for (const r of rows) {
+    if (r.yearMonth > ym) continue;
+    const cur = map.get(r.projectId);
+    if (!cur || r.yearMonth > cur.yearMonth) map.set(r.projectId, r);
+  }
+  return [...map.values()];
+}
 
 /**
  * Read repo mock (in-memory) - cùng ngữ nghĩa với `read-prisma.ts` nhưng tính trên `RepoData`
@@ -146,6 +157,68 @@ export function createReadMock(getData: () => RepoData): ReadRepo {
       return [...map.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([yearMonth, v]) => ({ yearMonth, actualSum: v.actualSum, days: v.days.size }));
+    },
+
+    // ---- P4: số tồn theo mốc, số phát sinh theo kỳ ----
+    async readFactSnapshotsAsOf(ym: string): Promise<FactAsOfRow[]> {
+      const active = new Set(getData().projects.filter((p) => p.isActive).map((p) => p.id));
+      return latestAtOrBefore(getData().facts.filter((f) => f.isLatest && active.has(f.projectId)), ym).map(pickFactSnapshot);
+    },
+
+    async readFinancialAsOf(ym: string): Promise<FinancialAsOfRow[]> {
+      const active = new Set(getData().projects.filter((p) => p.isActive).map((p) => p.id));
+      return latestAtOrBefore(getData().financial.filter((f) => f.isLatest && active.has(f.projectId)), ym)
+        .map((f) => ({ projectId: f.projectId, yearMonth: f.yearMonth, arOverdue: f.arOverdue }));
+    },
+
+    async readRevenueInRange(fromYm: string, toYm: string): Promise<FlowRow[]> {
+      const map = new Map<number, number>();
+      for (const f of getData().financial) {
+        if (!f.isLatest || f.yearMonth < fromYm || f.yearMonth > toYm) continue;
+        map.set(f.projectId, (map.get(f.projectId) ?? 0) + f.revenuePeriod);
+      }
+      return [...map.entries()].map(([projectId, revenue]) => ({ projectId, revenue }));
+    },
+
+    async readVolumeInRange(fromYm: string, toYm: string): Promise<VolumeFlowRow[]> {
+      const map = new Map<string, VolumeFlowRow>();
+      for (const v of getData().volumes) {
+        if (v.yearMonth < fromYm || v.yearMonth > toYm) continue;
+        const key = `${v.projectId}|${v.factoryId}`;
+        const cur = map.get(key) ?? { projectId: v.projectId, factoryId: v.factoryId, tonnage: 0 };
+        cur.tonnage += v.tonnageProcessed;
+        map.set(key, cur);
+      }
+      return [...map.values()];
+    },
+
+    async readFactSeries(fromYm: string, toYm: string, projectIds: number[]): Promise<FactSeriesRow[]> {
+      if (projectIds.length === 0) return [];
+      const idSet = new Set(projectIds);
+      const latest = getData().facts.filter((f) => f.isLatest && idSet.has(f.projectId));
+      const inRange = latest.filter((f) => f.yearMonth >= fromYm && f.yearMonth <= toYm);
+      const prior = latestAtOrBefore(latest.filter((f) => f.yearMonth < fromYm), '9999-12');
+      return [...inRange, ...prior]
+        .map((f): FactSeriesRow => ({
+          projectId: f.projectId, yearMonth: f.yearMonth, pctActual: f.pctActual, pv: f.pv, ev: f.ev, ac: f.ac,
+        }))
+        .sort((a, b) => a.projectId - b.projectId || a.yearMonth.localeCompare(b.yearMonth));
+    },
+
+    async readValueChainAsOf(projectId: number, ym: string): Promise<ValueChainProgress[]> {
+      const rows = getData().valueChain.filter((v) => v.projectId === projectId && v.yearMonth <= ym);
+      if (!rows.length) return [];
+      const top = rows.reduce((m, v) => (v.yearMonth > m ? v.yearMonth : m), rows[0].yearMonth);
+      return rows.filter((v) => v.yearMonth === top);
+    },
+
+    async readLastDailyDate(projectId: number, kind: 'manpower' | 'equipment', onOrBefore: string): Promise<string | null> {
+      const rows = kind === 'manpower' ? getData().dailyManpowerShifts : getData().dailyEquipment;
+      let best: string | null = null;
+      for (const r of rows) {
+        if (r.projectId === projectId && r.workDate <= onOrBefore && (best == null || r.workDate > best)) best = r.workDate;
+      }
+      return best;
     },
   };
 }
