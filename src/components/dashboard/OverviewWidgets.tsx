@@ -2,6 +2,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import {
   loadCapacity,
   loadPortfolioKpis,
+  loadProjectCounts,
   loadProjectList,
   loadSCurve,
   loadSpiCpiTrend,
@@ -13,9 +14,12 @@ import type { DashboardFilters, GroupBy } from '@/server/queries';
 import type { Period } from '@/lib/period';
 import { getOverdueScorecard, type Scorecard } from '@/server/overdue-scorecard';
 import { formatTyd } from '@/lib/format';
+import { todayIso } from '@/lib/clock';
+import { periodAsOfDate, periodMonths } from '@/lib/period';
 import { THRESHOLDS } from '@/lib/thresholds';
 import { toTopPriorityItem } from '@/lib/top-priority';
 import { maskGroupRows, maskProjectSummaries, safeListSort, type ListSort } from '@/lib/finance-gate';
+import { FilterBar } from './FilterBar';
 import { KpiCard } from './KpiCard';
 import { TopPriorityList } from './TopPriorityList';
 import { ProjectTable } from './ProjectTable';
@@ -23,6 +27,32 @@ import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Rise } from '@/components/ui/Rise';
 import { IconAlert, IconFlag, IconMoney, IconProject, IconFactory, IconTrend } from '@/components/icons';
 import { CapacityBar, DrillDonut, GroupByCard, SCurve, SpiCpiLine } from './OverviewChartsLazy';
+
+/** Thanh lọc: đọc "n / total dự án" ở server (cache theo kỳ + bộ lọc), phần còn lại là client component. */
+export async function FilterBarSection({
+  period,
+  filters,
+  teams,
+  customers,
+}: {
+  period: Period;
+  filters: DashboardFilters;
+  teams: { id: number; name: string }[];
+  customers: { id: number; name: string }[];
+}) {
+  const { count, total } = await loadProjectCounts(period, filters);
+  return (
+    <FilterBar
+      teams={teams}
+      customers={customers}
+      period={period}
+      asOfDate={periodAsOfDate(period, todayIso())}
+      months={periodMonths(period)}
+      count={count}
+      total={total}
+    />
+  );
+}
 
 export async function KpiGrid({ period, filters, canViewFinance }: { period: Period; filters: DashboardFilters; canViewFinance: boolean }) {
   const t = await getTranslations();

@@ -3,6 +3,7 @@ import {
   getCapacityData,
   getPortfolioKpis,
   getPortfolioSCurve,
+  getProjectCounts,
   getSpiCpiTrend,
   getStatusBreakdown,
   getTonnageValueByGroup,
@@ -39,6 +40,12 @@ const tagsOf = (period: Period) => [trendTag, profileTag, overviewTag(periodAsOf
 
 export const loadPortfolioKpis = (period: Period, filters: DashboardFilters) =>
   unstable_cache(async () => getPortfolioKpis(period, filters), ['kpis', key(periodKey(period), filters)], {
+    tags: tagsOf(period),
+    revalidate: TTL,
+  })();
+
+export const loadProjectCounts = (period: Period, filters: DashboardFilters) =>
+  unstable_cache(async () => getProjectCounts(period, filters), ['counts', key(periodKey(period), filters)], {
     tags: tagsOf(period),
     revalidate: TTL,
   })();

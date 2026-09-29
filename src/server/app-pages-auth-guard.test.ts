@@ -33,6 +33,7 @@ vi.mock('@/server/repo', async () => {
 vi.mock('@/components/dashboard/OverviewWidgets', () => ({
   BacklogOverdueCard: () => null,
   CapacityCard: () => null,
+  FilterBarSection: () => null,
   GroupBarCard: () => null,
   KpiGrid: () => null,
   ProjectListCard: () => null,

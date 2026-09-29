@@ -3,15 +3,15 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { requireUser } from '@/lib/require-user';
 import { repo } from '@/server/repo';
 import { formatDateTime } from '@/lib/format';
-import { currentMonth, historyMonths, todayIso } from '@/lib/clock';
+import { todayIso } from '@/lib/clock';
 import { defaultOverviewPeriod, parsePeriod } from '@/lib/period';
 import { parseDashboardFilters } from '@/lib/overview-params';
 import { safeListSort } from '@/lib/finance-gate';
 import { CardSkeleton } from '@/components/ui/Skeleton';
-import { FilterBar } from '@/components/dashboard/FilterBar';
 import {
   BacklogOverdueCard,
   CapacityCard,
+  FilterBarSection,
   GroupBarCard,
   KpiGrid,
   ProjectListCard,
@@ -68,8 +68,8 @@ export default async function OverviewPage({
         {t('admin.lastUpdate')}: {lastUpdate ? formatDateTime(lastUpdate, locale) : '-'}
       </p>
 
-      <Suspense fallback={null}>
-        <FilterBar teams={dims.teams} customers={dims.customers} months={historyMonths()} currentMonth={currentMonth()} />
+      <Suspense fallback={<CardSkeleton h={56} />}>
+        <FilterBarSection period={period} filters={filters} teams={dims.teams} customers={dims.customers} />
       </Suspense>
 
       <div className="sect"><b>{t('overview.title')}</b><i /></div>

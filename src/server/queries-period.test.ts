@@ -8,7 +8,7 @@ vi.mock('@/server/repo', async () => {
 
 import type { Period } from '@/lib/period';
 import {
-  getCapacityData, getPortfolioKpis, getPortfolioSCurve, getProjectSummaries, getSpiCpiTrend,
+  getCapacityData, getPortfolioKpis, getPortfolioSCurve, getProjectCounts, getProjectSummaries, getSpiCpiTrend,
   getStatusBreakdown, getTonnageValueByGroup, type ProjectSummary,
 } from './queries';
 import { TEAM_NAME } from './queries-period.fixture';
@@ -147,5 +147,16 @@ describe('P4 công suất theo kỳ', () => {
     expect(rows[0].capacity).toBe(300);
     expect(rows[0].processed).toBe(160);
     expect(rows[0].warn).toBe(false);
+  });
+});
+
+describe('P4 C1: đếm "n / total dự án" cho thanh lọc', () => {
+  it('total = dự án thuộc kỳ không lọc chiều nào, count = sau lọc', async () => {
+    const period = per('2026-06-01', '2026-07-31');
+    const all = await getProjectCounts(period, {});
+    expect(all.count).toBe(all.total);
+    const filtered = await getProjectCounts(period, { status: 'Hoan_thanh' });
+    expect(filtered.total).toBe(all.total);
+    expect(filtered.count).toBe(1);
   });
 });
