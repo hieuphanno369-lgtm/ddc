@@ -82,6 +82,15 @@ test.describe('27 - so do pixel', () => {
     expect(intersects(await box(page, '[data-auth="crane"]'), await box(page, '[data-auth="hero-text"]'))).toBe(false);
   });
 
+  test('1440 sang /vi/login: the Gantt cao 271 (+-2) va rong 698 (+-2) nhu Main.dc.html (mock-up khong dat line-height, dung normal)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.emulateMedia({ colorScheme: 'light' });
+    await open(page, '/vi/login');
+    const gantt = await box(page, '[data-auth="gantt-full"]');
+    expect(Math.abs(gantt.width - 698.67), `rong ${gantt.width}`).toBeLessThanOrEqual(2);
+    expect(Math.abs(gantt.height - 270.67), `cao ${gantt.height}`).toBeLessThanOrEqual(2);
+  });
+
   test('1280x800: panel trai co lai, cau khong de len chu, the form nam tron trong khung nhin', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await open(page, '/vi/login');

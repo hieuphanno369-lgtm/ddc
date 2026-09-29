@@ -1,0 +1,176 @@
+import { test, expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { vi } from './helpers/i18n';
+
+/**
+ * P3F (tester) - truong hop bien cua Dang ky, bo sung cho e2e 28: phong ban bi an giua luc dien form, mat khau khong lot
+ * vao URL / kho luu tru / duong dan yeu cau, gioi han 3 lan/gio/email hien tren giao dien, email viet hoa duoc chuan hoa,
+ * tien to ten mien con bi tu choi tai form. Chay TUAN TU. Moi ngu canh chua dang nhap co x-forwarded-for gia rieng.
+ * Don dep cuoi spec: tu choi dang ky con cho `e2e-dangky-` va xoa phong ban `E2E PB29`.
+ */
+const TS = Date.now();
+const NO_AUTH = { cookies: [], origins: [] };
+const PREFIX = 'e2e-dangky-';
+const DEPT = `E2E PB29 ${TS}`;
+const SECRET = `Mk-BiMat-${TS}-z!`;
+const email = (tag: string) => `${PREFIX}29${tag}-${TS}@daidung.vn`;
+
+let ipCounter = 0;
+const fakeIp = () => `198.52.${(TS % 200) + 20}.${(ipCounter++ % 200) + 10}`;
+
+const anon = (browser: Browser): Promise<BrowserContext> =>
+  browser.newContext({ storageState: NO_AUTH, extraHTTPHeaders: { 'x-forwarded-for': fakeIp() } });
+const adminCtx = (browser: Browser): Promise<BrowserContext> => browser.newContext({ storageState: 'e2e/.auth/admin.json' });
+
+async function fill(page: Page, o: { dept?: string; email: string; password?: string }) {
+  await page.locator('#signup-name').fill('E2E Bien');
+  if (o.dept) await page.locator('#signup-department').selectOption({ label: o.dept });
+  await page.locator('#signup-email').fill(o.email);
+  await page.locator('#signup-password').fill(o.password ?? 'Abcdef1!');
+}
+const submit = (page: Page) => page.getByRole('button', { name: vi('signup.submit') }).click();
+
+test.describe.configure({ mode: 'serial' });
+
+test.describe('29 - dang ky: truong hop bien', () => {
+  test('1. admin them phong ban', async ({ browser }) => {
+    const ctx = await adminCtx(browser);
+    const page = await ctx.newPage();
+    await page.goto('/vi/admin');
+    await page.locator('[data-department-new]').fill(DEPT);
+    await page.locator('tr', { has: page.locator('[data-department-new]') }).getByRole('button', { name: vi('department.add') }).click();
+    await expect(page.locator(`[data-department-row="${DEPT}"]`)).toBeVisible();
+    await ctx.close();
+  });
+
+  test('2. phong ban bi an giua luc dien form -> bao danh sach da doi, khong dang ky, o Phong ban het ten do', async ({ browser }) => {
+    const ctx = await anon(browser);
+    const page = await ctx.newPage();
+    await page.goto('/vi/dang-ky');
+    await fill(page, { dept: DEPT, email: email('pb') });
+
+    const admin = await adminCtx(browser);
+    const ap = await admin.newPage();
+    await ap.goto('/vi/admin');
+    await ap.locator(`[data-department-row="${DEPT}"]`).getByRole('button', { name: vi('department.hide'), exact: true }).click();
+    await expect(ap.locator(`[data-department-row="${DEPT}"]`)).toContainText(vi('department.hidden'));
+
+    await submit(page);
+    await expect(page.getByText(vi('signup.departmentChanged'))).toBeVisible();
+    await expect(page.locator('[data-auth="signup-done"]')).toHaveCount(0);
+    await expect(page.locator('#signup-department option', { hasText: DEPT })).toHaveCount(0);
+
+    await ap.locator(`[data-department-row="${DEPT}"]`).getByRole('button', { name: vi('department.show'), exact: true }).click();
+    await expect(ap.locator(`[data-department-row="${DEPT}"]`)).toContainText(vi('department.active'));
+    await admin.close();
+    await ctx.close();
+  });
+
+  test('3. mat khau khong lot vao URL, localStorage, sessionStorage, cookie hay duong dan yeu cau', async ({ browser }) => {
+    const ctx = await anon(browser);
+    const page = await ctx.newPage();
+    const urls: string[] = [];
+    page.on('request', (r) => urls.push(r.url()));
+    await page.goto('/vi/dang-ky');
+    await fill(page, { dept: DEPT, email: email('mk'), password: SECRET });
+    await submit(page);
+    await expect(page.getByText(vi('signup.doneTitle'))).toBeVisible();
+
+    expect(page.url()).not.toContain(SECRET);
+    expect(urls.filter((u) => u.includes(SECRET) || u.includes(encodeURIComponent(SECRET)))).toEqual([]);
+    const stores = await page.evaluate(() => JSON.stringify([{ ...localStorage }, { ...sessionStorage }, document.cookie]));
+    expect(stores).not.toContain(SECRET);
+    expect(JSON.stringify(await ctx.cookies())).not.toContain(SECRET);
+    // Man thanh cong khong con o nhap nao giu mat khau.
+    await expect(page.locator('#signup-password')).toHaveCount(0);
+    await ctx.close();
+  });
+
+  test('4. mat khau khong lot vao URL khi dang nhap sai', async ({ browser }) => {
+    const ctx = await anon(browser);
+    const page = await ctx.newPage();
+    const urls: string[] = [];
+    page.on('request', (r) => urls.push(r.url()));
+    await page.goto('/vi/login');
+    await page.locator('#auth-email').fill(email('mk'));
+    await page.locator('#auth-password').fill(SECRET);
+    await page.getByRole('button', { name: vi('auth.signIn') }).click();
+    await expect(page.locator('[data-auth="notice-error"]')).toContainText(vi('auth.invalidCredentials'));
+    expect(page.url()).not.toContain(SECRET);
+    expect(urls.filter((u) => u.includes(SECRET) || u.includes(encodeURIComponent(SECRET)))).toEqual([]);
+    await ctx.close();
+  });
+
+  test('5. email viet hoa duoc nhan va admin thay dang chuan hoa chu thuong', async ({ browser }) => {
+    const ctx = await anon(browser);
+    const page = await ctx.newPage();
+    await page.goto('/vi/dang-ky');
+    await fill(page, { dept: DEPT, email: email('hoa').toUpperCase() });
+    await submit(page);
+    await expect(page.getByText(vi('signup.doneTitle'))).toBeVisible();
+    await ctx.close();
+
+    const admin = await adminCtx(browser);
+    const ap = await admin.newPage();
+    await ap.goto('/vi/admin#dang-ky-cho');
+    await expect(ap.locator(`[data-signup-row="${email('hoa')}"]`)).toBeVisible();
+    await admin.close();
+  });
+
+  test('6. ten mien con, duoi keo dai va nhieu @ bi bao loi tai form, khong gui', async ({ browser }) => {
+    const ctx = await anon(browser);
+    const page = await ctx.newPage();
+    await page.goto('/vi/dang-ky');
+    for (const bad of ['ten@mail.daidung.vn', 'ten@daidung.vn.evil.com', 'ten@daidung.vn@daidung.vn']) {
+      await fill(page, { dept: DEPT, email: bad });
+      await submit(page);
+      await expect(page.getByText(vi('signup.emailDomainError')).first()).toBeVisible();
+      await expect(page.locator('[data-auth="signup-done"]')).toHaveCount(0);
+    }
+    await ctx.close();
+  });
+
+  test('7. gui lan thu 4 cung email trong 1 gio (IP khac nhau) -> bao gui qua nhieu lan', async ({ browser }) => {
+    const target = email('rl');
+    for (let i = 0; i < 3; i++) {
+      const ctx = await anon(browser);
+      const page = await ctx.newPage();
+      await page.goto('/vi/dang-ky');
+      await fill(page, { dept: DEPT, email: target });
+      await submit(page);
+      await expect(page.getByText(vi('signup.doneTitle'))).toBeVisible();
+      await ctx.close();
+    }
+    const ctx = await anon(browser);
+    const page = await ctx.newPage();
+    await page.goto('/vi/dang-ky');
+    await fill(page, { dept: DEPT, email: target });
+    await submit(page);
+    await expect(page.getByText(vi('signup.rateLimited'))).toBeVisible();
+    await expect(page.locator('[data-auth="signup-done"]')).toHaveCount(0);
+    await ctx.close();
+  });
+
+  test('don dep: tu choi dang ky con cho va xoa phong ban test', async ({ browser }) => {
+    const ctx = await adminCtx(browser);
+    const admin = await ctx.newPage();
+    await admin.goto('/vi/admin#dang-ky-cho');
+    const rows = admin.locator(`[data-signup-row^="${PREFIX}29"]`);
+    for (let guard = 0; guard < 20 && (await rows.count()) > 0; guard++) {
+      admin.once('dialog', (d) => void d.accept());
+      const before = await rows.count();
+      await rows.first().getByRole('button', { name: vi('signup.reject') }).click();
+      await expect(rows).toHaveCount(before - 1);
+    }
+    await expect(rows).toHaveCount(0);
+    await admin.reload();
+    const depts = admin.locator('[data-department-row^="E2E PB29"]');
+    for (let guard = 0; guard < 20 && (await depts.count()) > 0; guard++) {
+      admin.once('dialog', (d) => void d.accept());
+      const before = await depts.count();
+      await depts.first().getByRole('button', { name: vi('department.delete'), exact: true }).click();
+      await expect(depts).toHaveCount(before - 1);
+    }
+    await expect(depts).toHaveCount(0);
+    await ctx.close();
+  });
+});
