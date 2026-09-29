@@ -26,7 +26,7 @@ Cột Trạng thái dùng đúng một trong các nhãn sau:
 | QG-07 | CSP chuyển enforce | e2e 27 trên `next start` | 0 vi phạm; chart, nút Google, quên mật khẩu, xuất PDF/JPG chạy | B | CHỜ P4-X |
 | QG-08 | Chặn người chưa đăng nhập, lớp 1 (middleware) và lớp 2 (page và route tự kiểm) | e2e 09 + `src/server/api-routes-guard.test.ts` + tấn công thật bằng curl không cookie, có header `RSC: 1` | mọi trang redirect về đăng nhập, mọi API trả 401 hoặc 403, không lộ dữ liệu | B | SẴN SÀNG |
 | QG-09 | Khoá sau 5 lần sai | e2e 21 + tấn công thật: 5 lần sai tuần tự và 10 lần song song | lần 5 khoá, song song không lọt quá 5 lượt bcrypt, email lạ và tài khoản chỉ Google trả cùng thông báo | B | SẴN SÀNG |
-| QG-10 | Giới hạn theo IP | tấn công thật đổi phần tử đầu `X-Forwarded-For` | 20 lần sai trong 15 phút mỗi IP vẫn chặn; sau proxy thật kiểm lại | B | SẴN SÀNG (máy dev), CHỜ HẠ TẦNG C (sau proxy) |
+| QG-10 | Giới hạn theo IP | tấn công thật đổi phần tử đầu `X-Forwarded-For` | 20 lần sai trong 15 phút mỗi IP vẫn chặn. Máy dev chỉ chứng minh app không tin phần tử ĐẦU của `X-Forwarded-For`; đổi phần tử CUỐI vẫn né được khi không có proxy. Chống giả IP thật chỉ có sau proxy tin cậy, kiểm lại ở đó | B | SẴN SÀNG (máy dev), CHỜ HẠ TẦNG C (sau proxy) |
 | QG-11 | Quên mật khẩu, đặt lại mật khẩu | e2e 22 + tấn công thật | 3 lần mỗi giờ mỗi email, 10 lần mỗi giờ mỗi IP, không lộ email tồn tại, token 30 phút dùng 1 lần, có giới hạn gửi đặt lại theo IP | B | SẴN SÀNG |
 | QG-12 | Giới hạn `POST` quên mật khẩu ở proxy (L1 = b) | gửi dồn qua proxy | proxy trả 429 | C | CHỜ HẠ TẦNG C |
 | QG-13 | Load test | `docs/load-test.md` | đạt 4 tiêu chí (100 người dùng ảo, trang p95 không quá 3 giây, p99 không quá 5 giây, xuất Excel p95 không quá 8 giây, lỗi dưới 1%) | B | SẴN SÀNG (máy dev), CHỜ SERVER (P6) |
@@ -34,7 +34,7 @@ Cột Trạng thái dùng đúng một trong các nhãn sau:
 | QG-15 | Health check có kiểm DB | route mới của C | DB tắt thì báo lỗi | C | CHỜ HẠ TẦNG C |
 | QG-16 | Backup hằng ngày và thử khôi phục thật | script của C | khôi phục ra DB tạm, số dòng khớp | C | CHỜ HẠ TẦNG C |
 | QG-17 | Kiểm env khi khởi động, log có cấu trúc không lộ dữ liệu nhạy cảm | của C | thiếu biến bắt buộc thì dừng rõ ràng | C | CHỜ HẠ TẦNG C |
-| QG-18 | Reverse proxy: `X-Forwarded-For`, HSTS, nosniff mọi đường dẫn, upload 12 MB, chờ 120 giây | `curl -I` qua proxy, `/api/health` trả `clientIpResolved: true` | đúng `docs/csp-header-bao-mat.md` mục 3 và 4 | C | CHỜ HẠ TẦNG C |
+| QG-18 | Reverse proxy: `X-Forwarded-For`, HSTS, nosniff mọi đường dẫn, upload 12 MB, chờ 120 giây | `curl -I` qua proxy, `/api/health` trả `clientIpResolved: true` | đúng `docs/csp-header-bao-mat.md` mục 3 và 4; từ máy ngoài `curl http://<server>:3000/` bị từ chối; qua proxy gửi `X-Forwarded-For: 1.2.3.4` 121 lần tới `/api/health` phải có 429 | C | CHỜ HẠ TẦNG C |
 | QG-19 | Giao diện P4 soi pixel 1440 px và 390 px, sáng và tối | e2e + soi tay | không lệch | C | CHỜ P4 |
 | QG-20 | Xuất PDF/JPG đúng quyền xem tiền | e2e của P4-X | viewer không thấy số tiền | C | CHỜ P4-X |
 | QG-21 | Repo GitHub chuyển Private, đổi `NEXTAUTH_SECRET` và mật khẩu tài khoản seed trên server thật | kiểm tay | xong | Chủ dự án | CHỜ CHỦ DỰ ÁN |
@@ -53,4 +53,4 @@ Chỉ go-live khi mọi mục đều đạt.
 
 | Ngày | Commit | Người chạy | Mục đỏ | Kết luận |
 |---|---|---|---|---|
-| | | | | |
+| 2026-09-29 | `1d6bbbb` (load test vòng 2, Next 15.5.26, máy dev, chi tiết `docs/load-test.md` mục 9) | Tester B | QG-13 (chỉ đo QG-13; các mục khác chưa chạy lượt qa-gate đầy đủ) | Mức 30 người dùng ảo: ĐẠT (trang p95 1148 ms, p99 1543 ms, Excel p95 1008 ms, lỗi 0,00%). Mức 50: KHÔNG ĐẠT (trang p95 3891 ms > 3000 ms). Mức 100: KHÔNG ĐẠT (trang p95 7992 ms, p99 17615 ms). Máy dev bão hoà 12 đến 13 yêu cầu mỗi giây, đo lại ở P6 (QG-13 vẫn `CHỜ SERVER (P6)`) |

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { POST } from '../../app/api/csp-report/route';
+import { CSP_REPORT_GLOBAL_PER_MIN } from '@/lib/csp-report';
 
 /**
  * P5-B: /api/csp-report la endpoint cong khai (khong phien), chi ghi console.warn, co gioi han tan suat
@@ -72,15 +73,34 @@ describe('POST /api/csp-report', () => {
     expect(Number(res.headers.get('retry-after'))).toBeGreaterThan(0);
   });
   // Dat cuoi file: vi.resetModules() de co bo dem rateLimit moi (Map cap module).
-  it('gioi han toan cuc: 300 IP khac nhau deu 204, lan 301 -> 429', async () => {
+  it(`gioi han toan cuc: ${CSP_REPORT_GLOBAL_PER_MIN} IP khac nhau deu 204, lan ke tiep -> 429`, async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     vi.resetModules();
     const { POST: FreshPost } = await import('../../app/api/csp-report/route');
-    for (let i = 0; i < 300; i++) {
+    for (let i = 0; i < CSP_REPORT_GLOBAL_PER_MIN; i++) {
       const res = await FreshPost(req(REPORT, 'application/csp-report', `10.20.${Math.floor(i / 250)}.${(i % 250) + 1}`));
       expect(res.status).toBe(204);
     }
     const res = await FreshPost(req(REPORT, 'application/csp-report', '10.30.0.1'));
     expect(res.status).toBe(429);
+  });
+  it('M1: da ccham tran toan he thong thi 1000 IP gia deu 429 va khong tao them khoa theo IP', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.resetModules();
+    const keys: string[] = [];
+    vi.doMock('@/lib/rate-limit', async () => {
+      const real = await vi.importActual<typeof import('@/lib/rate-limit')>('@/lib/rate-limit');
+      return { ...real, rateLimit: (key: string, limit?: number, windowMs?: number) => { keys.push(key); return real.rateLimit(key, limit, windowMs); } };
+    });
+    const { POST: FreshPost } = await import('../../app/api/csp-report/route');
+    for (let i = 0; i < CSP_REPORT_GLOBAL_PER_MIN; i++) await FreshPost(req(REPORT, 'application/csp-report', `10.40.0.${i + 1}`));
+    const before = keys.filter((k) => k.startsWith('csp-report:') && k !== 'csp-report:global').length;
+    for (let i = 0; i < 1000; i++) {
+      const res = await FreshPost(req(REPORT, 'application/csp-report', `10.50.${Math.floor(i / 250)}.${(i % 250) + 1}`));
+      expect(res.status).toBe(429);
+    }
+    const after = keys.filter((k) => k.startsWith('csp-report:') && k !== 'csp-report:global').length;
+    expect(after).toBe(before);
+    vi.doUnmock('@/lib/rate-limit');
   });
 });

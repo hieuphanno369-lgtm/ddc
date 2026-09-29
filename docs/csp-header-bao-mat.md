@@ -52,6 +52,16 @@ Phase này không sửa `next.config.mjs`.
 
 - KHÔNG thêm hay ghi đè header CSP ở proxy, để tránh hai chính sách chồng nhau.
 - Thêm HSTS, nosniff và ẩn X-Powered-By như bảng ở mục 3.
+- Không cache HTML và phản hồi RSC ở proxy, chỉ cache `/_next/static`.
+  Trang render động theo phiên và theo nonce, cache sẽ làm lộ dữ liệu giữa người dùng và làm nonce hết tác dụng.
+- HSTS thêm `always` (`add_header Strict-Transport-Security "max-age=31536000" always;`) để phủ cả phản hồi lỗi.
+- Bẫy thừa kế `add_header` của Nginx: khi một `location` có `add_header` riêng thì mọi `add_header` ở cấp trên bị bỏ.
+  Phải lặp lại nosniff và HSTS trong từng `location` có `add_header`.
+  Kiểm bằng `curl -I` cho `/`, `/api/health` và `/_next/static/...`, cả ba phải có đủ header.
+- `location /api/csp-report` đặt `client_max_body_size 32k` và `limit_req` riêng (endpoint công khai, không phiên).
+- Chạy app bind `127.0.0.1` hoặc mạng nội bộ Docker, không publish cổng 3000 ra ngoài.
+  Nếu không, người ngoài gọi thẳng app và tự đặt `X-Forwarded-For` giả.
+- Proxy gỡ header `x-middleware-subrequest` của client (`proxy_set_header x-middleware-subrequest "";`).
 - Proxy phải đặt `X-Forwarded-For` đáng tin: nối thêm IP thật vào cuối, hoặc ghi đè bằng `$remote_addr` như mục R7 của `D:\_project\DDC_dieu-phoi\deploy-chuan-bi-lam-viec-voi-IT.md`.
 - Cả hai cách trên đều đúng với `TRUSTED_PROXY_HOPS=1` (đã chốt trong `.bangiao/archive/p3e-phan1-2026-09-28/bao-mat.md`).
 - Giới hạn tần suất `POST` quên mật khẩu ở proxy (quyết định L1 = b).
@@ -69,7 +79,8 @@ Phase này không sửa `next.config.mjs`.
 C ghi thư viện chụp ảnh dùng gì trong `thay-doi.md` của P4-X (`lenh-cho-C-2026-09-28-p4.md` dòng 78).
 Cần đối chiếu các điểm sau, chạy lại e2e 27 rồi cập nhật mục 8:
 
-- Thư viện có dùng `eval` hoặc `new Function` không. Nếu cần `'unsafe-eval'` thì là điểm trừ, ưu tiên thư viện không cần.
+- Thư viện có dùng `eval` hoặc `new Function` không.
+  Nếu cần `'unsafe-eval'` thì là điểm trừ, ưu tiên thư viện không cần.
 - Ảnh `blob:` và `data:` (đã có trong `img-src`).
 - Worker (`worker-src`).
 - Nhúng font dạng `data:` hoặc tải CSS font (`font-src`, `style-src`).
@@ -111,4 +122,6 @@ Ghi chú khi đọc số liệu:
 - Nút Google không được bấm vì `.env` của B để trống `GOOGLE_CLIENT_ID`, nên luồng chuyển hướng sang `accounts.google.com` chưa đo (chỉ thị `form-action 'self'` có thể chặn bước này, phải đo lại trên môi trường có Google).
 - Trang quên mật khẩu chưa đo phần form vì B không có SMTP (trang chỉ hiện thông báo thiếu SMTP).
 - Xuất PDF/JPG của P4-X chưa có trên nhánh này, xem mục 6.
-- Khi duyệt bằng Playwright MCP, log server có 2 cặp báo cáo `documentPath=/vi/login`, `blocked=inline` và `blocked=eval`, `source` và `line` đều rỗng. Đây là do công cụ điều khiển trình duyệt tự chèn script, không phải mã của app: cùng trang đó chạy bằng Playwright test không sinh thêm dòng nào.
+- Khi duyệt bằng Playwright MCP, log server có 2 cặp báo cáo `documentPath=/vi/login`, `blocked=inline` và `blocked=eval`, `source` và `line` đều rỗng.
+  Đây là do công cụ điều khiển trình duyệt tự chèn script, không phải mã của app.
+  Cùng trang đó chạy bằng Playwright test không sinh thêm dòng nào.

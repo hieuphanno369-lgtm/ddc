@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { parseCspReports, readBodyCapped, sanitizeReportUrl } from './csp-report';
 
 const ct = 'application/csp-report';
+const LS = String.fromCharCode(0x2028);
+const NEL = String.fromCharCode(0x85);
+const RLO = String.fromCharCode(0x202e);
+
 
 function reportUri(over: Record<string, unknown> = {}): string {
   return JSON.stringify({
@@ -108,5 +112,14 @@ describe('readBodyCapped', () => {
     const bytes = enc.encode('Đường dẫn ạ');
     const r = await readBodyCapped(streamOf([bytes.slice(0, 1), bytes.slice(1, 8), bytes.slice(8)]), 1000);
     expect(r).toBe('Đường dẫn ạ');
+  });
+});
+
+describe('stripControl qua parseCspReports (ky tu xuong dong Unicode va bidi)', () => {
+  it('script-sample va blocked-uri chua U+2028, U+0085, U+202E -> khong con trong ket qua', () => {
+    const dirty = `a${LS}b${NEL}c${RLO}d`;
+    const out = JSON.stringify(parseCspReports(ct, reportUri({ 'script-sample': dirty, 'blocked-uri': dirty })));
+    for (const ch of [LS, NEL, RLO]) expect(out.includes(ch)).toBe(false);
+    expect(out).toContain('a b c d');
   });
 });

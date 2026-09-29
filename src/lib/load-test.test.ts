@@ -1,3 +1,5 @@
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_LOAD_CRITERIA } from './load-stats';
@@ -149,6 +151,24 @@ describe('assertOutsideRepo', () => {
   });
   it('thu muc anh em co tien to giong khong bi nham la trong repo', () => {
     expect(() => assertOutsideRepo(`${repo}-khac${path.sep}u.json`, repo)).not.toThrow();
+  });
+  it('duong dan qua symlink/junction tro vao repo van ne loi', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'lt-repo-'));
+    const outside = mkdtempSync(path.join(tmpdir(), 'lt-out-'));
+    try {
+      const file = path.join(root, 'u.json');
+      writeFileSync(file, '[]');
+      const link = path.join(outside, 'lnk');
+      try {
+        symlinkSync(root, link, 'junction');
+      } catch {
+        return; // may khong cho tao symlink thi bo qua
+      }
+      expect(() => assertOutsideRepo(path.join(link, 'u.json'), root)).toThrow(/nam trong repo/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+    }
   });
   it.runIf(process.platform === 'win32')('win32: khac hoa thuong van ne loi', () => {
     expect(() => assertOutsideRepo(path.join(repo, 'U.JSON').toUpperCase(), repo)).toThrow();

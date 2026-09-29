@@ -10,6 +10,7 @@
  * Usage: npm run perf:load -- --vus=30 --duration=300 --out="$env:TEMP\ddc-load.json"
  */
 import { readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 import { Prisma } from '@prisma/client';
 import { currentMonth } from '@/lib/clock';
 import {
@@ -49,7 +50,7 @@ function row(name: string, s: LatencyStats): string {
 async function readCredentials(): Promise<LoadCredential[]> {
   const file = process.env.LOAD_CREDENTIALS_FILE;
   if (file) {
-    assertOutsideRepo(file, process.cwd());
+    assertOutsideRepo(file, path.resolve(__dirname, '../..'));
     return parseCredentials(readFileSync(file, 'utf8'));
   }
   const email = process.env.PERF_EMAIL;
@@ -130,9 +131,14 @@ async function main() {
   for (const sc of scenariosForRole(DEFAULT_SCENARIOS, warm.role)) {
     const url = BASE + sc.path({ projectId: ids[0], month });
     const t = performance.now();
-    const res = await fetch(url, { headers: headersFor(warm), redirect: 'manual' });
-    await res.arrayBuffer();
-    console.log(`${TAG} Lam nong (khong tinh diem): ${sc.path({ projectId: ids[0], month })} -> ${res.status} ${(performance.now() - t).toFixed(0)} ms`);
+    try {
+      const res = await fetch(url, { headers: headersFor(warm), redirect: 'manual', signal: AbortSignal.timeout(opts.timeoutMs) });
+      await res.arrayBuffer();
+      console.log(`${TAG} Lam nong (khong tinh diem): ${sc.path({ projectId: ids[0], month })} -> ${res.status} ${(performance.now() - t).toFixed(0)} ms`);
+    } catch (err) {
+      const kind = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError') ? 'timeout' : 'network';
+      console.log(`${TAG} Lam nong (khong tinh diem): ${sc.path({ projectId: ids[0], month })} -> ${kind}`);
+    }
   }
 
   process.on('SIGINT', () => {

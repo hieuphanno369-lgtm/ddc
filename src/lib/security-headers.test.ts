@@ -70,13 +70,14 @@ describe('withCspRequestHeaders', () => {
   it('ghi de header client gui, giu cookie/accept-language/url', () => {
     const req = new NextRequest('http://localhost/vi/login?a=1', {
       headers: {
-        'x-nonce': 'evil', 'content-security-policy-report-only': 'evil', cookie: 'k=v', 'accept-language': 'vi',
+        'x-nonce': 'evil', 'content-security-policy-report-only': 'evil', 'content-security-policy': 'evil', cookie: 'k=v', 'accept-language': 'vi',
       },
     });
     const csp = buildCsp({ nonce: N, dev: false });
     const out = withCspRequestHeaders(req, N, csp);
     expect(out.headers.get('x-nonce')).toBe(N);
     expect(out.headers.get('content-security-policy-report-only')).toBe(csp);
+    expect(out.headers.get('content-security-policy')).toBeNull();
     expect(out.headers.get('cookie')).toBe('k=v');
     expect(out.headers.get('accept-language')).toBe('vi');
     expect(out.url).toBe(req.url);

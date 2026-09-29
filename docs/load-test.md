@@ -53,6 +53,9 @@ Trước khi đăng nhập bất kỳ ai, script kiểm tài khoản có tồn t
 Trên localhost không có reverse proxy nên mọi request rơi vào một IP chung, các giới hạn xuất Excel (30 lần một phút mỗi IP) và health (120 lần một phút mỗi IP) sẽ báo 429 giả.
 Vì thế mặc định script gửi `X-Forwarded-For` riêng cho từng người dùng ảo, giống hệt việc đứng sau proxy thật.
 Tắt bằng `--xff=none` nếu muốn thử hành vi khi mọi người chung một IP.
+`--xff=per-vu` chỉ có tác dụng khi không có proxy đứng giữa, vì proxy tin cậy sẽ ghi đè `X-Forwarded-For` bằng IP thật của người gọi.
+Ở P6, qua proxy thật, mọi người dùng ảo chung một IP nguồn.
+Khi đó phải chạy từ nhiều máy nguồn, hoặc nới giới hạn tần suất có chủ đích và ghi lại việc đã nới.
 
 ## 5. Tiêu chí đạt
 
@@ -108,7 +111,8 @@ Nhấn Ctrl+C sẽ dừng sớm và vẫn in bảng, nhưng lượt đó tính l
 - `rps` là số yêu cầu mỗi giây trung bình trên cả lượt chạy.
 - Loại lỗi: `status` (mã khác 200 hoặc sai loại nội dung), `redirect` (bị đá về trang đăng nhập, phiên mất), `timeout` (quá 30 giây), `network` (đứt kết nối), `rate_limited` (mã 429).
 - 429 nghĩa là chạm giới hạn tần suất của app, thường do chạy `--xff=none` hoặc lệch cấu hình proxy, không phải app chậm.
-- Nếu `redirect` xuất hiện, phiên bị mất giữa chừng. Script không tự đăng nhập lại.
+- Nếu `redirect` xuất hiện, phiên bị mất giữa chừng.
+  Script không tự đăng nhập lại.
 
 ## 8. Dọn dẹp
 
@@ -129,7 +133,8 @@ Chạy khói `--vus=3 --duration=15 --ramp=3` trước: 22 yêu cầu, 0 lỗi, 
 
 ### 9.1. Mức 100 người dùng ảo (mặc định)
 
-Lệnh: `npm run perf:load -- --out=<ngoài repo>`. Kết luận của script: KHÔNG ĐẠT.
+Lệnh: `npm run perf:load -- --out=<ngoài repo>`.
+Kết luận của script: KHÔNG ĐẠT.
 
 | Kịch bản | n | lỗi | lỗi% | p50 | p95 | p99 | max | rps |
 |---|---|---|---|---|---|---|---|---|
@@ -149,7 +154,8 @@ Xuất Excel p95 7092 ms đạt (ngưỡng 8000 ms).
 
 ### 9.2. Mức 50 người dùng ảo (mốc so sánh)
 
-Lệnh: `npm run perf:load -- --vus=50 --out=<ngoài repo>`. Kết luận của script: KHÔNG ĐẠT.
+Lệnh: `npm run perf:load -- --vus=50 --out=<ngoài repo>`.
+Kết luận của script: KHÔNG ĐẠT.
 
 | Kịch bản | n | lỗi | lỗi% | p50 | p95 | p99 | max | rps |
 |---|---|---|---|---|---|---|---|---|
@@ -168,7 +174,8 @@ Trang p99 4547 ms đạt (ngưỡng 5000 ms), tỷ lệ lỗi 0,00% đạt, xu�
 
 ### 9.3. Mức 30 người dùng ảo (mốc so sánh)
 
-Lệnh: `npm run perf:load -- --vus=30 --out=<ngoài repo>`. Kết luận của script: ĐẠT.
+Lệnh: `npm run perf:load -- --vus=30 --out=<ngoài repo>`.
+Kết luận của script: ĐẠT.
 
 | Kịch bản | n | lỗi | lỗi% | p50 | p95 | p99 | max | rps |
 |---|---|---|---|---|---|---|---|---|
@@ -218,4 +225,5 @@ Phần riêng của nonce (sinh 16 byte ngẫu nhiên, dựng chuỗi CSP) rất
 `admin@`, `bod@`, `viewer@daidung.com.vn` đều `lockedAt` rỗng và `failedLoginCount` bằng 0 (truy vấn read-only sau cả bốn lượt chạy: khói, 100, 50, 30).
 Đăng nhập tuần tự không gặp 429 nào.
 
-Lưu ý: `npx playwright test` chạy `prisma db seed` ở global setup và xoá dữ liệu PERF (sau khi chạy e2e, DB còn 0 dự án PERF). Muốn chạy lại load test phải `perf:seed` lại.
+Lưu ý: `npx playwright test` chạy `prisma db seed` ở global setup và xoá dữ liệu PERF (sau khi chạy e2e, DB còn 0 dự án PERF).
+Muốn chạy lại load test phải `perf:seed` lại.

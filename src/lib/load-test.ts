@@ -1,3 +1,4 @@
+import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
 import { DEFAULT_LOAD_CRITERIA, type LoadCriteria, type LoadErrorKind } from './load-stats';
@@ -186,10 +187,20 @@ export function parseCredentials(json: string): LoadCredential[] {
   });
 }
 
+/** Đường dẫn tuyệt đối đã giải symlink/junction nếu tồn tại; không tồn tại thì chỉ resolve. */
+function realOrResolved(p: string): string {
+  const abs = path.resolve(p);
+  try {
+    return realpathSync(abs);
+  } catch {
+    return abs;
+  }
+}
+
 /** Chặn file mật khẩu nằm trong repo (tránh commit nhầm). */
 export function assertOutsideRepo(filePath: string, repoRoot: string): void {
-  let root = path.resolve(repoRoot);
-  let file = path.resolve(filePath);
+  let root = realOrResolved(repoRoot);
+  let file = realOrResolved(filePath);
   if (process.platform === 'win32') {
     root = root.toLowerCase();
     file = file.toLowerCase();

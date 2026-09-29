@@ -80,6 +80,9 @@ export function applySecurityHeaders<T extends Response>(res: T, headers: Record
  */
 export function withCspRequestHeaders(request: NextRequest, nonce: string, csp: string): NextRequest {
   const h = new Headers(request.headers);
+  // Next ưu tiên tên enforce khi đọc nonce từ request, nên phải xoá bản client gửi kèm.
+  // Khi chuyển sang enforce: set tên enforce và xoá tên `-report-only`.
+  h.delete('content-security-policy');
   h.set('content-security-policy-report-only', csp);
   h.set(NONCE_HEADER, nonce);
   return new NextRequest(request.url, { headers: h });

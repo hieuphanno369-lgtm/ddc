@@ -6,6 +6,7 @@
 
 export const CSP_REPORT_MAX_BYTES = 16_384;
 export const CSP_REPORT_MAX_ITEMS = 10;
+export const CSP_REPORT_GLOBAL_PER_MIN = 60;
 export const CSP_REPORT_CONTENT_TYPES: ReadonlySet<string> = new Set([
   'application/csp-report',
   'application/reports+json',
@@ -29,8 +30,9 @@ const MAX_SAMPLE_CHARS = 80;
 const CSP_KEYWORDS = new Set(['inline', 'eval', 'wasm-eval', 'self', 'data', 'blob', 'trusted-types-policy', '']);
 
 function stripControl(s: string): string {
+  // Điều khiển C0/C1, LS/PS (U+2028/2029) và bidi (U+202A..202E, U+2066..2069): các ký tự này ngắt dòng hoặc đảo chiều hiển thị log.
   // eslint-disable-next-line no-control-regex
-  return s.replace(/[\u0000-\u001f\u007f]/g, ' ');
+  return s.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g, ' ');
 }
 
 /** Đọc body tối đa maxBytes; vượt thì huỷ stream và trả null; body null thì ''. */

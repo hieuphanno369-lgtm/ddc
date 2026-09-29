@@ -88,10 +88,11 @@ describe('middleware - header bao mat va CSP', () => {
 
   it('client gui x-nonce va CSP gia -> header chuyen tiep mang gia tri moi, khong con evil', async () => {
     getTokenMock.mockResolvedValue(null);
-    const res = await hit('/vi/login', { 'x-nonce': 'evil', 'content-security-policy-report-only': 'evil' });
+    const res = await hit('/vi/login', { 'x-nonce': 'evil', 'content-security-policy-report-only': 'evil', 'content-security-policy': 'evil' });
     expect(res.headers.get('x-middleware-request-x-nonce')).toBe(nonceOf(res));
     expect(res.headers.get('x-middleware-request-content-security-policy-report-only')).not.toContain('evil');
     expect(res.headers.get('x-middleware-request-x-nonce')).not.toBe('evil');
+    expect(res.headers.get('x-middleware-request-content-security-policy') ?? '').not.toContain('evil');
   });
 
   it("CSP trong test (NODE_ENV=test) khong co 'unsafe-eval'", async () => {

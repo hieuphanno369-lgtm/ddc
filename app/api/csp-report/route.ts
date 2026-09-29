@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { rateLimit } from '@/lib/rate-limit';
 import { clientIpFrom } from '@/lib/client-ip';
 import {
-  CSP_REPORT_CONTENT_TYPES, CSP_REPORT_MAX_BYTES, parseCspReports, readBodyCapped,
+  CSP_REPORT_CONTENT_TYPES, CSP_REPORT_GLOBAL_PER_MIN, CSP_REPORT_MAX_BYTES, parseCspReports, readBodyCapped,
 } from '@/lib/csp-report';
 
 export const dynamic = 'force-dynamic';
@@ -24,11 +24,12 @@ function tooMany(retryAfterSec: number): Response {
 }
 
 export async function POST(req: NextRequest) {
+  // Kiểm trần toàn hệ thống TRƯỚC: khi đã chạm trần thì không tạo thêm khoá theo IP (chống phình bộ nhớ khi giả XFF).
+  const global = rateLimit('csp-report:global', CSP_REPORT_GLOBAL_PER_MIN, 60_000);
+  if (!global.ok) return tooMany(global.retryAfterSec);
   const ip = clientIpFrom(req.headers);
   const perIp = rateLimit(`csp-report:${ip}`, 30, 60_000);
   if (!perIp.ok) return tooMany(perIp.retryAfterSec);
-  const global = rateLimit('csp-report:global', 300, 60_000);
-  if (!global.ok) return tooMany(global.retryAfterSec);
 
   const contentType = (req.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
   if (!CSP_REPORT_CONTENT_TYPES.has(contentType)) return empty(415);
