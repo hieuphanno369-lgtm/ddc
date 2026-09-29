@@ -10,7 +10,7 @@ const ROOT = process.cwd();
 
 /** File duoc phep chua hex tho vi ly do chinh dang (logo hang thu ba...). */
 const HEX_ALLOW = new Set<string>([
-  'src/components/layout/LoginForm.tsx', // mau thuong hieu Google trong icon dang nhap
+  'src/components/auth/parts.tsx', // mau thuong hieu Google trong nut Tiep tuc voi Google
 ]);
 
 /** Con no: file chua doi sang he Apple Glass. Xoa dan theo tung Task. */

@@ -23,6 +23,10 @@ export default async function globalSetup(): Promise<void> {
   try {
     await prisma.notifyChannel.deleteMany({ where: { name: { startsWith: 'E2E ' } } });
 
+    // Bo dem gioi han dang nhap/dang ky/quen mat khau (IP_FAIL_LIMIT 20 lan / 15 phut cho 127.0.0.1...) tinh theo DB: chay
+    // suite lien tiep trong 15 phut thi dong cu lam dang nhap dung cung bi tu choi. DB nay da duoc khoa cung la DB e2e (resolveE2eTarget).
+    await prisma.authThrottle.deleteMany({});
+
     // Task 6/7 (P3E) - 2 tài khoản viewer riêng cho spec khoá tài khoản + quên mật khẩu, tạo lại mỗi
     // lần chạy (upsert - đảm bảo lockedAt/failedLoginCount về trạng thái sạch giữa các lần chạy).
     // Vòng sửa bảo mật 4 (S-2) - thêm `e2e-doimk@daidung.com.vn` cho spec tự đổi mật khẩu (giữ

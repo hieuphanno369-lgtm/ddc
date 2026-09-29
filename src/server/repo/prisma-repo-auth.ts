@@ -1,5 +1,6 @@
 import { prisma } from '@/server/db';
 import { Prisma } from '@prisma/client';
+import { resetTokenKindOf } from '@/lib/login-policy';
 import type { AuthAccountState, AuthStore, Role } from './types';
 
 /** Date | null → ISO string | null (khớp `prisma-repo.ts`). */
@@ -201,6 +202,16 @@ export const prismaAuthStore: AuthStore = {
     return true;
   },
 
+  async peekResetTokenKind(tokenHash, nowIso) {
+    const t = await prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+      include: { user: true },
+    });
+    if (!t || t.usedAt !== null || t.expiresAt.getTime() <= new Date(nowIso).getTime()) return null;
+    if (!t.user.isActive || t.user.passwordHash === '') return null;
+    return resetTokenKindOf(t.createdAt, t.expiresAt);
+  },
+
   async consumeResetToken(tokenHash, passwordHash, nowIso) {
     return prisma.$transaction(async (tx) => {
       const now = new Date(nowIso);
@@ -243,6 +254,8 @@ export const prismaAuthStore: AuthStore = {
   async pruneAuthData(beforeIso) {
     const before = new Date(beforeIso);
     await prisma.authThrottle.deleteMany({ where: { createdAt: { lt: before } } });
-    await prisma.passwordResetToken.deleteMany({ where: { createdAt: { lt: before } } });
+    // S1: link đặt mật khẩu của lời mời sống 72 giờ (lâu hơn cửa sổ dọn 24 giờ), nên token bị dọn theo HẠN DÙNG
+    // (hết hạn hoặc đã dùng quá `before`), không theo tuổi tạo: xoá theo tuổi sẽ huỷ lời mời còn hạn sau 24 giờ.
+    await prisma.passwordResetToken.deleteMany({ where: { OR: [{ expiresAt: { lt: before } }, { usedAt: { lt: before } }] } });
   },
 };

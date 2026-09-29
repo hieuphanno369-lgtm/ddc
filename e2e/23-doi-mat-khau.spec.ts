@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { E2E_LOCK_PASSWORD } from './helpers/env';
 import { vi } from './helpers/i18n';
+import { fillLogin } from './helpers/login';
 
 /**
  * S-2 (bao-mat.md vòng sửa bảo mật 4, chủ dự án chốt 2026-09-28, thay quyết định Q2=b cũ) - tự đổi
@@ -20,10 +21,7 @@ const EMAIL = 'e2e-doimk@daidung.com.vn';
 const NEW_PW = 'E2eDoiMk-Moi-2026!';
 
 async function login(page: Page, email: string, password: string) {
-  await page.goto('/vi/login');
-  await page.locator('input[type="email"]').fill(email);
-  await page.locator('.field', { hasText: vi('auth.password') }).locator('input').fill(password);
-  await page.getByRole('button', { name: vi('auth.signIn') }).click();
+  await fillLogin(page, email, password);
 }
 
 async function openChangePasswordModal(page: Page) {
@@ -46,6 +44,7 @@ async function fillChangePassword(page: Page, current: string, next: string, con
 
 test.describe('23 - tu doi mat khau trong Cai dat (S-2)', () => {
   test('doi mat khau thanh cong -> phien hien tai van dung duoc; mat khau cu het dung duoc cho lan dang nhap moi', async ({ browser }) => {
+    test.setTimeout(120_000); // 3 lan dang nhap + 1 lan doi mat khau (bcrypt): 60s mac dinh khong du khi may e2e dang tai nang
     const ctxA = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const pageA = await ctxA.newPage();
     await login(pageA, EMAIL, E2E_LOCK_PASSWORD);

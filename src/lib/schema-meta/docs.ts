@@ -499,19 +499,44 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
       failedLoginCount: 'P3E: số lần sai mật khẩu liên tiếp - khoá khi đạt ngưỡng 5',
       lockedAt: 'P3E: khác null = đang bị khoá do sai mật khẩu 5 lần liên tiếp',
       passwordChangedAt: 'P3E: lần đổi mật khẩu gần nhất - dùng để vô hiệu phiên JWT cũ',
+      departmentId: 'P3F-3: FK tới dim_department.id - phòng ban chọn lúc đăng ký (null = chưa có)',
     },
   },
   password_reset_token: {
     kind: 'support',
-    desc: 'P3E: token đặt lại mật khẩu qua email - chỉ lưu SHA-256, hết hạn 30 phút, dùng 1 lần.',
+    desc: 'P3E: token đặt mật khẩu qua email - chỉ lưu SHA-256, dùng 1 lần; hết hạn 30 phút (quên mật khẩu) hoặc 72 giờ (P3F: lời mời khi admin bật đăng ký). Job dọn xoá token đã hết hạn hoặc đã dùng quá 24 giờ.',
     fields: {
       id: 'khoá chính',
       email: 'FK tới user_roles.email',
       tokenHash: 'SHA-256 hex của token gửi qua email (không lưu token thô)',
-      expiresAt: 'hết hạn 30 phút sau khi cấp',
+      expiresAt: 'hết hạn: 30 phút sau khi cấp (quên mật khẩu) hoặc 72 giờ (lời mời P3F)',
       usedAt: 'thời điểm đã dùng (null = chưa dùng)',
       createdAt: 'thời điểm cấp token',
-      requestIp: 'IP xin cấp token',
+      requestIp: 'IP xin cấp token (rỗng với lời mời P3F vì do admin bật, không có IP người xin)',
+    },
+  },
+  dim_department: {
+    kind: 'dim',
+    desc: 'P3F-3: danh mục phòng ban - admin quản lý trong Quản trị, hiện ở form Đăng ký. Phòng ban đang có người dùng hoặc đăng ký chờ chỉ ẩn được, không xoá được.',
+    fields: {
+      id: 'khoá chính',
+      name: 'tên phòng ban (duy nhất, không phân biệt hoa thường ở tầng ứng dụng)',
+      isActive: 'false = đã ẩn, không hiện ở form Đăng ký',
+      createdAt: 'thời điểm tạo',
+      updatedBy: 'người sửa gần nhất',
+    },
+  },
+  signup_request: {
+    kind: 'support',
+    desc: 'P3F-3: đăng ký tài khoản đang chờ admin bật. Chỉ chứa đăng ký còn chờ: bật hoặc từ chối thì xoá dòng (nhật ký ở activity_log).',
+    fields: {
+      id: 'khoá chính',
+      email: 'email công ty của người đăng ký (duy nhất)',
+      name: 'họ và tên',
+      departmentId: 'FK tới dim_department.id (null khi danh mục phòng ban trống)',
+      locale: 'ngôn ngữ lúc đăng ký (vi | en) - dùng khi gửi email báo',
+      requestIp: 'IP gửi đăng ký',
+      createdAt: 'thời điểm gửi đăng ký',
     },
   },
   auth_throttle: {
@@ -519,7 +544,7 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
     desc: 'P3E: nhật ký đếm lần thử (đăng nhập sai theo IP, xin link theo email/IP, Google bị từ chối) - dọn sau 24 giờ.',
     fields: {
       id: 'khoá chính',
-      kind: "loại giới hạn - 'login_fail_ip' | 'login_fail_unknown_email' | 'reset_req_email' | 'reset_req_ip' | 'google_denied'",
+      kind: "loại giới hạn - 'login_fail_ip' | 'login_fail_unknown_email' | 'reset_req_email' | 'reset_req_ip' | 'google_denied' | 'signup_ip' | 'signup_email'",
       key: 'khoá đếm - IP hoặc email tuỳ loại',
       createdAt: 'thời điểm ghi 1 lượt',
     },
@@ -615,6 +640,7 @@ export const ERD_LAYOUT: Record<string, ErdLayoutPos> = {
   user_roles: { col: 0, row: 5 },
   notify_channel: { col: 0, row: 6 },
   notify_recipient: { col: 0, row: 7 },
+  dim_department: { col: 0, row: 8 },
   // Cột 1
   dim_project_alias: { col: 1, row: 0 },
   project_sap_codes: { col: 1, row: 1 },
@@ -625,6 +651,7 @@ export const ERD_LAYOUT: Record<string, ErdLayoutPos> = {
   alert_log: { col: 1, row: 6 },
   project_shift_ratio: { col: 1, row: 7 },
   auth_throttle: { col: 1, row: 8 },
+  signup_request: { col: 1, row: 9 },
   // Cột 2
   dim_project: { col: 2, row: 0 },
   project_key_milestone: { col: 2, row: 1 },

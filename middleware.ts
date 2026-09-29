@@ -19,7 +19,7 @@ const DENIED: Record<Role, string[]> = {
 };
 
 /** Trang không cần đăng nhập, tính theo subpath sau /{locale}. */
-const PUBLIC_PATHS = ['/login', '/quen-mat-khau', '/dat-lai-mat-khau'];
+const PUBLIC_PATHS = ['/login', '/quen-mat-khau', '/dat-lai-mat-khau', '/dang-ky', '/dieu-khoan'];
 
 function isPublicPath(subpath: string): boolean {
   return PUBLIC_PATHS.some((p) => subpath === p || subpath.startsWith(p + '/'));

@@ -61,6 +61,8 @@ erDiagram
     dim_stage ||--o{ project_stage_weight : "stageCode"
     dim_project ||--o{ project_work_item : "projectId"
     dim_project |o--o{ sap_queue : "projectId"
+    dim_department |o--o{ signup_request : "departmentId"
+    dim_department |o--o{ user_roles : "departmentId"
 
     activity_log {
       Int id PK
@@ -137,6 +139,13 @@ erDiagram
       Int isoWeek
       Date weekStart
       Int dayOfWeek
+    }
+    dim_department {
+      Int id PK
+      String name
+      Boolean isActive
+      DateTime createdAt
+      String updatedBy
     }
     dim_equipment {
       Int id PK
@@ -450,6 +459,15 @@ erDiagram
       Int projectId FK
       DateTime detectedAt
     }
+    signup_request {
+      Int id PK
+      String email
+      String name
+      Int departmentId FK
+      String locale
+      String requestIp
+      DateTime createdAt
+    }
     user_roles {
       String email PK
       String name
@@ -462,6 +480,7 @@ erDiagram
       Int failedLoginCount
       DateTime lockedAt
       DateTime passwordChangedAt
+      Int departmentId FK
     }
 ```
 <!-- ERD:END -->

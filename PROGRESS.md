@@ -3,6 +3,15 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P3F - Đăng nhập/Đăng ký mới kính mờ, phòng ban, đăng ký cho admin bật (Tài khoản C, nhận từ B) - ĐÃ MERGE vào `main` (2026-09-29)
+Nhánh `feature/p3f-dang-nhap-moi`, từ `main` @ `2171d61`; hồ sơ `.bangiao/archive/p3f-dang-nhap-moi-2026-09-29/`. Thiết kế kính mờ chủ dự án chốt 2026-09-29.
+Coder Task 1-7 → tester (2 lần bị dừng giữa chừng, checkpoint WIP) → security CẦN SỬA (S1 Cao) → coder sửa S1-S3 + I1 → security vòng 2 CHỐT (T1-T3 Thấp) → C vá T2/T3 → reviewer CẦN SỬA (3 mục tài liệu/hồ sơ) → sửa + 4 quyết định chủ dự án → chủ dự án đồng ý merge (reviewer chưa chạy lại vòng 2). e2e toàn bộ 178/178 trên cổng 3003 + DB `ddc_control_tower_c`.
+- **2 migration:** `20260929023746_p3f_dang_ky_phong_ban` (bảng `dim_department`, `signup_request`, `user_roles.departmentId`) và `20260929120000_p3f_dang_ky_bo_mat_khau` (bỏ `signup_request.passwordHash`), đều có rollback trong `prisma/rollback/` (chạy file 2 trước file 1).
+- Đăng ký chỉ email công ty (`@daidung.vn`, `@daidung.com.vn`), KHÔNG nhận mật khẩu (S1: chống chiếm tài khoản đồng nghiệp). Admin bật thì tạo tài khoản với mật khẩu ngẫu nhiên không ai biết + gửi link đặt mật khẩu 72 giờ, dùng 1 lần; thiếu SMTP hoặc `NEXTAUTH_URL` thì tắt form và không bật được. Trang mở từ link lời mời dùng chữ "Đặt mật khẩu" (server suy loại token từ thời hạn, không tin URL).
+- Admin quản phòng ban (ẩn/xoá, xoá bị chặn khi đang dùng), duyệt/từ chối đăng ký, dải nhắc đăng ký chờ; đăng ký chờ quá 14 ngày tự xoá (job `alerts_daily`). Họ tên chặn ký tự điều khiển/tàng hình và được chuẩn hoá NFC.
+- Trang công khai mới: `/dang-ky`, `/dieu-khoan` (liên hệ `hieupt1@daidung.vn`). Nút Google chỉ ở trang Đăng nhập.
+- Giới hạn đã biết: T1 (Quên mật khẩu huỷ link lời mời còn hạn, chỉ gây phiền); theo dõi e2e 07 từng rớt khi chạy toàn bộ.
+
 ### ✅ P5 hạ tầng go-live - Docker/compose, health check DB, kiểm env, logging JSON, backup + thử khôi phục, lệnh create-admin, T17 DEPLOY.md (chuyển từ C sang B, Tài khoản B) - CHỐT + ĐÃ MERGE vào `main` (2026-09-29)
 Nhánh `feature/p5-b-ha-tang`, từ `main` @ `ff28fb4`; hồ sơ `.bangiao/archive/p5-b-ha-tang-2026-09-29/`. Chuyển từ hàng đợi của C sang B (đề xuất điều phối, chủ dự án đồng ý) để chạy song song P3F/P4/P4-X của C, không phụ thuộc UI.
 Planner → coder (Task 0-7 + 7b) → tester phát hiện 1 race condition thật (khoá backup) → debugger vá → tester vòng 2 XANH → security-reviewer tìm 2 lỗ hổng trung bình → reviewer xác nhận + thêm 2 mục → CẦN SỬA → coder vá vòng 1 (B-1..B-4) → tester vòng 3 + security-reviewer vòng 2 (ĐẠT) → reviewer vòng 2 CHỐT. 257 file / 2913 test xanh + 16 skip; `npm run build` qua.

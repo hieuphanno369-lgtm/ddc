@@ -14,7 +14,7 @@ export async function RateReminder({ locale, month, currencies }: RateReminderPr
   return (
     <div className="sumbar bad">
       {t('fxRates.missing', { currencies: currencies.join(', '), month })}{' '}
-      <a href={`/${locale}/admin#fx-rates`}>{t('fxRates.missingLink')}</a>
+      <a href={`/${locale}/admin#fx-rates`} className="font-semibold underline underline-offset-2">{t('fxRates.missingLink')}</a>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import {
   RESET_SUBMIT_IP_WINDOW_MS,
   RESET_TOKEN_TTL_MS,
   RESET_WINDOW_MS,
+  type ResetTokenKind,
 } from '@/lib/login-policy';
 import { generateResetToken, hashResetToken, isWellFormedResetToken } from '@/lib/reset-token';
 import { errorFields, logger } from '@/lib/logger';
@@ -215,4 +216,13 @@ export async function resetPasswordWithToken(
 export async function isResetTokenUsable(store: AuthStore, token: unknown, now: Date = new Date()): Promise<boolean> {
   if (!isWellFormedResetToken(token)) return false;
   return store.peekResetToken(hashResetToken(token), now.toISOString());
+}
+
+/**
+ * Trang đặt mật khẩu chọn chữ ("Đặt mật khẩu" cho lời mời, "Đặt lại mật khẩu" cho quên mật khẩu) theo loại link do SERVER suy
+ * từ hạn token đã lưu, không nhận gợi ý nào từ URL. `null` = link không dùng được (cùng điều kiện `isResetTokenUsable`).
+ */
+export async function getResetTokenKind(store: AuthStore, token: unknown, now: Date = new Date()): Promise<ResetTokenKind | null> {
+  if (!isWellFormedResetToken(token)) return null;
+  return store.peekResetTokenKind(hashResetToken(token), now.toISOString());
 }

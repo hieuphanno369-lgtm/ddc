@@ -1,3 +1,4 @@
+import { resetTokenKindOf } from '@/lib/login-policy';
 import type { AuthAccountState, AuthStore, ThrottleKind, UserAccount } from './types';
 
 /**
@@ -205,6 +206,12 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
       return true;
     },
 
+    async peekResetTokenKind(tokenHash, nowIso) {
+      if (!(await this.peekResetToken(tokenHash, nowIso))) return null;
+      const t = resetTokens.find((x) => x.tokenHash === tokenHash);
+      return t ? resetTokenKindOf(new Date(t.createdAt), new Date(t.expiresAt)) : null;
+    },
+
     async consumeResetToken(tokenHash, passwordHash, nowIso) {
       const t = resetTokens.find((x) => x.tokenHash === tokenHash && x.usedAt === null && nowIso <= x.expiresAt);
       if (!t) return { ok: false };
@@ -225,7 +232,8 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
 
     async pruneAuthData(beforeIso) {
       throttle = throttle.filter((t) => t.createdAt >= beforeIso);
-      resetTokens = resetTokens.filter((t) => t.createdAt >= beforeIso);
+      // S1: dọn theo hạn dùng (hết hạn hoặc đã dùng quá mốc), không theo tuổi tạo: lời mời sống 72 giờ.
+      resetTokens = resetTokens.filter((t) => t.expiresAt >= beforeIso && (t.usedAt === null || t.usedAt >= beforeIso));
     },
   };
 }

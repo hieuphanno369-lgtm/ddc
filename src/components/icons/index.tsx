@@ -1,10 +1,7 @@
 import type { SVGProps } from 'react';
 
 /**
- * Bộ icon kỹ thuật riêng cho DDC Control Tower.
- * Style thống nhất: 24×24 viewBox, stroke-based `currentColor`, strokeWidth 1.7,
- * round cap/join - theme-aware (đổi màu theo currentColor).
- * Thêm icon mới: bám đúng style này.
+ * Bộ icon kỹ thuật DDC (chuẩn P3F, docs/design/dang-nhap-2026-09-29/goc-2026-09-28/Icons.dc.html): khung 24x24, nét currentColor, strokeWidth 1.8, đầu nét và góc nối tròn, không tô đặc, ít nét. Thêm icon mới: bám đúng chuẩn này, toạ độ nằm trong 2..22.
  */
 
 export type IconProps = SVGProps<SVGSVGElement> & { size?: number };
@@ -17,7 +14,7 @@ function IconBase({ size = 24, children, ...props }: IconProps & { children: Rea
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={1.7}
+      strokeWidth={1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -82,36 +79,36 @@ export const IconFactory = (p: IconProps) => (
 
 export const IconCrane = (p: IconProps) => (
   <IconBase {...p}>
-    <path d="M3 21h18" />
-    <path d="M5 21V9h11v12" />
-    <path d="M8 9V5l6-2v6" />
-    <path d="M19 7v5" />
-    <path d="M16 12h6l-3 4Z" />
-    <path d="M19 12v2.5" />
+    <path d="M7 21V4" />
+    <path d="M4 21h6" />
+    <path d="M3 6h18" />
+    <path d="M7 4l-3 2M7 4l10 2" />
+    <path d="M16 6v6" />
+    <path d="M14 12h4v2h-4z" />
   </IconBase>
 );
 
 export const IconSteelBeam = (p: IconProps) => (
   <IconBase {...p}>
-    <path d="M12 3v18" />
-    <path d="M5 8h14M5 16h14" />
-    <path d="M4 21h16M4 3h16" />
+    <path d="M5 4h14M5 20h14M12 4v16" />
   </IconBase>
 );
 
 export const IconTruck = (p: IconProps) => (
   <IconBase {...p}>
-    <path d="M3 7h11v8H3z" />
-    <path d="M14 10h4l3 3v2h-7" />
-    <circle cx="7" cy="17" r="1.8" />
-    <circle cx="17" cy="17" r="1.8" />
+    <path d="M2 7h12v9H2z" />
+    <path d="M14 10h4l3 3v3h-7" />
+    <circle cx="6" cy="18" r="2" />
+    <circle cx="17" cy="18" r="2" />
+    <path d="M3 4.5h10" />
   </IconBase>
 );
 
 export const IconBolt = (p: IconProps) => (
   <IconBase {...p}>
-    <circle cx="12" cy="12" r="3" />
-    <path d="m12 9 1.2-1.2 3.4 3.4L12 15l-3.4-3.4L12 9Z" />
+    <path d="M8 3h8v4H8z" />
+    <path d="M12 7v14" />
+    <path d="M10 11h4M10 14h4M10 17h4" />
   </IconBase>
 );
 
@@ -151,6 +148,28 @@ export const IconAirport = (p: IconProps) => (
   <IconBase {...p}>
     <path d="M3 16h18" />
     <path d="M6 16 4 7l4 1 2 5 3-3-1-3 1.5-2L16 6l2 3-3 3-3-1-3 3-1 2Z" />
+  </IconBase>
+);
+
+export const IconSetSquare = (p: IconProps) => (
+  <IconBase {...p}>
+    <path d="M4 20V4l16 16z" />
+    <path d="M8 16v-4l4 4z" />
+    <path d="M4 8h2M4 12h2" />
+  </IconBase>
+);
+
+export const IconHexNut = (p: IconProps) => (
+  <IconBase {...p}>
+    <path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z" />
+    <circle cx="12" cy="12" r="3.2" />
+  </IconBase>
+);
+
+export const IconStage = (p: IconProps) => (
+  <IconBase {...p}>
+    <circle cx="12" cy="12" r="8" />
+    <circle cx="12" cy="12" r="2.5" />
   </IconBase>
 );
 
@@ -339,6 +358,27 @@ export const IconArrowDown = (p: IconProps) => (
   </IconBase>
 );
 
+export const IconMail = (p: IconProps) => (
+  <IconBase {...p}>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="M3.5 6.5l8.5 6.5 8.5-6.5" />
+  </IconBase>
+);
+
+export const IconArrowRight = (p: IconProps) => (
+  <IconBase {...p}>
+    <path d="M5 12h14" />
+    <path d="M13 6l6 6-6 6" />
+  </IconBase>
+);
+
+export const IconArrowLeft = (p: IconProps) => (
+  <IconBase {...p}>
+    <path d="M19 12H5" />
+    <path d="M11 18l-6-6 6-6" />
+  </IconBase>
+);
+
 export const IconLogout = (p: IconProps) => (
   <IconBase {...p}>
     <path d="M9 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3" />
@@ -368,8 +408,9 @@ export const IconGear = (p: IconProps) => (
 
 export const IconConfig = (p: IconProps) => (
   <IconBase {...p}>
-    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
     <circle cx="12" cy="12" r="3" />
+    <circle cx="12" cy="12" r="6.5" />
+    <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" />
   </IconBase>
 );
 
@@ -396,15 +437,16 @@ export const IconBook = (p: IconProps) => (
 
 export const IconEye = (p: IconProps) => (
   <IconBase {...p}>
-    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
-    <circle cx="12" cy="12" r="2.5" />
+    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+    <circle cx="12" cy="12" r="3" />
   </IconBase>
 );
 
 export const IconEyeOff = (p: IconProps) => (
   <IconBase {...p}>
     <path d="M3 3l18 18" />
-    <path d="M10.6 5.1A9.8 9.8 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.2 3.2M6.6 6.6A16.6 16.6 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6" />
+    <path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2" />
+    <path d="M6.6 6.6C3.9 8.3 2 12 2 12s3.5 7 10 7a10.6 10.6 0 0 0 5.4-1.6" />
     <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
   </IconBase>
 );

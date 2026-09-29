@@ -4,6 +4,7 @@
  * các type này, chỉ swap phần repository impl.
  */
 import type { AlertCandidate } from '@/lib/alert-rules';
+import type { ResetTokenKind } from '@/lib/login-policy';
 
 export type Market = 'TN' | 'XK' | 'NoiBo';
 export type ProjectType =
@@ -619,7 +620,10 @@ export type ThrottleKind =
   // `ACCOUNT_GUESS_WINDOW_MS` (login-policy.ts). R6-1 (bao-mat.md vòng 6) - 1 kind DUY NHẤT dùng chung
   // cho Đăng nhập và Đổi mật khẩu (chốt R3-2: 2 màn tính chung bộ đếm 5 lần), chỉ `reserveAccountGuess`
   // ghi kind này.
-  | 'account_guess';
+  | 'account_guess'
+  // P3F-3: giới hạn tần suất đăng ký tài khoản (10 lần/giờ/IP, 3 lần/giờ/email), xem `SIGNUP_*` (login-policy.ts).
+  | 'signup_ip'
+  | 'signup_email';
 
 export interface AuthAccountState {
   email: string;
@@ -768,6 +772,12 @@ export interface AuthStore {
   /** Token còn dùng được (chưa dùng, chưa hết hạn, tài khoản còn, có mật khẩu, isActive)? */
   peekResetToken(tokenHash: string, nowIso: string): Promise<boolean>;
   /**
+   * Cùng điều kiện với `peekResetToken` (chỉ đọc), nhưng trả thêm LOẠI link để trang đặt mật khẩu chọn chữ: 'invite' (lời mời
+   * khi admin bật đăng ký, hạn 72 giờ) hoặc 'reset' (quên mật khẩu, hạn 30 phút); `null` nếu không dùng được. Suy từ hạn
+   * đã lưu (`resetTokenKindOf`), không có cột đánh dấu.
+   */
+  peekResetTokenKind(tokenHash: string, nowIso: string): Promise<ResetTokenKind | null>;
+  /**
    * Nguyên tử: đánh dấu token đã dùng + đặt mật khẩu + passwordChangedAt = now + bộ đếm về 0 nếu
    * chưa khoá + vô hiệu token khác của email. L5 (bao-mat.md) - phải kiểm CÙNG điều kiện tài khoản
    * như `peekResetToken` tại thời điểm tiêu token (`isActive` và `passwordHash !== ''`), không chỉ
@@ -780,9 +790,9 @@ export interface AuthStore {
     nowIso: string,
   ): Promise<{ ok: true; email: string; name: string; locked: boolean } | { ok: false }>;
   /**
-   * Dọn dữ liệu cũ: xoá mọi dòng `auth_throttle` VÀ mọi token đặt lại mật khẩu có `createdAt <
-   * beforeIso` - token bị xoá THEO TUỔI, BẤT KỂ đã dùng (`usedAt` khác `null`) hay chưa, còn hạn hay
-   * đã hết hạn (K19, gọi định kỳ từ job `alerts_daily`).
+   * Dọn dữ liệu cũ: xoá mọi dòng `auth_throttle` có `createdAt < beforeIso` VÀ mọi token đặt lại mật khẩu đã
+   * hết hạn (`expiresAt < beforeIso`) hoặc đã dùng (`usedAt < beforeIso`) - K19, gọi định kỳ từ job `alerts_daily`.
+   * S1: token theo HẠN DÙNG chứ không theo tuổi tạo, vì link đặt mật khẩu của lời mời sống 72 giờ.
    */
   pruneAuthData(beforeIso: string): Promise<void>;
 }

@@ -209,6 +209,7 @@ describe('checkCredentials - L3: xac nhan nguyen tu chong TOCTOU khi doan mat kh
       reserveAccountGuess: vi.fn().mockResolvedValue(1),
       replaceResetToken: vi.fn(),
       peekResetToken: vi.fn(),
+      peekResetTokenKind: vi.fn(),
       consumeResetToken: vi.fn(),
       pruneAuthData: vi.fn(),
     };
