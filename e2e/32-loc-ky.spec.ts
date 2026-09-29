@@ -75,6 +75,15 @@ test.describe('32 - Bo loc ky Tong quan', () => {
     await expect(one.getByText(vi('period.oneMonth'))).toBeVisible({ timeout: 30_000 });
   });
 
+  test('cot "So lieu" o bang du an; link sang Chi tiet giu ky', async ({ page }) => {
+    await page.goto('/vi/overview?from=2026-07-01&to=2026-08-31');
+    await expect(page.locator('table.tbl thead th', { hasText: vi('asOf.colData') })).toBeVisible();
+    const firstCell = page.locator('table.tbl tbody tr').first().locator('td').nth(9);
+    await expect(firstCell).toContainText(/Số tại|Dùng số tháng|Hoàn thành|Chưa có số/);
+    await page.locator('table.tbl tbody tr').first().locator('a[href*="/projects/"]').first().click();
+    await page.waitForURL(/\/projects\/\d+\?from=2026-07-01&to=2026-08-31/);
+  });
+
   for (const theme of ['light', 'dark'] as const) {
     for (const [w, h] of [[1440, 900], [390, 844]] as const) {
       test(`anh thanh loc ${w}px ${theme}`, async ({ page }) => {

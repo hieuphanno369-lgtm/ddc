@@ -232,7 +232,7 @@ export async function TopPriorityCard({
   canViewFinance: boolean;
 }) {
   const items = await loadTopPriority(period, filters);
-  return <TopPriorityList items={maskProjectSummaries(items, canViewFinance).map(toTopPriorityItem)} />;
+  return <TopPriorityList items={maskProjectSummaries(items, canViewFinance).map(toTopPriorityItem)} period={period} />;
 }
 
 export async function ProjectListCard({
@@ -258,6 +258,7 @@ export async function ProjectListCard({
       page={list.page}
       totalPages={list.totalPages}
       canViewFinance={canViewFinance}
+      period={period}
     />
   );
 }

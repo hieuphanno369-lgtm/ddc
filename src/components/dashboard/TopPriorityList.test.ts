@@ -26,7 +26,7 @@ const row = (id: number, onTrack = true): SafeProjectSummary =>
     contractValue: null,
   }) as unknown as SafeProjectSummary;
 
-const render = (items: SafeProjectSummary[]) => renderToStaticMarkup(React.createElement(TopPriorityList, { items }));
+const render = (items: SafeProjectSummary[]) => renderToStaticMarkup(React.createElement(TopPriorityList, { items, period: { from: '2026-07-01', to: '2026-09-16' } }));
 
 describe('TopPriorityList - the Top du an trong diem (P3C-B T2)', () => {
   it('7 muc: khung danh sach co overflow-y auto va max-height 400px (gia tri du phong SSR)', () => {
@@ -55,7 +55,7 @@ describe('TopPriorityList - the Top du an trong diem (P3C-B T2)', () => {
 
   it('dong hien % TT, % KH va link toi chi tiet du an', () => {
     const out = render([row(5)]);
-    expect(out).toContain('href="/projects/5"');
+    expect(out).toContain('href="/projects/5?from=2026-07-01&amp;to=2026-09-16"');
     expect(out).toContain('metric.pctActual');
     expect(out).toContain('metric.pctPlan');
     expect(out).toMatch(/40\s?%/);
@@ -73,5 +73,12 @@ describe('TopPriorityList - the Top du an trong diem (P3C-B T2)', () => {
     const out = render([leaked]);
     expect(out).not.toContain('987654');
     expect(out).not.toContain('987.654');
+  });
+});
+
+describe('TopPriorityList - link giu ky (P4 D-23)', () => {
+  it('link sang Chi tiet mang from/to cua ky dang xem', () => {
+    const html = render([{ id: 7, projectName: 'A', status: 'Dang_trien_khai', onTrack: true, pctActual: 0.5, pctPlan: 0.5 } as unknown as SafeProjectSummary]);
+    expect(html).toContain('/projects/7?from=2026-07-01&amp;to=2026-09-16');
   });
 });

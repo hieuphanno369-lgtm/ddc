@@ -53,7 +53,7 @@ function makeItem(over: Partial<SafeProjectSummary>): SafeProjectSummary {
   } as unknown as SafeProjectSummary;
 }
 
-const render = (items: SafeProjectSummary[]) => renderToStaticMarkup(React.createElement(TopPriorityList, { items }));
+const render = (items: SafeProjectSummary[]) => renderToStaticMarkup(React.createElement(TopPriorityList, { items, period: { from: '2026-07-01', to: '2026-09-16' } }));
 
 describe('TopPriorityList - QA doc lap Buoc 10 (T2)', () => {
   it('duong chay thuan loi: giu nguyen thu tu dau vao (khong tu sap xep lai)', () => {

@@ -48,6 +48,10 @@ describe('maskProjectSummary', () => {
     expect(masked.tonnage).toBe(900);
   });
 
+  it('P4 D-12: dataState (khong phai tien) duoc giu nguyen khi che', () => {
+    expect(maskProjectSummary(SUMMARY, false).dataState).toEqual({ kind: 'current', month: '2026-09' });
+  });
+
   it('khong sua object goc', () => {
     maskProjectSummary(SUMMARY, false);
     expect(SUMMARY.contractValue).toBe(123.4);

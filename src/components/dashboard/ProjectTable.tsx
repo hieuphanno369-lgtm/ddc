@@ -7,6 +7,8 @@ import type { SafeProjectSummary } from '@/lib/finance-gate';
 import { typeKey } from '@/lib/labels';
 import { formatPct, formatRatio, formatTyd } from '@/lib/format';
 import { THRESHOLDS } from '@/lib/thresholds';
+import { dataStateLabel } from '@/lib/data-state-label';
+import { periodSearch, type Period } from '@/lib/period';
 import { OnTrackBadge, PriorityBadge, StatusBadge } from '@/components/ui/Badges';
 import { Badge } from '@/components/ui/Badge';
 import { IconChevronRight } from '@/components/icons';
@@ -17,9 +19,11 @@ interface Props {
   page: number;
   totalPages: number;
   canViewFinance: boolean;
+  /** Kỳ đang xem: link sang trang Chi tiết mang theo from/to (D-23). */
+  period: Period;
 }
 
-export function ProjectTable({ items, total, page, totalPages, canViewFinance }: Props) {
+export function ProjectTable({ items, total, page, totalPages, canViewFinance, period }: Props) {
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
@@ -33,6 +37,8 @@ export function ProjectTable({ items, total, page, totalPages, canViewFinance }:
     const qs = params.toString();
     router.replace(qs ? `?${qs}` : '?', { scroll: false });
   }
+
+  const detailHref = (id: number) => `/projects/${id}?${new URLSearchParams(periodSearch(period))}`;
 
   return (
     <div className="card overflow-visible">
@@ -59,7 +65,7 @@ export function ProjectTable({ items, total, page, totalPages, canViewFinance }:
 
       {/* Table */}
       <div className="bd scroll">
-        <table className="tbl" style={{ minWidth: 980 }}>
+        <table className="tbl" style={{ minWidth: 1080 }}>
           <thead>
             <tr>
               <th>Mã DA</th>
@@ -71,6 +77,7 @@ export function ProjectTable({ items, total, page, totalPages, canViewFinance }:
               <th>{t('common.status')}</th>
               <th>{t('onTrack.onTrack')}</th>
               <th className="num">% TT</th>
+              <th>{t('asOf.colData')}</th>
               <th className="num">SPI</th>
               <th className="num">CPI</th>
               {canViewFinance && <th className="num">{t('metric.contractValue')}</th>}
@@ -82,7 +89,7 @@ export function ProjectTable({ items, total, page, totalPages, canViewFinance }:
               <tr key={s.id}>
                 <td className="mono">{s.currentAliasCode}</td>
                 <td style={{ whiteSpace: 'normal', maxWidth: 260, fontWeight: 600 }}>
-                  <Link href={`/projects/${s.id}`}>{s.projectName}</Link>
+                  <Link href={detailHref(s.id)}>{s.projectName}</Link>
                 </td>
                 <td>{s.customerName}</td>
                 <td>{s.teamName}</td>
@@ -97,6 +104,12 @@ export function ProjectTable({ items, total, page, totalPages, canViewFinance }:
                   <OnTrackBadge onTrack={s.onTrack} status={s.status} />
                 </td>
                 <td className="num">{formatPct(s.pctActual, locale)}</td>
+                <td className="whitespace-nowrap text-label2">
+                  {(() => {
+                    const l = dataStateLabel(s.dataState);
+                    return t(l.key, { month: l.month });
+                  })()}
+                </td>
                 <td className="num">
                   <Badge tone={s.spi == null ? 'neutral' : s.spi < THRESHOLDS.spiWarn ? 'warn' : 'ok'}>
                     {formatRatio(s.spi)}
@@ -109,7 +122,7 @@ export function ProjectTable({ items, total, page, totalPages, canViewFinance }:
                 </td>
                 {canViewFinance && <td className="num">{formatTyd(s.contractValue, locale)}</td>}
                 <td>
-                  <Link href={`/projects/${s.id}`} className="text-label3">
+                  <Link href={detailHref(s.id)} className="text-label3">
                     <IconChevronRight size={18} />
                   </Link>
                 </td>
@@ -117,7 +130,7 @@ export function ProjectTable({ items, total, page, totalPages, canViewFinance }:
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={canViewFinance ? 13 : 12} className="empty">
+                <td colSpan={canViewFinance ? 14 : 13} className="empty">
                   {t('common.noData')}
                 </td>
               </tr>
