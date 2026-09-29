@@ -2,7 +2,7 @@ import type { RepoData } from '@/data/seed/history';
 import { bucketOf } from '@/lib/daily-series';
 import type {
   AuditLogPageResult, DateRange, FactAsOfRow, FactSeriesRow, FactSnapshot, FinancialAsOfRow, FinancialSnapshot,
-  FlowRow, ManpowerActualMonthRow, MonthlyEvmRow, ReadRepo, VolumeFlowRow, VolumeSnapshot, WeekContractorRow,
+  FlowRow, ManpowerActualMonthRow, ReadRepo, VolumeFlowRow, VolumeSnapshot, WeekContractorRow,
 } from './read-types';
 import type { FactProgressMonthly, ValueChainProgress } from './types';
 
@@ -94,30 +94,6 @@ export function createReadMock(getData: () => RepoData): ReadRepo {
         return [...map.values()].map(pick);
       }
       return vols.filter((v) => v.yearMonth === yearMonth).map(pick);
-    },
-
-    async readMonthlyEvm(months: string[], projectIds: number[]): Promise<MonthlyEvmRow[]> {
-      if (months.length === 0 || projectIds.length === 0) return [];
-      const idSet = new Set(projectIds);
-      const monthSet = new Set(months);
-      const rows = getData().facts.filter((f) => f.isLatest && idSet.has(f.projectId) && monthSet.has(f.yearMonth));
-      const byMonth = new Map<string, FactProgressMonthly[]>();
-      for (const f of rows) {
-        const list = byMonth.get(f.yearMonth) ?? [];
-        list.push(f);
-        byMonth.set(f.yearMonth, list);
-      }
-      const avg = (arr: number[]) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
-      return [...byMonth.entries()]
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([yearMonth, fs]) => ({
-          yearMonth,
-          pv: fs.reduce((s, f) => s + f.pv, 0),
-          ev: fs.reduce((s, f) => s + f.ev, 0),
-          ac: fs.reduce((s, f) => s + f.ac, 0),
-          spiAvg: avg(fs.map((f) => f.spi).filter((x): x is number => x != null)),
-          cpiAvg: avg(fs.map((f) => f.cpi).filter((x): x is number => x != null)),
-        }));
     },
 
     async readLastAuditAt(): Promise<string | null> {

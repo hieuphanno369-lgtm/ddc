@@ -63,29 +63,6 @@ describe('read-mock', () => {
     for (const r of rows) expect(r.yearMonth).toBe(latestByProject.get(r.projectId));
   });
 
-  it('readMonthlyEvm: khop cong tay tren buildRepoData().facts', async () => {
-    const months = ['2026-08', '2026-09'];
-    const ids = [1, 2];
-    const rows = await mock.readMonthlyEvm(months, ids);
-    for (const m of months) {
-      const facts = data.facts.filter((f) => f.isLatest && ids.includes(f.projectId) && f.yearMonth === m);
-      const row = rows.find((r) => r.yearMonth === m);
-      if (facts.length === 0) {
-        expect(row).toBeUndefined();
-        continue;
-      }
-      expect(row).toBeDefined();
-      expect(row!.pv).toBeCloseTo(facts.reduce((s, f) => s + f.pv, 0));
-      expect(row!.ev).toBeCloseTo(facts.reduce((s, f) => s + f.ev, 0));
-      expect(row!.ac).toBeCloseTo(facts.reduce((s, f) => s + f.ac, 0));
-    }
-  });
-
-  it('readMonthlyEvm([], ids) hoac (months, []) -> mang rong', async () => {
-    expect(await mock.readMonthlyEvm([], [1])).toEqual([]);
-    expect(await mock.readMonthlyEvm(['2026-09'], [])).toEqual([]);
-  });
-
   it('readLastAuditAt: ISO cua dong moi nhat', async () => {
     expect(await mock.readLastAuditAt()).toBe('2026-09-20T00:00:00.000Z');
   });

@@ -78,19 +78,13 @@ async function main() {
     check(`readManpowerActualByMonth(${id})`, await readRepoPrisma.readManpowerActualByMonth(id), await mock.readManpowerActualByMonth(id));
   }
 
-  // Buoc 5: T1-code (a) - readFactSnapshots/readFinancialSnapshots/readVolumeSnapshots/readMonthlyEvm.
+  // Buoc 5: T1-code (a) - readFactSnapshots/readFinancialSnapshots/readVolumeSnapshots.
   const allProjectIds = (await prisma.project.findMany({ select: { id: true } })).map((p) => p.id);
   for (const m of [currentMonth(), 'all']) {
     check(`readFactSnapshots(${m})`, await readRepoPrisma.readFactSnapshots(m), await mock.readFactSnapshots(m));
     check(`readFinancialSnapshots(${m})`, await readRepoPrisma.readFinancialSnapshots(m), await mock.readFinancialSnapshots(m));
     check(`readVolumeSnapshots(${m})`, await readRepoPrisma.readVolumeSnapshots(m), await mock.readVolumeSnapshots(m));
   }
-  check(
-    'readMonthlyEvm',
-    await readRepoPrisma.readMonthlyEvm(historyMonths(), allProjectIds),
-    await mock.readMonthlyEvm(historyMonths(), allProjectIds),
-  );
-
   // P4: 7 ham doc theo moc/ky (ym = thang hien tai, ky = 12 thang gan nhat).
   const ym = currentMonth();
   const months = historyMonths();

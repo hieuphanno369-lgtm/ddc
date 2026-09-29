@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/server/db';
 import type {
   AuditLogPageResult, DateRange, FactAsOfRow, FactSeriesRow, FactSnapshot, FinancialAsOfRow, FinancialSnapshot,
-  FlowRow, ManpowerActualMonthRow, MonthlyEvmRow, ReadRepo, VolumeFlowRow, VolumeSnapshot, WeekContractorRow,
+  FlowRow, ManpowerActualMonthRow, ReadRepo, VolumeFlowRow, VolumeSnapshot, WeekContractorRow,
 } from './read-types';
 import type { ValueChainProgress } from './types';
 
@@ -77,17 +77,6 @@ export const readRepoPrisma = {
       where: { yearMonth },
       select: { projectId: true, factoryId: true, yearMonth: true, tonnageProcessed: true },
     });
-  },
-
-  async readMonthlyEvm(months: string[], projectIds: number[]): Promise<MonthlyEvmRow[]> {
-    if (months.length === 0 || projectIds.length === 0) return [];
-    return prisma.$queryRaw<MonthlyEvmRow[]>(Prisma.sql`
-      SELECT "yearMonth", SUM("pv")::float8 AS pv, SUM("ev")::float8 AS ev, SUM("ac")::float8 AS ac,
-             AVG("spi")::float8 AS "spiAvg", AVG("cpi")::float8 AS "cpiAvg"
-      FROM "fact_progress_monthly"
-      WHERE "isLatest" = true AND "yearMonth" = ANY(${months}::text[]) AND "projectId" = ANY(${projectIds}::int[])
-      GROUP BY "yearMonth" ORDER BY "yearMonth"
-    `);
   },
 
   async readLastAuditAt(): Promise<string | null> {
