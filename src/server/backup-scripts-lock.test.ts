@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, chmodSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, chmodSync, existsSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -93,3 +93,82 @@ describe.skipIf(!shAvailable)('scripts/backup/pg-backup.sh - khoa chong chay tru
     10000,
   );
 });
+
+/**
+ * P5-B Task 5 (vong 2, sau khi debugger doi cho `trap cleanup EXIT` xuong SAU khoi mkdir): xac nhan
+ * ban va KHONG lam hong logic don dep binh thuong (khong tranh chap) - tien trinh THAT SU gianh duoc
+ * khoa van phai tu xoa dung `.lock` + `.partial` cua chinh no, ca khi thanh cong lan khi loi giua
+ * chung (o day mo phong bang `pg_restore --list` that bai - nhanh "corrupt_dump" cua script).
+ */
+describe.skipIf(!shAvailable)(
+  'scripts/backup/pg-backup.sh - don dep khoa/.partial cho tien trinh THAT SU giu khoa (khong tranh chap)',
+  () => {
+    function makeConfigurableFakeBinDir(): string {
+      const dir = mkdtempSync(path.join(tmpdir(), 'ddc-fake-bin-2-'));
+      writeFileSync(
+        path.join(dir, 'pg_dump'),
+        `#!/bin/sh\nfor a in "$@"; do case "$a" in --file=*) f="\${a#--file=}" ;; esac; done\necho fake > "$f"\nexit "\${FAKE_PG_DUMP_EXIT:-0}"\n`,
+      );
+      writeFileSync(path.join(dir, 'pg_restore'), `#!/bin/sh\nexit "\${FAKE_PG_RESTORE_EXIT:-0}"\n`);
+      chmodSync(path.join(dir, 'pg_dump'), 0o755);
+      chmodSync(path.join(dir, 'pg_restore'), 0o755);
+      return dir;
+    }
+
+    function baseEnv(fakeBinDir: string, backupDir: string, extra: Record<string, string>) {
+      return {
+        ...process.env,
+        PATH: `${fakeBinDir}${path.delimiter}${process.env.PATH}`,
+        PGHOST: 'x', PGPORT: '5432', PGUSER: 'x', PGPASSWORD: 'x', PGDATABASE: 'demo_test',
+        BACKUP_DIR: backupDir,
+        ...extra,
+      };
+    }
+
+    it('thanh cong: khoa .lock va file .partial khong con, chi con lai .dump + .sha256', () => {
+      const fakeBinDir = makeConfigurableFakeBinDir();
+      const backupDir = mkdtempSync(path.join(tmpdir(), 'ddc-backup-dir-ok-'));
+      try {
+        execFileSync('sh', [SCRIPT], {
+          env: baseEnv(fakeBinDir, backupDir, { FAKE_PG_DUMP_EXIT: '0', FAKE_PG_RESTORE_EXIT: '0' }),
+        });
+
+        expect(existsSync(path.join(backupDir, '.lock'))).toBe(false);
+        const files = readdirSync(backupDir);
+        expect(files.some((f) => f.endsWith('.partial'))).toBe(false);
+        expect(files.some((f) => f.startsWith('demo_test_') && f.endsWith('.dump'))).toBe(true);
+        expect(files.some((f) => f.endsWith('.dump.sha256'))).toBe(true);
+      } finally {
+        rmSync(fakeBinDir, { recursive: true, force: true });
+        rmSync(backupDir, { recursive: true, force: true });
+      }
+    }, 10000);
+
+    it('loi giua chung (pg_restore --list that bai): van xoa .lock va .partial, KHONG tao ra file .dump cuoi', () => {
+      const fakeBinDir = makeConfigurableFakeBinDir();
+      const backupDir = mkdtempSync(path.join(tmpdir(), 'ddc-backup-dir-fail-'));
+      try {
+        let exitCode: number | null = null;
+        try {
+          execFileSync('sh', [SCRIPT], {
+            env: baseEnv(fakeBinDir, backupDir, { FAKE_PG_DUMP_EXIT: '0', FAKE_PG_RESTORE_EXIT: '1' }),
+          });
+          exitCode = 0;
+        } catch (e) {
+          exitCode = (e as { status: number | null }).status;
+        }
+        expect(exitCode).toBe(1);
+
+        expect(existsSync(path.join(backupDir, '.lock'))).toBe(false);
+        const files = readdirSync(backupDir);
+        expect(files.some((f) => f.endsWith('.partial'))).toBe(false);
+        expect(files.some((f) => f.startsWith('demo_test_') && f.endsWith('.dump') && !f.endsWith('.partial'))).toBe(
+          false,
+        );
+      } finally {
+        rmSync(fakeBinDir, { recursive: true, force: true });
+        rmSync(backupDir, { recursive: true, force: true });
+      }
+    }, 10000);
+  },
+);

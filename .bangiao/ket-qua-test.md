@@ -1,4 +1,4 @@
-KẾT QUẢ: ĐỎ
+KẾT QUẢ: XANH (vòng 2, sau khi debugger vá race condition khoá pg-backup.sh)
 
 # Kết quả kiểm thử độc lập - P5 hạ tầng go-live (P5-B, nhánh `feature/p5-b-ha-tang`)
 
@@ -227,3 +227,134 @@ bằng mật khẩu mới, hoạt động đúng end-to-end trên môi trường
 4. File test mới `src/lib/logger-bien.test.ts` và `src/server/backup-scripts-lock.test.ts` nên được
    giữ lại trong bộ test (không phải test tạm) vì chúng phủ đúng 2 rủi ro coder đã tự nêu và không
    phụ thuộc Docker/Postgres thật.
+
+---
+
+# VÒNG 2 - kiểm chứng độc lập bản vá race condition khoá `pg-backup.sh`
+
+Skill đã dùng: `test-driven-development`, `verification-before-completion`.
+Không đụng UI ở vòng vá này (chỉ sửa 1 file `.sh`) nên không cần `mcp__playwright`; không đụng DB nên
+không cần `mcp__postgres` ở vòng này (khác vòng 1, vòng 1 đã dùng cả hai cho phần Task 7b/logger).
+
+Tôi CHỈ sửa 1 file trong vòng 2 này: `src/server/backup-scripts-lock.test.ts` (thêm 2 ca test mới,
+mục 3 dưới đây). Không đụng bất kỳ file code sản phẩm nào.
+
+## 1. Xác nhận độc lập test cũ đã XANH
+
+Chạy riêng đúng ca test đã rớt ở vòng 1:
+
+```
+npx vitest run src/server/backup-scripts-lock.test.ts
+```
+
+Kết quả: **1/1 pass** (trước khi thêm 2 ca mới ở mục 3). Log ra đúng 1 dòng
+`{"event":"backup.failed","reason":"lock_busy"}` (tiến trình B thua khoá), và khoá `.lock` vẫn còn
+tồn tại ngay sau khi B thoát trong lúc A vẫn đang chạy - đúng hành vi kỳ vọng, khác hẳn vòng 1 (lúc đó
+`existsSync(lockDir)` trả về `false` sau khi B thoát, gây rớt).
+
+## 2. Đọc lại diff bản vá - đúng như debugger mô tả, không có tác dụng phụ
+
+`git show 33eeaf9 -- scripts/backup/pg-backup.sh`:
+
+```diff
+ cleanup() {
+   rm -f "$PARTIAL"
+   rmdir "$LOCK_DIR" 2>/dev/null || true
+ }
+-trap cleanup EXIT
+
+ if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+   log_err backup.failed ',"reason":"lock_busy"'
+   exit 3
+ fi
++# Chi dang ky trap SAU KHI da gianh duoc khoa: tien trinh thua khoa (exit 3 o tren)
++# khong duoc dang ky trap nao, nen khong bao gio tu xoa khoa cua tien trinh dang giu.
++trap cleanup EXIT
+
+ log backup.start ",\"file\":\"$NAME\""
+```
+
+Xác nhận: **đúng 1 dòng bị di chuyển** (`trap cleanup EXIT` dời từ trước khối `mkdir` xuống sau khối
+đó, chỉ khi `mkdir` thành công mới chạy tới dòng `trap`), thêm 2 dòng comment giải thích, hàm
+`cleanup()` giữ nguyên 100% không đổi. Không có thay đổi nào khác trong file (không đổi tên biến,
+không đổi luật `BACKUP_KEEP_DAYS`, không đổi log, không đổi `pg_dump`/`pg_restore`/`mv`/`sha256sum`).
+Đây là bản vá tối thiểu, đúng gốc rễ (chỉ tiến trình thực sự giành được khoá mới có cơ hội đăng ký dọn
+dẹp cho chính khoá đó) - không phải patch né triệu chứng.
+
+Đã đọc lại `scripts/backup/pg-restore-test.sh` (không bị sửa trong bản vá này) để chắc không còn chỗ
+nào khác cùng lỗi: `trap cleanup EXIT` ở dòng 66, đứng SAU tất cả các gate thoát sớm (kiểm file backup
+tồn tại - exit 2, kiểm sha256 - exit 4, kiểm tên DB tạm hợp lệ - exit 5) và TRƯỚC `createdb`. Đồng ý
+với debugger: không cần sửa gì ở file này.
+
+## 3. Ca biên bắt buộc theo yêu cầu vòng 2: dọn dẹp bình thường (không tranh chấp) có bị phá không
+
+Trước khi vá, `backup-scripts-lock.test.ts` (vòng 1) CHỈ có 1 ca kiểm tiến trình THUA khoá. Không có ca
+nào kiểm tiến trình THẬT SỰ GIỮ khoá (trường hợp bình thường, không tranh chấp) vẫn dọn sạch `.lock` +
+`.partial` đúng cách - đây chính là rủi ro "vá race condition có thể vô tình đổi hành vi dọn dẹp bình
+thường" mà nhiệm vụ vòng 2 yêu cầu soi. Tôi đã thêm 2 ca mới vào describe block mới trong cùng file
+(dùng binary `pg_dump`/`pg_restore` giả có thể cấu hình mã thoát qua biến môi trường
+`FAKE_PG_DUMP_EXIT`/`FAKE_PG_RESTORE_EXIT`, không cần Docker/Postgres thật):
+
+- **"thanh cong: khoa `.lock` va file `.partial` khong con, chi con lai `.dump` + `.sha256`"**: chạy
+  script với `pg_dump`/`pg_restore` giả đều thoát 0. Kiểm sau khi script thoát 0: `BACKUP_DIR/.lock`
+  không còn tồn tại, không còn file nào đuôi `.partial`, có đúng 1 file `demo_test_*.dump` và 1 file
+  `*.dump.sha256`.
+- **"loi giua chung (pg_restore --list that bai): van xoa .lock va .partial, KHONG tao ra file .dump
+  cuoi"**: mô phỏng nhánh `corrupt_dump` (`pg_restore` giả thoát 1) - script phải thoát mã 1, và sau
+  đó `.lock` không còn, không còn file `.partial`, và KHÔNG có file `.dump` cuối nào được tạo ra (vì
+  `mv` chưa từng chạy).
+
+Cả 2 ca đều **XANH** ngay lần chạy đầu (không cần sửa code sản phẩm) - xác nhận bản vá của debugger
+CHỈ ảnh hưởng đúng nhánh "tiến trình thua khoá" như mô tả, không đụng tới luồng dọn dẹp bình thường của
+tiến trình đang giữ khoá (thành công lẫn lỗi giữa chừng vẫn dọn đúng `.lock`/`.partial`).
+
+Ghi chú phương pháp: tôi không sửa tạm `scripts/backup/pg-backup.sh` để kiểm "đỏ trước khi vá" cho 2 ca
+mới này, vì đó là sửa file code sản phẩm (dù có revert sau) - ngoài phạm vi cho phép của tester. Việc
+đọc kỹ diff ở mục 2 cùng với suy luận: cả bản cũ (lỗi) và bản mới (đã vá) đều đăng ký `trap` cho tiến
+trình duy nhất/đang thắng theo cùng một cách (chỉ khác thời điểm đăng ký, không khác việc CÓ đăng ký
+hay không khi mkdir thành công) - nên về logic, 2 ca mới này đúng là bổ sung độ phủ cho luồng bình
+thường, độc lập với chính lỗi race condition đã sửa (lỗi đó chỉ lộ ra khi có tiến trình THUA khoá).
+
+## 4. Chạy lại 3 cổng kiểm tổng - khớp đúng mốc debugger báo
+
+| Cổng kiểm | Debugger báo | Tester vòng 2 tự chạy lại (độc lập) |
+|---|---|---|
+| `npx tsc --noEmit` | sạch | **sạch** (không có output lỗi) |
+| `npm test` (trước khi tester vòng 2 thêm 2 ca) | 255 file (1 skip)/2903 xanh + 15 skip | **khớp đúng 100%**: 255 file passed, 1 skipped (256) / 2903 tests passed, 15 skipped (2918) |
+| `npm test` (sau khi tester vòng 2 thêm 2 ca ở mục 3) | - | 255 file passed, 1 skipped (256) / **2905 tests passed**, 15 skipped (2920) - tăng đúng 2 test mới, không giảm/mất test nào |
+| `npm run build` (CA công ty `NODE_EXTRA_CA_CERTS`) | qua | **qua**, exit 0, danh sách route đầy đủ kể cả `/api/health/db`, không lỗi |
+
+## 5. Xác nhận phạm vi sửa đổi từ vòng 1 tới giờ
+
+`git diff --stat 1414d77 HEAD` (mốc ngay sau khi coder hoàn tất Task 0-7, trước khi tester vòng 1 chạy):
+
+```
+ scripts/backup/pg-backup.sh            |  4 +-
+ src/lib/logger-bien.test.ts            | 62 ++++++++++++++++++++++
+ src/server/backup-scripts-lock.test.ts | 95 ++++++++++++++++++++++++++++++++++
+ 3 files changed, 160 insertions(+), 1 deletion(-)
+```
+
+Đúng như mong đợi: chỉ có `scripts/backup/pg-backup.sh` (bản vá) + 2 file test do chính tester vòng 1
+viết (được debugger gộp vào cùng commit vá theo đúng lời dặn "giữ lại 2 file test"). Xác nhận thêm:
+`git diff --stat -- package.json package-lock.json` giữa 2 mốc này ra RỖNG - hai file này KHÔNG đổi.
+Các phần khác của vòng 1 (logger chống vòng tham chiếu, route health/db, create-admin đăng nhập thật,
+DEPLOY.md, docker-compose) không bị đụng lại, đúng như debugger chỉ sửa đúng phạm vi bug được giao -
+không cần lặp lại các phần đó.
+
+## 6. Kết luận vòng 2
+
+- Bug race condition khoá `pg-backup.sh` (rủi ro số 1 của vòng 1) **đã được vá đúng gốc rễ, đã kiểm
+  chứng độc lập là XANH**, không có tác dụng phụ lên luồng dọn dẹp bình thường (đã bổ sung test phủ
+  rõ ca này).
+- 3 cổng kiểm tổng (`tsc`, `npm test`, `npm run build`) đều sạch/xanh, khớp đúng số debugger báo cáo.
+- Phạm vi sửa đổi đúng như cam kết: chỉ 1 dòng code sản phẩm di chuyển trong `pg-backup.sh`, không đụng
+  gì khác ngoài phạm vi bug.
+- Các rủi ro CÒN TỒN ĐỌNG từ vòng 1 (chưa chạy Docker thật cho Task 4-5, câu lỗi thời ở
+  `docs/csp-header-bao-mat.md` mục 5, cần chạy lại Task 5 Bước 3-4 với `pg_dump` thật khi có máy có
+  Docker) **vẫn còn nguyên, KHÔNG thuộc phạm vi vòng vá này** - để điều phối viên/chủ dự án quyết định
+  có chặn merge vì lý do đó hay không; riêng lỗi race condition (lý do khiến vòng 1 ĐỎ) coi như ĐÃ
+  ĐÓNG.
+- File test mới thêm ở vòng 2 (2 ca trong `src/server/backup-scripts-lock.test.ts`) nên được giữ lại
+  cùng lý do như 2 file test vòng 1: không phụ thuộc Docker/Postgres thật, phủ đúng ca biên vòng 2 yêu
+  cầu.
