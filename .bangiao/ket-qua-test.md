@@ -35,3 +35,16 @@ Máy đang chạy nhiều dev server nên các bước đăng nhập và `goto` 
 - e2e 28 bước 11 (danh mục phòng ban trống) bị skip có chủ đích ở lần chạy cuối (DB lúc đó còn phòng ban khác); chạy 23/27/28/29 riêng thì bước này chạy và đạt.
 - Máy còn giữ dev server cũ trên cổng 3003 (PID 22492); `next build` chạy tại chỗ làm nó trả 500. Cần khởi động lại dev server trước khi chạy e2e tiếp (Playwright sẽ tự dựng nếu cổng trống).
 - `/dieu-khoan` còn `[LIÊN HỆ]` chờ chủ dự án điền.
+
+## Vòng sửa bảo mật và sau reviewer (C tự chạy, số liệu thật)
+
+Các commit: `592f136`, `431b1be` (S1-S3, I1), `9195b03` (T2, T3), `b6c6ecc` (mô tả token, comment), `d7ed919` (bỏ nút Google ở Đăng ký, chữ "Đặt mật khẩu" cho link lời mời, điều khoản en), commit cuối (điền liên hệ `/dieu-khoan`, sửa rớt chữ).
+
+- `npx tsc --noEmit`: sạch trên `d7ed919`.
+- `npm test` trên `9195b03`: 257 file đạt, 2 skip; 2988 test đạt, 27 skip. Coder báo trên `d7ed919`: 2993 đạt, 27 skip.
+- Test đỏ trước khi sửa: `signup-moi-dat-mat-khau.test.ts` 6/6 đỏ (S1); T2 và T3 11 ca đỏ. Riêng vòng `d7ed919` coder viết test cùng lượt với code, không có bước đỏ trước.
+- `npx playwright test` toàn bộ trên `d7ed919` (cổng 3003): 178 đạt, 0 rớt, 10,5 phút, chạy 1 lần là xanh.
+- Sau khi điền liên hệ và sửa rớt chữ: e2e 27 + 28 chạy lại 53/53 đạt.
+- Pixel (C soi ảnh `.bangiao/anh-p3f/`): trang Đăng ký 1440 sáng/tối và 390 tối sau khi bỏ nút Google không hở khoảng trống. Đã sửa 2 chỗ rớt 1 chữ xuống dòng riêng ("ty.", "phút.") bằng `text-wrap: balance` cho `.terms` và `text-wrap: pretty` cho `.intro`. `/dieu-khoan` 390 hiện đúng email liên hệ.
+- Không chạy lại `next build` sau vòng bảo mật (tránh làm hỏng dev server đang chạy); lần build gần nhất qua ở `37fd556`.
+- Còn theo dõi: e2e 07 từng rớt khi chạy toàn bộ, chưa rõ gốc (lần chạy toàn bộ cuối xanh).

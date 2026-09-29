@@ -253,7 +253,7 @@ test.describe('28 - dang ky cho admin bat', () => {
     for (const loc of ['vi', 'en'] as const) {
       await page.goto(`/${loc}/dieu-khoan`);
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(loc === 'vi' ? vi('terms.title') : en('terms.title'));
-      await expect(page.getByText(loc === 'vi' ? '[LIÊN HỆ]' : '[CONTACT]')).toBeVisible();
+      await expect(page.getByText('hieupt1@daidung.vn')).toBeVisible();
     }
     await page.goto('/vi/dang-ky');
     await page.waitForLoadState('networkidle'); // cho hydrate truoc khi dien/bam form

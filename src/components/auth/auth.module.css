@@ -363,7 +363,7 @@
 .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--a-accent-text); }
 .title { margin: 0; font-size: 34px; line-height: 1.12; font-weight: 800; letter-spacing: -.03em; color: var(--a-text); }
 .card480 .title { font-size: 32px; }
-.intro { margin: 0; font-size: 15px; line-height: 1.55; color: var(--a-text-2); }
+.intro { margin: 0; font-size: 15px; line-height: 1.55; color: var(--a-text-2); text-wrap: pretty; }
 
 .field { display: flex; flex-direction: column; gap: 7px; }
 .fieldHead { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
@@ -427,7 +427,7 @@
 .linkBack { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; color: var(--a-label); }
 .linkRow { margin: 0; font-size: 14px; color: var(--a-text-2); text-align: center; }
 .linkRow .link { font-size: 14px; line-height: 16px; }
-.terms { margin: 0; font-size: 13px; line-height: 1.5; color: var(--a-text-3); text-align: center; }
+.terms { margin: 0; font-size: 13px; line-height: 1.5; color: var(--a-text-3); text-align: center; text-wrap: balance; }
 .terms .link { font-size: 13px; }
 
 .strength { display: flex; align-items: center; gap: 10px; }
