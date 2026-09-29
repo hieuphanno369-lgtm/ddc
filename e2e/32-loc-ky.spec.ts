@@ -64,6 +64,17 @@ test.describe('32 - Bo loc ky Tong quan', () => {
     await expect(page).not.toHaveURL(/groupKey=/);
   });
 
+  test('chart chay theo ky: 3 thang, co dong Cach doc, ky 1 thang co ghi chu', async ({ page }) => {
+    await page.goto('/vi/overview?from=2026-06-01&to=2026-08-31');
+    const spi = page.locator('.card', { hasText: vi('overview.spiCpiTrend') }).first();
+    await expect(spi.locator('.recharts-xAxis .recharts-cartesian-axis-tick')).toHaveCount(3, { timeout: 30_000 });
+    await expect(spi.getByText(vi('chartHowTo.spiCpi'))).toBeVisible();
+    await expect(spi.getByText('06/2026 - 08/2026')).toBeVisible();
+    await page.goto('/vi/overview?from=2026-06-01&to=2026-06-30');
+    const one = page.locator('.card', { hasText: vi('overview.spiCpiTrend') }).first();
+    await expect(one.getByText(vi('period.oneMonth'))).toBeVisible({ timeout: 30_000 });
+  });
+
   for (const theme of ['light', 'dark'] as const) {
     for (const [w, h] of [[1440, 900], [390, 844]] as const) {
       test(`anh thanh loc ${w}px ${theme}`, async ({ page }) => {

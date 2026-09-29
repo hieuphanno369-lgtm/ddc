@@ -78,6 +78,7 @@ export function KpiCard({
   // vi --warn ban sang khong du doi tren nen navy (B-3, danh-gia.md VONG 2).
   const heroAlert = hero && (tone === 'warn' || tone === 'danger');
 
+  // Có delta + diễn giải dài ("so với kỳ trước cùng độ dài"): cho xuống dòng thay vì cắt "..." ở thẻ hẹp.
   const body = (
     <>
       {!hero && (
@@ -92,7 +93,7 @@ export function KpiCard({
       </div>
 
       {(hasDelta || sub || !scheduleGap) && (
-      <div className="sb">
+      <div className="sb" style={hasDelta && deltaSuffix ? { whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', flexWrap: 'wrap', lineHeight: 1.3 } : undefined}>
         {hasDelta ? (
           <>
             <span className={`delta ${good ? 'up' : 'down'}`}>

@@ -26,6 +26,7 @@ import { TopPriorityList } from './TopPriorityList';
 import { ProjectTable } from './ProjectTable';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Rise } from '@/components/ui/Rise';
+import { HelpTip } from '@/components/ui/HelpTip';
 import { IconAlert, IconFlag, IconMoney, IconProject, IconFactory, IconTrend } from '@/components/icons';
 import { CapacityBar, DrillDonut, GroupByCard, SCurve, SpiCpiLine } from './OverviewChartsLazy';
 
@@ -90,14 +91,33 @@ export async function KpiGrid({ period, filters, canViewFinance }: { period: Per
   );
 }
 
+/** Dòng "Cách đọc" nhỏ dưới chart (D-11). */
+const HowTo = ({ text }: { text: string }) => <p className="hintline mt-2">{text}</p>;
+
+type Translate = Awaited<ReturnType<typeof getTranslations>>;
+
+/** "Tháng 10/2025 - 09/2026": khoảng tháng ĐANG VẼ (R2: tới tháng mốc, không vẽ tháng chưa tới). */
+function chartRangeText(t: Translate, rows: { month: string }[]): string | undefined {
+  if (rows.length === 0) return undefined;
+  return t('period.chartRange', { m1: formatMonthShort(rows[0].month), m2: formatMonthShort(rows[rows.length - 1].month) });
+}
+const chartRangeSuffix = (t: Translate, rows: { month: string }[]) => {
+  const text = chartRangeText(t, rows);
+  return text ? ` · ${text}` : '';
+};
+
 export async function StatusDonutCard({ period, filters }: { period: Period; filters: DashboardFilters }) {
   const t = await getTranslations();
   const data = await loadStatusBreakdown(period, filters);
   return (
-    <Card>
-      <CardHeader title={t('overview.statusBreakdown')} />
+    <Card className="overflow-visible">
+      <CardHeader
+        title={t('overview.statusBreakdown')}
+        titleExtra={<HelpTip text={t('helpTip.ovStatus')} label={t('common.explain')} />}
+      />
       <CardBody>
         <DrillDonut data={data} />
+        <HowTo text={t('chartHowTo.statusDonut')} />
       </CardBody>
     </Card>
   );
@@ -114,11 +134,13 @@ export async function GroupBarCard({
   filters: DashboardFilters;
   canViewFinance: boolean;
 }) {
+  const t = await getTranslations();
   const data = await loadTonnageByGroup(period, groupBy, filters);
   return (
     <Card>
       <CardBody>
         <GroupByCard data={maskGroupRows(data, canViewFinance)} groupBy={groupBy} showValue={canViewFinance} />
+        <HowTo text={t('chartHowTo.groupBar')} />
       </CardBody>
     </Card>
   );
@@ -127,11 +149,16 @@ export async function GroupBarCard({
 export async function CapacityCard({ period, filters }: { period: Period; filters: DashboardFilters }) {
   const t = await getTranslations();
   const data = await loadCapacity(period, filters);
+  const months = periodMonths(period);
   return (
-    <Card>
-      <CardHeader title={t('overview.capacity')} />
+    <Card className="overflow-visible">
+      <CardHeader
+        title={t('overview.capacity')}
+        titleExtra={<HelpTip text={t('helpTip.ovCapacity')} label={t('common.explain')} />}
+      />
       <CardBody>
         <CapacityBar data={data} />
+        <HowTo text={`${t('period.chartRange', { m1: formatMonthShort(months[0]), m2: formatMonthShort(months[months.length - 1]) })}. ${t('chartHowTo.capacity')}`} />
       </CardBody>
     </Card>
   );
@@ -139,12 +166,18 @@ export async function CapacityCard({ period, filters }: { period: Period; filter
 
 export async function SpiCpiCard({ period, filters }: { period: Period; filters: DashboardFilters }) {
   const t = await getTranslations();
-  const trend = (await loadSpiCpiTrend(period, filters)).slice(-6);
+  const trend = await loadSpiCpiTrend(period, filters);
   return (
-    <Card>
-      <CardHeader title={t('overview.spiCpiTrend')} subtitle={`${t('overview.threshold')}: ${THRESHOLDS.spiWarn}`} />
+    <Card className="overflow-visible">
+      <CardHeader
+        title={t('overview.spiCpiTrend')}
+        subtitle={`${t('overview.threshold')}: ${THRESHOLDS.spiWarn}${chartRangeSuffix(t, trend)}`}
+        titleExtra={<HelpTip text={t('helpTip.ovSpiCpi')} label={t('common.explain')} />}
+      />
       <CardBody>
         <SpiCpiLine data={trend} />
+        {trend.length === 1 && <HowTo text={t('period.oneMonth')} />}
+        <HowTo text={t('chartHowTo.spiCpi')} />
       </CardBody>
     </Card>
   );
@@ -174,10 +207,16 @@ export async function SCurveCard({ period, filters }: { period: Period; filters:
   const t = await getTranslations();
   const data = await loadSCurve(period, filters);
   return (
-    <Card>
-      <CardHeader title={t('overview.sCurve')} />
+    <Card className="overflow-visible">
+      <CardHeader
+        title={t('overview.sCurve')}
+        subtitle={chartRangeText(t, data)}
+        titleExtra={<HelpTip text={t('helpTip.ovSCurve')} label={t('common.explain')} />}
+      />
       <CardBody>
         <SCurve data={data} />
+        {data.length === 1 && <HowTo text={t('period.oneMonth')} />}
+        <HowTo text={t('chartHowTo.sCurve')} />
       </CardBody>
     </Card>
   );
