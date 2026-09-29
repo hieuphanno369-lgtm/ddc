@@ -134,3 +134,31 @@ describe('scripts/backup/*.sh', () => {
     expect(src).toContain('dropdb --if-exists --force');
   });
 });
+
+describe('docs/DEPLOY.md (B-4)', () => {
+  const deploy = read('docs/DEPLOY.md');
+
+  it('khong con hard-code "127.0.0.1:3000" cho cac lenh chay tren host - dung nhat quan placeholder <APP_PORT>', () => {
+    // Chi con dung 1 cho nhac "127.0.0.1:3000" hop le: cong noi bo CO DINH ben TRONG container (healthcheck),
+    // khong phai cong host - moi lenh Nginx/curl chay tren host phai dung placeholder <APP_PORT>.
+    const literalPort = deploy.match(/127\.0\.0\.1:3000/g) ?? [];
+    expect(literalPort.length).toBe(1);
+    const matches = deploy.match(/127\.0\.0\.1:<APP_PORT>/g) ?? [];
+    expect(matches.length).toBeGreaterThanOrEqual(7);
+  });
+
+  it('quy trinh khoi phuc kiem sha256 TRUOC dropdb --force (khong xoa DB that truoc khi biet ban dump co hong)', () => {
+    const idxSha = deploy.indexOf('sha256sum -c');
+    const idxDrop = deploy.indexOf('dropdb --force -U ddc ddc_control_tower');
+    expect(idxSha).toBeGreaterThan(0);
+    expect(idxDrop).toBeGreaterThan(0);
+    expect(idxSha).toBeLessThan(idxDrop);
+  });
+
+  it('quy trinh khoi phuc pg_restore dung dung BACKUP_DIR qua service backup, khong mount cung "$(pwd)/.backups"', () => {
+    // Chi cam lenh THAT su mount cung (-v "$(pwd)/.backups...") - cau van giai thich ly do sua
+    // (nhac lai cach lam SAI truoc day) van duoc phep chua chuoi nay o dang mo ta.
+    expect(deploy).not.toContain('-v "$(pwd)/.backups');
+    expect(deploy).toContain('--entrypoint pg_restore backup');
+  });
+});

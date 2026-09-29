@@ -179,3 +179,150 @@ này.
 
 **File sửa:** `scripts/backup/pg-backup.sh` (chỉ di chuyển 1 dòng `trap cleanup EXIT` + thêm 1 dòng
 comment giải thích, không sửa gì khác).
+
+---
+
+## Vá 4 mục BẮT BUỘC theo `.bangiao/danh-gia.md` (PHÁN QUYẾT: CẦN SỬA, B-1..B-4)
+
+Làm TDD từng mục: viết ca test đỏ trước, chạy xác nhận đỏ đúng mô tả lỗi, rồi mới sửa code, chạy lại
+xác nhận xanh. Chỉ sửa đúng phạm vi B-1..B-4, không đụng N-1..N-10.
+
+### B-1: Đảo thứ tự rate limit ở `/api/health/db`
+
+- **Lỗi:** `app/api/health/db/route.ts` kiểm bộ đếm TOÀN CỤC (`health-db:global`, 300/phút) TRƯỚC
+  bộ đếm theo IP (`health-db:${ip}`, 60/phút) - một IP gửi nhiều request vẫn tăng bộ đếm toàn cục dù
+  bị chặn ở mức IP, nên có thể tự làm tràn bộ đếm chung và khoá luôn healthcheck của giám sát IT.
+- **Sửa:** đảo thứ tự - kiểm per-IP TRƯỚC, chỉ request qua được per-IP mới tính vào bộ đếm toàn cục.
+- **Test đỏ trước:** thêm ca "IP A gửi 400 lần (bị 429 từ lần 61) khong duoc tinh vao bo dem toan
+  cuc, IP B van nhan 200" vào `src/server/health-db-route.test.ts`. Đã chạy xác nhận ĐỎ trên code cũ
+  (IP B nhận 429 vì IP A làm tràn bộ đếm chung), rồi XANH sau khi đảo thứ tự.
+- **Tài liệu:** `docs/DEPLOY.md` mục 6 thêm khối `location = /api/health/db { allow <IP giám sát
+  IT>; allow 127.0.0.1; deny all; proxy_pass ...; }` để endpoint không công khai ra Internet; ghi
+  chú rõ healthcheck bên trong container gọi thẳng `127.0.0.1:3000` (nội bộ container) nên không bị
+  chặn bởi khối này. Mục 15 (Theo dõi sau deploy) cập nhật câu "IT giám sát ... từ đúng IP đã khai
+  `allow`" + ý nghĩa mã 403.
+
+### B-2: `pg-restore-test.sh` ghép tên bảng thô vào SQL (SQL injection qua nội dung file dump)
+
+- **Lỗi:** tên bảng đọc từ DB tạm (`TABLE_NAMES`, nội dung do file dump quyết định) được ghép thẳng
+  vào chuỗi SQL (`select count(*) from "$t"`) không kiểm định dạng, có thể chạy lệnh SQL tuỳ ý bằng
+  quyền superuser `ddc`. Dòng cũ còn có truy vấn thứ hai chạy trên chính `PGDATABASE` (DB thật) để in
+  cột "so_dong_nguon" (chỉ để xem), tăng thêm bề mặt tấn công và còn nuốt lỗi im lặng (`|| echo "?"`).
+- **Quyết định đã chọn (giữa 2 phương án đề bài đưa ra):** chọn phương án MẠNH hơn - **bỏ hẳn** cột
+  "so_dong_nguon" và toàn bộ truy vấn nhắm vào `$PGDATABASE`, thay vì chỉ thêm `PGOPTIONS=-c
+  default_transaction_read_only=on`. Lý do: đơn giản hơn, và loại bỏ HẲN khả năng script kết nối tới
+  DB thật trong mọi trường hợp (thay vì chỉ giảm nhẹ rủi ro bằng cờ chỉ-đọc) - khớp đúng cam kết ở
+  dòng 2 của script "khong bao gio dung/xoa DB nguon PGDATABASE", giờ đúng theo nghĩa đen kể cả đọc.
+  Vì đã bỏ truy vấn nguồn, yêu cầu (3) "không nuốt lỗi im lặng" cũng tự động không còn áp dụng.
+- **Sửa (3 ý):**
+  1. Trước khi dùng `$t` trong SQL (áp dụng cho cả truy vấn DB tạm còn lại), kiểm khớp
+     `^[A-Za-z_][A-Za-z0-9_]*$` bằng `case "$t" in *[!A-Za-z0-9_]*|[0-9]*) fail "bad_table_name";; esac`.
+  2. Bỏ hẳn truy vấn `PGDATABASE` + cột "so_dong_nguon" (xem quyết định ở trên).
+  3. Không áp dụng (đã bỏ truy vấn nguồn).
+- **Gộp T-1 (rẻ, cùng file):** thêm `[ ${#RESTORE_DB} -le 63 ] || exit 5` (giới hạn 63 ký tự của
+  Postgres); thêm `_$$` (PID) vào tên DB tạm để 2 lần chạy cùng giây không trùng tên; dời
+  `trap cleanup EXIT` xuống SAU `createdb` thành công (trước đó là ngay sau khai `cleanup()`), để lỗi
+  "already exists" không dẫn tới `dropdb --force` nhầm DB của lần chạy khác.
+- **Test đỏ trước:** file mới `src/server/backup-restore-test-script.test.ts` (cùng khuôn
+  `backup-scripts-lock.test.ts`), dùng `createdb`/`dropdb`/`pg_restore`/`psql` giả; `psql` giả đọc
+  biến `FAKE_TABLE_NAMES` để trả tên bảng tuỳ chỉnh và ghi mọi lệnh nhận được ra `PSQL_LOG`.
+  - Ca 1 (đỏ trước khi sửa): tên bảng `x"; DROP TABLE "user_roles"; --` -> script PHẢI thoát 1 với
+    `reason:"bad_table_name"`, và `PSQL_LOG` không được chứa chuỗi độc hại. Đã chạy xác nhận ĐỎ trên
+    script cũ (thoát 0, chạy trót lọt), XANH sau khi thêm kiểm `case`.
+  - Ca 2 (đường thành công): tên bảng hợp lệ (`orders`) -> script chạy hết, in đúng dòng tổng kết
+    `restore_test.ok`. Ca này đã xanh ngay từ đầu (không phá luồng bình thường).
+
+### B-3: Khoá `.lock` của `pg-backup.sh` có thể kẹt vĩnh viễn (không bắt tín hiệu, không tự dọn khoá cũ)
+
+- **Lỗi:** script chỉ `trap cleanup EXIT`; khi bị SIGTERM/SIGINT/SIGHUP (`docker stop`, `docker
+  compose down`, Ctrl+C) trap EXIT của `sh` không chạy, khoá `.lock` (nằm trên bind-mount host) tồn
+  tại mãi sau khi container `--rm` biến mất, làm mọi lần backup 02:00 sau đó đều thoát 3 `lock_busy`.
+- **Sửa:**
+  1. Thêm `trap 'exit 130' INT TERM HUP` (đăng ký cùng lúc với `trap cleanup EXIT`, SAU khi giành
+     được khoá) - gọi `exit` bên trong handler tín hiệu kích hoạt lại trap EXIT để chạy `cleanup()`.
+  2. Thêm dọn khoá cũ (stale lock): trước khi `mkdir`, nếu `.lock` đã tồn tại và cũ hơn ngưỡng
+     `STALE_LOCK_MIN=360` (6 giờ - lớn hơn nhiều so với thời gian `pg_dump` tối đa hợp lý của DB này,
+     nhưng vẫn đủ nhỏ để phát hiện trước khi tới giờ backup kế tiếp 24h sau), log JSON
+     `backup.stale_lock_removed` rồi `rmdir`, sau đó tiếp tục giành khoá lại bình thường (không
+     `exit 3` trong nhánh này).
+- **Test đỏ trước (3 ca) vào `src/server/backup-scripts-lock.test.ts`:**
+  1. `.lock` cũ hơn ngưỡng (mtime chỉnh về 7 giờ trước) -> script chạy thành công, log có
+     `backup.stale_lock_removed`. Đã chạy xác nhận ĐỎ trên code cũ (thoát 3 `lock_busy` vì không tự
+     dọn), XANH sau khi thêm cơ chế stale lock.
+  2. `.lock` mới (mtime = bây giờ) -> vẫn thoát 3 như cũ (không phá hành vi hiện có - xanh ngay từ đầu).
+  3. Gửi SIGTERM giữa lúc `pg_dump` giả "ngủ" -> `.lock`/`.partial` phải được dọn sau khi tiến trình
+     chết. **Ghi chú môi trường (đọc kỹ):** đã tự thăm dò (`probeSignalDelivery()`, tự viết, chạy 1
+     lần lúc nạp file test) xem môi trường hiện tại có thật sự chuyển được tín hiệu SIGTERM tới tiến
+     trình `sh` hay không - kể cả tự kiểm tay bằng `kill -TERM` ngay trong Git Bash trên máy Windows
+     này, tiến trình `sh` con vẫn KHÔNG nhận được tín hiệu (đặc thù giả lập POSIX của MSYS trên
+     Windows, không phải lỗi của bản vá). Vì vậy ca này tự `it.skipIf` khi thăm dò thất bại, GIỐNG hệt
+     cách `describe.skipIf(!shAvailable)` đã làm ở vòng trước cho việc thiếu `sh`. Trên Linux thật
+     (container `postgres:16-alpine`, CI) ca này sẽ chạy đầy đủ. Đây là 1 trong 16 ca skip của
+     `npm test` (tăng 1 so với mốc 15 skip cũ) - không phải giảm/bỏ ca đã có sẵn, mà là ca MỚI tự
+     phát hiện giới hạn hệ điều hành và skip có chủ đích, cần được ghi nhận rõ khi merge/chạy CI.
+- **Tài liệu:** `docs/DEPLOY.md` mục 11 thêm đoạn giải thích cơ chế stale lock, cách nhận biết
+  `lock_busy` lặp lại bất thường và lệnh gỡ khoá tay (`--entrypoint sh backup -c 'rmdir
+  /backups/.lock'`); mục 15 thêm mục giám sát thường trực "file `.dump` mới nhất trong `BACKUP_DIR`
+  không được cũ hơn 26 giờ" (không chỉ trong checklist 1-2 tuần đầu).
+
+### B-4: `docs/DEPLOY.md` sai cổng và sai thư mục khôi phục
+
+- **(a) Mâu thuẫn cổng:** nhiều chỗ hard-code `127.0.0.1:3000` (mục 1, 5, Nginx, `curl` kiểm) trong
+  khi `docker-compose.yml` publish `127.0.0.1:${APP_PORT:-3005}` và `.env.docker.example` đặt
+  `APP_PORT=3005` - lệch chỗ này đã tự phát hiện thêm 1 chỗ nữa ngoài danh sách đánh giá liệt kê
+  (dòng 105, bảng biến mục 4, cũng viết `$APP_PORT` không nhất quán với chỗ khác).
+  **Cách trình bày đã chọn:** dùng placeholder `<APP_PORT>` xuyên suốt (khớp phong cách `<ten-mien>`
+  sẵn có của tài liệu) cho MỌI lệnh Nginx/`curl` chạy trên host, thay vì hard-code 1 con số cố định -
+  vì `APP_PORT` vốn có thể đổi theo `.env.docker`. Thêm đoạn quy ước ngay đầu mục 1 giải thích rõ
+  `<APP_PORT>` là cổng HOST (mặc định 3005), còn `3000` bên trong container là cổng nội bộ CỐ ĐỊNH
+  không đổi - chỉ còn đúng 1 chỗ hợp lệ nhắc `127.0.0.1:3000` (healthcheck nội bộ container ở mục 6,
+  có chú thích rõ), đã rà TOÀN VĂN xác nhận không còn chỗ nào khác. Thêm câu cảnh báo "không bao giờ
+  bỏ tiền tố `127.0.0.1:` trong `ports` của `docker-compose.yml`". Phụ lục A (dev Windows) giữ
+  nguyên số `3005` vì đúng là default không đổi trong ngữ cảnh đó, không gây mâu thuẫn.
+  Thêm 3 ca test vào `src/server/deploy-files.test.ts` (describe `docs/DEPLOY.md (B-4)`): đếm đúng 1
+  chỗ còn `127.0.0.1:3000` (case nội bộ hợp lệ) và >=7 chỗ dùng `127.0.0.1:<APP_PORT>`; kiểm sha256
+  đứng trước `dropdb --force`; kiểm không còn cú pháp mount cứng `-v "$(pwd)/.backups`. Đã xác nhận
+  ĐỎ trên bản `docs/DEPLOY.md` cũ (qua `git show HEAD:docs/DEPLOY.md`, không sửa file thật để test đỏ)
+  trước khi sửa tài liệu, rồi XANH sau khi sửa.
+- **(b) Sai thư mục khôi phục:** quy trình cũ mount cứng `"$(pwd)/.backups:/backups:ro"` trong khi
+  `BACKUP_DIR` thật trỏ ổ dữ liệu bền (không phải `./.backups`), và chạy trên service `db` (không có
+  sẵn `PGPASSWORD` nên sẽ hỏi mật khẩu). Đã đổi sang dùng đúng service `backup` (đã mount đúng
+  `${BACKUP_DIR}` + có sẵn `PGHOST`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`):
+  `docker compose --env-file .env.docker run --rm --entrypoint pg_restore backup --no-owner
+  --no-privileges --exit-on-error -d ddc_control_tower /backups/<ten-file>.dump`.
+  **Lưu ý kỹ thuật đã tự tra `mcp__context7` (docs PostgreSQL 16) trước khi viết:** `pg_restore`
+  KHÔNG tự đọc biến môi trường `PGDATABASE` khi không truyền `-d` (khác `psql`) - nên vẫn phải giữ
+  `-d ddc_control_tower` tường minh dù các biến kết nối khác (`PGHOST`/`PGUSER`/`PGPASSWORD`) đã có
+  sẵn trong service `backup`; ban đầu suýt bỏ sót điểm này.
+  Thêm bước bắt buộc `(cd "<BACKUP_DIR>" && sha256sum -c <ten-file>.dump.sha256)` TRƯỚC
+  `dropdb --force`, vì quy trình cũ xoá DB thật trước khi biết bản dump có hỏng hay không.
+
+### Cổng kiểm sau khi vá cả 4 mục
+
+- `npx tsc --noEmit`: sạch.
+- `npm test`: **257 file (1 skip)/2929 - 2913 test xanh + 16 skip** (tăng đúng 8 test xanh so với
+  mốc 255 file/2905 xanh + 15 skip yêu cầu tối thiểu: B-1 +1, B-2 +2 (file mới), B-3 +2 xanh + 1 skip
+  có chủ đích (xem giải thích ở B-3), B-4 +3; không giảm/skip thêm bất kỳ test nào có sẵn trước đó).
+- `npm run build`: qua (dùng `NEXT_FONT_GOOGLE_MOCKED_RESPONSES` trỏ
+  `D:\_project\DDC_dieu-phoi\tools\font-mock.js` theo đúng hướng dẫn máy này bị chặn SSL khi tải
+  Google Font).
+- Không chạy được "chạy thật" bằng Docker/client PostgreSQL cho B-2/B-3 (máy này vẫn không có Docker
+  Desktop và không có `pg_dump`/`pg_restore`/`psql`/`createdb`/`dropdb`) - giữ nguyên hạn chế đã ghi
+  nhận từ các vòng trước; toàn bộ 2 test mới (B-2) và 3 ca mới (B-3, trừ SIGTERM) đều đã CHẠY THẬT
+  qua `sh` + binary giả, không phải mock JS thuần.
+
+### Danh sách file đã sửa ở vòng vá B-1..B-4
+
+- `app/api/health/db/route.ts` (đảo thứ tự rate limit)
+- `src/server/health-db-route.test.ts` (+1 ca)
+- `scripts/backup/pg-restore-test.sh` (kiểm tên bảng, bỏ truy vấn PGDATABASE/cột so_dong_nguon, giới
+  hạn độ dài RESTORE_DB, thêm `_$$`, dời `trap cleanup EXIT`)
+- `src/server/backup-restore-test-script.test.ts` (file mới, 2 ca)
+- `scripts/backup/pg-backup.sh` (thêm trap tín hiệu INT/TERM/HUP, thêm dọn khoá cũ stale lock)
+- `src/server/backup-scripts-lock.test.ts` (+3 ca, 1 tự skip có điều kiện theo môi trường)
+- `docs/DEPLOY.md` (quy ước cổng `<APP_PORT>` xuyên suốt, khối Nginx chặn IP cho `/api/health/db`,
+  hướng dẫn stale lock/gỡ khoá tay, giám sát tuổi file `.dump`, sửa quy trình khôi phục dùng đúng
+  `BACKUP_DIR`/service `backup` + kiểm sha256 trước `dropdb --force`)
+- `src/server/deploy-files.test.ts` (+3 ca kiểm nhất quán cổng và quy trình khôi phục trong DEPLOY.md)
+
+Không đụng bất kỳ mục N-1..N-10 nào (để lại sổ nợ hardening như đánh giá yêu cầu).

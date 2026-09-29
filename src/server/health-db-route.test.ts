@@ -61,4 +61,17 @@ describe('GET /api/health/db', () => {
     expect(res.status).toBe(429);
     expect(Number(res.headers.get('retry-after'))).toBeGreaterThan(0);
   });
+
+  it('IP A gui 400 lan (bi 429 tu lan 61) khong duoc tinh vao bo dem toan cuc, IP B van nhan 200 (B-1)', async () => {
+    queryRaw.mockResolvedValue([{ '?column?': 1 }]);
+    const { GET } = await import('../../app/api/health/db/route');
+    const ipA = nextIp();
+    for (let i = 0; i < 400; i++) {
+      const res = await GET(req(ipA));
+      expect(res.status).toBe(i < 60 ? 200 : 429);
+    }
+    const ipB = nextIp();
+    const resB = await GET(req(ipB));
+    expect(resB.status).toBe(200);
+  });
 });

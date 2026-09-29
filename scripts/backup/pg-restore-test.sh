@@ -45,7 +45,7 @@ if [ -f "$SHA_FILE" ]; then
   fi
 fi
 
-RESTORE_DB="${PGDATABASE}_restore_test_$(date -u +%Y%m%d%H%M%S)"
+RESTORE_DB="${PGDATABASE}_restore_test_$(date -u +%Y%m%d%H%M%S)_$$"
 case "$RESTORE_DB" in
   *_restore_test_*) : ;;
   *)
@@ -57,15 +57,19 @@ if [ "$RESTORE_DB" = "$PGDATABASE" ]; then
   echo "ten DB tam trung DB nguon - dung lai" >&2
   exit 5
 fi
+[ ${#RESTORE_DB} -le 63 ] || { echo "ten DB tam qua dai (vuot gioi han 63 ky tu cua Postgres)" >&2; exit 5; }
 
 cleanup() {
   if [ "$KEEP_RESTORE_DB" != "1" ]; then
     dropdb --if-exists --force "$RESTORE_DB" > /dev/null 2>&1 || true
   fi
 }
-trap cleanup EXIT
 
 createdb "$RESTORE_DB"
+# Chi dang ky trap SAU KHI createdb thanh cong: neu createdb loi (vd "already exists" do trung ten
+# voi 1 lan chay khac), khong duoc tu dong dropdb --force nham DB cua lan chay do.
+trap cleanup EXIT
+
 pg_restore --no-owner --no-privileges --exit-on-error --single-transaction -d "$RESTORE_DB" "$FILE"
 
 MIGRATIONS_DONE=$(psql -v ON_ERROR_STOP=1 -tAc \
@@ -87,17 +91,23 @@ TABLE_NAMES=$(psql -v ON_ERROR_STOP=1 -tAc \
   "select table_name from information_schema.tables where table_schema='public' and table_type='BASE TABLE' order by table_name" \
   -d "$RESTORE_DB") || fail "table_names_query"
 
-echo "bang  so_dong_tam  so_dong_nguon"
+echo "bang  so_dong_tam"
 TOTAL_ROWS=0
 OLD_IFS=$IFS
 IFS='
 '
 for t in $TABLE_NAMES; do
   [ -z "$t" ] && continue
+  # Ten bang do noi dung file dump quyet dinh (Task 5 danh-gia.md B-2/TB-2): bat buoc kiem khop
+  # dinh dang ten dinh danh Postgres truoc khi ghep vao chuoi SQL, tranh SQL injection chay bang
+  # quyen superuser. Khong con truy van DB nguon (PGDATABASE) o day nua: script gio khong bao gio
+  # ket noi toi PGDATABASE, chi doc DB tam vua khoi phuc.
+  case "$t" in
+    *[!A-Za-z0-9_]*|[0-9]*) fail "bad_table_name" ;;
+  esac
   cnt_tam=$(psql -v ON_ERROR_STOP=1 -tAc "select count(*) from \"$t\"" -d "$RESTORE_DB") || fail "row_count_tam"
-  cnt_nguon=$(psql -tAc "select count(*) from \"$t\"" -d "$PGDATABASE" 2>/dev/null || echo "?")
   TOTAL_ROWS=$((TOTAL_ROWS + cnt_tam))
-  printf '%s  %s  %s\n' "$t" "$cnt_tam" "$cnt_nguon"
+  printf '%s  %s\n' "$t" "$cnt_tam"
 done
 IFS=$OLD_IFS
 

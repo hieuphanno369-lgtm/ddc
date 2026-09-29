@@ -43,11 +43,19 @@ NAME="${PGDATABASE}_${STAMP}.dump"
 PARTIAL="$BACKUP_DIR/${NAME}.partial"
 FINAL="$BACKUP_DIR/${NAME}"
 LOCK_DIR="$BACKUP_DIR/.lock"
+# Nguong khoa cu (stale lock): lon hon nhieu so voi thoi gian pg_dump toi da hop ly cho DB nay,
+# de khong bao gio coi mot ban dump dang chay that la "ket". 6 gio du du cho DB lon nhat du kien.
+STALE_LOCK_MIN=360
 
 cleanup() {
   rm -f "$PARTIAL"
   rmdir "$LOCK_DIR" 2>/dev/null || true
 }
+
+if [ -d "$LOCK_DIR" ] && [ -n "$(find "$LOCK_DIR" -maxdepth 0 -mmin "+$STALE_LOCK_MIN" 2>/dev/null)" ]; then
+  log backup.stale_lock_removed ",\"lock_dir\":\"$LOCK_DIR\",\"threshold_min\":$STALE_LOCK_MIN"
+  rmdir "$LOCK_DIR" 2>/dev/null || true
+fi
 
 if ! mkdir "$LOCK_DIR" 2>/dev/null; then
   log_err backup.failed ',"reason":"lock_busy"'
@@ -56,6 +64,9 @@ fi
 # Chi dang ky trap SAU KHI da gianh duoc khoa: tien trinh thua khoa (exit 3 o tren)
 # khong duoc dang ky trap nay, nen khong bao gio tu xoa khoa cua tien trinh dang giu.
 trap cleanup EXIT
+# Tin hieu ket thuc binh thuong (docker stop/compose down/Ctrl+C) phai di qua "exit" de trap EXIT
+# o tren chay va don khoa/.partial. Khong don duoc voi SIGKILL (OOM) vi khong trap nao bat duoc no.
+trap 'exit 130' INT TERM HUP
 
 log backup.start ",\"file\":\"$NAME\""
 

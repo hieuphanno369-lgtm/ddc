@@ -11,7 +11,7 @@ Nguồn thông tin: `D:\_project\DDC_dieu-phoi\deploy-chuan-bi-lam-viec-voi-IT.m
 Sơ đồ luồng request:
 
 ```
-Người dùng --HTTPS (443)--> Nginx --http://127.0.0.1:3000--> container "app" (Next.js)
+Người dùng --HTTPS (443)--> Nginx --http://127.0.0.1:<APP_PORT>--> container "app" (Next.js)
                                                                     |
                                                                     v
                                                             container "db" (PostgreSQL 16)
@@ -20,6 +20,11 @@ Người dùng --HTTPS (443)--> Nginx --http://127.0.0.1:3000--> container "app"
 
 Thư mục backup (pg_dump hằng ngày) nằm trên ổ dữ liệu của server, ngoài các container.
 ```
+
+Quy ước cổng dùng xuyên suốt tài liệu này: `<APP_PORT>` là cổng TRÊN HOST mà Docker publish ra `127.0.0.1` cho service `app` (biến `APP_PORT` trong `.env.docker`, mặc định `3005` theo `.env.docker.example`).
+Mọi lệnh Nginx/`curl` chạy trên host ở tài liệu này đều nhắm vào `127.0.0.1:<APP_PORT>` - thay bằng đúng con số bạn đặt (giữ mặc định thì gõ `3005`).
+Bên trong container, Next.js luôn tự nghe cổng nội bộ cố định `3000` (không đổi, không liên quan `APP_PORT`) - đây là con số duy nhất còn xuất hiện trong `docker-compose.yml`.
+**Không bao giờ bỏ tiền tố `127.0.0.1:` trong mục `ports` của `docker-compose.yml`**: bỏ đi nghĩa là bind ra `0.0.0.0`, lộ cổng app ra ngoài mạng, vượt qua cả `ufw`.
 
 R1 (`deploy-chuan-bi-lam-viec-voi-IT.md` mục 4): chỉ chạy **1 bản app duy nhất** trên 1 máy.
 Không đặt sau load balancer, không chạy nhiều container `app` cùng lúc.
@@ -47,7 +52,7 @@ Vì vậy server không cần mở đường ra `vietcombank.com.vn` (khác vớ
    sudo swapon /swapfile
    echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
    ```
-4. Tường lửa theo R9 (`deploy-chuan-bi-lam-viec-voi-IT.md` mục 4): chỉ mở cổng 443 và 80 (chuyển hướng sang 443); cổng 22 chỉ cho phép từ IP/VPN của IT; **không mở cổng 5432 (database) và 3000 (app)** ra ngoài.
+4. Tường lửa theo R9 (`deploy-chuan-bi-lam-viec-voi-IT.md` mục 4): chỉ mở cổng 443 và 80 (chuyển hướng sang 443); cổng 22 chỉ cho phép từ IP/VPN của IT; **không mở cổng 5432 (database) và `<APP_PORT>` (app)** ra ngoài.
    ```bash
    sudo ufw default deny incoming
    sudo ufw allow OpenSSH        # hoặc giới hạn theo IP của IT
@@ -97,7 +102,7 @@ Bảng đầy đủ mọi biến của `.env.docker.example`:
 |---|---|---|
 | `POSTGRES_PASSWORD` | Bắt buộc | `openssl rand -hex 24` (chỉ chữ và số, mật khẩu nằm trong URL kết nối) |
 | `PG_MAJOR` | Tuỳ chọn (mặc định `16`) | Giữ `16` trừ khi đã kiểm bản khác |
-| `APP_PORT` | Tuỳ chọn (mặc định `3005`) | Server chỉ dùng nội bộ (Nginx gọi `127.0.0.1:$APP_PORT`), đổi nếu cổng đó đã có người dùng |
+| `APP_PORT` | Tuỳ chọn (mặc định `3005`) | Server chỉ dùng nội bộ (Nginx gọi `127.0.0.1:<APP_PORT>`, xem quy ước ở mục 1), đổi nếu cổng đó đã có người dùng |
 | `APP_IMAGE_TAG` | Tuỳ chọn (mặc định `local`) | Đặt bằng `git rev-parse --short HEAD` khi build cho production (mục 5, 12) |
 | `NEXTAUTH_URL` | Bắt buộc | Production: `https://<ten-mien>`, không có đường dẫn phía sau |
 | `NEXTAUTH_SECRET` | Bắt buộc | `openssl rand -base64 32` (tối thiểu 32 ký tự) |
@@ -129,14 +134,14 @@ Kiểm trạng thái:
 
 ```bash
 docker compose ps                     # "migrate" Exited (0), "app" phải chuyển sang "healthy" trong khoảng 2 phút
-curl http://127.0.0.1:3000/api/health/db   # {"status":"ok","db":"ok"}
+curl http://127.0.0.1:<APP_PORT>/api/health/db   # {"status":"ok","db":"ok"}
 ```
 
 ---
 
 ## 6. Nginx + HTTPS
 
-Ví dụ server block đầy đủ (thay `<ten-mien>` bằng tên miền thật, ví dụ `controltower.daidung.vn`; thay đường dẫn chứng chỉ theo IT cấp hoặc certbot):
+Ví dụ server block đầy đủ (thay `<ten-mien>` bằng tên miền thật, ví dụ `controltower.daidung.vn`; thay `<APP_PORT>` bằng giá trị `APP_PORT` thật trong `.env.docker`, mặc định `3005`, xem quy ước cổng ở mục 1; thay đường dẫn chứng chỉ theo IT cấp hoặc certbot):
 
 ```nginx
 limit_req_zone $binary_remote_addr zone=csp_report:10m rate=5r/s;
@@ -161,7 +166,7 @@ server {
     # Không thêm hay ghi đè header CSP ở đây - app tự gắn CSP Report-Only (docs/csp-header-bao-mat.md).
 
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:<APP_PORT>;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
         # TRUSTED_PROXY_HOPS=1: proxy PHẢI nối thêm IP khách vào CUỐI X-Forwarded-For.
@@ -173,7 +178,7 @@ server {
 
     # HTML và RSC render động theo phiên + nonce CSP - KHÔNG cache, chỉ cache file tĩnh.
     location /_next/static/ {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:<APP_PORT>;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -183,7 +188,7 @@ server {
     }
 
     location /api/csp-report {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:<APP_PORT>;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         client_max_body_size 32k;
@@ -194,12 +199,26 @@ server {
 
     # Gioi han tan suat form "quen mat khau" (Server Action POST vao chinh URL trang, ca 2 ngon ngu).
     location ~ ^/(vi|en)/quen-mat-khau$ {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:<APP_PORT>;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header x-middleware-subrequest "";
         limit_req zone=quen_mat_khau burst=5 nodelay;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Strict-Transport-Security "max-age=31536000" always;
+    }
+
+    # /api/health/db khong duoc cong khai ra Internet (chi IT giam sat + localhost) - rate limit
+    # rieng cua app (per-IP truoc, toan cuc sau) chi chan lam dung, khong thay cho gioi han o day.
+    location = /api/health/db {
+        allow <IP giam sat IT>;
+        allow 127.0.0.1;
+        deny all;
+        proxy_pass http://127.0.0.1:<APP_PORT>;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         add_header X-Content-Type-Options nosniff always;
         add_header Strict-Transport-Security "max-age=31536000" always;
     }
@@ -212,6 +231,8 @@ Ghi chú bắt buộc đọc (`docs/csp-header-bao-mat.md` mục 3-4):
   Vì vậy phải lặp lại `nosniff` và HSTS trong TỪNG `location` có `add_header`, như ví dụ trên.
 - Không thêm hay ghi đè header CSP ở Nginx, app đã tự gắn CSP Report-Only kèm nonce theo từng request.
 - Không cache HTML/RSC ở proxy, chỉ cache `/_next/static/`.
+- Thay `<IP giam sat IT>` bằng IP/CIDR thật của máy IT dùng để giám sát `/api/health/db` (mục 15).
+  Healthcheck bên trong `docker-compose.yml` gọi thẳng `http://127.0.0.1:3000` từ TRONG container `app`, không đi qua Nginx, nên không bị chặn bởi `allow`/`deny` ở đây.
 
 Kiểm sau cùng:
 
@@ -297,6 +318,11 @@ Mỗi lần chạy tạo 1 file `.dump` (định dạng `pg_dump --format=custom
 ```
 
 `BACKUP_DIR` (trong `.env.docker`) phải trỏ sang ổ dữ liệu bền, không phải ổ hệ điều hành.
+
+Khoá chống chạy trùng (`$BACKUP_DIR/.lock`) tự dọn khi script kết thúc bình thường (kể cả bị `docker stop`/Ctrl+C) và tự coi là "khoá cũ" (stale) nếu tồn tại quá 6 giờ liên tục - lúc đó script tự xoá khoá cũ và chạy tiếp, ghi log `backup.stale_lock_removed`.
+Nếu thấy `lock_busy` LẶP LẠI nhiều ngày liên tiếp trong `/var/log/ddc-backup.log` (khác với 1 lần đơn lẻ do trùng giờ chạy tay), nghĩa là có bất thường (ví dụ tiến trình bị SIGKILL do hết RAM/OOM, khoá không đi qua được đường dọn tự động).
+Gỡ khoá tay khi cần: `docker compose --env-file .env.docker run --rm --entrypoint sh backup -c 'rmdir /backups/.lock'` (chỉ làm khi chắc chắn không có tiến trình backup nào khác đang thật sự chạy).
+
 Chép bản backup sang NAS mỗi ngày, ví dụ thêm dòng cron sau dòng backup:
 
 ```bash
@@ -311,18 +337,22 @@ docker compose --env-file .env.docker run --rm backup /scripts/pg-restore-test.s
 
 Script tạo 1 database TẠM (tên có `_restore_test_`), khôi phục file backup mới nhất vào đó, kiểm số bảng + số dòng + trạng thái migration, rồi luôn xoá database tạm khi xong - KHÔNG BAO GIỜ đụng vào database thật đang chạy.
 
-Quy trình khôi phục thật khi có sự cố (từng lệnh, làm đúng thứ tự):
+Quy trình khôi phục thật khi có sự cố (từng lệnh, làm đúng thứ tự; `<ten-file>` là tên file `.dump` muốn khôi phục, `<BACKUP_DIR>` là đúng giá trị `BACKUP_DIR` trong `.env.docker`, đường dẫn thật trên server):
 
 ```bash
 docker compose --env-file .env.docker stop app
 docker compose --env-file .env.docker run --rm backup                       # backup bản hiện tại trước khi ghi đè
+(cd "<BACKUP_DIR>" && sha256sum -c <ten-file>.dump.sha256)                   # BẮT BUỘC kiểm bản dump TRƯỚC khi xoá DB thật
 docker compose --env-file .env.docker exec db dropdb --force -U ddc ddc_control_tower
 docker compose --env-file .env.docker exec db createdb -U ddc ddc_control_tower
-docker compose --env-file .env.docker run --rm -v "$(pwd)/.backups:/backups:ro" db \
-  pg_restore --no-owner --no-privileges --exit-on-error -h db -U ddc -d ddc_control_tower /backups/<ten-file>.dump
+docker compose --env-file .env.docker run --rm --entrypoint pg_restore backup \
+  --no-owner --no-privileges --exit-on-error -d ddc_control_tower /backups/<ten-file>.dump
 docker compose --env-file .env.docker start app
-curl http://127.0.0.1:3000/api/health/db
+curl http://127.0.0.1:<APP_PORT>/api/health/db
 ```
+
+Dùng service `backup` (không phải `db`) để chạy `pg_restore`: service này đã mount đúng `${BACKUP_DIR}` vào `/backups` và có sẵn `PGHOST`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`, không cần khai lại `-v` hay mật khẩu (khác bản cũ từng mount cứng `$(pwd)/.backups`, sai với `BACKUP_DIR` thật trỏ ổ dữ liệu bền).
+Kiểm sha256 PHẢI làm trước `dropdb --force`: quy trình cũ xoá DB thật trước khi biết bản dump có hỏng hay không, lỡ hỏng thì mất luôn dữ liệu.
 
 Khôi phục xong DB vẫn cần đúng `NOTIFY_SECRET_KEY` CŨ (giá trị đang có trong `.env.docker` lúc backup) - đổi khoá này thì phải cấu hình lại toàn bộ kênh thông báo (webhook, mật khẩu SMTP) vì không giải mã lại được giá trị cũ đã lưu.
 
@@ -337,7 +367,7 @@ Khôi phục xong DB vẫn cần đúng `NOTIFY_SECRET_KEY` CŨ (giá trị đan
    git checkout <tag-moi>
    APP_IMAGE_TAG=$(git rev-parse --short HEAD) docker compose --env-file .env.docker up -d --build
    ```
-4. Kiểm `docker compose ps` (mọi service khoẻ) và `curl http://127.0.0.1:3000/api/health/db`.
+4. Kiểm `docker compose ps` (mọi service khoẻ) và `curl http://127.0.0.1:<APP_PORT>/api/health/db`.
 
 ---
 
@@ -374,8 +404,9 @@ docker compose logs -f app | jq 'select(.level=="error")'
 
 Danh sách sự kiện (`event`) cần chú ý trong log JSON: `env.invalid` (app vừa dừng vì thiếu/sai biến môi trường), `request.unhandled` (lỗi request chưa bắt), `health.db_down` (mất kết nối DB), `auth_mail.send_failed` (gửi email lỗi), `notify.*` (gửi thông báo lỗi), `jobs.*` (job nền lỗi), `alert_engine.failed`, `client_ip.unresolved` (Nginx chưa nối đúng `X-Forwarded-For`), `csp_report.violation` (trình duyệt báo vi phạm CSP Report-Only).
 
-IT giám sát `https://<ten-mien>/api/health/db` mỗi phút: 200 nghĩa là ổn, 503 nghĩa là mất kết nối database.
+IT giám sát `https://<ten-mien>/api/health/db` mỗi phút (từ đúng IP đã khai `allow` ở mục 6): 200 nghĩa là ổn, 503 nghĩa là mất kết nối database, 403 nghĩa là gọi từ IP chưa được phép.
 IT giám sát ổ đĩa đầy 80%.
+Giám sát thường trực (không chỉ trong checklist 1-2 tuần đầu bên dưới): file `.dump` mới nhất trong `BACKUP_DIR` không được cũ hơn 26 giờ (backup chạy 1 lần/ngày lúc 02:00, 26 giờ cho phép trễ 2 giờ trước khi báo động) - nếu cũ hơn, xem cách xử lý khoá `.lock` kẹt ở mục 11.
 
 Log của MỌI container (`app`, `db`, `migrate`, `tools`, `backup`) tự xoay vòng bởi Docker (`json-file`, tối đa 10 MB x 14 file mỗi container, khoảng 140 MB/container) - **KHÔNG cần cron dọn log tay cho container**, chỉ log của lệnh cron backup (`/var/log/ddc-backup.log`) mới cần `logrotate` như mục 11.
 Kiểm cấu hình xoay vòng log của 1 container:
