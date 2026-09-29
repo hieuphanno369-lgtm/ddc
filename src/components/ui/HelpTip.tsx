@@ -91,7 +91,7 @@ export function HelpTip({ text, label, alignRight = false, onDark = false }: { t
   return (
     <button ref={btnRef} type="button" className={alignRight ? 'help rt' : 'help'} aria-label={label} aria-describedby={bubId}
       aria-expanded={open}
-      style={onDark ? { background: 'rgba(255,255,255,.24)', color: '#fff' } : undefined}
+      style={onDark ? { background: 'rgba(255,255,255,.24)', color: 'white' } : undefined}
       onPointerEnter={place} onFocus={place} onPointerLeave={hide}
       onBlur={(e) => { if (openRef.current) closeIt(); else hide(e); }}
       onClick={(e) => {
