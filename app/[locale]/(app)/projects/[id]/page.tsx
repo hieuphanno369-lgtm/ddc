@@ -164,10 +164,10 @@ export default async function ProjectDetailPage({
   const chartMonths = periodMonths(t2.period).filter((m) => m <= capMonth);
   const carried = chartMonths.flatMap((m) => {
     const at = pickAsOf(facts, m);
-    return at ? [{ month: m, f: at.row }] : [];
+    return at ? [{ month: m, f: at.row, carried: at.carried }] : [];
   });
-  const sCurve = canViewFinance ? carried.map(({ month, f }) => ({ month, pv: Math.round(f.pv), ev: Math.round(f.ev), ac: Math.round(f.ac) })) : [];
-  const trend = carried.map(({ month, f }) => ({ month, spi: f.spi, cpi: f.cpi }));
+  const sCurve = canViewFinance ? carried.map(({ month, f, carried: c }) => ({ month, pv: Math.round(f.pv), ev: Math.round(f.ev), ac: Math.round(f.ac), carriedProjects: c ? 1 : 0 })) : [];
+  const trend = carried.map(({ month, f, carried: c }) => ({ month, spi: f.spi, cpi: f.cpi, carriedProjects: c ? 1 : 0 }));
   const chartRange = carried.length
     ? t('period.chartRange', { m1: formatMonthShort(carried[0].month), m2: formatMonthShort(carried[carried.length - 1].month) })
     : undefined;
@@ -470,7 +470,7 @@ export default async function ProjectDetailPage({
           <Card className="overflow-visible">
             <CardHeader title={t('detail.sCurve12')} subtitle={chartRange} titleExtra={<HelpTip text={t('helpTip.dtSCurve')} label={t('common.explain')} />} />
             <CardBody>
-              <SCurve data={sCurve} markerMonth={t2.asOfMonth} />
+              <SCurve data={sCurve} markerMonth={t2.asOfMonth} single />
               <p className="hintline mt-2">{t('chartHowTo.dtSCurve')}</p>
             </CardBody>
           </Card>
@@ -478,7 +478,7 @@ export default async function ProjectDetailPage({
         <Card className="overflow-visible">
           <CardHeader title={t('detail.spiCpi12')} subtitle={chartRange} titleExtra={<HelpTip text={t('helpTip.ovSpiCpi')} label={t('common.explain')} />} />
           <CardBody>
-            <SpiCpiLine data={trend} markerMonth={t2.asOfMonth} />
+            <SpiCpiLine data={trend} markerMonth={t2.asOfMonth} single />
             <p className="hintline mt-2">{t('chartHowTo.dtSpiCpi')}</p>
           </CardBody>
         </Card>

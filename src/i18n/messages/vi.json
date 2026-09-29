@@ -1395,7 +1395,8 @@
     "nextWeek": "Tuần sau",
     "pickDay": "Chọn ngày",
     "pickMonth": "Xem số liệu tại",
-    "carriedTip": "{n} dự án dùng số tháng trước"
+    "carriedTip": "{n} dự án dùng số tháng trước",
+    "carriedTipOne": "Dùng số tháng trước"
   },
   "kpiGroup": {
     "now": "Đang thế nào?",

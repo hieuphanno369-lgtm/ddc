@@ -1395,7 +1395,8 @@
     "nextWeek": "Next week",
     "pickDay": "Pick a day",
     "pickMonth": "View figures as of",
-    "carriedTip": "{n} projects use previous month figures"
+    "carriedTip": "{n} projects use previous month figures",
+    "carriedTipOne": "Using the previous month's figures"
   },
   "kpiGroup": {
     "now": "How are things now?",

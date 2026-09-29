@@ -51,10 +51,12 @@ function yUnit(value: string, fill: string) {
 }
 
 /** Tooltip: thêm "N dự án dùng số tháng trước" ở tiêu đề khi tháng đó có số mang sang (D-10). */
-function carriedLabel(t: (k: string, v?: Record<string, number>) => string) {
+function carriedLabel(t: (k: string, v?: Record<string, number>) => string, single = false) {
   return (label: unknown, payload: readonly { payload?: { carriedProjects?: number } }[]) => {
     const n = payload?.[0]?.payload?.carriedProjects ?? 0;
-    return n > 0 ? `${label} · ${t('asOf.carriedTip', { n })}` : String(label);
+    if (n <= 0) return String(label);
+    // Chart của 1 dự án (trang Chi tiết): "Dùng số tháng trước", không đếm dự án.
+    return `${label} · ${single ? t('asOf.carriedTipOne') : t('asOf.carriedTip', { n })}`;
   };
 }
 
@@ -224,8 +226,11 @@ type TrendRow = { month: string; spi: number | null; cpi: number | null; carried
 export function SpiCpiLine({
   data,
   markerMonth,
+  single = false,
 }: {
   data: TrendRow[];
+  /** Chart của 1 dự án (Chi tiết): tooltip tháng mang số ghi "Dùng số tháng trước". */
+  single?: boolean;
   /** Tháng mốc đang xem (vạch đỏ nét đứt, D-19); chỉ vẽ khi tháng đó có trên trục. */
   markerMonth?: string;
 }) {
@@ -269,7 +274,7 @@ export function SpiCpiLine({
           <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
           <XAxis dataKey="month" tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} />
           <YAxis domain={[0.6, 1.4]} tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} label={yUnit(t('chartHowTo.axisIndex'), c.axis)} />
-          <Tooltip {...TOOLTIP_STYLE} formatter={(value) => formatRatio(Number(value))} labelFormatter={carriedLabel(t)} />
+          <Tooltip {...TOOLTIP_STYLE} formatter={(value) => formatRatio(Number(value))} labelFormatter={carriedLabel(t, single)} />
           <Legend wrapperStyle={{ fontSize: 'var(--t-caption1)' }} />
           <ReferenceLine
             y={THRESHOLDS.spiWarn}
@@ -294,8 +299,11 @@ type CurveRow = { month: string; pv: number; ev: number; ac: number; carriedProj
 export function SCurve({
   data,
   markerMonth,
+  single = false,
 }: {
   data: CurveRow[];
+  /** Chart của 1 dự án (Chi tiết): tooltip tháng mang số ghi "Dùng số tháng trước". */
+  single?: boolean;
   /** Tháng mốc đang xem (vạch đỏ nét đứt, D-19); chỉ vẽ khi tháng đó có trên trục. */
   markerMonth?: string;
 }) {
@@ -321,7 +329,7 @@ export function SCurve({
         <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
         <XAxis dataKey="month" tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} />
         <YAxis tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} label={yUnit(t('chartHowTo.axisBillion'), c.axis)} />
-        <Tooltip {...TOOLTIP_STYLE} formatter={(value) => formatTyd(Number(value), locale)} labelFormatter={carriedLabel(t)} />
+        <Tooltip {...TOOLTIP_STYLE} formatter={(value) => formatTyd(Number(value), locale)} labelFormatter={carriedLabel(t, single)} />
         <Legend wrapperStyle={{ fontSize: 'var(--t-caption1)' }} />
         {/* Vùng tô + chú giải + tooltip lấy từ đường đầy đủ (ẩn nét); nét thật vẽ theo từng đoạn liền/đứt. */}
         <Area type="monotone" dataKey="pv" name="PV" stroke={strokes.pv} strokeOpacity={0} strokeWidth={2} fill="url(#pvGrad)" />
