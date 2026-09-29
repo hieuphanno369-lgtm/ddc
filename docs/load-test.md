@@ -118,10 +118,14 @@ Nhấn Ctrl+C sẽ dừng sớm và vẫn in bảng, nhưng lượt đó tính l
 
 ## 9. Kết quả đo
 
-Đo ngày 2026-09-29 trên commit `11caa2d` (nhánh `feature/p5-b-bao-mat-qa`), bản build production, `next start -p 3001`, DB `ddc_control_tower_b` với 10.064.500 dòng do `perf:seed` tạo (500 dự án PERF).
+Đo lại vòng 2 ngày 2026-09-29, nhánh `feature/p5-b-bao-mat-qa` (commit `1d6bbbb`), bản build production mới, `next start -p 3001`, DB `ddc_control_tower_b` với 10.064.500 dòng do `perf:seed` tạo (500 dự án PERF, id 18 đến 517).
+Môi trường: Next 15.5.26, React 19.3.0, `sharp` có (sau `npm ci` đúng lockfile), font giả để build.
+Số đo vòng 1 đã BỎ: vòng 1 chạy trên `node_modules` lệch (Next 14.2.35, React 18, không có `sharp`) và bộ kịch bản cũ sinh lỗi giả, nên không còn giá trị.
 Máy dev chạy cả app, DB lẫn công cụ tải nên đây chỉ là mốc so sánh, không phải năng lực của server thật.
-Tham số chung: 5 phút, ramp 30 giây, nghỉ 1 đến 3 giây, seed 1, XFF riêng từng người dùng ảo, 3 tài khoản admin, bod, viewer.
+Tham số chung: 5 phút, ramp 30 giây, nghỉ 1 đến 3 giây, seed 1, XFF riêng từng người dùng ảo, 3 tài khoản admin, bod, viewer (`creds[i % n]`).
 Số p50, p95, p99 chỉ tính trên yêu cầu thành công (đơn vị mili giây).
+Trước mỗi bộ đo: xoá `.next/cache/fetch-cache`, khởi động lại `next start`.
+Chạy khói `--vus=3 --duration=15 --ramp=3` trước: 22 yêu cầu, 0 lỗi, kết luận ĐẠT.
 
 ### 9.1. Mức 100 người dùng ảo (mặc định)
 
@@ -129,57 +133,89 @@ Lệnh: `npm run perf:load -- --out=<ngoài repo>`. Kết luận của script: K
 
 | Kịch bản | n | lỗi | lỗi% | p50 | p95 | p99 | max | rps |
 |---|---|---|---|---|---|---|---|---|
-| project_detail | 1271 | 413 | 32,49% | 5187 | 8604 | 11097 | 15826 | 4,2 |
-| api_export | 69 | 0 | 0,00% | 4992 | 7506 | 8625 | 8625 | 0,2 |
-| overview_month | 1120 | 0 | 0,00% | 5221 | 8407 | 10638 | 11955 | 3,7 |
-| api_health | 290 | 0 | 0,00% | 156 | 524 | 839 | 1094 | 1,0 |
-| overview_all | 438 | 0 | 0,00% | 5261 | 8361 | 9037 | 12030 | 1,5 |
-| projects_list | 610 | 610 | 100,00% | - | - | - | - | 2,0 |
-| alerts | 231 | 88 | 38,10% | 5256 | 8195 | 8560 | 9481 | 0,8 |
-| report | 209 | 77 | 36,84% | 5797 | 8750 | 11113 | 11329 | 0,7 |
-| trang (gộp) | 3879 | 1188 | 30,63% | 5256 | 8444 | 10638 | 15826 | 12,9 |
-| TỔNG | 4238 | 1188 | 28,03% | 5001 | 8400 | 9462 | 15826 | 14,1 |
+| project_detail | 1179 | 0 | 0.00% | 5645 | 8195 | 17663 | 18756 | 3.9 |
+| overview_all | 591 | 0 | 0.00% | 5434 | 7935 | 17489 | 18215 | 2.0 |
+| api_export | 63 | 0 | 0.00% | 5523 | 7092 | 14131 | 14131 | 0.2 |
+| overview_month | 1540 | 0 | 0.00% | 5460 | 7814 | 17597 | 18271 | 5.1 |
+| api_health | 427 | 0 | 0.00% | 183 | 645 | 1034 | 1272 | 1.4 |
+| alerts | 135 | 0 | 0.00% | 5234 | 7404 | 16782 | 17357 | 0.4 |
+| report | 127 | 0 | 0.00% | 5840 | 8475 | 18492 | 18723 | 0.4 |
+| trang (gộp) | 3572 | 0 | 0.00% | 5512 | 7992 | 17615 | 18756 | 11.9 |
+| TỔNG | 4062 | 0 | 0.00% | 5341 | 7925 | 17547 | 18756 | 13.5 |
 
-Vi phạm tiêu chí: tỷ lệ lỗi 28,03% > 1%, trang p95 8444 ms > 3000 ms, trang p99 10638 ms > 5000 ms. Xuất Excel p95 7506 ms đạt (ngưỡng 8000 ms).
+Vi phạm tiêu chí: trang p95 7992 ms > 3000 ms, trang p99 17615 ms > 5000 ms.
+Tỷ lệ lỗi 0,00% đạt.
+Xuất Excel p95 7092 ms đạt (ngưỡng 8000 ms).
 
-### 9.2. Mức 30 người dùng ảo (mốc so sánh)
+### 9.2. Mức 50 người dùng ảo (mốc so sánh)
 
-Lệnh: `npm run perf:load -- --vus=30 --out=<ngoài repo>`. Kết luận của script: KHÔNG ĐẠT.
+Lệnh: `npm run perf:load -- --vus=50 --out=<ngoài repo>`. Kết luận của script: KHÔNG ĐẠT.
 
 | Kịch bản | n | lỗi | lỗi% | p50 | p95 | p99 | max | rps |
 |---|---|---|---|---|---|---|---|---|
-| project_detail | 763 | 255 | 33,42% | 1641 | 3119 | 3684 | 4333 | 2,5 |
-| api_export | 65 | 0 | 0,00% | 1613 | 3042 | 3837 | 3837 | 0,2 |
-| overview_month | 672 | 0 | 0,00% | 1543 | 3168 | 3778 | 4398 | 2,2 |
-| api_health | 187 | 0 | 0,00% | 37 | 206 | 291 | 332 | 0,6 |
-| overview_all | 267 | 0 | 0,00% | 1454 | 3266 | 3651 | 4338 | 0,9 |
-| projects_list | 370 | 370 | 100,00% | - | - | - | - | 1,2 |
-| alerts | 141 | 53 | 37,59% | 1352 | 2833 | 3264 | 3264 | 0,5 |
-| report | 129 | 49 | 37,98% | 1911 | 3472 | 4604 | 4604 | 0,4 |
-| trang (gộp) | 2342 | 727 | 31,04% | 1573 | 3171 | 3711 | 4604 | 7,8 |
-| TỔNG | 2594 | 727 | 28,03% | 1437 | 3119 | 3698 | 4604 | 8,6 |
+| project_detail | 1054 | 0 | 0.00% | 2418 | 4000 | 4566 | 5128 | 3.5 |
+| overview_all | 526 | 0 | 0.00% | 2185 | 3729 | 4359 | 4797 | 1.7 |
+| api_export | 73 | 0 | 0.00% | 2325 | 3547 | 4078 | 4078 | 0.2 |
+| api_health | 383 | 0 | 0.00% | 70 | 230 | 309 | 488 | 1.3 |
+| overview_month | 1341 | 0 | 0.00% | 2211 | 3826 | 4547 | 4944 | 4.5 |
+| alerts | 129 | 0 | 0.00% | 1927 | 3061 | 3618 | 4147 | 0.4 |
+| report | 113 | 0 | 0.00% | 2604 | 4181 | 4485 | 5340 | 0.4 |
+| trang (gộp) | 3163 | 0 | 0.00% | 2302 | 3891 | 4547 | 5340 | 10.5 |
+| TỔNG | 3619 | 0 | 0.00% | 2131 | 3830 | 4470 | 5340 | 12.0 |
 
-Vi phạm tiêu chí: tỷ lệ lỗi 28,03% > 1%, trang p95 3171 ms > 3000 ms. Trang p99 3711 ms và xuất Excel p95 3042 ms đạt.
+Vi phạm tiêu chí: trang p95 3891 ms > 3000 ms.
+Trang p99 4547 ms đạt (ngưỡng 5000 ms), tỷ lệ lỗi 0,00% đạt, xuất Excel p95 3547 ms đạt.
 
-### 9.3. Đọc kết quả
+### 9.3. Mức 30 người dùng ảo (mốc so sánh)
 
-Ghi chú (debugger vòng 1): các số ở mục 9.1, 9.2 đo với bộ kịch bản CŨ (có `projects_list` và viewer vào `alerts`, `report`, `project_detail`). Bộ kịch bản đã sửa ở mục 3, phải đo lại để có số chính thức.
+Lệnh: `npm run perf:load -- --vus=30 --out=<ngoài repo>`. Kết luận của script: ĐẠT.
 
-Tỷ lệ lỗi 28% ở cả hai mức KHÔNG phản ánh app lỗi, mà do bộ kịch bản của script sinh lỗi giả. Đã đối chiếu từng nguồn lỗi bằng cách gọi tay từng đường dẫn với từng vai:
+| Kịch bản | n | lỗi | lỗi% | p50 | p95 | p99 | max | rps |
+|---|---|---|---|---|---|---|---|---|
+| project_detail | 1056 | 0 | 0.00% | 359 | 1265 | 1623 | 1726 | 3.5 |
+| overview_all | 534 | 0 | 0.00% | 270 | 1080 | 1433 | 1562 | 1.8 |
+| api_health | 371 | 0 | 0.00% | 6 | 49 | 93 | 175 | 1.2 |
+| api_export | 92 | 0 | 0.00% | 372 | 1008 | 1321 | 1321 | 0.3 |
+| overview_month | 1315 | 0 | 0.00% | 280 | 1052 | 1477 | 1753 | 4.4 |
+| alerts | 120 | 0 | 0.00% | 100 | 578 | 700 | 773 | 0.4 |
+| report | 113 | 0 | 0.00% | 463 | 1545 | 1723 | 1774 | 0.4 |
+| trang (gộp) | 3138 | 0 | 0.00% | 301 | 1148 | 1543 | 1774 | 10.5 |
+| TỔNG | 3601 | 0 | 0.00% | 266 | 1116 | 1514 | 1774 | 12.0 |
 
-- `projects_list` (`/vi/projects`) luôn trả 307 chuyển sang `/vi/projects/1` theo thiết kế của trang, nên script tính 100% là lỗi `redirect` (610 ở mức 100, 370 ở mức 30).
-- Vai viewer nhận 404 với mọi dự án PERF (viewer chỉ thấy dự án được phân quyền), nên `project_detail` của viewer là lỗi `status` (413 ở mức 100, 255 ở mức 30).
-- Vai viewer bị chuyển (307) khỏi `/vi/alerts` và `/vi/report`, nên hai kịch bản này của viewer là lỗi `redirect` (165 ở mức 100, 102 ở mức 30).
+Đạt cả bốn tiêu chí: trang p95 1148 ms, trang p99 1543 ms, xuất Excel p95 1008 ms, lỗi 0,00%.
 
-Ở mức 100: 610 + 413 + 165 = 1188, đúng bằng số lỗi. Ở mức 30: 370 + 255 + 102 = 727, đúng bằng số lỗi. Nghĩa là không còn lỗi thật nào (không timeout, không lỗi mạng, không 429, không 5xx).
+### 9.4. Đọc kết quả
 
-Độ trễ là tín hiệu thật:
+- Bộ kịch bản đã sửa (mục 3) không còn lỗi giả: cả ba mức đều 0 lỗi, không 429, không timeout, không 5xx, không `redirect`.
+- Mức đầu tiên vượt tiêu chí trang là 50 người dùng ảo (p95 3891 ms, vượt khoảng 30%).
+- Ở 30 người dùng còn dư nhiều (p95 1148 ms).
+- Mức 100 vượt xa: p95 gấp khoảng 2,7 lần ngưỡng, p99 gấp khoảng 3,5 lần.
+- Đuôi phân bố dài (p99 17,6 giây so với p95 8 giây) cho thấy hàng đợi trong một tiến trình Node.
+- Thông lượng: 12,0 yêu cầu mỗi giây ở mức 30, 12,0 ở mức 50, 13,5 ở mức 100.
+- Từ mức 50 trở lên máy dev đã bão hoà quanh 12 đến 13 yêu cầu mỗi giây (một tiến trình Node, DB và công cụ tải chung máy), thêm người dùng chỉ làm tăng độ trễ.
+- `/api/health` luôn nhanh (p95 49 ms ở mức 30, 645 ms ở mức 100).
+- Xuất Excel đạt ở cả ba mức.
+- Cần đo lại trên server thật ở P6 (nhiều nhân CPU, DB tách riêng, nhiều tiến trình).
 
-- Mức 30: trang p50 khoảng 1,5 giây, p95 khoảng 3,2 giây, vượt nhẹ ngưỡng 3 giây. Một yêu cầu đơn lẻ lúc làm nóng chỉ 150 đến 320 ms, nên độ trễ tăng theo tải đồng thời.
-- Mức 100: trang p50 khoảng 5,3 giây, p95 khoảng 8,4 giây, p99 khoảng 10,6 giây, xa ngưỡng. Thông lượng chỉ đạt 14,1 yêu cầu mỗi giây, gần như không tăng so với mức 30 (8,6), cho thấy máy dev đã bão hoà (một tiến trình Node cùng DB và công cụ tải chung máy).
-- Kết luận: mức đầu tiên vượt tiêu chí trang là 30 người dùng ảo (p95 vượt khoảng 6%); ở 100 người dùng vượt gần gấp 3. Xuất Excel đạt ở cả hai mức. `/api/health` luôn nhanh.
-- Chưa có mức 50. Cần sửa kịch bản (xem `.bangiao/ket-qua-test.md`) rồi chạy lại để có số lỗi sạch, và đo lại trên server thật ở P6.
+### 9.5. Chi phí của nonce
 
-Sau cả hai lượt: `admin@`, `bod@`, `viewer@daidung.com.vn` đều `lockedAt` rỗng và `failedLoginCount` bằng 0. Đăng nhập tuần tự 100 lượt và 30 lượt không gặp 429 nào.
+Không tách được chi phí nonce riêng: muốn so sánh có và không nonce cần một bản build khác (không đọc `headers()` ở layout), mà đo không được sửa code sản phẩm.
+Chỉ có số gián tiếp, tuần tự một luồng, 200 yêu cầu sau 10 yêu cầu làm nóng, mỗi yêu cầu một XFF riêng:
 
-Lưu ý: `npx playwright test` chạy `prisma db seed` ở global setup và ĐÃ xoá dữ liệu PERF (sau khi chạy e2e, DB còn 0 dự án PERF, 17 dự án thường). Muốn chạy lại load test phải `perf:seed` lại.
+| Đường dẫn | Loại | p50 (ms) | p95 (ms) |
+|---|---|---|---|
+| `/vi/login` | trang động, qua middleware, có nonce | 14,5 | 20,1 |
+| `/vi/quen-mat-khau` | trang động, qua middleware, có nonce | 13,2 | 18,3 |
+| `/api/health` | route động, không qua middleware trang | 1,8 | 3,4 |
+| `/logo.png` | file tĩnh | 1,2 | 2,1 |
+
+Diễn giải: một trang động tốn khoảng 13 đến 15 ms mỗi yêu cầu khi máy rảnh, gồm render phía server, middleware và tạo nonce.
+Phần riêng của nonce (sinh 16 byte ngẫu nhiên, dựng chuỗi CSP) rất nhỏ so với render nên khó có thể là nguyên nhân độ trễ ở mức 50 và 100, nhưng đây là suy luận, chưa đo trực tiếp.
+Độ trễ ở tải cao chủ yếu do hàng đợi CPU.
+
+### 9.6. Sau khi chạy
+
+`admin@`, `bod@`, `viewer@daidung.com.vn` đều `lockedAt` rỗng và `failedLoginCount` bằng 0 (truy vấn read-only sau cả bốn lượt chạy: khói, 100, 50, 30).
+Đăng nhập tuần tự không gặp 429 nào.
+
+Lưu ý: `npx playwright test` chạy `prisma db seed` ở global setup và xoá dữ liệu PERF (sau khi chạy e2e, DB còn 0 dự án PERF). Muốn chạy lại load test phải `perf:seed` lại.

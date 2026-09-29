@@ -85,9 +85,12 @@ Cần đối chiếu các điểm sau, chạy lại e2e 27 rồi cập nhật m�
 
 ## 8. Danh sách vi phạm đã đo
 
-Đo ngày 2026-09-29 bằng `e2e/27-csp-vi-pham.spec.ts` trên bản build production chạy `next start -p 3001` (không có `'unsafe-eval'`), Chromium của Playwright, DB `ddc_control_tower_b`.
+Đo lại vòng 2 ngày 2026-09-29 (thay số vòng 1, vì vòng 1 chạy trên `node_modules` lệch: Next 14.2.35, React 18, không có `sharp`).
+Môi trường vòng 2: Next 15.5.26, React 19.3.0, `sharp` có, `npm ci` đúng lockfile, build production mới (đã xoá `.next`) với font mock, chạy `next start -p 3001` (không có `'unsafe-eval'`), Chromium của Playwright, DB `ddc_control_tower_b`.
+Dùng `e2e/27-csp-vi-pham.spec.ts`, toàn bộ 40 ca của e2e 26, 27, 28, 29 xanh.
 Kết quả: 0 vi phạm trên 11 trang, không có tài nguyên nào bị chặn (mọi vi phạm sẽ có disposition `report`).
 Dòng tổng hợp của spec: `[csp] Tong 0 vi pham (Report-Only)`.
+Số vi phạm vòng 1 cũng là 0, nên bản danh sách không đổi; chỉ đổi điều kiện đo.
 
 | Trang | Chỉ thị | Nguồn bị chặn | Đề xuất xử lý |
 |---|---|---|---|
