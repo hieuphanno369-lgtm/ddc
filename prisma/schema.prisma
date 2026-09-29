@@ -262,7 +262,11 @@ model UserRole {
   lockedAt          DateTime?
   passwordChangedAt DateTime?
   resetTokens       PasswordResetToken[]
+  // ---- P3F-3: phòng ban (danh mục do admin quản lý, chọn lúc đăng ký) ----
+  departmentId      Int?
+  department        Department?          @relation(fields: [departmentId], references: [id], onDelete: Restrict)
 
+  @@index([departmentId])
   @@map("user_roles")
 }
 
@@ -295,6 +299,35 @@ model AuthThrottle {
   @@index([kind, key, createdAt])
   @@index([createdAt])
   @@map("auth_throttle")
+}
+
+/// P3F-3: danh mục phòng ban (admin sửa trong Quản trị).
+model Department {
+  id             Int             @id @default(autoincrement())
+  name           String          @unique
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedBy      String          @default("system")
+  users          UserRole[]
+  signupRequests SignupRequest[]
+
+  @@map("dim_department")
+}
+
+/// P3F-3: đăng ký đang chờ admin bật. Bật hoặc từ chối thì xoá dòng (nhật ký ở activity_log).
+model SignupRequest {
+  id           Int         @id @default(autoincrement())
+  email        String      @unique
+  name         String
+  departmentId Int?
+  passwordHash String
+  locale       String      @default("vi")
+  requestIp    String      @default("")
+  createdAt    DateTime    @default(now())
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt])
+  @@map("signup_request")
 }
 
 // ---- Fact ----

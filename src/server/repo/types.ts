@@ -619,7 +619,10 @@ export type ThrottleKind =
   // `ACCOUNT_GUESS_WINDOW_MS` (login-policy.ts). R6-1 (bao-mat.md vòng 6) - 1 kind DUY NHẤT dùng chung
   // cho Đăng nhập và Đổi mật khẩu (chốt R3-2: 2 màn tính chung bộ đếm 5 lần), chỉ `reserveAccountGuess`
   // ghi kind này.
-  | 'account_guess';
+  | 'account_guess'
+  // P3F-3: giới hạn tần suất đăng ký tài khoản (10 lần/giờ/IP, 3 lần/giờ/email), xem `SIGNUP_*` (login-policy.ts).
+  | 'signup_ip'
+  | 'signup_email';
 
 export interface AuthAccountState {
   email: string;
