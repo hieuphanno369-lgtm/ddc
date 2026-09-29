@@ -7,6 +7,11 @@ import type { AuthAccountState, AuthStore, Role } from './types';
 const iso = (d: Date | null | undefined): string | null => (d ? d.toISOString() : null);
 
 /** Chỉ đọc: loại link nếu token còn dùng được (chưa dùng, chưa hết hạn, tài khoản còn, có mật khẩu, isActive), ngược lại `null`. */
+/** Khoá tư vấn (tới hết transaction) cho mọi thao tác trên token đặt mật khẩu của 1 email. */
+async function lockResetTokens(tx: Prisma.TransactionClient, email: string): Promise<void> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'reset_token:' + email}))`;
+}
+
 async function peekResetTokenKind(tokenHash: string, nowIso: string): Promise<ResetTokenKind | null> {
   const t = await prisma.passwordResetToken.findUnique({
     where: { tokenHash },
@@ -197,22 +202,23 @@ export const prismaAuthStore: AuthStore = {
   async replaceResetToken(email, tokenHash, expiresAtIso, requestIp) {
     await prisma.$transaction(async (tx) => {
       const now = new Date();
+      // TT-1: khoá tư vấn theo email cho CẢ 2 nhánh (cùng kiểu khoá của `reserveThrottle`), nên lời mời, "Quên mật khẩu"
+      // và `consumeResetToken` của cùng email chạy lần lượt: không nhánh nào xoá dòng mà nhánh kia vừa tạo.
+      await lockResetTokens(tx, email);
       if (resetTokenKindOf(now, new Date(expiresAtIso)) === 'invite') {
         // Lời mời (admin bật): thay MỌI token cũ của email.
         await tx.passwordResetToken.deleteMany({ where: { email } });
       } else {
         // T1: "Quên mật khẩu" chỉ thay token quên mật khẩu cũ (và dòng đã dùng/hết hạn), KHÔNG huỷ lời mời còn hạn
-        // chưa dùng. Loại token suy từ hạn nên phải đọc rồi loại trừ theo `id`; khoá tư vấn theo email để 2 yêu cầu
-        // đồng thời không cùng đọc một tập cũ (cùng kiểu khoá của `reserveThrottle`).
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'reset_token:' + email}))`;
+        // chưa dùng. Loại token suy từ hạn nên phải đọc rồi xoá ĐÚNG các dòng đã đọc (`in`, không `notIn`).
         const rows = await tx.passwordResetToken.findMany({
           where: { email },
           select: { id: true, createdAt: true, expiresAt: true, usedAt: true },
         });
-        const liveInviteIds = rows
-          .filter((r) => r.usedAt === null && r.expiresAt.getTime() > now.getTime() && resetTokenKindOf(r.createdAt, r.expiresAt) === 'invite')
+        const idsToDelete = rows
+          .filter((r) => !(r.usedAt === null && r.expiresAt.getTime() > now.getTime() && resetTokenKindOf(r.createdAt, r.expiresAt) === 'invite'))
           .map((r) => r.id);
-        await tx.passwordResetToken.deleteMany({ where: { email, id: { notIn: liveInviteIds } } });
+        if (idsToDelete.length > 0) await tx.passwordResetToken.deleteMany({ where: { id: { in: idsToDelete } } });
       }
       await tx.passwordResetToken.create({
         data: { email, tokenHash, expiresAt: new Date(expiresAtIso), requestIp },
@@ -229,6 +235,11 @@ export const prismaAuthStore: AuthStore = {
   async consumeResetToken(tokenHash, passwordHash, nowIso) {
     return prisma.$transaction(async (tx) => {
       const now = new Date(nowIso);
+      // TT-2: email có thể có 2 token sống (lời mời + quên mật khẩu); khoá theo email TRƯỚC khi đụng dòng nào để 2 link
+      // tiêu đồng thời chạy lần lượt (bên sau thấy token đã bị đốt, trả `ok: false`) thay vì deadlock.
+      const owner = await tx.passwordResetToken.findUnique({ where: { tokenHash }, select: { email: true } });
+      if (!owner) return { ok: false as const };
+      await lockResetTokens(tx, owner.email);
       // K4 - "đặt cửa" NGUYÊN TỬ: điều kiện `where` gộp CẢ token (còn hạn, chưa dùng) LẪN tài khoản
       // (L5 - `isActive`/`passwordHash !== ''` qua quan hệ `user`, kiểm TẠI THỜI ĐIỂM TIÊU chứ không
       // chỉ lúc `peek`) - 2 request đồng thời chỉ 1 cái thắng; tài khoản không hợp lệ thì `count`

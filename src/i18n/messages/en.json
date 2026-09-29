@@ -1156,7 +1156,7 @@
   },
   "topPriority": {
     "title": "Key priority projects",
-    "subtitle": "Priority P0 · in progress · tap for details",
+    "subtitle": "Priority P0 · in progress · click for details",
     "empty": "No P0 project in progress"
   },
   "equipmentPlanGantt": {

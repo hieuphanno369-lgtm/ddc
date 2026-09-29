@@ -30,3 +30,11 @@
 - i18n: subtitle thẻ Top đổi thành "Priority P0 · đang triển khai · bấm để xem chi tiết" (en "tap for details"); bỏ key `topPriority.behind`, `topPriority.onTrack`.
 - Test: `PriorityBadge.test.ts` (mới), `TopPriorityList*.test.ts` sửa theo rule mới (đỏ trước 9 ca), e2e `30-priority-mau.spec.ts` (mới, sáng/tối, soi ảnh); `npm test` xanh, e2e 30 + 11 xanh.
 - Cột "Đúng tiến độ" trong bảng dự án ở Tổng quan KHÔNG đổi (chưa có quyết định).
+
+## Vá TT-1, TT-2 (security) + nit reviewer (C làm)
+
+- TT-1 `prisma-repo-auth.ts` `replaceResetToken`: khoá tư vấn theo email (`lockResetTokens`) cho CẢ nhánh lời mời lẫn Quên mật khẩu; nhánh Quên mật khẩu xoá đúng các dòng đã đọc (`id: { in }`) thay vì `notIn`, không gọi `deleteMany` khi rỗng.
+- TT-2 `consumeResetToken`: đọc email chủ token rồi khoá theo email trước `updateMany`, 2 link cùng email tiêu đồng thời chạy lần lượt thay vì deadlock.
+- Test đỏ trên DB thật `_c` trước khi sửa: TT-1 mất lời mời vừa tạo (`expected null to be 'invite'`), TT-2 `40P01 deadlock detected`; sau sửa real-db 18/18. Unit `prisma-repo-auth.test.ts` 46/46 (thêm 4 ca).
+- Nit: tên test `getResetTokenKind`, en subtitle "click for details", comment `c-gold` trong `app/globals.css`.
+- `npm test`: 277 file, 3228 xanh + 31 skip; tsc sạch.

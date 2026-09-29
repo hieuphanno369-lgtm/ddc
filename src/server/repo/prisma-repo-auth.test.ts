@@ -387,7 +387,8 @@ describe('replaceResetToken (K3, T1)', () => {
     });
     await prismaAuthStore.replaceResetToken('a@daidung.com.vn', 'hash-quen', at(30 * MIN).toISOString(), '1.2.3.4');
     expect(order).toEqual(['delete', 'create']);
-    expect(passwordResetTokenDeleteMany).toHaveBeenCalledWith({ where: { email: 'a@daidung.com.vn', id: { notIn: [1] } } });
+    // TT-1: xoa DUNG cac dong da doc (`in`), khong `notIn` (se xoa ca dong transaction khac vua tao).
+    expect(passwordResetTokenDeleteMany).toHaveBeenCalledWith({ where: { id: { in: [2, 3, 4] } } });
     expect(passwordResetTokenCreate).toHaveBeenCalledWith({
       data: { email: 'a@daidung.com.vn', tokenHash: 'hash-quen', expiresAt: at(30 * MIN), requestIp: '1.2.3.4' },
     });
@@ -396,12 +397,24 @@ describe('replaceResetToken (K3, T1)', () => {
   it('quen mat khau, khong co loi moi con han: xoa het token cu cua email', async () => {
     passwordResetTokenFindMany.mockResolvedValueOnce([{ id: 2, createdAt: at(-5 * MIN), expiresAt: at(25 * MIN), usedAt: null }]);
     await prismaAuthStore.replaceResetToken('a@daidung.com.vn', 'hash-quen', at(30 * MIN).toISOString(), '1.2.3.4');
-    expect(passwordResetTokenDeleteMany).toHaveBeenCalledWith({ where: { email: 'a@daidung.com.vn', id: { notIn: [] } } });
+    expect(passwordResetTokenDeleteMany).toHaveBeenCalledWith({ where: { id: { in: [2] } } });
   });
 
   it('quen mat khau lay khoa tu van theo email trong cung transaction (chong 2 yeu cau dong thoi)', async () => {
     await prismaAuthStore.replaceResetToken('a@daidung.com.vn', 'hash-quen', at(30 * MIN).toISOString(), '1.2.3.4');
     expect(executeRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it('TT-1: loi moi CUNG lay khoa tu van theo email (chong race voi Quen mat khau va 2 loi moi dong thoi)', async () => {
+    await prismaAuthStore.replaceResetToken('a@daidung.com.vn', 'hash-moi', at(72 * HOUR).toISOString(), '');
+    expect(executeRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it('quen mat khau, email chua co token nao: khong goi deleteMany', async () => {
+    passwordResetTokenFindMany.mockResolvedValueOnce([]);
+    await prismaAuthStore.replaceResetToken('a@daidung.com.vn', 'hash-quen', at(30 * MIN).toISOString(), '1.2.3.4');
+    expect(passwordResetTokenDeleteMany).not.toHaveBeenCalled();
+    expect(passwordResetTokenCreate).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -431,6 +444,27 @@ describe('peekResetToken (S12 - chi doc)', () => {
 });
 
 describe('consumeResetToken (K4, L5 - nguyen tu)', () => {
+  // TT-2: lan doc dau tien tim email chu token de khoa theo email truoc khi dung dong nao.
+  beforeEach(() => {
+    passwordResetTokenFindUnique.mockResolvedValueOnce({ email: 'a@daidung.com.vn' });
+  });
+
+  it('TT-2: token khong ton tai -> { ok: false }, khong khoa, khong updateMany', async () => {
+    passwordResetTokenFindUnique.mockReset();
+    passwordResetTokenFindUnique.mockResolvedValueOnce(null);
+    expect(await prismaAuthStore.consumeResetToken('h', 'hash-moi', NOW_ISO)).toEqual({ ok: false });
+    expect(executeRaw).not.toHaveBeenCalled();
+    expect(passwordResetTokenUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it('TT-2: khoa tu van theo email TRUOC updateMany', async () => {
+    const order: string[] = [];
+    executeRaw.mockImplementationOnce(async () => { order.push('lock'); return 1; });
+    passwordResetTokenUpdateMany.mockImplementationOnce(async () => { order.push('update'); return { count: 0 }; });
+    await prismaAuthStore.consumeResetToken('h', 'hash-moi', NOW_ISO);
+    expect(order).toEqual(['lock', 'update']);
+  });
+
   it('updateMany token tra count: 0 -> { ok: false }, KHONG goi update mat khau', async () => {
     passwordResetTokenUpdateMany.mockResolvedValueOnce({ count: 0 });
     const r = await prismaAuthStore.consumeResetToken('h', 'hash-moi', NOW_ISO);

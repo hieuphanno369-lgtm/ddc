@@ -528,7 +528,7 @@
   .phead .val .v{font-size:var(--t-title2);font-weight:750;letter-spacing:var(--tr-title);margin-top:2px}
   .phead .val .s{font-size:var(--t-caption1);color:var(--label3)}
 
-  /* data-schema (khong co trong mock-up): dim la mau vang - khong co san class c-* */
+  /* Chip vang nhan thuong hieu: badge P0 (Priority) va nhan dim o data-schema. */
   .c-gold { background: rgba(245, 179, 1, .18); color: #7a5a00; }
   :root[data-theme="dark"] .c-gold { color: var(--gold); }
   @media (prefers-color-scheme: dark) {

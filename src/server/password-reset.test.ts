@@ -536,7 +536,7 @@ describe('resetPasswordWithToken', () => {
 });
 
 describe('getResetTokenKind (link dung duoc)', () => {
-  it('token dung dinh dang + con han -> true; sai dinh dang -> false', async () => {
+  it("token dung dinh dang + con han -> 'reset'; sai dinh dang -> null", async () => {
     const store = createMemoryAuthStore(makeSource([account()]));
     const token = await requestAndGetTokenHelper(store, 'a@daidung.com.vn', at(0));
 

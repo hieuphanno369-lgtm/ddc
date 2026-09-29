@@ -12,3 +12,8 @@
 - Kho Prisma: khoa tu van `pg_advisory_xact_lock` theo email trong transaction, `findMany` roi `deleteMany({ email, id: { notIn } })`, roi `create`.
 - Kho bo nho: cung luat, tren mang `resetTokens`.
 - Don nit reviewer: sua comment `resetTokenKindOf`, `peekResetToken` = `peekResetTokenKind !== null` o ca 2 kho (khong con `this`), bo `isResetTokenUsable` (khong con noi goi that).
+
+## Thêm vào cùng nhánh (chủ dự án chốt 2026-09-29)
+
+- Rule hiển thị Priority: badge P0 vàng nhấn, P1 navy, P2/P3 xám; thẻ Top bỏ nhãn trễ/đúng (xem ở Chi tiết), giữ thứ tự trễ xếp trước.
+- Vá TT-1/TT-2 do security nêu (khoá tư vấn theo email cho mọi thao tác token).

@@ -289,4 +289,40 @@ describe.skipIf(!hasDb)('prismaAuthStore tren Postgres that (DB _c)', () => {
     expect(await prismaAuthStore.peekResetToken('hash-t1-race-1', now())).toBe(false);
     expect(await prismaAuthStore.peekResetToken('hash-t1-race-2', now())).toBe(false);
   });
+  it('TT-1 - admin bat va Quen mat khau dong thoi (lap 25 vong): loi moi vua tao luon con song; 2 loi moi dong thoi chi con 1', async () => {
+    const now = () => new Date().toISOString();
+    const inHours = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
+    const inMinutes = (m: number) => new Date(Date.now() + m * 60_000).toISOString();
+    for (let i = 0; i < 25; i++) {
+      await prisma.passwordResetToken.deleteMany({ where: { email: EMAIL_B } });
+      await Promise.all([
+        prismaAuthStore.replaceResetToken(EMAIL_B, `hash-tt1-reset-${i}`, inMinutes(30), '1.2.3.4'),
+        prismaAuthStore.replaceResetToken(EMAIL_B, `hash-tt1-invite-${i}`, inHours(72), ''),
+      ]);
+      expect(await prismaAuthStore.peekResetTokenKind(`hash-tt1-invite-${i}`, now())).toBe('invite');
+
+      await prisma.passwordResetToken.deleteMany({ where: { email: EMAIL_B } });
+      await Promise.all([
+        prismaAuthStore.replaceResetToken(EMAIL_B, `hash-tt1-inv-a-${i}`, inHours(72), ''),
+        prismaAuthStore.replaceResetToken(EMAIL_B, `hash-tt1-inv-b-${i}`, inHours(72), ''),
+      ]);
+      expect(await prisma.passwordResetToken.count({ where: { email: EMAIL_B } })).toBe(1);
+    }
+  });
+
+  it('TT-2 - tieu dong thoi link loi moi va link quen mat khau cung email (lap 15 vong): khong nem loi, dung 1 cai thang', async () => {
+    const inHours = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
+    const inMinutes = (m: number) => new Date(Date.now() + m * 60_000).toISOString();
+    for (let i = 0; i < 15; i++) {
+      await prisma.passwordResetToken.deleteMany({ where: { email: EMAIL_B } });
+      await prismaAuthStore.replaceResetToken(EMAIL_B, `hash-tt2-invite-${i}`, inHours(72), '');
+      await prismaAuthStore.replaceResetToken(EMAIL_B, `hash-tt2-reset-${i}`, inMinutes(30), '1.2.3.4');
+      const nowIso = new Date().toISOString();
+      const results = await Promise.all([
+        prismaAuthStore.consumeResetToken(`hash-tt2-invite-${i}`, 'hash-tt2-pw-a', nowIso),
+        prismaAuthStore.consumeResetToken(`hash-tt2-reset-${i}`, 'hash-tt2-pw-b', nowIso),
+      ]);
+      expect(results.filter((r) => r.ok)).toHaveLength(1);
+    }
+  });
 });
