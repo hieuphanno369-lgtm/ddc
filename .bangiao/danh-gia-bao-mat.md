@@ -1,4 +1,6 @@
-PHAN QUYET BAO MAT: LO HONG
+PHAN QUYET BAO MAT: DAT (vong 2, xem muc "VONG 2" o cuoi file - TB-1/TB-2 duoi day da dong)
+
+## VONG 1 (LO HONG - lich su, xem VONG 2 o cuoi file cho ket qua moi nhat)
 
 Khong co lo hong muc cao.
 Co 2 lo hong muc trung binh, nen va truoc go-live vi va re.
@@ -168,9 +170,143 @@ Da doc: `thay-doi.md`, diff `main...HEAD` (46 file), va tung file trong pham vi.
    - `.env.docker` duoc `chmod 600`, `CRON_SECRET` doc tu file 600 (khong ghi thang vao crontab).
    - Chi con mau thuan cong o T-6.
 
-## De xuat thu tu va
+## De xuat thu tu va (vong 1, xem VONG 2 duoi day cho trang thai moi nhat)
 
 1. TB-1: dao thu tu rate limit va chan `/api/health/db` o Nginx.
 2. TB-2 + T-1: kiem ten bang, truy van DB nguon chi-doc, gioi han do dai ten DB tam, chi dang ky trap sau `createdb`.
 3. T-6: sua `DEPLOY.md` cho thong nhat cong.
 4. Cac diem con lai (T-2, T-3, T-4, T-5, T-7, T-8, T-9) lam trong dot hardening.
+
+---
+
+## VONG 2 - xac nhan TB-1/TB-2 da dong (nhanh feature/p5-b-ha-tang, HEAD 27f4084)
+
+TB-1 va TB-2 da dong dung.
+Khong phat sinh lo hong muc trung binh hay cao moi.
+T-1 va T-6 cua vong 1 duoc dong luon nho ban va B-2 va B-4.
+Con 3 muc thap moi (T-10, T-11, T-12) va cac muc thap cu T-2..T-5, T-7..T-9 dua vao so no, khong chan go-live.
+
+Skill da dung: `ddc-tower:security-review`.
+Khong dung `mcp__postgres`, vi thay doi khong dung schema hay truy van ung dung.
+Da doc: `danh-gia-bao-mat.md` vong 1, `danh-gia.md`, `thay-doi.md`, `ket-qua-test.md`, diff `a97d841..HEAD` (11 file), va doc toan bo `app/api/health/db/route.ts`, `src/lib/client-ip.ts`, `scripts/backup/pg-backup.sh`, `scripts/backup/pg-restore-test.sh`, `docker-compose.yml` (service `app` healthcheck va `backup`), `docs/DEPLOY.md` muc 1, 6, 11, 15.
+
+### 1. TB-1: DA DONG
+
+- `app/api/health/db/route.ts:15-19`: `clientIpFrom`, roi bucket `health-db:<ip>` (60/phut), roi moi toi bucket `health-db:global` (300/phut).
+  Request bi chan theo IP tra 429 ngay, khong tang dem toan cuc.
+  Test `health-db-route.test.ts` (IP A 400 lan, IP B van 200) khop voi code.
+- Khong gia duoc nhieu IP qua header:
+  - Nginx mau dung `proxy_add_x_forwarded_for` (noi them IP that vao cuoi chuoi).
+  - `clientIpFrom` voi `TRUSTED_PROXY_HOPS=1` lay phan tu CUOI cua XFF.
+  - Client tu them bao nhieu phan tu vao dau chuoi cung khong doi duoc khoa.
+  - App chi publish `127.0.0.1:<APP_PORT>`, nen khong vuot Nginx de tu dat XFF duoc.
+- Nginx `location = /api/health/db` (DEPLOY.md muc 6) co do uu tien cao nhat, cao hon `location /`.
+  Da xet cac bien the de ne:
+  - `//api/health/db`: `merge_slashes` mac dinh bat, van khop `=`.
+  - `%64b`: Nginx giai ma URI truoc khi so location, van khop `=`.
+  - Query string: khong anh huong viec so location.
+  - `/api/health/db/`: Next tra 308 ve dung duong dan, trinh duyet theo lai thi bi `deny`.
+  - Chu hoa: 404.
+- Healthcheck noi bo goi thang `127.0.0.1:3000` trong container voi XFF `127.0.0.1`, co bucket rieng, khong di qua Nginx.
+- Rui ro con lai la T-10 ben duoi, muc thap.
+
+### 2. TB-2: DA DONG
+
+- `pg-restore-test.sh` khong con dong nao ket noi `-d "$PGDATABASE"`.
+  Moi `psql`, `createdb`, `dropdb` deu nham `$RESTORE_DB`.
+  `PGDATABASE` chi con dung de dat ten file va ten DB tam.
+  libpq khong tu ket noi `PGDATABASE` khi da co `-d`.
+  Vi vay khong con cau SQL nao chay tren DB that: bo han truy van nguon manh hon phuong an chi-doc vong 1 de xuat.
+- Kiem ten bang bang `case "$t" in *[!A-Za-z0-9_]*|[0-9]*) fail "bad_table_name"`, dat TRUOC khi ghep SQL.
+  Da soat cac ke ho:
+  - Dau `"` (ky tu duy nhat thoat duoc khoi dinh danh trong ngoac kep), `;`, khoang trang, `$`, backtick, `\`: deu bi loai.
+    Ngoai ra `$t` nam trong chuoi ngoac kep cua shell, khong bi mo rong lan hai.
+  - Unicode/multibyte: busybox ash tren musl so khoang theo codepoint, byte ngoai ASCII khong thuoc `A-Za-z0-9_`, nen bi loai.
+    Ke ca neu lot, ky tu chu cai Unicode cung khong pha duoc dinh danh ngoac kep.
+  - Ten rong: da `continue`.
+  - Ten chi co `_`: hop le va vo hai, chi dem dong.
+  - Ten chua xuong dong: bi IFS tach thanh nhieu manh, moi manh bi kiem rieng.
+    Neu manh khop mot bang khac thi chi dem nham, khong chay duoc lenh.
+  - Ten bat dau bang chu so: bi loai (gay fail, khong gay injection).
+- Gioi han do dai: `[ ${#RESTORE_DB} -le 63 ] || exit 5` (dong 60), dat TRUOC `createdb`.
+  Them hau to `_$$` de 2 lan chay cung giay khong trung ten.
+- `trap cleanup EXIT` da doi xuong SAU `createdb` thanh cong (dong 69).
+  `createdb` loi (vi du "already exists") thi `set -e` thoat ma khong goi `dropdb --force`.
+- Vi vay T-1 vong 1 da dong.
+- Luu y lien quan: xem T-10.
+
+### 3. B-3 (khoa ket): khong phat sinh lo hong moi
+
+- Ke tan cong co quyen ghi `BACKUP_DIR` dat `.lock` la symlink toi thu muc khac:
+  - `[ -d ]` di theo symlink nen tra dung.
+  - `find -maxdepth 0 -mmin` (che do mac dinh `-P`) chi xet thoi gian cua chinh symlink.
+  - `rmdir` tren symlink loi ENOTDIR (`|| true`), nen khong xoa gi ngoai thu muc.
+  - `mkdir` loi EEXIST, dan toi `lock_busy`.
+  Hau qua chi la ngung backup (DoS).
+- Dat `.lock` la file thuong cung chi gay `lock_busy`.
+- Ke co quyen ghi `BACKUP_DIR` von da xoa hay sua duoc ban backup, nen khong co them nang luc nao.
+- `cleanup` chi `rm -f "$PARTIAL"` va `rmdir` (thu muc rong), khong co `rm -rf`.
+- `trap 'exit 130' INT TERM HUP` dua tin hieu qua trap EXIT dung cach.
+- Van de do tin cay (khong phai bao mat, ghi de biet):
+  - Mtime cua lock khong duoc cap nhat trong luc chay, nen dump chay qua 6 gio se bi lan chay sau coi la stale.
+  - Hai tien trinh cung thay lock stale mot luc thi co the cung chay.
+  Ca hai deu hiem voi DB co nay.
+
+### 4. B-4 (DEPLOY.md): khong phat sinh huong dan nguy hiem moi
+
+- Moi lenh tren host da dung `127.0.0.1:<APP_PORT>`.
+  Co canh bao "khong bao gio bo tien to `127.0.0.1:`".
+  Chi con 1 cho `127.0.0.1:3000`, la cong noi bo trong container (healthcheck).
+  Vi vay T-6 da dong.
+- Khoi phuc qua service `backup`: dung dung mount `${BACKUP_DIR}`, mat khau lay tu bien moi truong (khong go tren dong lenh), `-d ddc_control_tower` ghi ro.
+  Kiem sha256 dat truoc `dropdb --force`.
+- Mo ta Nginx va healthcheck noi bo nhat quan voi `docker-compose.yml:64`.
+- Van con ke ho, xem T-11.
+
+### 5. Muc thap moi (so no)
+
+#### T-10 (Thap, co tu truoc, khong do ban va): file dump bi sua van chay duoc SQL tuy y khi `pg_restore`, ke ca trong restore-test
+
+- **Vi tri:** `pg-restore-test.sh:71`, DEPLOY.md muc 11 (quy trinh khoi phuc that va cau "KHONG BAO GIO dung vao database that").
+- **Van de:** dinh dang custom cua `pg_restore` chua san cau SQL cho tung muc, va `pg_restore` thuc thi nguyen van bang quyen superuser `ddc`.
+  Ke sua duoc dump co the dua `COPY ... TO PROGRAM` vao, chay lenh trong container `db`, roi tu do ket noi DB that.
+  Vay ban va TB-2 dong duoc duong ghep ten bang, nhung dieu kien tan cong chinh cua TB-2 (sua duoc file dump) van du de chiem DB.
+  PostgreSQL coi ban dump la dau vao tin cay nen day la ban chat cua moi lan khoi phuc, khong phai loi cua lan sua nay.
+  Bao mat da sot diem nay o vong 1.
+- `.sha256` nam canh file dump nen chi bat duoc file hong, khong bat duoc file bi sua co chu dich.
+- **Cach va (dot hardening):**
+  - Chi khoi phuc hoac restore-test tu `BACKUP_DIR` cuc bo cua server.
+    Ban keo tu NAS ve phai doi chieu voi ma bam luu o noi ke tan cong khong sua duoc (vi du HMAC-SHA256 voi khoa chi co tren server, hoac ghi ma bam vao log cua server luc backup).
+  - Tuy chon: restore-test dung role co `CREATEDB` nhung khong phai superuser.
+  - Sua cau "KHONG BAO GIO dung vao database that" thanh "voi ban dump tin cay".
+
+#### T-11 (Thap): khoi lenh khoi phuc trong DEPLOY.md khong dung lai khi mot buoc loi
+
+- **Vi tri:** DEPLOY.md muc 11, khoi `bash` quy trinh khoi phuc (cac dong `sha256sum -c` va `dropdb --force`).
+- **Van de:** cac lenh la dong rieng, khong co `set -e` hay `&&`.
+  Nguoi van hanh dan ca khoi vao terminal thi `sha256sum -c` hoac buoc backup truoc do loi, `dropdb --force` van chay.
+  Dieu nay mat dung tac dung cua chu "BAT BUOC kiem truoc".
+- **Cach va:** noi cac buoc bang `&&`, hoac mo dau khoi bang `set -e` trong subshell, hoac ghi ro "chay tung dong, dong nao loi thi DUNG".
+
+#### T-12 (Thap): bucket toan cuc van can duoc bang >= 5 IP that khi IT quen dong `allow`
+
+- **Vi tri:** `route.ts:18`, `docker-compose.yml:64`.
+- **Van de:** 5 IP x 60 = 300 la du lam day bucket toan cuc.
+  Cac dia chi IPv6 khac nhau la cac khoa rieng.
+  Healthcheck noi bo van tinh vao bucket toan cuc, nen neu Nginx khong chan thi van co the lam container `unhealthy`.
+  Voi dong `location = /api/health/db` theo DEPLOY.md thi Internet khong goi toi duoc, nen rui ro thap.
+- **Cach va (tuy chon, TB-1(c) vong 1):** bo qua bucket toan cuc cho khoa `127.0.0.1` (healthcheck noi bo).
+  Khoa nay khong gia duoc qua Nginx, vi Nginx noi IP that vao cuoi chuoi.
+
+### 6. Doi chieu muc cu vong 1
+
+- `git diff a97d841..HEAD` khong dung `src/lib/logger.ts`, `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `scripts/create-admin.ts`, `.env.docker.example`, `instrumentation.ts`, `src/lib/csp-report.ts`.
+- **Da dong trong vong nay:** T-1 (qua B-2) va T-6 (qua B-4).
+- **Con nguyen trang, dua vao so no:** T-2, T-3, T-4, T-5, T-7, T-8, T-9, va I-1, I-2, I-3, I-4, I-5.
+  I-2 da giam bot nho Nginx chan `/api/health/db`.
+
+### 7. De xuat thu tu va (dot hardening, vong 2)
+
+1. T-11 (sua tai lieu, re).
+2. T-10 (toan ven ban dump khi keo tu NAS ve) cung T-8 (ma hoa hoac gioi han quyen share NAS).
+3. T-12, T-2, T-3, T-4, T-5, T-7, T-9.
