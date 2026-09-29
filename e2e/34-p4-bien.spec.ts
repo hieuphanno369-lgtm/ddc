@@ -119,6 +119,16 @@ test.describe('34 - Bien P4 (admin)', () => {
     await expect(link).toHaveAttribute('href', /from=2026-06-15&to=2026-08-10/);
   });
 
+  test('T-3: chuoi gia tri o moc chua co so hien "-" thay 0,0% (SVD PVF 08/2026)', async ({ page }) => {
+    await page.goto('/vi/projects/1?month=2026-08');
+    const card = page.locator('.valueChainCard');
+    await expect(card).toBeVisible();
+    const pcs = await card.locator('.stage .pc').allTextContents();
+    expect(pcs.length).toBeGreaterThan(0);
+    expect(pcs.every((x) => x.trim() === '-')).toBe(true);
+    await expect(card.locator('.chainfoot')).not.toContainText('0,0%');
+  });
+
   test('mo Chi tiet co ky 1 ngay o thang khong co so nhan luc: khong loi, nhan "So ngay" la ngay that', async ({ page }) => {
     await page.goto('/vi/projects/1?from=2026-05-10&to=2026-05-10');
     await expect(page.getByTestId('detail-time-bar')).toBeVisible();

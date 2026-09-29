@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { vi } from './helpers/i18n';
+import { waitChartsDrawn } from './helpers/chart-ready';
+
+/** 'dd/mm/yyyy' (ô ngày riêng) -> mili giây UTC. */
+const dmyMs = (s: string) => {
+  const [d, m, y] = s.split('/').map(Number);
+  return Date.UTC(y, m - 1, d);
+};
 
 /**
  * P4 (D2, D3, D4): trang Chi tiet co bo chon moc thang, ky, dieu huong tuan cho nhom nguon luc, dong "So tai ...",
@@ -50,8 +57,9 @@ test.describe('33 - Chi tiet: moc thang, ky, tuan', () => {
     await nav.getByTestId('day-prev').click();
     await expect(page).toHaveURL(/day=/);
     const day1 = await input.inputValue();
-    expect(day1 < day0).toBe(true);
-    const diff = (new Date(day0).getTime() - new Date(day1).getTime()) / 86400000;
+    expect(day0).toMatch(/^\d{2}\/\d{2}\/\d{4}$/);
+    expect(dmyMs(day1) < dmyMs(day0)).toBe(true);
+    const diff = (dmyMs(day0) - dmyMs(day1)) / 86400000;
     expect(diff).toBe(7);
     await nav.getByTestId('day-next').click();
     await expect(input).toHaveValue(day0);
@@ -73,6 +81,38 @@ test.describe('33 - Chi tiet: moc thang, ky, tuan', () => {
     await expect(page.getByTestId('marker-line')).toBeAttached({ timeout: 30_000 });
   });
 
+  test('nhap ngay nguon luc dd/mm/yyyy: dung doi URL, sai bao loi', async ({ page }) => {
+    await page.goto('/vi/projects/1?month=2026-08');
+    const input = page.getByTestId('day-input');
+    await input.fill('10/08/2026');
+    await input.press('Enter');
+    await expect(page).toHaveURL(/day=2026-08-10/);
+    await input.fill('99/99/2026');
+    await input.press('Enter');
+    await expect(page.getByTestId('day-input-error')).toBeVisible();
+    await expect(page).toHaveURL(/day=2026-08-10/);
+  });
+
+  test('from/to rac o Chi tiet hien dong "Ky khong hop le"', async ({ page }) => {
+    await page.goto('/vi/projects/1?from=rac&to=rac');
+    await expect(page.getByTestId('period-invalid')).toHaveText(vi('period.invalid'));
+    await page.goto('/vi/projects/1');
+    await expect(page.getByTestId('period-invalid')).toHaveCount(0);
+  });
+
+  test('thanh ky 390px: hai o ngay thang cot, khong tran ngang', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/vi/projects/1?month=2026-08');
+    const from = await page.getByTestId('period-from').boundingBox();
+    const to = await page.getByTestId('period-to').boundingBox();
+    expect(from && to).toBeTruthy();
+    // Cung hang thi thang hang tren; xep 2 hang thi cung mep trai. Khong lech kieu 1 ben canh phai.
+    if (Math.abs(from!.y - to!.y) < 4) expect(from!.y).toBeCloseTo(to!.y, 0);
+    else expect(Math.abs(from!.x - to!.x)).toBeLessThan(4);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(1);
+  });
+
   test('tham so rac khong gay loi 500', async ({ page }) => {
     const res = await page.goto('/vi/projects/1?from=xx&to=2026-13-40&month=abc&day=2026-02-30');
     expect(res?.status()).toBe(200);
@@ -86,8 +126,7 @@ test.describe('33 - Chi tiet: moc thang, ky, tuan', () => {
         await page.setViewportSize({ width: w, height: h });
         await page.goto('/vi/projects/1?month=2026-08');
         await expect(page.getByTestId('detail-time-bar')).toBeVisible();
-        await expect(page.locator('.recharts-wrapper').first()).toBeVisible({ timeout: 30_000 });
-        await page.waitForTimeout(1500);
+        await waitChartsDrawn(page);
         await page.screenshot({ path: `${SHOTS}/chi-tiet-${w}-${theme}.png`, fullPage: true });
       });
     }

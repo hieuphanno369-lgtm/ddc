@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { vi } from './helpers/i18n';
+import { waitChartsDrawn } from './helpers/chart-ready';
 
 /**
  * P4 (C1): bo loc ky ngay-ngay thay o chon thang, dong tom tat ky, chip ten chieu loc, chip "Tu bieu do".
@@ -16,7 +17,9 @@ test.describe('32 - Bo loc ky Tong quan', () => {
     await expect(summary).toContainText('15/07/2026');
     await expect(summary).toContainText('20/08/2026');
     await expect(summary).toContainText('07/2026 - 08/2026');
-    await expect(page.locator('input[type="date"]').first()).toHaveValue('2026-07-15');
+    // Ô ngày riêng luôn dd/mm/yyyy (không theo ngôn ngữ trình duyệt).
+    await expect(page.getByTestId('period-from')).toHaveValue('15/07/2026');
+    await expect(page.getByTestId('period-to')).toHaveValue('20/08/2026');
     // Khong con o chon thang / lua chon "Tat ca".
     await expect(page.locator('select option', { hasText: /^Tất cả$/ })).toHaveCount(0);
   });
@@ -30,7 +33,9 @@ test.describe('32 - Bo loc ky Tong quan', () => {
 
   test('doi ngay Tu ngay ghi ca from va to len URL', async ({ page }) => {
     await page.goto('/vi/overview?from=2026-07-01&to=2026-08-31');
-    await page.locator('input[type="date"]').first().fill('2026-06-10');
+    const from = page.getByTestId('period-from');
+    await from.fill('10/06/2026');
+    await from.press('Enter');
     await expect(page).toHaveURL(/from=2026-06-10/);
     await expect(page).toHaveURL(/to=2026-08-31/);
     await expect(page.getByTestId('period-summary')).toContainText('06/2026 - 08/2026');
@@ -84,6 +89,68 @@ test.describe('32 - Bo loc ky Tong quan', () => {
     await page.waitForURL(/\/projects\/\d+\?from=2026-07-01&to=2026-08-31/);
   });
 
+  test('ngay nhap sai bao loi, khong doi URL; nhap dung dd/mm/yyyy doi ky; lich bam chon doi ky', async ({ page }) => {
+    await page.goto('/vi/overview?from=2026-07-01&to=2026-08-31');
+    const from = page.getByTestId('period-from');
+    await from.fill('31/02/2026');
+    await from.press('Enter');
+    await expect(page.getByTestId('period-from-error')).toBeVisible();
+    await expect(from).toHaveAttribute('aria-invalid', 'true');
+    await expect(page).toHaveURL(/from=2026-07-01/);
+    // Sua lai cho dung thi loi mat va URL doi.
+    await from.fill('05/07/2026');
+    await from.press('Enter');
+    await expect(page).toHaveURL(/from=2026-07-05/);
+    await expect(page.getByTestId('period-from-error')).toHaveCount(0);
+    // Lich gan san (input date an) - chon ngay qua lich.
+    await page.getByTestId('period-to-picker').fill('2026-09-10');
+    await expect(page).toHaveURL(/to=2026-09-10/);
+    await expect(page.getByTestId('period-to')).toHaveValue('10/09/2026');
+  });
+
+  test('from/to rac hien dong "Ky khong hop le" (hintline), from/to dung thi khong', async ({ page }) => {
+    await page.goto('/vi/overview?from=rac&to=rac');
+    await expect(page.getByTestId('period-invalid')).toHaveText(vi('period.invalid'));
+    await page.goto('/vi/overview?from=2026-07-01&to=2026-08-31');
+    await expect(page.getByTestId('period-summary')).toBeVisible();
+    await expect(page.getByTestId('period-invalid')).toHaveCount(0);
+    await page.goto('/vi/overview');
+    await expect(page.getByTestId('period-invalid')).toHaveCount(0);
+  });
+
+  test('T-2: trang Bao cao dung chung ky voi Tong quan, so khop the Du an trong ky', async ({ page }) => {
+    const from = '2026-01-01';
+    const to = '2026-06-30';
+    await page.goto(`/vi/overview?from=${from}&to=${to}`);
+    const ovCard = page.locator('.kpi', { hasText: vi('kpi.totalProjects') }).first();
+    const ovInPeriod = (await ovCard.locator('.vl').textContent())?.trim();
+    const ovSummary = await page.getByTestId('period-summary').textContent();
+    await page.goto(`/vi/report?from=${from}&to=${to}`);
+    await expect(page.getByTestId('report-period-bar')).toBeVisible();
+    await expect(page.getByTestId('period-summary')).toHaveText(ovSummary ?? '');
+    const rpCard = page.locator('.kpi', { hasText: vi('kpi.totalProjects') }).first();
+    await expect(rpCard.locator('.vl')).toHaveText(ovInPeriod ?? '');
+    // Mac dinh 12 thang: co dong "Ky bao cao", link xuat file mang ky.
+    await page.goto('/vi/report');
+    await expect(page.getByTestId('period-summary')).toContainText(/^Kỳ /);
+    await expect(page.locator('a[href^="/api/report/export"]')).toHaveAttribute('href', /from=\d{4}-\d{2}-\d{2}&to=/);
+    // Doi ngay tren trang Bao cao ghi len URL.
+    const f = page.getByTestId('period-from');
+    await f.fill('01/03/2026');
+    await f.press('Enter');
+    await expect(page).toHaveURL(/from=2026-03-01/);
+    await page.goto('/vi/report?from=rac&to=rac');
+    await expect(page.getByTestId('period-invalid')).toBeVisible();
+  });
+
+  test('T-2: export bao cao nhan ky tu URL', async ({ request }) => {
+    const res = await request.get('/api/report/export?from=2026-01-01&to=2026-03-31');
+    expect(res.status()).toBe(200);
+    expect(res.headers()['content-type']).toContain('spreadsheetml');
+    const junk = await request.get('/api/report/export?from=rac&to=rac');
+    expect(junk.status()).toBe(200);
+  });
+
   for (const theme of ['light', 'dark'] as const) {
     for (const [w, h] of [[1440, 900], [390, 844]] as const) {
       test(`anh thanh loc ${w}px ${theme}`, async ({ page }) => {
@@ -92,7 +159,7 @@ test.describe('32 - Bo loc ky Tong quan', () => {
         await page.goto('/vi/overview?from=2026-07-15&to=2026-09-16');
         const bar = page.getByTestId('period-summary');
         await expect(bar).toBeVisible();
-        await expect(page.locator('.recharts-wrapper').first()).toBeVisible({ timeout: 30_000 });
+        await waitChartsDrawn(page);
         await page.screenshot({ path: `${SHOTS}/tong-quan-${w}-${theme}.png`, fullPage: true });
       });
     }
