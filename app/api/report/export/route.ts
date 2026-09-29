@@ -23,12 +23,12 @@ export async function GET() {
     { header: 'Giá trị', key: 'value', width: 16 },
   ];
   kpiWs.addRows([
-    { label: 'Tổng số dự án', value: kpis.totalProjects },
+    { label: 'Tổng số dự án', value: kpis.projectsInPeriod },
     { label: 'Đang triển khai', value: kpis.inProgress },
     { label: 'Trễ tiến độ', value: kpis.behindSchedule },
     { label: 'Nguy cơ phạt', value: kpis.penaltyRisk },
     { label: 'Đã phạt', value: kpis.penalized },
-    ...(canViewFinance ? [{ label: 'Backlog (tỷ)', value: kpis.backlog }] : []),
+    ...(canViewFinance ? [{ label: 'Backlog (tỷ)', value: kpis.notStartedValue }] : []),
   ]);
 
   const p0Ws = wb.addWorksheet('P0-Red');

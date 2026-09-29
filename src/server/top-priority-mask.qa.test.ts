@@ -70,12 +70,14 @@ vi.mock('@/components/dashboard/TopPriorityList', () => ({
 
 import { TopPriorityCard } from '@/components/dashboard/OverviewWidgets';
 
+const PERIOD_09 = { from: '2026-09-01', to: '2026-09-30' };
+const PERIOD_11 = { from: '2026-11-01', to: '2026-11-30' };
 const FILTERS = { status: 'all', teamKdId: 'all', customerId: 'all', priority: 'all', market: 'all', projectType: 'all' } as const;
 
 describe('TopPriorityCard + maskProjectSummaries - QA doc lap N-3 Buoc 10', () => {
   it('S-2: admin (canViewFinance=true) cung chi nhan 6 truong can hien thi, khong co truong tien', async () => {
     topPriorityProps.length = 0;
-    const el = await TopPriorityCard({ month: '2026-09', filters: FILTERS as never, canViewFinance: true });
+    const el = await TopPriorityCard({ period: PERIOD_09, filters: FILTERS as never, canViewFinance: true });
     renderToStaticMarkup(el as React.ReactElement);
     const items = topPriorityProps[0].items as Array<Record<string, unknown>>;
     expect(Object.keys(items[0]).sort()).toEqual(['id', 'onTrack', 'pctActual', 'pctPlan', 'projectName', 'status']);
@@ -85,13 +87,13 @@ describe('TopPriorityCard + maskProjectSummaries - QA doc lap N-3 Buoc 10', () =
   it('bien: goi dung loadTopPriority voi thang + filters truyen vao', async () => {
     topPriorityProps.length = 0;
     loadTopPriority.mockClear();
-    await TopPriorityCard({ month: '2026-11', filters: FILTERS as never, canViewFinance: true });
-    expect(loadTopPriority).toHaveBeenCalledWith('2026-11', FILTERS);
+    await TopPriorityCard({ period: PERIOD_11, filters: FILTERS as never, canViewFinance: true });
+    expect(loadTopPriority).toHaveBeenCalledWith(PERIOD_11, FILTERS);
   });
 
   it('PHAI THAT BAI NEU RO RI: viewer (canViewFinance=false) KHONG duoc thay contractValue/eac/vac, ke ca vac am', async () => {
     topPriorityProps.length = 0;
-    const el = await TopPriorityCard({ month: '2026-09', filters: FILTERS as never, canViewFinance: false });
+    const el = await TopPriorityCard({ period: PERIOD_09, filters: FILTERS as never, canViewFinance: false });
     renderToStaticMarkup(el as React.ReactElement);
     const items = topPriorityProps[0].items as Array<Record<string, unknown>>;
     expect(items[0]).not.toHaveProperty('contractValue');

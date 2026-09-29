@@ -90,6 +90,7 @@ vi.mock('@/components/dashboard/TopPriorityList', () => ({
 
 import { GroupBarCard, ProjectListCard, TopPriorityCard } from '@/components/dashboard/OverviewWidgets';
 
+const PERIOD_09 = { from: '2026-09-01', to: '2026-09-30' };
 const FILTERS = { status: 'all', teamKdId: 'all', customerId: 'all', priority: 'all', market: 'all', projectType: 'all' } as const;
 
 describe('N-3 Tổng quan - GroupBarCard/ProjectListCard/TopPriorityCard che tien khi khong quyen', () => {
@@ -98,13 +99,13 @@ describe('N-3 Tổng quan - GroupBarCard/ProjectListCard/TopPriorityCard che tie
     projectTableProps.length = 0;
     topPriorityProps.length = 0;
 
-    const groupEl = await GroupBarCard({ month: '2026-09', groupBy: 'team', filters: FILTERS as never, canViewFinance: false });
+    const groupEl = await GroupBarCard({ period: PERIOD_09, groupBy: 'team', filters: FILTERS as never, canViewFinance: false });
     renderToStaticMarkup(groupEl as React.ReactElement);
     expect(dynProps[0].showValue).toBe(false);
     expect((dynProps[0].data as Array<{ value: number | null }>).every((d) => d.value === null)).toBe(true);
 
     const listEl = await ProjectListCard({
-      month: '2026-09',
+      period: PERIOD_09,
       filters: FILTERS as never,
       search: '',
       sort: 'value',
@@ -120,13 +121,13 @@ describe('N-3 Tổng quan - GroupBarCard/ProjectListCard/TopPriorityCard che tie
     expect(JSON.stringify(projectTableProps[0])).not.toMatch(/"contractValue":\d/);
     expect(loadProjectList).toHaveBeenCalledWith(expect.objectContaining({ sort: 'priority' }));
 
-    const topEl = await TopPriorityCard({ month: '2026-09', filters: FILTERS as never, canViewFinance: false });
+    const topEl = await TopPriorityCard({ period: PERIOD_09, filters: FILTERS as never, canViewFinance: false });
     renderToStaticMarkup(topEl as React.ReactElement);
     const tItems = topPriorityProps[0].items as Array<Record<string, unknown>>;
     // S-2: chi truyen 6 truong can hien thi xuong client, khong co truong tien.
     expect(Object.keys(tItems[0]).sort()).toEqual(['id', 'onTrack', 'pctActual', 'pctPlan', 'projectName', 'status']);
     expect(JSON.stringify(topPriorityProps[0])).not.toMatch(/"contractValue":\d/);
-    expect(loadTopPriority).toHaveBeenCalledWith('2026-09', FILTERS);
+    expect(loadTopPriority).toHaveBeenCalledWith(PERIOD_09, FILTERS);
   });
 
   it('admin (canViewFinance=true): showValue=true, value giu nguyen, sort value giu nguyen', async () => {
@@ -134,13 +135,13 @@ describe('N-3 Tổng quan - GroupBarCard/ProjectListCard/TopPriorityCard che tie
     projectTableProps.length = 0;
     loadProjectList.mockClear();
 
-    const groupEl = await GroupBarCard({ month: '2026-09', groupBy: 'team', filters: FILTERS as never, canViewFinance: true });
+    const groupEl = await GroupBarCard({ period: PERIOD_09, groupBy: 'team', filters: FILTERS as never, canViewFinance: true });
     renderToStaticMarkup(groupEl as React.ReactElement);
     expect(dynProps[0].showValue).toBe(true);
     expect((dynProps[0].data as Array<{ value: number | null }>)[0].value).toBe(55.5);
 
     const listEl = await ProjectListCard({
-      month: '2026-09',
+      period: PERIOD_09,
       filters: FILTERS as never,
       search: '',
       sort: 'value',
@@ -153,7 +154,7 @@ describe('N-3 Tổng quan - GroupBarCard/ProjectListCard/TopPriorityCard che tie
     expect(loadProjectList).toHaveBeenCalledWith(expect.objectContaining({ sort: 'value' }));
 
     topPriorityProps.length = 0;
-    const topEl = await TopPriorityCard({ month: '2026-09', filters: FILTERS as never, canViewFinance: true });
+    const topEl = await TopPriorityCard({ period: PERIOD_09, filters: FILTERS as never, canViewFinance: true });
     renderToStaticMarkup(topEl as React.ReactElement);
     const tItems = topPriorityProps[0].items as Array<Record<string, unknown>>;
     expect(Object.keys(tItems[0]).sort()).toEqual(['id', 'onTrack', 'pctActual', 'pctPlan', 'projectName', 'status']);

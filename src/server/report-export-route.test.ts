@@ -13,13 +13,17 @@ import type { PortfolioKpis, ProjectSummary } from '@/server/queries';
  * mock-repo thật để hành vi rows/backlog chạy qua code thật.
  */
 const KPIS: PortfolioKpis = {
-  totalProjects: 17,
+  projectsInPeriod: 17,
   inProgress: 11,
   behindSchedule: 4,
   penaltyRisk: 3,
   penalized: 1,
-  backlog: 250,
-  delta: { totalProjects: 1, inProgress: 0, behindSchedule: -1, penaltyRisk: 0, penalized: 0, backlog: 10 },
+  notStartedValue: 250,
+  revenueInPeriod: 0,
+  tonnageInPeriod: 0,
+  asOfDate: '2026-09-16',
+  months: ['2026-09'],
+  delta: { projectsInPeriod: 1, inProgress: 0, behindSchedule: -1, penaltyRisk: 0, penalized: 0, notStartedValue: 10, revenueInPeriod: 0, tonnageInPeriod: 0 },
 };
 
 const summary = (over: Partial<ProjectSummary> & { id: number; priority: ProjectSummary['priority']; penalty: ProjectSummary['penalty'] }): ProjectSummary => ({
@@ -43,6 +47,7 @@ const summary = (over: Partial<ProjectSummary> & { id: number; priority: Project
   eac: null,
   vac: null,
   bottleneckStage: null,
+  dataState: { kind: 'current', month: '2026-09' },
   ...over,
 });
 

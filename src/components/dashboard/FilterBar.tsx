@@ -2,24 +2,9 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import type { Market, Priority, ProjectType, Status } from '@/server/repo/types';
 import { marketKey, statusKey, typeKey } from '@/lib/labels';
 import { IconFilter } from '@/components/icons';
-
-const STATUSES: Status[] = ['Chuan_bi', 'Dang_trien_khai', 'Hoan_thanh', 'Tam_dung'];
-const PRIORITIES: Priority[] = ['P0', 'P1', 'P2', 'P3'];
-const MARKETS: Market[] = ['TN', 'XK', 'NoiBo'];
-const TYPES: ProjectType[] = [
-  'EPC',
-  'San_van_dong',
-  'San_bay',
-  'Nha_xuong',
-  'Cau_cang',
-  'Cao_tang',
-  'Dong_tau',
-  'Cau_giao_thong',
-  'Khac',
-];
+import { MARKETS, PRIORITIES, STATUSES, TYPES } from '@/lib/overview-params';
 
 const SCOPE_KEYS = ['status', 'team', 'customer', 'priority', 'market', 'type', 'search', 'groupBy', 'groupKey', 'page'];
 

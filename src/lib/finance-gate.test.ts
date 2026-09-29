@@ -33,6 +33,7 @@ const SUMMARY: ProjectSummary = {
   eac: 150,
   vac: -26.6,
   bottleneckStage: null,
+  dataState: { kind: 'current', month: '2026-09' },
 };
 
 describe('maskProjectSummary', () => {

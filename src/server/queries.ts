@@ -2,8 +2,10 @@ import { cache as reactCache } from 'react';
 import { calcDurationPctComplete, calcEac, calcVac, deriveStatus, isOnTrack, penaltyState, type PenaltyState } from '@/lib/evm';
 import { THRESHOLDS } from '@/lib/thresholds';
 import { repo } from './repo';
-import { currentMonth, historyMonths, isValidYearMonth, prevMonth, today } from '@/lib/clock';
-import type { FactSnapshot } from './repo/read-types';
+import { currentMonth, endOfMonth, isValidYearMonth, todayIso, type IsoDate, type YearMonth } from '@/lib/clock';
+import { carrySeries, dataStateOf, pickAsOf, type AsOf, type DataState } from '@/lib/as-of';
+import { intersectsPeriod, periodAsOfDate, periodMonths, previousPeriod, type Period } from '@/lib/period';
+import type { FactSeriesRow, FactSnapshot } from './repo/read-types';
 import type {
   Market,
   Priority,
@@ -29,18 +31,20 @@ export interface ProjectSummary {
   penalty: PenaltyState;
   contractValue: number;
   tonnage: number;
-  pctPlan: number | null;   // % KH THEO THỜI GIAN (duration); null = thiếu ngày kế hoạch
+  pctPlan: number | null;   // % KH THEO THỜI GIAN (duration) tại mốc; null = thiếu ngày kế hoạch
   pctActual: number;
   spi: number | null;
   cpi: number | null;
   eac: number | null;
   vac: number | null;
   bottleneckStage: string | null;
+  /** Số tại mốc lấy từ tháng nào: current (đúng tháng mốc), carried (mang số tháng trước), completed, none. */
+  dataState: DataState;
 }
 
 export type GroupBy = 'team' | 'type' | 'market';
 
-/** Bộ filter scope - áp dụng cho KPI/chart/bảng (status là snapshot theo tháng). */
+/** Bộ filter scope - áp dụng cho KPI/chart/bảng (status là snapshot tại mốc cuối kỳ). */
 export interface DashboardFilters {
   status?: Status | 'all';
   teamKdId?: number | 'all';
@@ -54,24 +58,38 @@ export interface DashboardFilters {
 
 type Dims = Awaited<ReturnType<typeof repo.getDims>>;
 
-/** Đồng bộ - `dims` lấy 1 lần ở tầng gọi, không tự query nữa (T1: tránh N+1 theo số dự án). */
-function summarize(project: Project, fact: FactSnapshot | undefined, dims: Dims): ProjectSummary {
+/** Ngày dạng 'YYYY-MM-DD' (cột ngày của Postgres có thể trả ISO đầy đủ) hoặc null. */
+const day10 = (d: string | null): IsoDate | null => (d ? d.slice(0, 10) : null);
+
+/**
+ * Đồng bộ - `dims` lấy 1 lần ở tầng gọi, không tự query nữa (T1: tránh N+1 theo số dự án).
+ * Mọi số tính TẠI `asOfDate` (không dùng "hôm nay"): %KH, nguy cơ phạt và trạng thái đều theo mốc.
+ * Ngày thực tế sau mốc coi như chưa xảy ra.
+ */
+function summarize(project: Project, asOf: AsOf<FactSnapshot> | null, dims: Dims, asOfDate: IsoDate): ProjectSummary {
+  const fact = asOf?.row;
   const customer = dims.customers.find((c) => c.id === project.customerId);
   const team = dims.teams.find((t) => t.id === project.teamKdId);
+  const upToAsOf = (d: string | null) => {
+    const v = day10(d);
+    return v && v <= asOfDate ? v : null;
+  };
+  const actualFinishDate = upToAsOf(project.actualFinishDate);
   const status = deriveStatus({
-    actualStartDate: project.actualStartDate,
-    actualFinishDate: project.actualFinishDate,
+    actualStartDate: upToAsOf(project.actualStartDate),
+    actualFinishDate,
     pctActual: fact?.pctActual ?? 0,
   });
+  const asOfAt = new Date(`${asOfDate}T00:00:00Z`);
   const penalty = penaltyState({
     committedHandoverDate: project.committedHandoverDate,
     pctActual: fact?.pctActual ?? 0,
     penalized: project.penalized,
-    today: today(),
+    today: asOfAt,
   });
   const bac = fact?.bac ?? project.contractValue;
-  // % Kế hoạch = thời gian đã trôi. KHÔNG dùng fact.pctPlan nữa - đó chỉ còn là số nhập tay (audit).
-  const pctPlan = calcDurationPctComplete(project.plannedStartDate, project.plannedFinishDate, today());
+  // % Kế hoạch = thời gian đã trôi tới mốc. KHÔNG dùng fact.pctPlan nữa - đó chỉ còn là số nhập tay (audit).
+  const pctPlan = calcDurationPctComplete(project.plannedStartDate, project.plannedFinishDate, asOfAt);
   const eac = calcEac(bac, fact?.cpi ?? null);
   return {
     id: project.id,
@@ -97,6 +115,7 @@ function summarize(project: Project, fact: FactSnapshot | undefined, dims: Dims)
     eac: round2(eac),
     vac: round2(calcVac(bac, eac)),
     bottleneckStage: fact?.bottleneckStage ?? null,
+    dataState: dataStateOf(asOf, status, actualFinishDate),
   };
 }
 
@@ -104,6 +123,9 @@ function summarize(project: Project, fact: FactSnapshot | undefined, dims: Dims)
 function round2(v: number | null): number | null {
   return v == null ? null : Math.round(v * 100) / 100;
 }
+
+// + 0 để -0 (làm tròn số âm rất nhỏ) thành 0, tránh hiện "-0".
+const round1 = (v: number) => Math.round(v * 10) / 10 + 0;
 
 function matchesGroup(p: Pick<Project, 'teamKdId' | 'projectType' | 'marketCode'>, groupKey: string, groupBy: GroupBy, dims: Dims): boolean {
   if (groupBy === 'team') return (dims.teams.find((t) => t.id === p.teamKdId)?.name ?? '-') === groupKey;
@@ -125,21 +147,6 @@ function filterSummaries(summaries: ProjectSummary[], filters: DashboardFilters,
   return rows;
 }
 
-/** Project ids theo filter cấp dự án (KHÔNG theo status - dùng cho trend nhiều tháng). */
-export async function getScopedProjectIds(filters: DashboardFilters): Promise<Set<number>> {
-  let projects = await repo.listProjects();
-  if (filters.teamKdId && filters.teamKdId !== 'all') projects = projects.filter((p) => p.teamKdId === filters.teamKdId);
-  if (filters.customerId && filters.customerId !== 'all') projects = projects.filter((p) => p.customerId === filters.customerId);
-  if (filters.priority && filters.priority !== 'all') projects = projects.filter((p) => p.priority === filters.priority);
-  if (filters.market && filters.market !== 'all') projects = projects.filter((p) => p.marketCode === filters.market);
-  if (filters.projectType && filters.projectType !== 'all') projects = projects.filter((p) => p.projectType === filters.projectType);
-  if (filters.groupKey && filters.groupBy) {
-    const dims = await repo.getDims();
-    projects = projects.filter((p) => matchesGroup(p, filters.groupKey!, filters.groupBy!, dims));
-  }
-  return new Set(projects.map((p) => p.id));
-}
-
 /**
  * Dedupe trong 1 request Next.js (T1 Bước 11): trang /overview gọi `getProjectSummaries` 6-8
  * lần/lần render (KpiGrid+BacklogOverdueCard cùng gọi loadPortfolioKpis, AlertBanner+WatchlistCard
@@ -150,109 +157,158 @@ export async function getScopedProjectIds(filters: DashboardFilters): Promise<Se
  * Vitest); nhưng ngoài Server Component nó chỉ gọi thẳng hàm gốc, không memo gì (không có request
  * scope để nhớ). `typeof reactCache === 'function'` vẫn giữ để an toàn (không bao giờ ném 'cache is
  * not a function' nếu môi trường nào đó thiếu export này), dù nay luôn true.
+ * Memo theo THAM CHIẾU đối số: page phải truyền cùng 1 object `period`/`filters` xuống mọi widget.
  */
 function requestMemo<Args extends unknown[], R>(fn: (...args: Args) => Promise<R>): (...args: Args) => Promise<R> {
   return typeof reactCache === 'function' ? reactCache(fn) : fn;
 }
 
-async function getProjectSummariesUncached(yearMonth: string, filters?: DashboardFilters): Promise<ProjectSummary[]> {
+/** Mốc của kỳ: ngày mốc = min(cuối kỳ, hôm nay), tháng mốc = 7 ký tự đầu. */
+function asOfOf(period: Period): { asOfDate: IsoDate; asOfMonth: YearMonth } {
+  const asOfDate = periodAsOfDate(period, todayIso());
+  return { asOfDate, asOfMonth: asOfDate.slice(0, 7) };
+}
+
+interface PeriodEntry { project: Project; summary: ProjectSummary }
+
+/**
+ * Nền chung của mọi hàm theo kỳ: MỌI dự án đang hoạt động, tính số tồn tại mốc (dòng isLatest có
+ * yearMonth lớn nhất <= tháng mốc, mang số tháng trước sang). Việc lọc "thuộc kỳ" và filter làm ở trên.
+ * `factRows` = số dự án có ít nhất 1 dòng fact <= mốc (0 → chưa có gì để so sánh, delta = null).
+ */
+async function getPeriodBaseUncached(period: Period) {
+  const { asOfDate, asOfMonth } = asOfOf(period);
   const [projects, dims, facts] = await Promise.all([
     repo.listProjects(),
     repo.getDims(),
-    repo.readFactSnapshots(yearMonth),
+    repo.readFactSnapshotsAsOf(asOfMonth),
   ]);
   const byId = new Map(facts.map((f) => [f.projectId, f]));
-  const summaries = projects.map((p) => summarize(p, byId.get(p.id), dims));
+  const entries: PeriodEntry[] = projects.map((project) => {
+    const row = byId.get(project.id);
+    const asOf: AsOf<FactSnapshot> | null = row ? { row, sourceYm: row.yearMonth, carried: row.yearMonth !== asOfMonth } : null;
+    return { project, summary: summarize(project, asOf, dims, asOfDate) };
+  });
+  return { entries, dims, asOfDate, asOfMonth, factRows: facts.length };
+}
+const getPeriodBase = requestMemo(getPeriodBaseUncached);
+
+/** Dự án thuộc kỳ: [bắt đầu, kết thúc] giao với kỳ (Q4: thiếu ngày bắt đầu lấy ngày ký HĐ, thiếu cả 2 thì thuộc mọi kỳ). */
+function inPeriod(project: Project, period: Period): boolean {
+  const start = day10(project.actualStartDate) ?? day10(project.plannedStartDate) ?? day10(project.contractDate);
+  const end = day10(project.actualFinishDate) ?? day10(project.plannedFinishDate);
+  return intersectsPeriod(start, end, period);
+}
+
+async function getProjectSummariesUncached(period: Period, filters?: DashboardFilters): Promise<ProjectSummary[]> {
+  const { entries, dims } = await getPeriodBase(period);
+  const summaries = entries.filter((e) => inPeriod(e.project, period)).map((e) => e.summary);
   return filters ? filterSummaries(summaries, filters, dims) : summaries;
 }
 
+/** Dự án thuộc kỳ (đã qua filters) với số tồn tại mốc cuối kỳ. */
 export const getProjectSummaries = requestMemo(getProjectSummariesUncached);
 
-export async function getProjectSummary(projectId: number, yearMonth: string): Promise<ProjectSummary | undefined> {
+/** Mọi dự án đang hoạt động với số tồn tại mốc cuối kỳ, KHÔNG lọc "thuộc kỳ" (trang Báo cáo liệt kê cả danh mục). */
+export async function getAllProjectSummaries(period: Period): Promise<ProjectSummary[]> {
+  return (await getPeriodBase(period)).entries.map((e) => e.summary);
+}
+
+/** Trang Chi tiết: 1 dự án tại tháng mốc, KHÔNG lọc theo kỳ. Ngày mốc = min(cuối tháng, hôm nay). */
+export async function getProjectSummary(projectId: number, asOfMonth: YearMonth): Promise<ProjectSummary | undefined> {
   // TODO: BOLA - không check quyền đọc project. Viewer/data-entry đọc được detail dự án ngoài scope.
   const p = await repo.getProject(projectId);
   if (!p) return undefined;
-  return summarize(p, await repo.getLatestFact(projectId, yearMonth), await repo.getDims());
+  const ym = isValidYearMonth(asOfMonth) ? asOfMonth : currentMonth();
+  const today = todayIso();
+  const asOfDate = endOfMonth(ym) < today ? endOfMonth(ym) : today;
+  const [facts, dims] = await Promise.all([repo.getFacts(projectId), repo.getDims()]);
+  return summarize(p, pickAsOf(facts, ym), dims, asOfDate);
 }
 
 // ---- Portfolio KPI ----
+type KpiDelta = number | null;
 export interface PortfolioKpis {
-  totalProjects: number;
+  projectsInPeriod: number;
   inProgress: number;
   behindSchedule: number;
   penaltyRisk: number;
   penalized: number;
-  backlog: number;
+  /** "HĐ chưa khởi công" (Q3 = a): Σ giá trị HĐ đã ký (ngày ký <= mốc, thiếu ngày ký vẫn tính) và chưa khởi công tại mốc, KHÔNG phụ thuộc kỳ. */
+  notStartedValue: number;
+  revenueInPeriod: number;
+  tonnageInPeriod: number;
+  /** So với kỳ liền trước cùng độ dài (Q2 = a); null = không có số để so (không bịa). */
   delta: {
-    totalProjects: number;
-    inProgress: number;
-    behindSchedule: number;
-    penaltyRisk: number;
-    penalized: number;
-    backlog: number;
+    projectsInPeriod: KpiDelta;
+    inProgress: KpiDelta;
+    behindSchedule: KpiDelta;
+    penaltyRisk: KpiDelta;
+    penalized: KpiDelta;
+    notStartedValue: KpiDelta;
+    revenueInPeriod: KpiDelta;
+    tonnageInPeriod: KpiDelta;
   };
+  asOfDate: IsoDate;
+  months: YearMonth[];
 }
 
-async function kpisForMonth(yearMonth: string, filters: DashboardFilters) {
-  const summaries = await getProjectSummaries(yearMonth, filters);
-  return {
-    totalProjects: summaries.length,
+type KpiValues = Omit<PortfolioKpis, 'delta' | 'asOfDate' | 'months'>;
+
+async function kpisForPeriod(period: Period, filters: DashboardFilters) {
+  const base = await getPeriodBase(period);
+  const { entries, dims, asOfDate } = base;
+  const months = periodMonths(period);
+  const scoped = filterSummaries(entries.map((e) => e.summary), filters, dims);
+  const scopedIds = new Set(scoped.map((s) => s.id));
+  const summaries = entries.filter((e) => scopedIds.has(e.summary.id) && inPeriod(e.project, period)).map((e) => e.summary);
+  const ids = new Set(summaries.map((s) => s.id));
+  const [revenue, volume] = await Promise.all([
+    repo.readRevenueInRange(months[0], months[months.length - 1]),
+    repo.readVolumeInRange(months[0], months[months.length - 1]),
+  ]);
+  const notStartedValue = entries
+    .filter((e) => scopedIds.has(e.summary.id) && e.summary.status === 'Chuan_bi')
+    .filter((e) => {
+      const signed = day10(e.project.contractDate);
+      return signed == null || signed <= asOfDate;
+    })
+    .reduce((sum, e) => sum + e.summary.contractValue, 0);
+  const values: KpiValues = {
+    projectsInPeriod: summaries.length,
     inProgress: summaries.filter((s) => s.status === 'Dang_trien_khai').length,
     behindSchedule: summaries.filter((s) => s.status === 'Dang_trien_khai' && !s.onTrack).length,
     penaltyRisk: summaries.filter((s) => s.penalty === 'risk').length,
     penalized: summaries.filter((s) => s.penalty === 'penalized').length,
-    // Backlog = Σ giá trị HĐ dự án trạng thái Chuẩn bị (chủ dự án chốt 2026-09-24, P1B/T12a).
-    backlog: summaries
-      .filter((s) => s.status === 'Chuan_bi')
-      .reduce((sum, s) => sum + s.contractValue, 0),
+    notStartedValue,
+    revenueInPeriod: round1(revenue.filter((r) => ids.has(r.projectId)).reduce((a, r) => a + r.revenue, 0)),
+    tonnageInPeriod: Math.round(volume.filter((v) => ids.has(v.projectId)).reduce((a, v) => a + v.tonnage, 0)),
   };
+  return { values, asOfDate, months, factRows: base.factRows };
 }
 
-const ZERO_DELTA: PortfolioKpis['delta'] = {
-  totalProjects: 0,
-  inProgress: 0,
-  behindSchedule: 0,
-  penaltyRisk: 0,
-  penalized: 0,
-  backlog: 0,
-};
+const DELTA_KEYS = [
+  'projectsInPeriod', 'inProgress', 'behindSchedule', 'penaltyRisk', 'penalized',
+  'notStartedValue', 'revenueInPeriod', 'tonnageInPeriod',
+] as const;
 
-export async function getPortfolioKpis(yearMonth: string, filters: DashboardFilters = {}): Promise<PortfolioKpis> {
-  const cur = await kpisForMonth(yearMonth, filters);
-  // 'all' không có tháng liền trước hợp lệ (prevMonth('all') ra chuỗi rác), và `month` rác/không
-  // đúng format 'YYYY-MM' cũng không có gì để so sánh - giữ đúng hành vi cũ trước Run 1: delta = 0.
-  if (yearMonth === 'all' || !isValidYearMonth(yearMonth)) {
-    return { ...cur, delta: ZERO_DELTA };
-  }
-  const prevYm = prevMonth(yearMonth);
-  // Tháng đang xem HOẶC tháng liền trước CHƯA CÓ dòng fact nào (vd chưa ai nhập số cho tháng mới,
-  // hoặc tháng liền trước nằm trước cửa sổ dữ liệu) khác hẳn "tháng đó có %TT = 0 thật" - không có
-  // dữ liệu để so sánh thì không được bịa ra một cú tăng/tụt KPI giả. Trả delta = 0 thay vì chạy
-  // tiếp với pctActual mặc định 0 cho mọi dự án ở bên thiếu dữ liệu.
-  const [curFacts, prevFacts] = await Promise.all([
-    repo.readFactSnapshots(yearMonth),
-    repo.readFactSnapshots(prevYm),
+export async function getPortfolioKpis(period: Period, filters: DashboardFilters = {}): Promise<PortfolioKpis> {
+  const [cur, prev] = await Promise.all([
+    kpisForPeriod(period, filters),
+    kpisForPeriod(previousPeriod(period), filters),
   ]);
-  if (curFacts.length === 0 || prevFacts.length === 0) {
-    return { ...cur, delta: ZERO_DELTA };
-  }
-  const prev = await kpisForMonth(prevYm, filters);
-  return {
-    ...cur,
-    delta: {
-      totalProjects: cur.totalProjects - prev.totalProjects,
-      inProgress: cur.inProgress - prev.inProgress,
-      behindSchedule: cur.behindSchedule - prev.behindSchedule,
-      penaltyRisk: cur.penaltyRisk - prev.penaltyRisk,
-      penalized: cur.penalized - prev.penalized,
-      backlog: Math.round((cur.backlog - prev.backlog) * 10) / 10,
-    },
-  };
+  // Kỳ đang xem HOẶC kỳ liền trước CHƯA CÓ dòng fact nào tới mốc của nó (vd kỳ trước nằm trước cửa sổ dữ liệu)
+  // khác hẳn "%TT = 0 thật": không có dữ liệu để so thì không bịa ra một cú tăng/tụt KPI giả.
+  const comparable = cur.factRows > 0 && prev.factRows > 0;
+  const delta = Object.fromEntries(
+    DELTA_KEYS.map((k) => [k, comparable ? round1(cur.values[k] - prev.values[k]) : null]),
+  ) as PortfolioKpis['delta'];
+  return { ...cur.values, delta, asOfDate: cur.asOfDate, months: cur.months };
 }
 
 // ---- Donut ----
-export async function getStatusBreakdown(yearMonth: string, filters: DashboardFilters = {}) {
-  const summaries = await getProjectSummaries(yearMonth, filters);
+export async function getStatusBreakdown(period: Period, filters: DashboardFilters = {}) {
+  const summaries = await getProjectSummaries(period, filters);
   const counts: Record<Status, number> = {
     Chuan_bi: 0,
     Dang_trien_khai: 0,
@@ -266,15 +322,18 @@ export async function getStatusBreakdown(yearMonth: string, filters: DashboardFi
 }
 
 // ---- Bar: Lượng & Trị ----
-export async function getTonnageValueByGroup(yearMonth: string, groupBy: GroupBy, filters: DashboardFilters = {}) {
-  const summaries = await getProjectSummaries(yearMonth, filters);
-  const volumes = await repo.readVolumeSnapshots(yearMonth);
-  const financial = await repo.readFinancialSnapshots(yearMonth);
+export async function getTonnageValueByGroup(period: Period, groupBy: GroupBy, filters: DashboardFilters = {}) {
+  const months = periodMonths(period);
+  const [summaries, volumes, revenue] = await Promise.all([
+    getProjectSummaries(period, filters),
+    repo.readVolumeInRange(months[0], months[months.length - 1]),
+    repo.readRevenueInRange(months[0], months[months.length - 1]),
+  ]);
 
   const tonnageByProject = new Map<number, number>();
-  for (const v of volumes) tonnageByProject.set(v.projectId, (tonnageByProject.get(v.projectId) ?? 0) + v.tonnageProcessed);
+  for (const v of volumes) tonnageByProject.set(v.projectId, (tonnageByProject.get(v.projectId) ?? 0) + v.tonnage);
   const revenueByProject = new Map<number, number>();
-  for (const f of financial) revenueByProject.set(f.projectId, (revenueByProject.get(f.projectId) ?? 0) + f.revenuePeriod);
+  for (const f of revenue) revenueByProject.set(f.projectId, (revenueByProject.get(f.projectId) ?? 0) + f.revenue);
 
   const groups = new Map<string, { tonnage: number; value: number }>();
   for (const s of summaries) {
@@ -292,61 +351,93 @@ export async function getTonnageValueByGroup(yearMonth: string, groupBy: GroupBy
 }
 
 // ---- Bar: Sản lượng vs công suất ----
-export async function getCapacityData(yearMonth: string, filters: DashboardFilters = {}) {
-  const dims = await repo.getDims();
-  const ids = new Set((await getProjectSummaries(yearMonth, filters)).map((s) => s.id));
-  const volumes = await repo.readVolumeSnapshots(yearMonth);
+/** Sản lượng = cộng các tháng của kỳ; công suất = công suất tháng x số tháng của kỳ. */
+export async function getCapacityData(period: Period, filters: DashboardFilters = {}) {
+  const months = periodMonths(period);
+  const [dims, summaries, volumes] = await Promise.all([
+    repo.getDims(),
+    getProjectSummaries(period, filters),
+    repo.readVolumeInRange(months[0], months[months.length - 1]),
+  ]);
+  const ids = new Set(summaries.map((s) => s.id));
   return dims.factories.map((factory) => {
     const processed = volumes
       .filter((v) => v.factoryId === factory.id && ids.has(v.projectId))
-      .reduce((a, b) => a + b.tonnageProcessed, 0);
-    const capacityMonth = factory.capacityTonPerYear / 12;
+      .reduce((a, b) => a + b.tonnage, 0);
+    const capacityPeriod = (factory.capacityTonPerYear / 12) * months.length;
     return {
       name: factory.name,
       region: factory.region,
       processed,
-      capacity: Math.round(capacityMonth),
-      warn: processed > THRESHOLDS.capacityWarnPct * capacityMonth,
+      capacity: Math.round(capacityPeriod),
+      warn: processed > THRESHOLDS.capacityWarnPct * capacityPeriod,
     };
+  });
+}
+
+// ---- Chuỗi tháng danh mục: SPI/CPI trend + S-curve ----
+export interface TrendPoint { month: YearMonth; carriedProjects: number }
+
+/**
+ * Tập dự án = đúng tập của getProjectSummaries(period, filters) (F-1: đủ mọi filter kể cả status).
+ * Mỗi tháng của kỳ (tới tháng mốc) cộng số của từng dự án theo "số gần nhất <= tháng" (mang số tháng trước).
+ */
+async function portfolioSeries(period: Period, filters: DashboardFilters) {
+  const { asOfMonth } = asOfOf(period);
+  // Không vẽ tháng sau mốc: số của tháng tương lai không tồn tại, chỉ là số cũ lặp lại.
+  const months = periodMonths(period).filter((m) => m <= asOfMonth);
+  if (months.length === 0) return [];
+  const summaries = await getProjectSummaries(period, filters);
+  const rows = await repo.readFactSeries(months[0], months[months.length - 1], summaries.map((s) => s.id));
+  const byProject = new Map<number, FactSeriesRow[]>();
+  for (const r of rows) {
+    const list = byProject.get(r.projectId) ?? [];
+    list.push(r);
+    byProject.set(r.projectId, list);
+  }
+  const series = [...byProject.values()].map((list) => carrySeries(list, months));
+  return months.map((month, i) => {
+    let pv = 0;
+    let ev = 0;
+    let ac = 0;
+    let carriedProjects = 0;
+    for (const s of series) {
+      const at = s[i];
+      if (!at) continue;
+      pv += at.row.pv;
+      ev += at.row.ev;
+      ac += at.row.ac;
+      if (at.carried) carriedProjects++;
+    }
+    return { month, pv, ev, ac, carriedProjects };
   });
 }
 
 // ---- Line: SPI/CPI trend ----
-export async function getSpiCpiTrend(filters: DashboardFilters = {}) {
-  const ids = await getScopedProjectIds(filters);
-  const months = historyMonths();
-  const rows = await repo.readMonthlyEvm(months, [...ids]);
-  const byMonth = new Map(rows.map((r) => [r.yearMonth, r]));
-  return months.map((m) => {
-    const r = byMonth.get(m);
-    return {
-      month: m,
-      spi: r?.spiAvg != null ? Math.round(r.spiAvg * 100) / 100 : null,
-      cpi: r?.cpiAvg != null ? Math.round(r.cpiAvg * 100) / 100 : null,
-    };
-  });
+/** SPI/CPI danh mục = tỷ số có trọng số (SigmaEV/SigmaPV, SigmaEV/SigmaAC), không phải trung bình cộng (L-2). */
+export async function getSpiCpiTrend(period: Period, filters: DashboardFilters = {}): Promise<(TrendPoint & { spi: number | null; cpi: number | null })[]> {
+  return (await portfolioSeries(period, filters)).map((p) => ({
+    month: p.month,
+    carriedProjects: p.carriedProjects,
+    spi: p.pv ? Math.round((p.ev / p.pv) * 100) / 100 : null,
+    cpi: p.ac ? Math.round((p.ev / p.ac) * 100) / 100 : null,
+  }));
 }
 
 // ---- S-curve ----
-export async function getPortfolioSCurve(filters: DashboardFilters = {}) {
-  const ids = await getScopedProjectIds(filters);
-  const months = historyMonths();
-  const rows = await repo.readMonthlyEvm(months, [...ids]);
-  const byMonth = new Map(rows.map((r) => [r.yearMonth, r]));
-  return months.map((m) => {
-    const r = byMonth.get(m);
-    return {
-      month: m,
-      pv: Math.round(r?.pv ?? 0),
-      ev: Math.round(r?.ev ?? 0),
-      ac: Math.round(r?.ac ?? 0),
-    };
-  });
+export async function getPortfolioSCurve(period: Period, filters: DashboardFilters = {}): Promise<(TrendPoint & { pv: number; ev: number; ac: number })[]> {
+  return (await portfolioSeries(period, filters)).map((p) => ({
+    month: p.month,
+    carriedProjects: p.carriedProjects,
+    pv: Math.round(p.pv),
+    ev: Math.round(p.ev),
+    ac: Math.round(p.ac),
+  }));
 }
 
 // ---- Watchlist ----
-export async function getWatchlist(yearMonth: string, filters: DashboardFilters = {}) {
-  return (await getProjectSummaries(yearMonth, filters))
+export async function getWatchlist(period: Period, filters: DashboardFilters = {}) {
+  return (await getProjectSummaries(period, filters))
     .filter((s) => {
       if (s.status !== 'Dang_trien_khai') return false;
       const spiLow = s.spi != null && s.spi < THRESHOLDS.spiWarn;
@@ -377,7 +468,7 @@ export async function getMissingMonth(yearMonth: string) {
 
 // ---- Bảng danh sách (filter/sort/pagination ở SERVER) ----
 export interface ProjectListParams {
-  month?: string;
+  period: Period;
   filters?: DashboardFilters;
   search?: string;
   sort?: 'priority' | 'name' | 'value' | 'spi' | 'pctActual';
@@ -387,8 +478,8 @@ export interface ProjectListParams {
 }
 
 export async function listProjects(params: ProjectListParams) {
-  const { month = currentMonth(), filters = {}, page = 1, pageSize = 10 } = params;
-  let rows = await getProjectSummaries(month, filters);
+  const { period, filters = {}, page = 1, pageSize = 10 } = params;
+  let rows = await getProjectSummaries(period, filters);
 
   if (params.search) {
     const q = params.search.toLowerCase();

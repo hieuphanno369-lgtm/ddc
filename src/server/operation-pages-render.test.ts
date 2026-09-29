@@ -69,13 +69,17 @@ const BOD: CurrentUser = { name: 'BOD', email: 'bod@daidung.com.vn', role: 'bod'
 const MONTH = '2026-09';
 
 const KPIS: PortfolioKpis = {
-  totalProjects: 17,
+  projectsInPeriod: 17,
   inProgress: 11,
   behindSchedule: 4,
   penaltyRisk: 3,
   penalized: 1,
-  backlog: 250,
-  delta: { totalProjects: 1, inProgress: 0, behindSchedule: -1, penaltyRisk: 0, penalized: 0, backlog: 10 },
+  notStartedValue: 250,
+  revenueInPeriod: 0,
+  tonnageInPeriod: 0,
+  asOfDate: '2026-09-16',
+  months: ['2026-09'],
+  delta: { projectsInPeriod: 1, inProgress: 0, behindSchedule: -1, penaltyRisk: 0, penalized: 0, notStartedValue: 10, revenueInPeriod: 0, tonnageInPeriod: 0 },
 };
 
 const emptyReport = { kpis: KPIS, p0Red: [], rows: [] };
@@ -133,6 +137,7 @@ describe('/report - render nội dung', () => {
           eac: null,
           vac: null,
           bottleneckStage: null,
+          dataState: { kind: 'current', month: '2026-09' },
         },
       ],
       rows: [{ id: 2, code: 'DA-2', name: 'Nhà xưởng Bắc Ninh', spi: null, cpi: null, pctActual: 0, backlog: 0 }],

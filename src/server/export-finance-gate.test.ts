@@ -10,13 +10,17 @@ import type { PortfolioKpis } from '@/server/queries';
  */
 const { KPIS } = vi.hoisted(() => ({
   KPIS: {
-    totalProjects: 17,
+    projectsInPeriod: 17,
     inProgress: 11,
     behindSchedule: 4,
     penaltyRisk: 3,
     penalized: 1,
-    backlog: 250,
-    delta: { totalProjects: 1, inProgress: 0, behindSchedule: -1, penaltyRisk: 0, penalized: 0, backlog: 10 },
+    notStartedValue: 250,
+  revenueInPeriod: 0,
+  tonnageInPeriod: 0,
+  asOfDate: '2026-09-16',
+  months: ['2026-09'],
+    delta: { projectsInPeriod: 1, inProgress: 0, behindSchedule: -1, penaltyRisk: 0, penalized: 0, notStartedValue: 10, revenueInPeriod: 0, tonnageInPeriod: 0 },
   } as PortfolioKpis,
 }));
 

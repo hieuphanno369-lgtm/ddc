@@ -10,6 +10,7 @@ import {
   loadTopPriority,
 } from '@/server/cache';
 import type { DashboardFilters, GroupBy } from '@/server/queries';
+import type { Period } from '@/lib/period';
 import { getOverdueScorecard, type Scorecard } from '@/server/overdue-scorecard';
 import { formatTyd } from '@/lib/format';
 import { THRESHOLDS } from '@/lib/thresholds';
@@ -23,28 +24,28 @@ import { Rise } from '@/components/ui/Rise';
 import { IconAlert, IconFlag, IconMoney, IconProject, IconFactory, IconTrend } from '@/components/icons';
 import { CapacityBar, DrillDonut, GroupByCard, SCurve, SpiCpiLine } from './OverviewChartsLazy';
 
-export async function KpiGrid({ month, filters, canViewFinance }: { month: string; filters: DashboardFilters; canViewFinance: boolean }) {
+export async function KpiGrid({ period, filters, canViewFinance }: { period: Period; filters: DashboardFilters; canViewFinance: boolean }) {
   const t = await getTranslations();
   const locale = await getLocale();
-  const kpis = await loadPortfolioKpis(month, filters);
+  const kpis = await loadPortfolioKpis(period, filters);
   const prevLabel = t('common.previousMonth');
   return (
     <Rise className={`kpis${canViewFinance ? '' : ' k5'}`}>
-      <KpiCard label={t('kpi.totalProjects')} value={String(kpis.totalProjects)} delta={kpis.delta.totalProjects} deltaSuffix={prevLabel} icon={IconProject} />
+      <KpiCard label={t('kpi.totalProjects')} value={String(kpis.projectsInPeriod)} delta={kpis.delta.projectsInPeriod} deltaSuffix={prevLabel} icon={IconProject} />
       <KpiCard label={t('kpi.inProgress')} value={String(kpis.inProgress)} delta={kpis.delta.inProgress} deltaSuffix={prevLabel} tone="ok" hero icon={IconFactory} />
       <KpiCard label={t('kpi.behindSchedule')} value={String(kpis.behindSchedule)} delta={kpis.delta.behindSchedule} deltaSuffix={prevLabel} tone="warn" invertDelta icon={IconTrend} />
       <KpiCard label={t('kpi.penaltyRisk')} value={String(kpis.penaltyRisk)} delta={kpis.delta.penaltyRisk} deltaSuffix={prevLabel} tone="warn" invertDelta icon={IconFlag} />
       <KpiCard label={t('kpi.penalized')} value={String(kpis.penalized)} delta={kpis.delta.penalized} deltaSuffix={prevLabel} tone="danger" invertDelta icon={IconAlert} />
       {canViewFinance && (
-        <KpiCard label={t('kpi.backlog')} value={formatTyd(kpis.backlog, locale)} delta={kpis.delta.backlog} deltaSuffix={prevLabel} tone="neutral" icon={IconMoney} />
+        <KpiCard label={t('kpi.backlog')} value={formatTyd(kpis.notStartedValue, locale)} delta={kpis.delta.notStartedValue} deltaSuffix={prevLabel} tone="neutral" icon={IconMoney} />
       )}
     </Rise>
   );
 }
 
-export async function StatusDonutCard({ month, filters }: { month: string; filters: DashboardFilters }) {
+export async function StatusDonutCard({ period, filters }: { period: Period; filters: DashboardFilters }) {
   const t = await getTranslations();
-  const data = await loadStatusBreakdown(month, filters);
+  const data = await loadStatusBreakdown(period, filters);
   return (
     <Card>
       <CardHeader title={t('overview.statusBreakdown')} />
@@ -56,17 +57,17 @@ export async function StatusDonutCard({ month, filters }: { month: string; filte
 }
 
 export async function GroupBarCard({
-  month,
+  period,
   groupBy,
   filters,
   canViewFinance,
 }: {
-  month: string;
+  period: Period;
   groupBy: GroupBy;
   filters: DashboardFilters;
   canViewFinance: boolean;
 }) {
-  const data = await loadTonnageByGroup(month, groupBy, filters);
+  const data = await loadTonnageByGroup(period, groupBy, filters);
   return (
     <Card>
       <CardBody>
@@ -76,9 +77,9 @@ export async function GroupBarCard({
   );
 }
 
-export async function CapacityCard({ month, filters }: { month: string; filters: DashboardFilters }) {
+export async function CapacityCard({ period, filters }: { period: Period; filters: DashboardFilters }) {
   const t = await getTranslations();
-  const data = await loadCapacity(month, filters);
+  const data = await loadCapacity(period, filters);
   return (
     <Card>
       <CardHeader title={t('overview.capacity')} />
@@ -89,9 +90,9 @@ export async function CapacityCard({ month, filters }: { month: string; filters:
   );
 }
 
-export async function SpiCpiCard({ filters }: { filters: DashboardFilters }) {
+export async function SpiCpiCard({ period, filters }: { period: Period; filters: DashboardFilters }) {
   const t = await getTranslations();
-  const trend = (await loadSpiCpiTrend(filters)).slice(-6);
+  const trend = (await loadSpiCpiTrend(period, filters)).slice(-6);
   return (
     <Card>
       <CardHeader title={t('overview.spiCpiTrend')} subtitle={`${t('overview.threshold')}: ${THRESHOLDS.spiWarn}`} />
@@ -102,12 +103,12 @@ export async function SpiCpiCard({ filters }: { filters: DashboardFilters }) {
   );
 }
 
-export async function BacklogOverdueCard({ month, filters }: { month: string; filters: DashboardFilters }) {
+export async function BacklogOverdueCard({ period, filters }: { period: Period; filters: DashboardFilters }) {
   const t = await getTranslations();
   const locale = await getLocale();
-  const kpis = await loadPortfolioKpis(month, filters);
-  const backlog: Scorecard = { value: kpis.backlog, delta: kpis.delta.backlog };
-  const overdue = await getOverdueScorecard(month, filters);
+  const kpis = await loadPortfolioKpis(period, filters);
+  const backlog: Scorecard = { value: kpis.notStartedValue, delta: kpis.delta.notStartedValue };
+  const overdue = await getOverdueScorecard(period, filters);
   return (
     <Card>
       <CardHeader title={t('overview.backlogOverdue')} />
@@ -122,9 +123,9 @@ export async function BacklogOverdueCard({ month, filters }: { month: string; fi
   );
 }
 
-export async function SCurveCard({ filters }: { filters: DashboardFilters }) {
+export async function SCurveCard({ period, filters }: { period: Period; filters: DashboardFilters }) {
   const t = await getTranslations();
-  const data = await loadSCurve(filters);
+  const data = await loadSCurve(period, filters);
   return (
     <Card>
       <CardHeader title={t('overview.sCurve')} />
@@ -136,34 +137,34 @@ export async function SCurveCard({ filters }: { filters: DashboardFilters }) {
 }
 
 export async function TopPriorityCard({
-  month,
+  period,
   filters,
   canViewFinance,
 }: {
-  month: string;
+  period: Period;
   filters: DashboardFilters;
   canViewFinance: boolean;
 }) {
-  const items = await loadTopPriority(month, filters);
+  const items = await loadTopPriority(period, filters);
   return <TopPriorityList items={maskProjectSummaries(items, canViewFinance).map(toTopPriorityItem)} />;
 }
 
 export async function ProjectListCard({
-  month,
+  period,
   filters,
   search,
   sort,
   page,
   canViewFinance,
 }: {
-  month: string;
+  period: Period;
   filters: DashboardFilters;
   search: string;
   sort: ListSort;
   page: number;
   canViewFinance: boolean;
 }) {
-  const list = await loadProjectList({ month, filters, search, sort: safeListSort(sort, canViewFinance), page, pageSize: 10 });
+  const list = await loadProjectList({ period, filters, search, sort: safeListSort(sort, canViewFinance), page, pageSize: 10 });
   return (
     <ProjectTable
       items={maskProjectSummaries(list.items, canViewFinance)}

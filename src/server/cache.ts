@@ -13,12 +13,18 @@ import {
   type ProjectListParams,
 } from './queries';
 import { getTopPriority } from './top-priority-queries';
+import { todayIso } from '@/lib/clock';
+import { periodAsOfMonth, periodKey, type Period } from '@/lib/period';
 
 /**
  * Tag cache hẹp cho overview (plan §7b.13): revalidateTag thay vì revalidatePath toàn cục.
  * Chỉ cache phần shared, KHÔNG phụ thuộc user. Phần admin-only (banner P0, chưa nộp số liệu)
  * tính ngoài cache ở page để tránh lộ dữ liệu giữa các role.
  * `revalidate: 1800` (30 phút) là safety-net: data tự refresh nếu có mutation nào quên invalidate.
+ *
+ * P4: mọi loader nhận `Period` (đã validate bởi parsePeriod/parseDashboardFilters, không nhận giá trị thô).
+ * Khoá cache = periodKey + filters. Một kỳ trải nhiều tháng nên mọi loader gắn `trendTag` (mọi lần ghi
+ * số tháng/nhập Excel đều revalidateTag(trendTag)) + `profileTag` + `overviewTag(tháng mốc)`.
  */
 export const overviewTag = (month: string) => `overview:${month}`;
 export const trendTag = 'overview:trend';
@@ -29,56 +35,58 @@ export const profileTag = 'ddc:profile';
 const key = (...parts: unknown[]) => parts.map((p) => JSON.stringify(p)).join('|');
 const TTL = 1800;
 
-export const loadPortfolioKpis = (month: string, filters: DashboardFilters) =>
-  unstable_cache(async () => getPortfolioKpis(month, filters), ['kpis', key(month, filters)], {
-    tags: [overviewTag(month), profileTag],
+const tagsOf = (period: Period) => [trendTag, profileTag, overviewTag(periodAsOfMonth(period, todayIso()))];
+
+export const loadPortfolioKpis = (period: Period, filters: DashboardFilters) =>
+  unstable_cache(async () => getPortfolioKpis(period, filters), ['kpis', key(periodKey(period), filters)], {
+    tags: tagsOf(period),
     revalidate: TTL,
   })();
 
-export const loadStatusBreakdown = (month: string, filters: DashboardFilters) =>
-  unstable_cache(async () => getStatusBreakdown(month, filters), ['status', key(month, filters)], {
-    tags: [overviewTag(month)],
+export const loadStatusBreakdown = (period: Period, filters: DashboardFilters) =>
+  unstable_cache(async () => getStatusBreakdown(period, filters), ['status', key(periodKey(period), filters)], {
+    tags: tagsOf(period),
     revalidate: TTL,
   })();
 
-export const loadTonnageByGroup = (month: string, groupBy: GroupBy, filters: DashboardFilters) =>
-  unstable_cache(async () => getTonnageValueByGroup(month, groupBy, filters), ['group', key(month, groupBy, filters)], {
-    tags: [overviewTag(month), profileTag],
+export const loadTonnageByGroup = (period: Period, groupBy: GroupBy, filters: DashboardFilters) =>
+  unstable_cache(async () => getTonnageValueByGroup(period, groupBy, filters), ['group', key(periodKey(period), groupBy, filters)], {
+    tags: tagsOf(period),
     revalidate: TTL,
   })();
 
-export const loadCapacity = (month: string, filters: DashboardFilters) =>
-  unstable_cache(async () => getCapacityData(month, filters), ['cap', key(month, filters)], {
-    tags: [overviewTag(month)],
+export const loadCapacity = (period: Period, filters: DashboardFilters) =>
+  unstable_cache(async () => getCapacityData(period, filters), ['cap', key(periodKey(period), filters)], {
+    tags: tagsOf(period),
     revalidate: TTL,
   })();
 
-export const loadSpiCpiTrend = (filters: DashboardFilters) =>
-  unstable_cache(async () => getSpiCpiTrend(filters), ['trend', key(filters)], {
-    tags: [trendTag],
+export const loadSpiCpiTrend = (period: Period, filters: DashboardFilters) =>
+  unstable_cache(async () => getSpiCpiTrend(period, filters), ['trend', key(periodKey(period), filters)], {
+    tags: tagsOf(period),
     revalidate: TTL,
   })();
 
-export const loadSCurve = (filters: DashboardFilters) =>
-  unstable_cache(async () => getPortfolioSCurve(filters), ['scurve', key(filters)], {
-    tags: [trendTag],
+export const loadSCurve = (period: Period, filters: DashboardFilters) =>
+  unstable_cache(async () => getPortfolioSCurve(period, filters), ['scurve', key(periodKey(period), filters)], {
+    tags: tagsOf(period),
     revalidate: TTL,
   })();
 
-export const loadWatchlist = (month: string, filters: DashboardFilters) =>
-  unstable_cache(async () => getWatchlist(month, filters), ['watch', key(month, filters)], {
-    tags: [overviewTag(month), profileTag],
+export const loadWatchlist = (period: Period, filters: DashboardFilters) =>
+  unstable_cache(async () => getWatchlist(period, filters), ['watch', key(periodKey(period), filters)], {
+    tags: tagsOf(period),
     revalidate: TTL,
   })();
 
-export const loadTopPriority = (month: string, filters: DashboardFilters) =>
-  unstable_cache(async () => getTopPriority(month, filters), ['top-p0', key(month, filters)], {
-    tags: [overviewTag(month), profileTag],
+export const loadTopPriority = (period: Period, filters: DashboardFilters) =>
+  unstable_cache(async () => getTopPriority(period, filters), ['top-p0', key(periodKey(period), filters)], {
+    tags: tagsOf(period),
     revalidate: TTL,
   })();
 
 export const loadProjectList = (params: ProjectListParams) =>
   unstable_cache(async () => listProjects(params), ['list', key(params)], {
-    tags: [listTag(params.month ?? ''), profileTag],
+    tags: [listTag(periodAsOfMonth(params.period, todayIso())), ...tagsOf(params.period)],
     revalidate: TTL,
   })();

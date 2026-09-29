@@ -1,12 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
 /**
- * Kiểm tra ĐỘC LẬP của tester (không phải test do coder viết): dựng lại logic TRƯỚC khi refactor
- * T1 Bước 5 (nguyên văn từ `git show 10cda5a:src/server/queries.ts`, đổi tên hàm thêm hậu tố
- * `Old`) rồi chạy song song với `queries.ts` SAU refactor trên CÙNG mock repo (seed mặc định),
- * so sánh GIÁ TRỊ trả về (không chỉ số lần gọi repo như `queries-n1.test.ts`).
- *
- * KHÔNG sửa file sản phẩm nào - toàn bộ "bản cũ" chỉ tồn tại trong file test này để đối chiếu.
+ * Kiểm tra ĐỘC LẬP: tính lại bằng đường đọc KHÁC (repo.getFacts / getVolumesForMonth / getFinancialForMonth
+ * của mock-repo, không dùng các hàm đọc theo kỳ của P4) rồi so với `queries.ts` trên CÙNG mock repo (seed mặc định).
+ * Bản trước (T1 Bước 5) đối chiếu với logic tháng cũ; P4 đổi ngữ nghĩa sang kỳ + mốc + mang số tháng trước
+ * nên oracle được viết lại theo ngữ nghĩa mới, giữ nguyên các ca sad-path (groupKey lạ, getMissingMonth).
  */
 
 vi.mock('@/server/repo', async () => {
@@ -14,315 +12,125 @@ vi.mock('@/server/repo', async () => {
   return { repo: mockRepo.repo };
 });
 
-import { calcDurationPctComplete, calcEac, calcVac, deriveStatus, isOnTrack, penaltyState } from '@/lib/evm';
+import { deriveStatus } from '@/lib/evm';
 import { THRESHOLDS } from '@/lib/thresholds';
-import { historyMonths, isValidYearMonth, prevMonth, today } from '@/lib/clock';
+import { todayIso } from '@/lib/clock';
+import { periodAsOfDate, periodMonths, type Period } from '@/lib/period';
 import { repo } from '@/server/repo';
-import type { FactProgressMonthly, Project } from './repo/types';
 import * as NewQ from './queries';
-import type { DashboardFilters, GroupBy, ProjectSummary } from './queries';
 
-// ---------------------------------------------------------------------------
-// Bản sao logic TRƯỚC refactor (10cda5a) - CHỈ dùng để đối chiếu trong test.
-// ---------------------------------------------------------------------------
-
-function round2Old(v: number | null): number | null {
-  return v == null ? null : Math.round(v * 100) / 100;
-}
-
-async function summarizeOld(project: Project, fact: FactProgressMonthly | undefined): Promise<ProjectSummary> {
-  const dims = await repo.getDims();
-  const customer = dims.customers.find((c) => c.id === project.customerId);
-  const team = dims.teams.find((t) => t.id === project.teamKdId);
-  const status = deriveStatus({
-    actualStartDate: project.actualStartDate,
-    actualFinishDate: project.actualFinishDate,
-    pctActual: fact?.pctActual ?? 0,
-  });
-  const penalty = penaltyState({
-    committedHandoverDate: project.committedHandoverDate,
-    pctActual: fact?.pctActual ?? 0,
-    penalized: project.penalized,
-    today: today(),
-  });
-  const bac = fact?.bac ?? project.contractValue;
-  const pctPlan = calcDurationPctComplete(project.plannedStartDate, project.plannedFinishDate, today());
-  const eac = calcEac(bac, fact?.cpi ?? null);
-  return {
-    id: project.id,
-    masterCode: project.masterCode,
-    currentAliasCode: project.currentAliasCode,
-    projectName: project.projectName,
-    customerId: project.customerId,
-    customerName: customer?.name ?? '-',
-    teamName: team?.name ?? '-',
-    teamKdId: project.teamKdId,
-    projectType: project.projectType,
-    marketCode: project.marketCode,
-    priority: project.priority,
-    status,
-    onTrack: status === 'Dang_trien_khai' && isOnTrack(fact?.pctActual ?? 0, pctPlan ?? 0),
-    penalty,
-    contractValue: project.contractValue,
-    tonnage: project.tonnage,
-    pctPlan,
-    pctActual: fact?.pctActual ?? 0,
-    spi: round2Old(fact?.spi ?? null),
-    cpi: round2Old(fact?.cpi ?? null),
-    eac: round2Old(eac),
-    vac: round2Old(calcVac(bac, eac)),
-    bottleneckStage: fact?.bottleneckStage ?? null,
-  };
-}
-
-async function matchesGroupOld(project: Project, groupKey: string, groupBy: GroupBy): Promise<boolean> {
-  const dims = await repo.getDims();
-  if (groupBy === 'team') return (dims.teams.find((t) => t.id === project.teamKdId)?.name ?? '-') === groupKey;
-  if (groupBy === 'type') return project.projectType === groupKey;
-  return project.marketCode === groupKey;
-}
-
-async function filterSummariesOld(summaries: ProjectSummary[], filters: DashboardFilters): Promise<ProjectSummary[]> {
-  let rows = summaries;
-  if (filters.status && filters.status !== 'all') rows = rows.filter((r) => r.status === filters.status);
-  if (filters.teamKdId && filters.teamKdId !== 'all') rows = rows.filter((r) => r.teamKdId === filters.teamKdId);
-  if (filters.customerId && filters.customerId !== 'all') rows = rows.filter((r) => r.customerId === filters.customerId);
-  if (filters.priority && filters.priority !== 'all') rows = rows.filter((r) => r.priority === filters.priority);
-  if (filters.market && filters.market !== 'all') rows = rows.filter((r) => r.marketCode === filters.market);
-  if (filters.projectType && filters.projectType !== 'all') rows = rows.filter((r) => r.projectType === filters.projectType);
-  if (filters.groupKey && filters.groupBy) {
-    const matches = await Promise.all(
-      rows.map(async (r) => ({ r, ok: await matchesGroupOld((await repo.getProject(r.id))!, filters.groupKey!, filters.groupBy!) })),
-    );
-    rows = matches.filter((m) => m.ok).map((m) => m.r);
-  }
-  return rows;
-}
-
-async function getScopedProjectIdsOld(filters: DashboardFilters): Promise<Set<number>> {
-  let projects = await repo.listProjects();
-  if (filters.teamKdId && filters.teamKdId !== 'all') projects = projects.filter((p) => p.teamKdId === filters.teamKdId);
-  if (filters.customerId && filters.customerId !== 'all') projects = projects.filter((p) => p.customerId === filters.customerId);
-  if (filters.priority && filters.priority !== 'all') projects = projects.filter((p) => p.priority === filters.priority);
-  if (filters.market && filters.market !== 'all') projects = projects.filter((p) => p.marketCode === filters.market);
-  if (filters.projectType && filters.projectType !== 'all') projects = projects.filter((p) => p.projectType === filters.projectType);
-  if (filters.groupKey && filters.groupBy) {
-    const matches = await Promise.all(projects.map(async (p) => ({ p, ok: await matchesGroupOld(p, filters.groupKey!, filters.groupBy!) })));
-    projects = matches.filter((m) => m.ok).map((m) => m.p);
-  }
-  return new Set(projects.map((p) => p.id));
-}
-
-async function getProjectSummariesOld(yearMonth: string, filters?: DashboardFilters): Promise<ProjectSummary[]> {
-  const projects = await repo.listProjects();
-  const summaries = await Promise.all(projects.map(async (p) => summarizeOld(p, await repo.getLatestFact(p.id, yearMonth))));
-  return filters ? filterSummariesOld(summaries, filters) : summaries;
-}
-
-async function kpisForMonthOld(yearMonth: string, filters: DashboardFilters) {
-  const summaries = await getProjectSummariesOld(yearMonth, filters);
-  return {
-    totalProjects: summaries.length,
-    inProgress: summaries.filter((s) => s.status === 'Dang_trien_khai').length,
-    behindSchedule: summaries.filter((s) => s.status === 'Dang_trien_khai' && !s.onTrack).length,
-    penaltyRisk: summaries.filter((s) => s.penalty === 'risk').length,
-    penalized: summaries.filter((s) => s.penalty === 'penalized').length,
-    backlog: summaries.filter((s) => s.status === 'Chuan_bi').reduce((sum, s) => sum + s.contractValue, 0),
-  };
-}
-
-const ZERO_DELTA_OLD = { totalProjects: 0, inProgress: 0, behindSchedule: 0, penaltyRisk: 0, penalized: 0, backlog: 0 };
-
-async function getPortfolioKpisOld(yearMonth: string, filters: DashboardFilters = {}) {
-  const cur = await kpisForMonthOld(yearMonth, filters);
-  if (yearMonth === 'all' || !isValidYearMonth(yearMonth)) return { ...cur, delta: ZERO_DELTA_OLD };
-  const prevYm = prevMonth(yearMonth);
-  const [curFacts, prevFacts] = await Promise.all([repo.getFactsForMonth(yearMonth), repo.getFactsForMonth(prevYm)]);
-  if (curFacts.length === 0 || prevFacts.length === 0) return { ...cur, delta: ZERO_DELTA_OLD };
-  const prev = await kpisForMonthOld(prevYm, filters);
-  return {
-    ...cur,
-    delta: {
-      totalProjects: cur.totalProjects - prev.totalProjects,
-      inProgress: cur.inProgress - prev.inProgress,
-      behindSchedule: cur.behindSchedule - prev.behindSchedule,
-      penaltyRisk: cur.penaltyRisk - prev.penaltyRisk,
-      penalized: cur.penalized - prev.penalized,
-      backlog: Math.round((cur.backlog - prev.backlog) * 10) / 10,
-    },
-  };
-}
-
-async function getTonnageValueByGroupOld(yearMonth: string, groupBy: GroupBy, filters: DashboardFilters = {}) {
-  const summaries = await getProjectSummariesOld(yearMonth, filters);
-  const volumes = await repo.getVolumesForMonth(yearMonth);
-  const financial = await repo.getFinancialForMonth(yearMonth);
-  const dims = await repo.getDims();
-  const groups = new Map<string, { tonnage: number; value: number }>();
-  for (const s of summaries) {
-    const proj = (await repo.getProject(s.id))!;
-    const key = groupBy === 'team' ? dims.teams.find((t) => t.id === proj.teamKdId)?.name ?? '-' : groupBy === 'type' ? s.projectType : s.marketCode;
-    const vol = volumes.filter((v) => v.projectId === s.id).reduce((a, b) => a + b.tonnageProcessed, 0);
-    const fin = financial.filter((f) => f.projectId === s.id).reduce((a, b) => a + b.revenuePeriod, 0);
-    const g = groups.get(key) ?? { tonnage: 0, value: 0 };
-    g.tonnage += vol;
-    g.value += fin;
-    groups.set(key, g);
-  }
-  return [...groups.entries()].map(([key, v]) => ({ key, tonnage: Math.round(v.tonnage), value: Math.round(v.value * 10) / 10 }));
-}
-
-async function getCapacityDataOld(yearMonth: string, filters: DashboardFilters = {}) {
-  const dims = await repo.getDims();
-  const ids = new Set((await getProjectSummariesOld(yearMonth, filters)).map((s) => s.id));
-  const volumes = await repo.getVolumesForMonth(yearMonth);
-  return dims.factories.map((factory) => {
-    const processed = volumes.filter((v) => v.factoryId === factory.id && ids.has(v.projectId)).reduce((a, b) => a + b.tonnageProcessed, 0);
-    const capacityMonth = factory.capacityTonPerYear / 12;
-    return {
-      name: factory.name,
-      region: factory.region,
-      processed,
-      capacity: Math.round(capacityMonth),
-      warn: processed > THRESHOLDS.capacityWarnPct * capacityMonth,
-    };
-  });
-}
-
-async function getSpiCpiTrendOld(filters: DashboardFilters = {}) {
-  const ids = await getScopedProjectIdsOld(filters);
-  return Promise.all(
-    historyMonths().map(async (m) => {
-      const facts = (await repo.getFactsForMonth(m)).filter((f) => ids.has(f.projectId));
-      const spis = facts.map((f) => f.spi).filter((x): x is number => x != null);
-      const cpis = facts.map((f) => f.cpi).filter((x): x is number => x != null);
-      const avg = (arr: number[]) => (arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 100) / 100 : null);
-      return { month: m, spi: avg(spis), cpi: avg(cpis) };
-    }),
-  );
-}
-
-async function getPortfolioSCurveOld(filters: DashboardFilters = {}) {
-  const ids = await getScopedProjectIdsOld(filters);
-  return Promise.all(
-    historyMonths().map(async (m) => {
-      const facts = (await repo.getFactsForMonth(m)).filter((f) => ids.has(f.projectId));
-      return {
-        month: m,
-        pv: Math.round(facts.reduce((a, b) => a + b.pv, 0)),
-        ev: Math.round(facts.reduce((a, b) => a + b.ev, 0)),
-        ac: Math.round(facts.reduce((a, b) => a + b.ac, 0)),
-      };
-    }),
-  );
-}
-
-async function getWatchlistOld(yearMonth: string, filters: DashboardFilters = {}) {
-  return (await getProjectSummariesOld(yearMonth, filters))
-    .filter((s) => {
-      if (s.status !== 'Dang_trien_khai') return false;
-      const spiLow = s.spi != null && s.spi < THRESHOLDS.spiWarn;
-      const cpiLow = s.cpi != null && s.cpi < THRESHOLDS.cpiWarn;
-      const pen = s.penalty === 'risk' || s.penalty === 'penalized';
-      return spiLow || cpiLow || pen;
-    })
-    .sort((a, b) => (a.spi ?? 99) - (b.spi ?? 99));
-}
-
-async function getMissingMonthOld(yearMonth: string) {
-  const projects = await repo.listProjects();
-  const rows = await Promise.all(
-    projects.map(async (p) => {
-      const fact = await repo.getLatestFact(p.id, yearMonth);
-      const status = deriveStatus({ actualStartDate: p.actualStartDate, actualFinishDate: p.actualFinishDate, pctActual: fact?.pctActual ?? 0 });
-      return status === 'Dang_trien_khai' && !fact ? { id: p.id, projectName: p.projectName, code: p.currentAliasCode } : null;
-    }),
-  );
-  return rows.filter((x): x is { id: number; projectName: string; code: string } => x != null);
-}
-
-// ---------------------------------------------------------------------------
-// So sánh giá trị TRƯỚC/SAU trên seed mặc định (mock repo).
-// ---------------------------------------------------------------------------
-
+const MONTH_09: Period = { from: '2026-09-01', to: '2026-09-30' };
+const RANGE: Period = { from: '2026-04-01', to: '2026-09-16' };
 const byId = <T extends { id: number }>(rows: T[]) => [...rows].sort((a, b) => a.id - b.id);
+const byKey = <T extends { key: string }>(rows: T[]) => [...rows].sort((a, b) => a.key.localeCompare(b.key));
 
-describe('queries.ts truoc/sau refactor T1 Buoc 5 - gia tri phai giong het nhau', () => {
-  it('getProjectSummaries: thang hien tai, khong filter', async () => {
-    const oldRows = await getProjectSummariesOld('2026-09');
-    const newRows = await NewQ.getProjectSummaries('2026-09');
-    expect(byId(newRows)).toEqual(byId(oldRows));
+/** Dòng fact isLatest gần nhất <= ym của 1 dự án (đọc bằng repo.getFacts, độc lập với readFactSnapshotsAsOf). */
+async function factAtOrBefore(projectId: number, ym: string) {
+  const facts = (await repo.getFacts(projectId)).filter((f) => f.yearMonth <= ym);
+  return facts.length ? facts[facts.length - 1] : undefined;
+}
+
+describe('getProjectSummaries - số tồn tại mốc khớp oracle độc lập', () => {
+  it('kỳ trọn tháng 09/2026: %TT = dòng fact gần nhất <= 2026-09, trạng thái theo ngày thực tế <= mốc', async () => {
+    const rows = await NewQ.getProjectSummaries(MONTH_09);
+    const asOfDate = periodAsOfDate(MONTH_09, todayIso());
+    expect(rows.length).toBeGreaterThan(0);
+    for (const s of rows) {
+      const p = (await repo.getProject(s.id))!;
+      const fact = await factAtOrBefore(s.id, asOfDate.slice(0, 7));
+      expect(s.pctActual, s.projectName).toBe(fact?.pctActual ?? 0);
+      const upTo = (d: string | null) => (d && d.slice(0, 10) <= asOfDate ? d : null);
+      expect(s.status, s.projectName).toBe(deriveStatus({
+        actualStartDate: upTo(p.actualStartDate), actualFinishDate: upTo(p.actualFinishDate), pctActual: fact?.pctActual ?? 0,
+      }));
+    }
   });
 
-  it('getProjectSummaries: month=all', async () => {
-    const oldRows = await getProjectSummariesOld('all');
-    const newRows = await NewQ.getProjectSummaries('all');
-    expect(byId(newRows)).toEqual(byId(oldRows));
-  });
-
-  it('getProjectSummaries: month rac -> ca 2 ban deu ra pctActual=0 giong nhau', async () => {
-    const oldRows = await getProjectSummariesOld('khong-hop-le');
-    const newRows = await NewQ.getProjectSummaries('khong-hop-le');
-    expect(byId(newRows)).toEqual(byId(oldRows));
-  });
-
-  it('getProjectSummaries voi filter groupBy=team (groupKey lay tu du lieu that)', async () => {
+  it('filter groupBy=team (groupKey lấy từ dữ liệu thật): tập con của bản không filter, đúng team', async () => {
     const dims = await repo.getDims();
     const groupKey = dims.teams[0].name;
-    const oldRows = await getProjectSummariesOld('2026-09', { groupBy: 'team', groupKey });
-    const newRows = await NewQ.getProjectSummaries('2026-09', { groupBy: 'team', groupKey });
-    expect(byId(newRows)).toEqual(byId(oldRows));
-    expect(newRows.length).toBeGreaterThan(0); // dam bao filter khong loc rong het (test khong ro rang)
+    const all = await NewQ.getProjectSummaries(RANGE);
+    const filtered = await NewQ.getProjectSummaries(RANGE, { groupBy: 'team', groupKey });
+    expect(filtered.length).toBeGreaterThan(0);
+    expect(filtered.every((s) => s.teamName === groupKey)).toBe(true);
+    expect(byId(filtered)).toEqual(byId(all.filter((s) => s.teamName === groupKey)));
   });
 
-  it('getPortfolioKpis: thang hien tai', async () => {
-    expect(await NewQ.getPortfolioKpis('2026-09', {})).toEqual(await getPortfolioKpisOld('2026-09', {}));
+  it('groupKey không tồn tại -> mảng rỗng, KHÔNG throw', async () => {
+    expect(await NewQ.getProjectSummaries(RANGE, { groupBy: 'team', groupKey: 'ten-doi-khong-ton-tai-xyz' })).toEqual([]);
+  });
+});
+
+describe('số phát sinh theo kỳ khớp oracle độc lập', () => {
+  it('getTonnageValueByGroup (theo team, tháng 09): cộng volume/doanh thu tháng 09 của dự án trong kỳ', async () => {
+    const summaries = await NewQ.getProjectSummaries(MONTH_09);
+    const volumes = await repo.getVolumesForMonth('2026-09');
+    const financial = await repo.getFinancialForMonth('2026-09');
+    const groups = new Map<string, { tonnage: number; value: number }>();
+    for (const s of summaries) {
+      const g = groups.get(s.teamName) ?? { tonnage: 0, value: 0 };
+      g.tonnage += volumes.filter((v) => v.projectId === s.id).reduce((a, b) => a + b.tonnageProcessed, 0);
+      g.value += financial.filter((f) => f.projectId === s.id).reduce((a, b) => a + b.revenuePeriod, 0);
+      groups.set(s.teamName, g);
+    }
+    const expected = [...groups.entries()].map(([key, v]) => ({ key, tonnage: Math.round(v.tonnage), value: Math.round(v.value * 10) / 10 }));
+    expect(byKey(await NewQ.getTonnageValueByGroup(MONTH_09, 'team'))).toEqual(byKey(expected));
   });
 
-  it('getPortfolioKpis: month=all -> delta = 0 o ca 2 ban', async () => {
-    expect(await NewQ.getPortfolioKpis('all', {})).toEqual(await getPortfolioKpisOld('all', {}));
+  it('getCapacityData (1 tháng): công suất = công suất năm / 12, sản lượng cộng theo nhà máy', async () => {
+    const ids = new Set((await NewQ.getProjectSummaries(MONTH_09)).map((s) => s.id));
+    const volumes = await repo.getVolumesForMonth('2026-09');
+    const dims = await repo.getDims();
+    const expected = dims.factories.map((f) => {
+      const processed = volumes.filter((v) => v.factoryId === f.id && ids.has(v.projectId)).reduce((a, b) => a + b.tonnageProcessed, 0);
+      return { name: f.name, region: f.region, processed, capacity: Math.round(f.capacityTonPerYear / 12), warn: processed > THRESHOLDS.capacityWarnPct * (f.capacityTonPerYear / 12) };
+    });
+    const actual = await NewQ.getCapacityData(MONTH_09);
+    expect([...actual].sort((a, b) => a.name.localeCompare(b.name))).toEqual([...expected].sort((a, b) => a.name.localeCompare(b.name)));
+  });
+});
+
+describe('chuỗi tháng danh mục khớp oracle độc lập (mang số tháng trước, SPI/CPI có trọng số)', () => {
+  async function oracle() {
+    const ids = (await NewQ.getProjectSummaries(RANGE)).map((s) => s.id);
+    const months = periodMonths(RANGE).filter((m) => m <= periodAsOfDate(RANGE, todayIso()).slice(0, 7));
+    return Promise.all(months.map(async (month) => {
+      const facts = (await Promise.all(ids.map((id) => factAtOrBefore(id, month)))).filter((f) => f != null);
+      const sum = (k: 'pv' | 'ev' | 'ac') => facts.reduce((a, f) => a + f![k], 0);
+      return { month, pv: sum('pv'), ev: sum('ev'), ac: sum('ac') };
+    }));
+  }
+
+  it('getPortfolioSCurve: PV/EV/AC = Σ số gần nhất <= tháng của từng dự án trong kỳ', async () => {
+    const expected = (await oracle()).map((o) => ({ month: o.month, pv: Math.round(o.pv), ev: Math.round(o.ev), ac: Math.round(o.ac) }));
+    const actual = (await NewQ.getPortfolioSCurve(RANGE)).map(({ month, pv, ev, ac }) => ({ month, pv, ev, ac }));
+    expect(actual).toEqual(expected);
   });
 
-  it('getTonnageValueByGroup: theo team', async () => {
-    const oldRows = await getTonnageValueByGroupOld('2026-09', 'team');
-    const newRows = await NewQ.getTonnageValueByGroup('2026-09', 'team');
-    expect([...newRows].sort((a, b) => a.key.localeCompare(b.key))).toEqual([...oldRows].sort((a, b) => a.key.localeCompare(b.key)));
+  it('getSpiCpiTrend: SPI = ΣEV/ΣPV, CPI = ΣEV/ΣAC', async () => {
+    const expected = (await oracle()).map((o) => ({
+      month: o.month,
+      spi: o.pv ? Math.round((o.ev / o.pv) * 100) / 100 : null,
+      cpi: o.ac ? Math.round((o.ev / o.ac) * 100) / 100 : null,
+    }));
+    const actual = (await NewQ.getSpiCpiTrend(RANGE)).map(({ month, spi, cpi }) => ({ month, spi, cpi }));
+    expect(actual).toEqual(expected);
+  });
+});
+
+describe('getWatchlist / getMissingMonth', () => {
+  it('getWatchlist: dự án đang triển khai có SPI/CPI thấp hoặc nguy cơ phạt, sắp SPI tăng', async () => {
+    const expected = (await NewQ.getProjectSummaries(MONTH_09))
+      .filter((s) => s.status === 'Dang_trien_khai' && ((s.spi != null && s.spi < THRESHOLDS.spiWarn) || (s.cpi != null && s.cpi < THRESHOLDS.cpiWarn) || s.penalty === 'risk' || s.penalty === 'penalized'))
+      .sort((a, b) => (a.spi ?? 99) - (b.spi ?? 99));
+    expect(await NewQ.getWatchlist(MONTH_09, {})).toEqual(expected);
   });
 
-  it('getTonnageValueByGroup: theo market, month=all', async () => {
-    const oldRows = await getTonnageValueByGroupOld('all', 'market');
-    const newRows = await NewQ.getTonnageValueByGroup('all', 'market');
-    expect([...newRows].sort((a, b) => a.key.localeCompare(b.key))).toEqual([...oldRows].sort((a, b) => a.key.localeCompare(b.key)));
-  });
-
-  it('getCapacityData', async () => {
-    const oldRows = await getCapacityDataOld('2026-09');
-    const newRows = await NewQ.getCapacityData('2026-09');
-    expect([...newRows].sort((a, b) => a.name.localeCompare(b.name))).toEqual([...oldRows].sort((a, b) => a.name.localeCompare(b.name)));
-  });
-
-  it('getSpiCpiTrend: khong filter', async () => {
-    expect(await NewQ.getSpiCpiTrend({})).toEqual(await getSpiCpiTrendOld({}));
-  });
-
-  it('getPortfolioSCurve: khong filter', async () => {
-    expect(await NewQ.getPortfolioSCurve({})).toEqual(await getPortfolioSCurveOld({}));
-  });
-
-  it('getWatchlist: thang hien tai', async () => {
-    expect(await NewQ.getWatchlist('2026-09', {})).toEqual(await getWatchlistOld('2026-09', {}));
-  });
-
-  it('getMissingMonth: thang chua nhap so cua nhieu du an (thang tuong lai xa)', async () => {
-    const futureMonth = '2030-01';
-    expect(await NewQ.getMissingMonth(futureMonth)).toEqual(await getMissingMonthOld(futureMonth));
-  });
-
-  // ---- Truong hop phai "that bai" theo nghia sad-path: du lieu vo ly khong duoc lam sup he thong ----
-  it('groupKey khong ton tai (khong khop du an nao) -> ca 2 ban deu tra mang rong, KHONG throw', async () => {
-    const oldRows = await getProjectSummariesOld('2026-09', { groupBy: 'team', groupKey: 'ten-doi-khong-ton-tai-xyz' });
-    const newRows = await NewQ.getProjectSummaries('2026-09', { groupBy: 'team', groupKey: 'ten-doi-khong-ton-tai-xyz' });
-    expect(newRows).toEqual([]);
-    expect(newRows).toEqual(oldRows);
+  it('getMissingMonth (giữ nguyên chữ ký theo tháng): tháng tương lai xa -> mọi dự án đang triển khai chưa nhập số', async () => {
+    const projects = await repo.listProjects();
+    const expected = projects
+      .filter((p) => deriveStatus({ actualStartDate: p.actualStartDate, actualFinishDate: p.actualFinishDate, pctActual: 0 }) === 'Dang_trien_khai')
+      .map((p) => ({ id: p.id, projectName: p.projectName, code: p.currentAliasCode }));
+    expect(await NewQ.getMissingMonth('2030-01')).toEqual(expected);
   });
 });
