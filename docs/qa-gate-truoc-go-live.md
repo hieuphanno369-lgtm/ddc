@@ -33,7 +33,7 @@ Cột Trạng thái dùng đúng một trong các nhãn sau:
 | QG-14 | Hiệu năng trang đơn lẻ T1 | `npm run perf:pages` | mọi request không quá 1500 ms | B | SẴN SÀNG |
 | QG-15 | Health check có kiểm DB | route mới của C | DB tắt thì báo lỗi | C | CHỜ HẠ TẦNG C |
 | QG-16 | Backup hằng ngày và thử khôi phục thật | script của C | khôi phục ra DB tạm, số dòng khớp | C | CHỜ HẠ TẦNG C |
-| QG-17 | Kiểm env khi khởi động, log có cấu trúc không lộ dữ liệu nhạy cảm | của C | thiếu biến bắt buộc thì dừng rõ ràng | C | CHỜ HẠ TẦNG C |
+| QG-17 | Kiểm env khi khởi động, log có cấu trúc không lộ dữ liệu nhạy cảm, log stdout có xoay vòng (Docker `max-size`/`max-file` hoặc logrotate) và có trần dung lượng | của C | thiếu biến bắt buộc thì dừng rõ ràng; log không phình đĩa không giới hạn | C | CHỜ HẠ TẦNG C |
 | QG-18 | Reverse proxy: `X-Forwarded-For`, HSTS, nosniff mọi đường dẫn, upload 12 MB, chờ 120 giây | `curl -I` qua proxy, `/api/health` trả `clientIpResolved: true` | đúng `docs/csp-header-bao-mat.md` mục 3 và 4; từ máy ngoài `curl http://<server>:3000/` bị từ chối; qua proxy gửi `X-Forwarded-For: 1.2.3.4` 121 lần tới `/api/health` phải có 429 | C | CHỜ HẠ TẦNG C |
 | QG-19 | Giao diện P4 soi pixel 1440 px và 390 px, sáng và tối | e2e + soi tay | không lệch | C | CHỜ P4 |
 | QG-20 | Xuất PDF/JPG đúng quyền xem tiền | e2e của P4-X | viewer không thấy số tiền | C | CHỜ P4-X |

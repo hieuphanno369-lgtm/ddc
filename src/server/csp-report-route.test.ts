@@ -84,7 +84,7 @@ describe('POST /api/csp-report', () => {
     const res = await FreshPost(req(REPORT, 'application/csp-report', '10.30.0.1'));
     expect(res.status).toBe(429);
   });
-  it('M1: da ccham tran toan he thong thi 1000 IP gia deu 429 va khong tao them khoa theo IP', async () => {
+  it('M1: da cham tran toan he thong thi 1000 IP gia deu 429 va khong tao them khoa theo IP', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     vi.resetModules();
     const keys: string[] = [];
@@ -95,6 +95,7 @@ describe('POST /api/csp-report', () => {
     const { POST: FreshPost } = await import('../../app/api/csp-report/route');
     for (let i = 0; i < CSP_REPORT_GLOBAL_PER_MIN; i++) await FreshPost(req(REPORT, 'application/csp-report', `10.40.0.${i + 1}`));
     const before = keys.filter((k) => k.startsWith('csp-report:') && k !== 'csp-report:global').length;
+    expect(before).toBe(CSP_REPORT_GLOBAL_PER_MIN);
     for (let i = 0; i < 1000; i++) {
       const res = await FreshPost(req(REPORT, 'application/csp-report', `10.50.${Math.floor(i / 250)}.${(i % 250) + 1}`));
       expect(res.status).toBe(429);

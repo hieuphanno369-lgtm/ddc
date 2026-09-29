@@ -73,6 +73,7 @@ Phase này không sửa `next.config.mjs`.
 - Endpoint không ghi DB, không ghi IP hay cookie.
 - Danh sách trên trình duyệt thật: chạy e2e 27 (`npx playwright test e2e/27-csp-vi-pham.spec.ts`), tệp đính kèm `csp-vi-pham.json` nằm trong báo cáo Playwright ở `e2e/.report`, kèm bảng tóm tắt in ra console.
 - Nên chạy e2e 27 trên `next start` (bản production, không có `'unsafe-eval'`) để số liệu sát thực tế.
+- Quyết định chuyển CSP sang enforce chỉ dựa vào số đo e2e 27 (trình duyệt thật, có kiểm soát), không dựa vào log `[csp-report]` công khai: endpoint không yêu cầu đăng nhập nên ai cũng gửi được báo cáo giả để làm sai lệch danh sách vi phạm.
 
 ## 6. Việc phải xem lại khi P4-X (xuất PDF/JPG của C) vào `main`
 
