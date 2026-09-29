@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { E2E_LOCK_PASSWORD } from './helpers/env';
 import { vi } from './helpers/i18n';
+import { fillLogin } from './helpers/login';
 
 /**
  * Tester (vòng sau sửa bảo mật, R2-1 Cao, `.bangiao/bao-mat.md` vòng 2) - tái hiện ĐÚNG kịch bản
@@ -26,10 +27,7 @@ const PW_2 = 'E2eR21-MoiCode-2026!';
 const PW_3 = 'E2eR21-CuoiCung-2026!';
 
 async function login(page: Page, email: string, password: string) {
-  await page.goto('/vi/login');
-  await page.locator('input[type="email"]').fill(email);
-  await page.locator('.field', { hasText: vi('auth.password') }).locator('input').fill(password);
-  await page.getByRole('button', { name: vi('auth.signIn') }).click();
+  await fillLogin(page, email, password);
 }
 
 async function openChangePasswordModal(page: Page) {

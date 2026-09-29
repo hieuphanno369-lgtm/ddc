@@ -1,11 +1,11 @@
-import Image from 'next/image';
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
-import { AuthCard } from '@/components/auth/AuthCard';
-import { Link } from '@/i18n/navigation';
 import { getAuthStore } from '@/server/auth-store';
 import { isResetTokenUsable } from '@/server/password-reset';
-import { ResetPasswordForm } from '@/components/layout/ResetPasswordForm';
+import { AuthCard } from '@/components/auth/AuthCard';
+import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
+import { AuthHeading, AuthLink, AuthNotice } from '@/components/auth/parts';
+import s from '@/components/auth/auth.module.css';
 
 /**
  * S12 - không để trình duyệt gửi token qua header Referer khi trang này link ra ngoài, và không
@@ -25,22 +25,15 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
 
   return (
     <AuthCard width={452}>
-        <div className="brandbox">
-          <div className="appicon is-brand overflow-hidden" style={{ width: 56, height: 56, flex: '0 0 56px' }}>
-            <Image src="/logo.png" alt="DDC" width={56} height={56} className="h-full w-full object-cover" />
-          </div>
-          <h1>{t('authSecurity.resetTitle')}</h1>
+      {usable ? (
+        <ResetPasswordForm token={token ?? ''} />
+      ) : (
+        <div className={s.stack20}>
+          <AuthHeading title={t('authPage.invalidTitle')} />
+          <AuthNotice tone="error">{t('authSecurity.resetInvalid')}</AuthNotice>
+          <AuthLink href="/quen-mat-khau">{t('authPage.requestNewLink')}</AuthLink>
         </div>
-        {usable ? (
-          <ResetPasswordForm token={token ?? ''} />
-        ) : (
-          <div className="flex flex-col gap-3.5">
-            <p className="sumbar bad">{t('authSecurity.resetInvalid')}</p>
-            <Link href="/quen-mat-khau" className="hintline" style={{ textAlign: 'center' }}>
-              {t('authSecurity.forgotLink')}
-            </Link>
-          </div>
-        )}
+      )}
     </AuthCard>
   );
 }

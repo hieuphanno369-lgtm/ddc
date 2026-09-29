@@ -111,17 +111,21 @@ test.describe('10 - ten app moi (7.3): sidebar + login vi/en', () => {
 
 test.describe('10 - ten app moi (7.3): trang dang nhap vi/en', () => {
   for (const loc of LOCALES) {
-    test(`${loc} - h1 dung chu, 1 dong, tieu de tab dung`, async ({ browser }) => {
-      const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    test(`${loc} - ten app tren panel dang nhap dung chu, 1 dong, tieu de tab dung`, async ({ browser }) => {
+      const ctx = await browser.newContext({
+        storageState: { cookies: [], origins: [] },
+        viewport: { width: 1440, height: 900 },
+      });
       const page = await ctx.newPage();
       await page.goto(`/${loc}/login`);
 
-      const h1 = page.locator('.authcard h1');
-      await expect(h1).toHaveText(T[loc]('app.headerTitle'));
-      await assertSingleLineNoOverflow(h1);
+      // P3F: ten app la dong 1 cua thuong hieu tren panel trai (CSS doi hoa thuong, textContent van la app.headerTitle).
+      const title = page.locator('[data-auth="showcase"] [data-auth="brand-title"]');
+      await expect(title).toHaveText(T[loc]('app.headerTitle'));
+      await assertSingleLineNoOverflow(title);
       await expect(page).toHaveTitle(`${T[loc]('app.headerTitle')} - ${T[loc]('app.name')}`);
 
-      await page.locator('.authcard').screenshot({ path: `test-results/p7-login-${loc}.png` });
+      await page.locator('[data-auth="showcase"]').screenshot({ path: `test-results/p7-login-${loc}.png` });
       await ctx.close();
     });
   }

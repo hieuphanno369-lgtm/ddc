@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { E2E_LOCK_PASSWORD } from './helpers/env';
 import { vi } from './helpers/i18n';
+import { fillLogin } from './helpers/login';
 
 /**
  * D3 (P3E, Task 6) - khoá tài khoản sau 5 lần sai mật khẩu liên tiếp; admin mở khoá qua trang
@@ -11,13 +12,6 @@ import { vi } from './helpers/i18n';
  */
 const EMAIL = 'e2e-khoa@daidung.com.vn';
 const FAKE_IP = '203.0.113.77';
-
-async function fillLogin(page: Page, email: string, password: string) {
-  await page.goto('/vi/login');
-  await page.locator('input[type="email"]').fill(email);
-  await page.locator('.field', { hasText: vi('auth.password') }).locator('input').fill(password);
-  await page.getByRole('button', { name: vi('auth.signIn') }).click();
-}
 
 test.describe('21 - khoa tai khoan sau 5 lan sai (D3)', () => {
   test('4 lan sai -> invalidCredentials; lan 5 -> locked; mat khau dung van locked; admin mo khoa; dang nhap lai duoc', async ({ browser }) => {
@@ -37,10 +31,7 @@ test.describe('21 - khoa tai khoan sau 5 lan sai (D3)', () => {
     await expect(page.getByText(vi('authSecurity.locked'))).toBeVisible();
 
     // Dung mat khau van bao locked (khong noi mat khau dung/sai).
-    await page.goto('/vi/login');
-    await page.locator('input[type="email"]').fill(EMAIL);
-    await page.locator('.field', { hasText: vi('auth.password') }).locator('input').fill(E2E_LOCK_PASSWORD);
-    await page.getByRole('button', { name: vi('auth.signIn') }).click();
+    await fillLogin(page, EMAIL, E2E_LOCK_PASSWORD);
     await expect(page.getByText(vi('authSecurity.locked'))).toBeVisible();
 
     // R4 - IP that su toi duoc dev server qua X-Forwarded-For (context nay gan header gia lap).
