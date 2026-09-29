@@ -17,7 +17,8 @@
     "perf:pages": "tsx scripts/perf/measure-pages.ts",
     "perf:load": "tsx scripts/perf/load-test.ts",
     "docs:erd": "tsx scripts/gen-erd-doc.ts",
-    "unlock-account": "tsx scripts/unlock-account.ts"
+    "unlock-account": "tsx scripts/unlock-account.ts",
+    "create-admin": "tsx scripts/create-admin.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
