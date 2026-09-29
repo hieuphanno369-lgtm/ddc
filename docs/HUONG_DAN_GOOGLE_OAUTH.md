@@ -18,7 +18,9 @@ Chọn loại **External** (không phải Internal), vì người dùng có th�
 Vào mục Credentials, tạo OAuth Client ID loại **Web application**.
 Ở Authorized redirect URIs, thêm cả hai dòng sau:
 - `https://<domain-that>/api/auth/callback/google` (domain thật khi deploy)
-- `http://localhost:3000/api/auth/callback/google` (chạy máy cục bộ)
+- `http://localhost:3005/api/auth/callback/google` (chạy máy cục bộ qua Docker Compose, cổng mặc định `APP_PORT` trong `.env.docker.example`)
+
+Domain thật khi deploy production luôn có dạng `https://<ten-mien>/api/auth/callback/google`, thay `<ten-mien>` bằng tên miền cố định của server (ví dụ `controltower.daidung.vn`, xem `docs/DEPLOY.md` mục 8).
 
 ## 4. Điền biến môi trường
 
