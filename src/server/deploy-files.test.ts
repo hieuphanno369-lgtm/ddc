@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { REQUIRED_PROD_ENV } from '@/lib/env-check';
 
@@ -92,10 +92,10 @@ describe('docker-compose.yml', () => {
     expect(block).toContain('max-file: "14"');
   });
 
-  it('co it nhat 4 service (db, migrate, app, tools) va MOI service deu dung logging: *default-logging', () => {
+  it('co it nhat 4 service (db, migrate, app, tools, backup) va MOI service deu dung logging: *default-logging', () => {
     const names = serviceNames(compose);
     expect(names.length).toBeGreaterThanOrEqual(4);
-    expect(names).toEqual(expect.arrayContaining(['db', 'migrate', 'app', 'tools']));
+    expect(names).toEqual(expect.arrayContaining(['db', 'migrate', 'app', 'tools', 'backup']));
     for (const name of names) {
       expect(extractServiceBlock(compose, name)).toContain('logging: *default-logging');
     }
@@ -109,5 +109,28 @@ describe('docker-compose.yml', () => {
 describe('Dockerfile', () => {
   it('khong chua ky tu \\r (giu LF)', () => {
     expect(read('Dockerfile')).not.toContain('\r');
+  });
+});
+
+describe('scripts/backup/*.sh', () => {
+  const dir = path.join(ROOT, 'scripts/backup');
+  const files = readdirSync(dir).filter((f) => f.endsWith('.sh'));
+
+  it('co ca pg-backup.sh va pg-restore-test.sh', () => {
+    expect(files).toEqual(expect.arrayContaining(['pg-backup.sh', 'pg-restore-test.sh']));
+  });
+
+  it.each(files)('%s: shebang sh, set -eu, LF thuan, khong gan cung PGPASSWORD', (name) => {
+    const src = readFileSync(path.join(dir, name), 'utf8');
+    expect(src.split('\n')[0]).toBe('#!/bin/sh');
+    expect(src).toContain('set -eu');
+    expect(src).not.toContain('\r');
+    expect(src).not.toContain('PGPASSWORD=');
+  });
+
+  it('pg-restore-test.sh chi thao tac DB tam co "_restore_test_" trong ten', () => {
+    const src = readFileSync(path.join(dir, 'pg-restore-test.sh'), 'utf8');
+    expect(src).toContain('_restore_test_');
+    expect(src).toContain('dropdb --if-exists --force');
   });
 });
