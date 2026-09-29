@@ -29,7 +29,7 @@ export interface SignupInput {
 const DUPLICATE_LOG_ID = 'dang-ky-trung';
 
 /**
- * Phần còn lại sau khi băm mật khẩu (kiểm email đã có, ghi DB, ghi nhật ký) chạy NỀN theo hàng đợi có timeout,
+ * Phần còn lại sau khi đặt chỗ throttle (kiểm email đã có, ghi DB, ghi nhật ký) chạy NỀN theo hàng đợi có timeout,
  * đúng khuôn `resetRequestQueueTail` của `password-reset.ts` (K10): thời gian phản hồi không phụ thuộc email
  * mới hay đã có, nên không có timing oracle về việc email đã đăng ký.
  */

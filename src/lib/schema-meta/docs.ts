@@ -504,15 +504,15 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
   },
   password_reset_token: {
     kind: 'support',
-    desc: 'P3E: token đặt lại mật khẩu qua email - chỉ lưu SHA-256, hết hạn 30 phút, dùng 1 lần.',
+    desc: 'P3E: token đặt mật khẩu qua email - chỉ lưu SHA-256, dùng 1 lần; hết hạn 30 phút (quên mật khẩu) hoặc 72 giờ (P3F: lời mời khi admin bật đăng ký). Job dọn xoá token đã hết hạn hoặc đã dùng quá 24 giờ.',
     fields: {
       id: 'khoá chính',
       email: 'FK tới user_roles.email',
       tokenHash: 'SHA-256 hex của token gửi qua email (không lưu token thô)',
-      expiresAt: 'hết hạn 30 phút sau khi cấp',
+      expiresAt: 'hết hạn: 30 phút sau khi cấp (quên mật khẩu) hoặc 72 giờ (lời mời P3F)',
       usedAt: 'thời điểm đã dùng (null = chưa dùng)',
       createdAt: 'thời điểm cấp token',
-      requestIp: 'IP xin cấp token',
+      requestIp: 'IP xin cấp token (rỗng với lời mời P3F vì do admin bật, không có IP người xin)',
     },
   },
   dim_department: {
