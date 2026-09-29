@@ -1156,10 +1156,8 @@
   },
   "topPriority": {
     "title": "Top dự án trọng điểm",
-    "subtitle": "Priority P0 · đang triển khai · dự án trễ xếp trước",
-    "empty": "Không có dự án P0 đang triển khai",
-    "behind": "Trễ tiến độ",
-    "onTrack": "Đúng tiến độ"
+    "subtitle": "Priority P0 · đang triển khai · bấm để xem chi tiết",
+    "empty": "Không có dự án P0 đang triển khai"
   },
   "equipmentPlanGantt": {
     "title": "Lịch sử dụng thiết bị",

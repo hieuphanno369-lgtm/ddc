@@ -1156,10 +1156,8 @@
   },
   "topPriority": {
     "title": "Key priority projects",
-    "subtitle": "Priority P0 · in progress · behind schedule first",
-    "empty": "No P0 project in progress",
-    "behind": "Behind schedule",
-    "onTrack": "On track"
+    "subtitle": "Priority P0 · in progress · tap for details",
+    "empty": "No P0 project in progress"
   },
   "equipmentPlanGantt": {
     "title": "Equipment usage schedule",

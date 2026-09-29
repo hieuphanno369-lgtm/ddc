@@ -13,10 +13,14 @@ const STATUS_TONE: Record<Status, BadgeTone> = {
   Tam_dung: 'warn',
 };
 
+/**
+ * Chu du an chot 2026-09-29: P0 = du an trong diem, mau tich cuc (vang nhan thuong hieu); do/cam chi danh cho
+ * tre tien do va phat, khong dung cho do uu tien.
+ */
 const PRIORITY_TONE: Record<Priority, BadgeTone> = {
-  P0: 'danger',
-  P1: 'warn',
-  P2: 'info',
+  P0: 'gold',
+  P1: 'info',
+  P2: 'neutral',
   P3: 'neutral',
 };
 

@@ -18,7 +18,8 @@ const en = read('src/i18n/messages/en.json');
 const NEW_GROUPS = ['topPriority', 'equipmentPlanGantt', 'manpowerMonthChart'] as const;
 
 const EXPECTED_KEYS: Record<(typeof NEW_GROUPS)[number], string[]> = {
-  topPriority: ['title', 'subtitle', 'empty', 'behind', 'onTrack'],
+  // 2026-09-29: bo 'behind', 'onTrack' (the Top khong hien tre/dung tien do nua, chu du an chot).
+  topPriority: ['title', 'subtitle', 'empty'],
   equipmentPlanGantt: [
     'title', 'help', 'colEquipment', 'colQty', 'qty', 'today', 'tipRange', 'tipQty', 'tipDays', 'noPlan',
   ],

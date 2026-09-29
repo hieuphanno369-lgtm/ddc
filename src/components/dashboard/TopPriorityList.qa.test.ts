@@ -74,15 +74,15 @@ describe('TopPriorityList - QA doc lap Buoc 10 (T2)', () => {
 
   it('bien: status khac Dang_trien_khai + onTrack=false -> KHONG tinh la tre (isBehindSchedule doi hoi dung status)', () => {
     const out = render([makeItem({ id: 1, status: 'Hoan_thanh', onTrack: false })]);
-    expect(out).toContain('background:var(--ok)');
-    expect(out).toContain('topPriority.onTrack');
+    expect(out).toContain('background:var(--gold)');
+    expect(out).not.toContain('topPriority.onTrack');
     expect(out).not.toContain('background:var(--danger)');
     expect(out).not.toContain('topPriority.behind');
   });
 
-  it('bien: status Tam_dung + onTrack=false -> van la dot xanh (khong phai Dang_trien_khai)', () => {
+  it('bien: status Tam_dung + onTrack=false -> van la cham vang P0 (khong hien trang thai tre)', () => {
     const out = render([makeItem({ id: 2, status: 'Tam_dung', onTrack: false })]);
-    expect(out).toContain('background:var(--ok)');
+    expect(out).toContain('background:var(--gold)');
   });
 
   it('bien: pctActual = 0 -> hien 0%, pctPlan = null -> hien dau gach ngang', () => {

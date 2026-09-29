@@ -40,18 +40,17 @@ describe('TopPriorityList - the Top du an trong diem (P3C-B T2)', () => {
     expect(out).not.toContain('max-height');
   });
 
-  it('du an tre: cham do + nhan topPriority.behind', () => {
-    const out = render([row(1, false)]);
-    expect(out).toContain('background:var(--danger)');
-    expect(out).toContain('topPriority.behind');
+  // Chu du an chot 2026-09-29: the Top khong hien tre/dung tien do (xem o trang Chi tiet), cham mau vang P0.
+  it.each([
+    ['du an tre', false],
+    ['du an dung tien do', true],
+  ])('%s: cham vang P0, khong nhan tre/dung, khong mau do/xanh trang thai', (_n, onTrack) => {
+    const out = render([row(1, onTrack)]);
+    expect(out).toContain('background:var(--gold)');
+    expect(out).not.toContain('topPriority.behind');
     expect(out).not.toContain('topPriority.onTrack');
-  });
-
-  it('du an dung tien do: cham xanh + nhan topPriority.onTrack', () => {
-    const out = render([row(2, true)]);
-    expect(out).toContain('background:var(--ok)');
-    expect(out).toContain('topPriority.onTrack');
     expect(out).not.toContain('var(--danger)');
+    expect(out).not.toContain('var(--ok)');
   });
 
   it('dong hien % TT, % KH va link toi chi tiet du an', () => {
