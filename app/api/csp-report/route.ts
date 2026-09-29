@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { rateLimit } from '@/lib/rate-limit';
 import { clientIpFrom } from '@/lib/client-ip';
+import { logger } from '@/lib/logger';
 import {
   CSP_REPORT_CONTENT_TYPES, CSP_REPORT_GLOBAL_PER_MIN, CSP_REPORT_MAX_BYTES, parseCspReports, readBodyCapped,
 } from '@/lib/csp-report';
@@ -39,6 +40,6 @@ export async function POST(req: NextRequest) {
   const text = await readBodyCapped(req.body, CSP_REPORT_MAX_BYTES);
   if (text === null) return empty(413);
 
-  for (const v of parseCspReports(contentType, text)) console.warn('[csp-report]', JSON.stringify(v));
+  for (const v of parseCspReports(contentType, text)) logger.warn('csp_report.violation', { violation: JSON.stringify(v) });
   return empty(204);
 }

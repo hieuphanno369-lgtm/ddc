@@ -11,6 +11,7 @@ import { logActivity } from '@/lib/activity';
 import { normalizeEmail, GOOGLE_DENIED_LIMIT, GOOGLE_DENIED_WINDOW_MS } from '@/lib/login-policy';
 import { clientIpFrom } from '@/lib/client-ip';
 import { requireAuthSecret } from '@/lib/env';
+import { errorFields, logger } from '@/lib/logger';
 import { googleAccessDecision, type GoogleProfileLite } from '@/server/google-access';
 import { checkCredentials } from '@/server/login-guard';
 import { getAuthStore } from '@/server/auth-store';
@@ -118,7 +119,7 @@ export const authOptions: NextAuthOptions = {
           // `res.error`); lỗi khác (ví dụ Prisma mất kết nối) thì KHÔNG log `e.message` (có thể chứa
           // chuỗi kết nối DB), trả `null` (next-auth hiện `CredentialsSignin` chung).
           if (e instanceof Error && (e.message === 'locked' || e.message === 'ip_limited')) throw e;
-          console.error('[authorize]', e instanceof Error ? e.name : String(e));
+          logger.error('auth.authorize_failed', errorFields(e));
           return null;
         }
       },
@@ -300,7 +301,7 @@ async function withOwnSessionCookie(email: string, tag: string, mutate: (token: 
   } catch (e) {
     // Sửa cookie ở đây chỉ là tiện ích/hàng rào thêm - lỗi ở đây KHÔNG được làm hỏng hành động đã
     // thành công (đổi mật khẩu, khoá tài khoản); không log message (có thể chứa dữ liệu nhạy cảm).
-    console.error(`[${tag}]`, e instanceof Error ? e.name : String(e));
+    logger.error('auth.session_cookie_failed', { tag, ...errorFields(e) });
   }
 }
 

@@ -2,6 +2,7 @@
 
 import { headers } from 'next/headers';
 import { clientIpFrom } from '@/lib/client-ip';
+import { errorFields, logger } from '@/lib/logger';
 import { routing, type Locale } from '@/i18n/routing';
 import { getAuthStore } from './auth-store';
 import { resetMailer } from './auth-mail';
@@ -23,7 +24,7 @@ export async function requestPasswordResetAction(email: string, locale: string):
   } catch (e) {
     // G5 - lỗi hạ tầng (store/Prisma) KHÔNG được lộ ra ngoài: trả GIỐNG HỆT phản hồi bình thường
     // (S3/K8 - không lộ cho người gọi biết có lỗi hạ tầng), chỉ log tên lỗi (không log `message`).
-    console.error('[requestPasswordResetAction]', e instanceof Error ? e.name : String(e));
+    logger.error('password_reset.request_failed', errorFields(e));
     return { status: 'accepted' };
   }
 }
@@ -40,7 +41,7 @@ export async function submitPasswordResetAction(
     return await resetPasswordWithToken(getAuthStore(), { token, newPassword, ip });
   } catch (e) {
     // G5 - phản hồi chung, không lộ chi tiết lỗi hạ tầng.
-    console.error('[submitPasswordResetAction]', e instanceof Error ? e.name : String(e));
+    logger.error('password_reset.submit_failed', errorFields(e));
     return { ok: false, error: 'invalid_token' };
   }
 }

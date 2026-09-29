@@ -17,6 +17,8 @@
  * checklist deploy + `.env.example`) là đủ giảm rủi ro thực tế - deploy đúng cách thì XFF luôn do
  * proxy ghi (client không còn tự thêm được phần tử đáng tin) nên lỗ hổng không còn tồn tại.
  */
+import { logger } from './logger';
+
 function trustedProxyHops(): number {
   const n = Number(process.env.TRUSTED_PROXY_HOPS);
   return Number.isInteger(n) && n >= 1 ? n : 1;
@@ -36,9 +38,9 @@ function warnUnknownIpOnce(): void {
   const now = Date.now();
   if (now - lastUnknownIpWarnAt < UNKNOWN_IP_WARN_WINDOW_MS) return;
   lastUnknownIpWarnAt = now;
-  console.warn(
-    '[client-ip] khong xac dinh duoc IP khach that (thieu X-Forwarded-For/X-Real-Ip) - kiem tra reverse proxy da noi dung header chua (xem TRUSTED_PROXY_HOPS trong .env.example).',
-  );
+  logger.warn('client_ip.unresolved', {
+    hint: 'Kiem tra reverse proxy noi X-Forwarded-For, xem TRUSTED_PROXY_HOPS trong .env.example',
+  });
 }
 
 export function clientIpFrom(h: Pick<Headers, 'get'>): string {

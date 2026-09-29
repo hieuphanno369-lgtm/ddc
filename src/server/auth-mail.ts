@@ -1,5 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 import { repo } from '@/server/repo';
+import { logger } from '@/lib/logger';
 import { sendEmail, type SmtpConfig } from './notify/email';
 import { smtpConfigFromChannel } from './notify/dispatch';
 import type { ResetMailer } from './password-reset';
@@ -28,10 +29,10 @@ export function queueAuthEmail(cfg: SmtpConfig, to: string, subject: string, tex
     .then(() => sendEmail(cfg, [to], subject, text))
     .then((r) => {
       // S13 - KHÔNG log địa chỉ nhận hay nội dung, chỉ mã lỗi.
-      if (!r.ok) console.error('[auth-mail] gui email dat lai mat khau that bai', r.error);
+      if (!r.ok) logger.error('auth_mail.send_failed', { errCode: String(r.error) });
     })
     .catch(() => {
-      console.error('[auth-mail] gui email dat lai mat khau loi ngoai y muon');
+      logger.error('auth_mail.unexpected');
     });
 }
 

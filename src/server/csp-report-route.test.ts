@@ -29,7 +29,7 @@ describe('POST /api/csp-report', () => {
     const res = await POST(req(REPORT, 'application/csp-report'));
     expect(res.status).toBe(204);
     expect(warn).toHaveBeenCalledTimes(1);
-    expect(warn.mock.calls[0][0]).toBe('[csp-report]');
+    expect(JSON.parse(warn.mock.calls[0][0]).event).toBe('csp_report.violation');
     expect(res.headers.get('cache-control')).toBe('no-store');
   });
   it('application/reports+json hop le -> 204', async () => {
