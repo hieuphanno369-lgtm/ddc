@@ -51,6 +51,7 @@ import {
   IconGauge,
   IconMoney,
   IconProject,
+  IconStage,
   IconTrend,
 } from '@/components/icons';
 
@@ -577,7 +578,10 @@ function StageRow({
 }) {
   return (
     <div className={`stage${isBottleneck ? ' bt' : ''}`} style={{ gridTemplateColumns: '116px 38px 1fr auto' }}>
-      <span className="nm">{name}</span>
+      <span className="nm inline-flex items-center gap-1.5 min-w-0">
+        <IconStage size={14} data-stage-icon="" className="shrink-0 text-label3" />
+        <span className="truncate">{name}</span>
+      </span>
       <span className="w">{weightLabel}</span>
       <div className="bar"><i className="fill" style={{ width: `${Math.round(pct * 100)}%` }} /></div>
       <span className="pc">{pctLabel}</span>

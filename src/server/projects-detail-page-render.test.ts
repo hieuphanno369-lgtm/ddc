@@ -245,3 +245,14 @@ describe('Task 6 - the "Cac moc chinh" + nut "Sua moc" theo vai tro', () => {
     expect(await render({}, '1', VIEWER)).not.toContain('ho-so-du-an');
   });
 });
+
+describe('P3F Task 2 - icon trung tinh cho moi giai doan tren the Chuoi gia tri', () => {
+  it('so data-stage-icon bang so hang giai doan, moi icon nam trong .nm', async () => {
+    const out = await render();
+    const rows = [...out.matchAll(/class="stage( bt)?"/g)].length;
+    expect(rows).toBeGreaterThan(0);
+    expect([...out.matchAll(/data-stage-icon=""/g)]).toHaveLength(rows);
+    const inNm = [...out.matchAll(/<span class="nm[^"]*"><svg[^>]*data-stage-icon=""/g)];
+    expect(inNm).toHaveLength(rows);
+  });
+});
