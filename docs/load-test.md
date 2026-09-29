@@ -21,16 +21,17 @@ Số đo trên server thật được đo lại ở P6.
 Mỗi người dùng ảo lặp: chọn một kịch bản theo trọng số, gọi, đọc hết nội dung, nghỉ 1 đến 3 giây, rồi lặp tới hết thời lượng.
 Người dùng ảo vào dần trong 30 giây đầu (ramp) để không dồn một cú.
 Người dùng ảo được chia đều cho các tài khoản trong file tài khoản (vai admin, bod, viewer).
-Vai viewer không có kịch bản xuất Excel.
+Kịch bản chỉ gán cho vai được phép: viewer không xuất Excel, không vào `/vi/alerts`, `/vi/report` (trang tự chuyển 307) và không thấy dự án PERF (404), nên viewer chỉ chạy `overview_month`, `overview_all`, `api_health`.
+`/vi/projects` không có kịch bản riêng vì trang chỉ chuyển 307 sang dự án đầu tiên theo thiết kế.
+Script vẫn coi mọi mã 3xx hoặc khác 200 là lỗi, không nới.
 
 | Kịch bản | Loại | Trọng số | Vai | Đường dẫn |
 |---|---|---|---|---|
 | `overview_month` | trang | 25 | admin, bod, viewer | `/vi/overview?month=<tháng hiện tại>` |
 | `overview_all` | trang | 10 | admin, bod, viewer | `/vi/overview?month=all` |
-| `projects_list` | trang | 15 | admin, bod, viewer | `/vi/projects` |
-| `project_detail` | trang | 30 | admin, bod, viewer | `/vi/projects/<mã dự án PERF ngẫu nhiên>` |
-| `alerts` | trang | 5 | admin, bod, viewer | `/vi/alerts` |
-| `report` | trang | 5 | admin, bod, viewer | `/vi/report` |
+| `project_detail` | trang | 45 | admin, bod | `/vi/projects/<mã dự án PERF ngẫu nhiên>` |
+| `alerts` | trang | 5 | admin, bod | `/vi/alerts` |
+| `report` | trang | 5 | admin, bod | `/vi/report` |
 | `api_export` | API | 3 | admin, bod | `/api/export?month=<tháng hiện tại>` |
 | `api_health` | API | 7 | admin, bod, viewer | `/api/health` |
 
@@ -161,6 +162,8 @@ Lệnh: `npm run perf:load -- --vus=30 --out=<ngoài repo>`. Kết luận của 
 Vi phạm tiêu chí: tỷ lệ lỗi 28,03% > 1%, trang p95 3171 ms > 3000 ms. Trang p99 3711 ms và xuất Excel p95 3042 ms đạt.
 
 ### 9.3. Đọc kết quả
+
+Ghi chú (debugger vòng 1): các số ở mục 9.1, 9.2 đo với bộ kịch bản CŨ (có `projects_list` và viewer vào `alerts`, `report`, `project_detail`). Bộ kịch bản đã sửa ở mục 3, phải đo lại để có số chính thức.
 
 Tỷ lệ lỗi 28% ở cả hai mức KHÔNG phản ánh app lỗi, mà do bộ kịch bản của script sinh lỗi giả. Đã đối chiếu từng nguồn lỗi bằng cách gọi tay từng đường dẫn với từng vai:
 

@@ -20,15 +20,21 @@ export interface Scenario {
 }
 
 const ALL: readonly LoadRole[] = ['admin', 'bod', 'viewer'];
+/**
+ * Vai vao duoc trang van hanh va du an PERF: viewer bi requireUser chuyen khoi /alerts, /report (307) va chi
+ * thay du an duoc phan quyen (du an PERF tra 404). Kich ban sai vai se sinh loi gia nen chi gan admin, bod.
+ * `/vi/projects` khong co kich ban rieng: trang chi redirect 307 sang du an dau tien (thiet ke), loi cua
+ * script khi coi 3xx la loi van giu nghiem (classifyResponse khong noi long).
+ */
+const OPS: readonly LoadRole[] = ['admin', 'bod'];
 
 export const DEFAULT_SCENARIOS: readonly Scenario[] = [
   { name: 'overview_month', group: 'page', weight: 25, roles: ALL, expect: 'html', path: ({ month }) => `/vi/overview?month=${month}` },
   { name: 'overview_all', group: 'page', weight: 10, roles: ALL, expect: 'html', path: () => '/vi/overview?month=all' },
-  { name: 'projects_list', group: 'page', weight: 15, roles: ALL, expect: 'html', path: () => '/vi/projects' },
-  { name: 'project_detail', group: 'page', weight: 30, roles: ALL, expect: 'html', path: ({ projectId }) => `/vi/projects/${projectId}` },
-  { name: 'alerts', group: 'page', weight: 5, roles: ALL, expect: 'html', path: () => '/vi/alerts' },
-  { name: 'report', group: 'page', weight: 5, roles: ALL, expect: 'html', path: () => '/vi/report' },
-  { name: 'api_export', group: 'api', weight: 3, roles: ['admin', 'bod'], expect: 'xlsx', path: ({ month }) => `/api/export?month=${month}` },
+  { name: 'project_detail', group: 'page', weight: 45, roles: OPS, expect: 'html', path: ({ projectId }) => `/vi/projects/${projectId}` },
+  { name: 'alerts', group: 'page', weight: 5, roles: OPS, expect: 'html', path: () => '/vi/alerts' },
+  { name: 'report', group: 'page', weight: 5, roles: OPS, expect: 'html', path: () => '/vi/report' },
+  { name: 'api_export', group: 'api', weight: 3, roles: OPS, expect: 'xlsx', path: ({ month }) => `/api/export?month=${month}` },
   { name: 'api_health', group: 'api', weight: 7, roles: ALL, expect: 'json', path: () => '/api/health' },
 ];
 

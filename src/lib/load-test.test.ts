@@ -64,9 +64,12 @@ describe('pickWeighted', () => {
 });
 
 describe('DEFAULT_SCENARIOS', () => {
-  it('viewer khong co api_export, admin du 8, tong trong so 100, ten khong trung', () => {
-    expect(scenariosForRole(DEFAULT_SCENARIOS, 'viewer').map((s) => s.name)).not.toContain('api_export');
-    expect(scenariosForRole(DEFAULT_SCENARIOS, 'admin')).toHaveLength(8);
+  it('viewer chi co kich ban dung quyen, admin du 7, tong trong so 100, ten khong trung', () => {
+    expect(scenariosForRole(DEFAULT_SCENARIOS, 'viewer').map((s) => s.name).sort()).toEqual(
+      ['api_health', 'overview_all', 'overview_month'],
+    );
+    expect(scenariosForRole(DEFAULT_SCENARIOS, 'admin')).toHaveLength(7);
+    expect(scenariosForRole(DEFAULT_SCENARIOS, 'bod')).toHaveLength(7);
     expect(DEFAULT_SCENARIOS.reduce((s, x) => s + x.weight, 0)).toBe(100);
     expect(new Set(DEFAULT_SCENARIOS.map((s) => s.name)).size).toBe(DEFAULT_SCENARIOS.length);
   });

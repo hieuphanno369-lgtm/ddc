@@ -54,7 +54,6 @@ describe('POST /api/csp-report', () => {
           c.close();
         },
       }),
-      // @ts-expect-error duplex bat buoc khi body la stream
       duplex: 'half',
     });
     expect((await POST(big)).status).toBe(413);

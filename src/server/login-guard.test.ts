@@ -7,6 +7,10 @@ import { IP_FAIL_LIMIT, LOGIN_LOCK_THRESHOLD } from '@/lib/login-policy';
 
 vi.mock('@/lib/activity', () => ({ logActivity: vi.fn() }));
 
+// bcrypt that (cost 10): ca nhieu lan doan sai (vd N4 ~25 lan) mat vai giay, khi ca bo chay song song CPU chia
+// nhau nen vuot tran 5 giay mac dinh. Nang tran cho file nay, khong doi hanh vi san pham.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
+
 import { logActivity } from '@/lib/activity';
 import { checkCredentials } from './login-guard';
 
