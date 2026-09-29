@@ -1,122 +1,132 @@
-PHAN QUYET BAO MAT: LO HONG
+PHAN QUYET BAO MAT: DAT
 
-# Rà soát bảo mật P3F - CẦN SỬA
+# Rà soát bảo mật P3F vòng 2 - CHỐT
 
-Nhánh `feature/p3f-dang-nhap-moi`, diff `2171d61..37fd556`.
+Nhánh `feature/p3f-dang-nhap-moi`, diff `2a2802f..8986f79` (các commit `592f136`, `431b1be`, `8986f79`), có soi thêm tương tác với luồng đặt lại mật khẩu P3E.
 Skill: `ddc-tower:security-review`.
-Chưa pentest trên app đang chạy, vì dev server 3003 đang hỏng và chờ chủ dự án xử lý.
+DB: đã soi `ddc_control_tower_c` bằng `mcp__postgres` (chỉ đọc).
+Pentest: chưa làm được. Cổng 3003 không có tiến trình nghe lúc rà (curl tới `/vi/dang-ky` trả mã 000), và người rà chỉ đọc nên không tự dựng server.
 
-## S1 - CAO - Không xác minh người đăng ký có sở hữu email, nên chiếm được tài khoản của đồng nghiệp
+## Kết quả các lỗi vòng 1
 
-**Vị trí:**
+| Mã | Mức vòng 1 | Trạng thái | Căn cứ |
+|---|---|---|---|
+| S1 | Cao | Đã đóng | Form bỏ ô mật khẩu. Migration xoá cột `signup_request.passwordHash`. `approveSignupAction` tạo tài khoản bằng hash của chuỗi ngẫu nhiên đã vứt, rồi gửi link đặt mật khẩu tới đúng email đăng ký. |
+| S2 | Thấp | Đã đóng | `hasInvisibleChars` kiểm ở server (`src/server/signup.ts`, hàm `validate`) và ở form. Email bật tài khoản không còn chứa họ tên. |
+| S3 | Thấp | Đã đóng | `pruneStale` xoá đăng ký chờ quá 14 ngày, chạy trong job `alerts_daily` với khối bắt lỗi riêng, có ghi nhật ký `signup_expire`. |
+| I1 | Thông tin | Đã đóng | `deleteDepartment` bắt P2003 và trả `{ inUse: 1 }` thay vì lỗi 500. |
 
-- `src/server/signup.ts:158`: mật khẩu do người gửi form tự chọn được băm, rồi lưu vào `signup_request.passwordHash`.
-- `src/server/repo/prisma-repo-signup.ts:137-148`: khi bật, hàm `approveRequest` chép nguyên `req.passwordHash` sang `user_roles`.
-- `src/server/actions-signup-admin.ts:48`: admin bật tài khoản.
-- `src/components/admin/SignupRequestList.tsx:83-84`: admin chỉ thấy họ tên và email do chính người gửi form tự nhập.
+## Kiểm các điểm được yêu cầu
 
-**Kịch bản khai thác:**
+### 1. Tài khoản mới bật, trước khi đặt mật khẩu
 
-1. Kẻ tấn công ở ngoài công ty mở `/vi/dang-ky`, là trang công khai.
-2. Hắn nhập email của một nhân viên thật chưa có tài khoản, ví dụ `truongphong@daidung.vn`, nhập đúng họ tên người đó và mật khẩu do hắn chọn.
-3. Admin thấy tên và email hợp lệ nên bật tài khoản với vai trò `bod` hoặc `data-entry`, kèm quyền `canViewFinance = true`.
-4. Kẻ tấn công đăng nhập bằng email đó và mật khẩu của hắn, rồi xem được dữ liệu dự án và tài chính nội bộ.
+- `src/server/actions-signup-admin.ts:67`: mật khẩu được băm là `randomBytes(32).toString('hex')`, tức 256 bit ngẫu nhiên, không lưu và không trả về. Không đoán được bằng `checkCredentials`.
+- Đăng nhập Google (`src/lib/auth.ts:134-142`) đòi email đã được Google xác minh (`email_verified`). Chỉ chủ hộp thư mới vào được bằng đường này, nên không phải là đường vòng.
+- Hash khác rỗng nên tài khoản không bị coi là "chỉ Google". Luật L5 trong `peekResetToken`/`consumeResetToken` (`prisma-repo-auth.ts:200` và `:216`) vẫn cho đặt mật khẩu, đúng thiết kế.
+- Token lời mời:
+  - Sinh bằng `generateResetToken`: 32 byte base64url, DB chỉ lưu SHA-256.
+  - Chỉ gửi tới `person.email`, là email trong bản ghi đăng ký. Token không trả về client và không ghi log.
+  - Dùng 1 lần: `consumeResetToken` đặt `usedAt` một cách nguyên tử.
+  - Trang `dat-lai-mat-khau` đặt `referrer: 'no-referrer'`.
+  - Không thấy đường nào để người khác chủ hộp thư lấy được token.
+- "Quên mật khẩu" với tài khoản này đi đúng nhánh "có tài khoản, đang hoạt động, có hash" như mọi tài khoản mật khẩu khác. Phản hồi luôn là `accepted`, phần xử lý chạy nền (L6). Không lộ thêm trạng thái hay email nào tồn tại.
 
-Biến thể "giữ chỗ": kẻ tấn công gửi trước cho nhiều email.
-Khi người thật đăng ký sau, họ vẫn thấy "accepted" nhưng yêu cầu của họ bị bỏ lặng lẽ (`finishSignup` ghi `duplicate`).
-Admin sẽ bật đúng yêu cầu mang mật khẩu của kẻ tấn công.
+### 2. Lỗi khi lưu token hoặc gửi mail sau khi đã bật (`mailed:false`)
 
-Email "tài khoản đã sẵn sàng" chỉ giảm nhẹ rủi ro sau khi sự việc đã xảy ra, và chỉ khi có SMTP.
-Không có SMTP thì không có tín hiệu nào.
+- Tài khoản vẫn được tạo nhưng không ai biết mật khẩu, nên đây là trạng thái an toàn (fail-closed).
+- Người dùng tự lấy link qua "Quên mật khẩu". Thông báo cho admin (`approvedNoMail`) nói đúng điều đó.
+- Nếu `replaceResetToken` chạy xong rồi mới lỗi ở bước soạn mail, token mồ côi vẫn chỉ ở dạng hash và tự hết hạn sau 72 giờ, nên vô hại.
+- Kiểm SMTP và `NEXTAUTH_URL` ở dòng 61-63, trước `approveRequest`. Vì vậy thiếu cấu hình thì không bật tài khoản, tránh được trạng thái "bật rồi mà không bao giờ gửi được link".
 
-**Cách sửa đúng gốc:** phải chứng minh người đăng ký sở hữu hộp thư trước khi mật khẩu của họ có hiệu lực.
-Đây là thay đổi luồng nghiệp vụ nên chủ dự án cần chọn phương án:
+### 3. Link và locale
 
-- **(a) Đề xuất: xác minh email lúc đăng ký.**
-  - Khi gửi form, tạo token ngẫu nhiên (chỉ lưu SHA-256, hạn 24 giờ, dùng 1 lần, khuôn `PasswordResetToken`) và gửi link xác nhận.
-  - `listPending`, `countPending` và `approveRequest` chỉ tính những đăng ký đã xác nhận (thêm cột `verifiedAt`).
-  - Phản hồi form vẫn luôn là `accepted`, nên vẫn không lộ email đã tồn tại.
-  - Yêu cầu chưa xác nhận không chặn được người đăng ký sau: bỏ `@unique` cứng trên `signup_request.email` với dòng chưa xác nhận, hoặc cho yêu cầu mới thay yêu cầu chưa xác nhận.
-- **(b) Không nhận mật khẩu ở form.** Khi admin bật, tạo tài khoản với `passwordHash = ''`, sinh token đặt mật khẩu (hạn 72 giờ) và gửi link tới email. Chỉ chủ hộp thư đặt được mật khẩu.
-- Cả hai phương án cần SMTP. Khi thiếu SMTP thì tắt form đăng ký, như trang Quên mật khẩu đang làm.
-- Nên hiện thêm `requestIp` cho admin làm thông tin phụ.
+- Link dựng từ `process.env.NEXTAUTH_URL` (`actions-signup-admin.ts:62` và `:35`), không đọc header Host.
+- Locale đi qua `toLocale`, là danh sách trắng `routing.locales` (dòng 23), nên không tiêm được đường dẫn.
+- Token là base64url `[A-Za-z0-9_-]`, không cần mã hoá thêm khi đặt vào URL.
 
-**Test đỏ cần có:** đăng ký email X rồi admin bật. Đăng nhập bằng mật khẩu nhập ở form phải thất bại khi chưa đi qua link gửi tới hộp thư X.
+### 4. `pruneAuthData` đổi tiêu chí xoá
 
-## S2 - THẤP - Họ tên tự nhập được chèn vào email gửi từ SMTP công ty, và không lọc ký tự điều khiển
+- Trước đây token bị xoá khi `createdAt` cũ hơn 24 giờ. Nay xoá khi `expiresAt < now-24h` hoặc `usedAt < now-24h` (`prisma-repo-auth.ts:248`). Bản mock ở `mock-repo-auth.ts` được sửa khớp.
+- Không làm token sống lâu hơn hạn dùng. `peekResetToken` và `consumeResetToken` luôn tự kiểm `expiresAt > now` và `usedAt null`. Việc dọn chỉ để giảm dữ liệu, không phải là cơ chế hết hạn.
+- Không làm yếu giới hạn tần suất của P3E. Các giới hạn `reset_req_ip`, `reset_req_email` và `reset_submit_ip` đếm trên bảng `auth_throttle`, và bảng này vẫn được dọn theo `createdAt` như cũ. Không có chỗ nào đếm dòng `password_reset_token` (grep `passwordResetToken.count|findMany|aggregate` ngoài file test: 0 kết quả).
+- Hệ quả phụ chấp nhận được: token 30 phút đã hết hạn nay nằm lại tối đa khoảng 24,5 giờ, thay vì 24 giờ tính từ lúc tạo. Lời mời có `requestIp = ''` nên không giữ thêm dữ liệu cá nhân.
 
-**Vị trí:**
+### 5. Migration `20260929120000_p3f_dang_ky_bo_mat_khau` và rollback
 
-- `src/server/signup.ts:103`: chỉ `trim()`, nhận cả xuống dòng và ký tự điều khiển.
-- `src/server/actions-signup-admin.ts:30`.
-- `src/i18n/messages/vi.json:1322` và `en.json`: `signup.mailBody` có `{name}`.
+- Migration xuôi chỉ `DROP COLUMN "passwordHash"`. Việc này cũng xoá luôn các hash do người gửi form tự chọn còn tồn trong DB, đúng mục tiêu S1.
+- Các đăng ký chờ cũ, khi được bật, sẽ đi luồng lời mời mới.
+- Trên DB `_c`: migration đã áp lúc 2026-09-29 15:11:03 +07. Bảng `signup_request` còn các cột `id,email,name,departmentId,locale,requestIp,createdAt`, 0 dòng. `password_reset_token` có 0 dòng.
+- Rollback (`prisma/rollback/...down.sql`):
+  - Chạy trong `BEGIN/COMMIT`, xoá hết đăng ký chờ trước rồi mới thêm lại cột `NOT NULL`, nên không vỡ ràng buộc. Sau đó xoá dấu vết trong `_prisma_migrations`.
+  - Có ghi rõ "revert code trước". Rollback đưa luồng S1 cũ quay lại, nên chỉ dùng khi khẩn cấp.
 
-**Khai thác:**
+### 6. Regex `\p{C}`
 
-- Kẻ tấn công đặt họ tên kiểu "A\n\nVui lòng xác nhận tại http://gia-mao...". Nếu admin bật, hộp thư thật nhận email từ hệ thống công ty chứa đoạn chữ lừa đảo.
-- Các ký tự RTL hoặc zero-width còn làm tên hiển thị sai trong bảng admin, khiến admin khó nhận ra tên giả.
+Đã chạy thử bằng node.
 
-**Sửa:** chặn ký tự `\p{C}` (xuống dòng, điều khiển, ký tự định dạng) trong `validate`, trả `invalid name`.
-Nên bỏ `{name}` khỏi email, hoặc chỉ chèn tên sau khi đã lọc.
+- Tên tiếng Việt có dấu ở cả dạng dựng sẵn (NFC) lẫn tổ hợp (NFD), ví dụ "Nguyễn Văn Ấn" và "Trần Thị Hồng Ngọc" dạng NFD: không bị chặn. Dấu tổ hợp thuộc nhóm Mn, không thuộc C.
+- Bị chặn đúng: ZWJ U+200D, RLO U+202E, soft hyphen U+00AD, BOM U+FEFF, cùng CR/LF và các ký tự điều khiển khác.
+- Còn lọt: xem mục T2 bên dưới.
 
-## S3 - THẤP - Đăng ký chờ không có hạn
+## Phát hiện vòng 2
 
-**Vị trí:** bảng `signup_request` (migration `20260929023746`). Không có job dọn.
+### T1 - THẤP - Yêu cầu "Quên mật khẩu" huỷ link lời mời 72 giờ còn hạn
 
-**Rủi ro:** mã băm mật khẩu và IP nằm lại vô thời hạn.
-Admin có thể bật một yêu cầu cũ nhiều tháng, lúc người đó có thể đã nghỉ việc.
+- **Vị trí:** `src/server/password-reset.ts:99` và `src/server/repo/prisma-repo-auth.ts:185-191`. `replaceResetToken` xoá mọi token của email trước khi tạo token mới. Lời mời được tạo cũng bằng hàm này ở `actions-signup-admin.ts:34`.
+- **Kịch bản:**
+  1. Admin bật tài khoản `x@daidung.vn`, hệ thống gửi link 72 giờ.
+  2. Một người bất kỳ biết email đó gửi "Quên mật khẩu" cho `x@daidung.vn`.
+  3. Link lời mời mất hiệu lực và được thay bằng link 30 phút, cũng gửi tới đúng chủ hộp thư.
+  4. Lặp tối đa 3 lần/giờ cho mỗi email (`RESET_EMAIL_LIMIT`).
+- **Hậu quả:** không ai chiếm được tài khoản, vì mọi link vẫn chỉ tới hộp thư chủ. Chỉ gây phiền: người dùng mở email lời mời thì gặp "link không hợp lệ", phải dùng email mới hơn.
+- **Cách sửa (không bắt buộc):** chấp nhận như hiện tại và ghi chú. Hoặc thêm cột `purpose` (`reset` hoặc `invite`) để `requestPasswordReset` không xoá token lời mời còn hạn. Nếu đã có token còn hạn thì nên gửi lại chính link đó, nhưng làm vậy phải lưu token thô nên không khuyến nghị.
 
-**Sửa:** job trong `runDueJobs` xoá đăng ký quá N ngày (ví dụ 14 ngày), ghi nhật ký.
-Nếu làm S1(a) thì xoá luôn yêu cầu chưa xác nhận sau 24 giờ.
+### T2 - THẤP - `\p{C}` không bao phủ một số ký tự tàng hình hoặc ngắt dòng ngoài nhóm C
 
-## Thông tin, không chặn
+- **Vị trí:** `src/lib/signup-policy.ts:13-15`.
+- **Còn lọt (đã chạy thử):**
+  - U+2028 LINE SEPARATOR và U+2029 (nhóm Zl, Zp).
+  - U+034F COMBINING GRAPHEME JOINER (Mn).
+  - Ký tự lấp chỗ Hangul U+115F và U+3164 (Lo, hiển thị như khoảng trắng).
+  - U+00A0 và U+3000 (Zs).
+- **Hậu quả hiện tại thấp:**
+  - Họ tên không còn nằm trong bất kỳ email nào: `signup.mailBody` chỉ dùng `{email, link}`, và grep `{name}` trong `vi.json` không thấy mẫu email nào.
+  - Bảng admin do React escape.
+  - Rủi ro còn lại chỉ là họ tên trông giống người khác trong bảng admin hoặc nhật ký.
+- **Cách sửa (không bắt buộc):** đổi thành `/[\p{C}\p{Zl}\p{Zp}͏ᅟᅠㅤﾠ]/u`, và gộp mọi khoảng trắng Zs về dấu cách thường trước khi lưu, ví dụ `name.normalize('NFC').replace(/\p{Zs}+/gu, ' ')`.
 
-- I1: `deleteDepartment` (`prisma-repo-signup.ts:73-81`) đếm rồi xoá. Nếu có đăng ký chen vào giữa, FK `RESTRICT` vẫn chặn đúng, nhưng lỗi `P2003` bị ném ra thành lỗi 500 chung thay vì `in_use`. Nên bắt `P2003` và trả `in_use`.
-- I2: giới hạn 3 lần/giờ/email cho phép người khác làm một email hết lượt đăng ký trong 1 giờ. Đây là đánh đổi có chủ đích để không lộ email tồn tại, chấp nhận được.
+### T3 - THẤP - `approveSignupAction` ném lỗi sau khi đã tạo tài khoản thì không gửi lời mời
 
-## Đã kiểm và ĐẠT
+- **Vị trí:** `src/server/actions-signup-admin.ts:71`. `logActivity` được `await` giữa `approveRequest` (dòng 68) và `sendInvite` (dòng 72).
+- **Kịch bản:** DB chập chờn làm `logActivity` ném lỗi. Tài khoản đã được tạo nhưng không có email nào được gửi. Admin thấy lỗi, bấm lại thì nhận `not_found`.
+- **Hậu quả:** trạng thái vẫn an toàn (không ai biết mật khẩu). Người dùng vẫn tự cứu được qua "Quên mật khẩu", nhưng không ai báo cho họ.
+- **Cách sửa:** gọi `sendInvite` trước `logActivity`, hoặc bọc `logActivity` bằng try/catch.
 
-- **Hai lớp chặn đăng nhập không bị yếu đi:**
-  - `middleware.ts` chỉ thêm `/dang-ky` và `/dieu-khoan`, khớp đúng đường dẫn hoặc tiền tố có `/` (`/dang-ky-gia` vẫn bị chặn, có test).
-  - `src/lib/auth.ts` không đổi.
-  - `login-policy.ts` chỉ thêm hằng số `SIGNUP_*`, không đổi luật khoá hay giới hạn P3E.
-  - Luồng revoke phiên không đổi.
-- **Tài khoản chờ bật:**
-  - Không có dòng `user_roles`, nên đăng nhập bằng mật khẩu nhận lỗi chung.
-  - Đăng nhập Google bị từ chối và không tự tạo tài khoản (`auth-google-cho-bat.test.ts`).
-- **Phân quyền:**
-  - Cả 5 action quản trị gọi `requireRoleUser(['admin'])` đầu tiên và kiểm `id` là INT4 dương, `role` thuộc danh sách trắng.
-  - Trang `/admin` có `requireUser(locale, ['admin'])` và middleware `DENIED`.
-  - Dải nhắc chỉ truy vấn khi là admin.
-  - Không có IDOR vì tài nguyên là danh mục chung chỉ admin thao tác.
-- **Hai admin bật cùng lúc:** xoá đăng ký trước trong `$transaction`, người thua nhận `P2025` và thấy `not_found`. Email đã có tài khoản thì `duplicate_account`, giao dịch hoàn tác, không ghi đè mật khẩu.
-- **Không lộ email tồn tại:**
-  - Kiểm dữ liệu không đọc bảng tài khoản.
-  - Đặt chỗ giới hạn IP rồi email trước khi băm; hết lượt thì không băm, không ghi log, nhả chỗ IP.
-  - Mọi nhánh còn lại đều băm, phần tra DB chạy nền. Phản hồi luôn là `accepted`, lỗi hạ tầng cũng trả `accepted` và chỉ log `e.name`.
-  - IP lấy qua `clientIpFrom` với số tầng proxy tin cậy (`TRUSTED_PROXY_HOPS`).
-- **CSRF:** dùng server action của Next, có kiểm Origin và Host. Không thêm route API mới.
-- **Injection:** mọi truy vấn qua Prisma có tham số, không có `$queryRawUnsafe`. `SignupStore` không nối chuỗi SQL.
-- **XSS:** tên và phòng ban hiển thị qua React, không có `dangerouslySetInnerHTML`. `confirm` chỉ nhận chuỗi.
-- **Không lộ bí mật:**
-  - `SignupRequestRow` không có `passwordHash`, `requestIp`.
-  - Log nền chỉ ghi tên lỗi. Nhật ký trùng dùng id cố định `dang-ky-trung`.
-  - Mật khẩu chỉ nằm trong state React và bị xoá sau khi gửi.
-  - Email không chứa mật khẩu hay token. Link dựng từ `NEXTAUTH_URL`, không lấy từ header Host.
-- **Trang công khai:**
-  - `/dieu-khoan` tĩnh, các component `auth/*` không import repo hay prisma.
-  - `/dang-ky` chỉ lộ tên phòng ban đang dùng, đúng thiết kế.
-  - `/dat-lai-mat-khau` giữ `referrer: no-referrer` và `noindex`.
-- **Migration:**
-  - Chỉ thêm: cột nullable, 2 bảng mới, FK `RESTRICT`, index.
-  - Có rollback trong `BEGIN/COMMIT`, có ghi chú mất dữ liệu.
-  - Đã áp trên DB C.
-- **Thay đổi test không che kiểm tra bảo mật nào:**
-  - `expect.timeout` 15 giây và `setTimeout` 120 giây ở e2e 12, 23 chỉ nới thời gian chờ.
-  - `fillLogin` chỉ thêm chờ `networkidle`.
-  - Mọi phép kiểm `invalidCredentials`, `locked`, `forgotSent`/`sentTitle` và dùng lại token vẫn còn nguyên.
-  - `global-setup` xoá `authThrottle` sau khi `resolveE2eTarget` đã khoá cứng vào DB e2e, không chạm DB thật.
+### Thông tin (không cần sửa)
 
-## Chưa kiểm được
+- **N1 - `mailed:true` không có nghĩa là mail đã tới nơi.** `signupMailer.queue` chạy nền kiểu fire-and-forget, nên SMTP lỗi lúc gửi thật vẫn báo `mailed:true`. Chấp nhận được vì có đường "Quên mật khẩu", giống P3E.
+- **N2 - Giữ chỗ email vẫn còn nhưng đã mất tác dụng.**
+  - Kẻ tấn công vẫn gửi trước được đăng ký cho email người khác, với họ tên và phòng ban tuỳ chọn. Đăng ký thật của nạn nhân gửi sau bị gộp lặng lẽ thành `duplicate`.
+  - Sau S1, kẻ tấn công không còn thu được gì: tài khoản thuộc về chủ hộp thư. Hậu quả chỉ là họ tên hoặc phòng ban sai (admin sửa được), cùng một email không mong muốn gửi tới nạn nhân.
+  - Admin nay thấy thêm cột "IP gửi". IP này đáng tin chỉ khi proxy nối `X-Forwarded-For` đúng như R5 của P3E.
+  - S3 (xoá sau 14 ngày) giới hạn thời gian giữ chỗ.
+- **N3 - Lộ trạng thái cấu hình SMTP và đọc DB không giới hạn tần suất.** Trang `/dang-ky` và `submitSignupAction` (`actions-signup.ts:27`) báo "chưa cấu hình email" trước khi đặt chỗ throttle, và mỗi request đọc cấu hình SMTP từ DB một lần. Cùng khuôn với trang Quên mật khẩu của P3E. Chỉ lộ một cờ cấu hình, chấp nhận được.
 
-- Pentest trên app đang chạy: dev server 3003 đang hỏng, chưa gửi request thật tới server action công khai hay thử giả X-Forwarded-For. Cần chạy lại khi server hoạt động.
+## Kiểm tra chung
+
+| Hạng mục | Kết quả |
+|---|---|
+| Authorization | `approveSignupAction` và `rejectSignupAction` gọi `requireRoleUser(['admin'])` trước mọi việc. `id` và `role` được kiểm theo danh sách trắng. |
+| Injection | Prisma có tham số hoá, không có SQL ghép chuỗi mới. `requestIp` hiển thị qua React (có escape) và đã bị cắt tối đa 64 ký tự trong `clientIpFrom`. |
+| Secret | Không có secret mới trong code. Token lời mời không ghi log (chỉ log `e.name`). |
+| Rate limit | Giới hạn đăng ký 10/giờ theo IP và 3/giờ theo email vẫn giữ nguyên. Bỏ bcrypt ở form nên không còn DoS CPU qua đăng ký. |
+| Fail-open | Không có. Thiếu SMTP thì chặn cả form đăng ký lẫn nút bật. Lỗi gửi mail để lại tài khoản không ai đăng nhập được. |
+
+## Tóm tắt vòng 1 (commit `2a2802f`, diff `2171d61..37fd556`)
+
+Phán quyết vòng 1: LO HONG / CẦN SỬA.
+
+- **S1 Cao:** không xác minh người đăng ký sở hữu email. Mật khẩu do người gửi form chọn được chép thẳng sang `user_roles` khi admin bật, nên chiếm được tài khoản đồng nghiệp. Chủ dự án chọn phương án (b): bỏ mật khẩu ở form, bật xong gửi link đặt mật khẩu 72 giờ.
+- **S2 Thấp:** ký tự điều khiển trong họ tên được chèn vào email "tài khoản đã sẵn sàng".
+- **S3 Thấp:** đăng ký chờ nằm vô thời hạn, kèm IP. Chủ dự án chọn xoá sau 14 ngày.
+- **I1 Thông tin:** `deleteDepartment` trả lỗi 500 khi bị FK P2003 chen ngang.
