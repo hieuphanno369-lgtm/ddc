@@ -134,3 +134,109 @@ Nested Loop (Cost: 0.27..37.74) [Rows: 17]
 - e2e (dev server cổng 3003, DB `_c`): `31-help-tip` 2 ca xanh ở 390px cảm ứng; `02-overview`, `03-project-detail`, `08-finance-gate`, `09-chan-chua-dang-nhap`, `11-tong-quan-sidebar-du-an`, `27-csp-vi-pham` xanh (65 test cả lượt, gồm 3 bước đăng nhập setup); URL `?month=all` mở được.
 - Lưu ý: `global-setup` của e2e tự seed lại DB `_c` mỗi lần chạy (17 dự án), là hành vi có sẵn của repo.
 - Chưa chạy e2e toàn bộ (theo yêu cầu đợt này).
+
+---
+
+# P4 - Thay đổi đợt 2 (Nhóm C, D và R1)
+
+Nhánh `feature/p4-logic-bo-loc`, tài khoản C, DB `ddc_control_tower_c`, dev server cổng 3003.
+Phạm vi đợt này: R1, C1, C2, C3, C4, D1, D2, D3, D4.
+Chưa làm F, G.
+Không sửa `vi.json`, `en.json`, `actions.ts`, `prisma-repo.ts`, `schema.prisma`, `globals.css`.
+
+## 1. Commit đợt 2
+
+- `38e59c7` fix(p4-r1): trang Báo cáo chỉ liệt kê dự án trong kỳ, bỏ `getAllProjectSummaries`.
+- C1: thanh lọc theo kỳ ngày-ngày, chip tên chiều lọc, chip "Từ biểu đồ", dòng tóm tắt kỳ, đếm "n / total dự án".
+- C2: KPI hai nhóm có tiêu đề, hai thẻ mới (doanh thu, sản lượng trong kỳ), dấu "?" từng thẻ.
+- C3: chart theo kỳ, đoạn nét đứt cho tháng mang số, dòng "Cách đọc", nhãn đơn vị trục, công suất theo kỳ.
+- C4: cột "Số liệu" ở bảng dự án, link Tổng quan sang Chi tiết giữ kỳ.
+- D1: nguồn lực theo ngày chọn, bỏ cửa sổ 180 ngày.
+- D2 đến D4: trang Chi tiết theo mốc tháng và kỳ, điều hướng tuần, dòng "Số tại", câu chậm/nhanh một câu, vạch mốc, Brush.
+- Hash chi tiết xem `git log feature/p4-logic-bo-loc` (mỗi task một commit `feat(p4-c1)` ... `feat(p4-d2-d4)`).
+
+## 2. File đã sửa và để làm gì
+
+### R1
+- `src/server/report.ts`: bảng dự án lấy từ `getProjectSummaries(period, {})`, cùng tập với thẻ "Dự án trong kỳ".
+- `src/server/queries.ts` (file nóng): xoá `getAllProjectSummaries` (không còn nơi dùng).
+- `src/server/report-export-route.test.ts`: ca cũ khẳng định số dòng bằng toàn bộ dự án (17) đổi thành khẳng định số dòng bằng số dự án trong kỳ.
+
+### C1
+- `src/components/dashboard/FilterBar.tsx`: bỏ ô chọn tháng và lựa chọn "Tất cả"; thêm 2 ô ngày, "?" của kỳ, chip "Tên chiều: giá trị", chip "Từ biểu đồ", nút "Xoá tất cả lọc" (giữ kỳ), đếm "n / total dự án", dòng tóm tắt kỳ.
+- `src/components/dashboard/OverviewWidgets.tsx`: thêm `FilterBarSection` (server) để đọc số đếm, thanh lọc không chặn phần còn lại của trang.
+- `src/server/queries.ts` (file nóng): thêm `getProjectCounts`; `src/server/cache.ts`: thêm `loadProjectCounts`.
+- `src/lib/period-format.ts` (mới): `formatMonthShort`, `formatMonthRange`.
+- `app/[locale]/(app)/overview/page.tsx`: dùng `FilterBarSection`.
+
+### C2
+- `OverviewWidgets.tsx` `KpiGrid`: nhóm "Đang thế nào?" (6 thẻ, thẻ HĐ chưa khởi công chỉ với người xem tiền) và nhóm "Làm được bao nhiêu trong kỳ?" (doanh thu chỉ với người xem tiền, sản lượng).
+- Thẻ "Đang triển khai" có dòng diễn giải "trên N dự án trong kỳ"; mọi delta ghi "so với kỳ trước cùng độ dài".
+- `KpiCard.tsx`: dòng delta cho phép xuống dòng thay vì cắt "..." ở thẻ hẹp.
+- `HelpTip.tsx`: prop `onDark` để dấu "?" đọc được trên thẻ hero nền navy.
+
+### C3
+- `src/lib/carried-segments.ts` (mới): tách đoạn nét liền/nét đứt và thêm cột dữ liệu theo đoạn.
+- `src/components/dashboard/charts.tsx`: `SCurve` (nay là `ComposedChart`) và `SpiCpiLine` nhận `markerMonth`, vẽ đoạn nét đứt, tooltip ghi "N dự án dùng số tháng trước", nhãn đơn vị trục, `Brush` khi từ 13 điểm trở lên.
+- `OverviewWidgets.tsx`: bỏ `.slice(-6)`, dòng "Cách đọc", "?" và phụ đề khoảng tháng đang vẽ, ghi chú "Kỳ chỉ có 1 tháng".
+
+### C4
+- `src/lib/data-state-label.ts` (mới) và `ProjectTable.tsx`: cột "Số liệu" sau cột "% TT".
+- `ProjectTable.tsx`, `TopPriorityList.tsx`: link sang `/projects/<id>?from=..&to=..`, nội dung thẻ Top không đổi.
+- `src/lib/finance-gate.test.ts`: ca chứng minh `dataState` không bị che.
+
+### D1
+- `src/server/project-queries.ts` (file nóng): `getResourceSnapshot`, `getResourceBreakdown`, `getWeeklyTracking` nhận ngày cụ thể, ngày không có số thì lấy ngày gần nhất trước đó (`readLastDailyDate`), không còn cửa sổ 180 ngày; xoá `resourceWindow`; `getManpowerDaily(projectId, from, to)`.
+- Ngày rác, ngày không tồn tại hoặc ngày tương lai rơi về hôm nay.
+- `src/server/project-queries.test.ts`: viết lại các ca theo chữ ký mới, thêm ca ngày cách 200 ngày, ngày trống, ngày rác.
+
+### D2
+- `src/lib/detail-time.ts` (mới): `resolveDetailTime` (kỳ mặc định cả vòng đời, mốc mặc định là tháng gần nhất có số, kẹp `month` và `day` vào kỳ, giá trị rác về mặc định).
+- `app/[locale]/(app)/projects/[id]/page.tsx`: `requireUser`, kiểm id, `requireProjectRead`, `getProject`, `getFacts`, `resolveDetailTime`, rồi `Promise.all` phần còn lại; chuỗi giá trị theo `readValueChainAsOf`, so sánh hạng mục theo tháng nguồn của chuỗi; S-curve và SPI/CPI theo kỳ với số mang sang; bảng tài chính theo kỳ tới mốc (mới nhất trước, cuộn khi dài); What-if và khâu nghẽn dùng dòng tại mốc.
+
+### D3
+- `src/components/project/DetailTimeBar.tsx` (mới): "‹ tháng ›" và hai ô ngày, chip "Dùng số tháng ..." khi mốc lớn hơn tháng có số cuối.
+- `src/components/project/ResourceDayNav.tsx` (mới): "Tuần trước, ô ngày, Tuần sau", không vượt cuối kỳ hoặc hôm nay.
+- Trang Chi tiết: dòng "Số tại ..." trên thẻ %KH, %TT, SPI, CPI, phụ đề "Số ngày ..." trên hai bảng nguồn lực, phụ đề trên thẻ chuỗi giá trị và tài chính, "?" từng thẻ.
+- Thẻ %TT và chân timeline dùng chung một câu "Chậm N ngày (x điểm %)".
+
+### D4
+- `ManpowerMonthChart.tsx` và `WeeklyManpowerStackChart.tsx`: prop `markerMonth` (vạch đỏ nét đứt); ô chọn tháng trong chart tuần vẫn giữ, mặc định theo mốc.
+- `charts.tsx`: vạch mốc cho S-curve và SPI/CPI.
+
+### Test và e2e
+- Test đơn vị mới hoặc cập nhật: `carried-segments`, `data-state-label`, `period-format`, `detail-time`, `queries-period` (thêm ca đếm), `project-queries`, `projects-detail-page-*` (mock hai component mới, thêm ca `from/to/day` rác), `TopPriorityList` (link giữ kỳ).
+- e2e mới: `e2e/32-loc-ky.spec.ts`, `e2e/33-chi-tiet-moc.spec.ts`.
+- e2e cập nhật: `02-overview`, `08-finance-gate`, `11-tong-quan-sidebar-du-an` (nhãn thẻ nay có dấu "?").
+
+## 3. Điểm lệch so với kế hoạch và lý do
+
+- Trang Chi tiết dùng `readFactSnapshots`-độc lập nên `getFacts` được đọc trước `Promise.all` (mốc mặc định phụ thuộc số của dự án); phần còn lại vẫn gom `Promise.all`.
+- Đoạn nét đứt vẽ bằng nhiều `Line` (mỗi đoạn một cột `${key}_r${n}`) chứ không phải một `Line` phụ, vì Recharts không đổi nét giữa chừng; đường đầy đủ vẫn còn (ẩn nét) để giữ chú giải, tooltip, nhãn.
+- Đoạn mang số của AC dùng nét "2 3" (AC vốn đã đứt "5 4").
+- Ở Chi tiết, chart theo kỳ vẽ nét liền (số mang sang không tô nét đứt) vì dự án đã kết thúc sẽ có đoạn đứt kéo dài nhiễu.
+- Thẻ "Sản lượng vs công suất": tiêu đề ghi số tháng bằng dòng `Tháng mm/yyyy - mm/yyyy` đặt ở dòng "Cách đọc" (đặt ở phụ đề thì dấu "?" bị xuống dòng lẻ).
+- Chưa dùng được các chuỗi sau vì kế hoạch không giao chỗ đặt: `helpTip.dtBottleneck`, `helpTip.dtMobilization`, `helpTip.ovSpiCpi` chỉ dùng chung cho SPI/CPI dự án.
+- Tên thẻ `overview.backlogOverdue` vẫn là "Backlog & Công nợ quá hạn": D-6 yêu cầu đổi tên cả thẻ này nhưng key này không nằm trong danh sách đổi tên đợt 1 và tôi không được sửa `vi.json`/`en.json`; xin đợt sau (bên giữ i18n) đổi thành "HĐ chưa khởi công & Công nợ quá hạn".
+- Trước đây `.bangiao/thay-doi.md` ghi "hành vi tạm" của C1/C2 (ô tháng còn, nhãn "so tháng trước"): đã sửa hết.
+- Dòng Co-Authored-By dùng đúng attribution của hệ thống (Claude Sonnet 5.5), khác `Claude Opus 5.5` trong lệnh giao việc.
+
+## 4. Chỗ Tester nên soi kỹ
+
+- Kỳ cắt ngang tháng, kỳ 1 ngày, kỳ tương lai: dòng tóm tắt kỳ ghi đúng, KPI và chart không lỗi.
+- `?month=all`, `?from=rác`, `?day=2026-02-30`, `?month=9999-12` ở cả Tổng quan và Chi tiết phải mở được.
+- Link từ Tổng quan sang Chi tiết giữ `from/to`; đổi tháng mốc ở Chi tiết bỏ `day`.
+- Ngày nguồn lực chọn chưa có số: nhãn "Số ngày ..." phải là ngày thật của số đang hiện.
+- Nhân lực và thiết bị nhập lệch ngày: mỗi bảng ghi ngày của chính nó.
+- Người xem không có quyền tiền: không thấy thẻ doanh thu, HĐ chưa khởi công, S-curve, bảng tài chính (đã kiểm ở e2e 08).
+- Dấu "?" trong thẻ có `href` (nhân lực, thiết bị) không được điều hướng khi bấm.
+- Số liệu nhân lực ở seed DB `_c` nhiều tháng cũ không có nên mở `?month=2026-08` thấy trống là đúng.
+
+## 5. Kết quả kiểm đợt 2
+
+- `npx tsc --noEmit`: sạch.
+- `npm test` (vitest run): 285 file xanh, 3 file bỏ qua; 3321 test xanh, 40 test bỏ qua (real-db cần `DATABASE_URL`), 0 đỏ.
+- e2e toàn bộ (`npx playwright test`, cổng 3003, DB `_c`): 242 test xanh, 0 đỏ, 0 chập chờn, mất 18,4 phút.
+- Ảnh chụp đã soi (1440 và 390, sáng và tối) ở `.bangiao/anh-p4/`: `tong-quan-*`, `full-*`, `kpi-*`, `chi-tiet-*`.
+- Lệch pixel còn lại, chưa sửa vì cần sửa `globals.css` (không được phép): nhãn dài của thẻ KPI hẹp ("Tổng số nhân lực", "HĐ chưa khởi công") đẩy dấu "?" xuống dòng riêng ở 1440px.
+- Chưa đo hiệu năng (Task G1) và chưa soi Nhập liệu, Hồ sơ dự án (thuộc nhóm F, G).
