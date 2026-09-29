@@ -109,3 +109,11 @@ Có.
 - Chuyển các file hồ sơ vào `.bangiao/archive/p3f-dang-nhap-moi-2026-09-29/`.
 - `.bangiao/anh-p3f/` (chưa commit) để ngoài commit.
 - Ghi T1 và theo dõi e2e 07 vào lộ trình.
+
+## Sau đánh giá (C ghi, không phải phán quyết của reviewer)
+
+- Cần sửa 1: `.bangiao/ket-qua-test.md` đã thêm mục "Vòng sửa bảo mật và sau reviewer" với số liệu thật (e2e toàn bộ 178/178 trên `d7ed919`).
+- Cần sửa 2 và 3: đã sửa ở `b6c6ecc`.
+- Câu hỏi nghiệp vụ, chủ dự án chốt 2026-09-29: (1) liên hệ `/dieu-khoan` là `hieupt1@daidung.vn` (`a600dfb`); (2) không thêm nhãn "chưa đặt mật khẩu"; (3) bỏ nút Google ở trang Đăng ký (`d7ed919`); (4) link lời mời dùng chữ "Đặt mật khẩu" (`d7ed919`).
+- Reviewer chưa chạy lại vòng 2 sau các sửa trên; chủ dự án đồng ý merge `main`.
+- Giới hạn đã biết: T1 (Quên mật khẩu huỷ link lời mời còn hạn); theo dõi e2e 07.
