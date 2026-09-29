@@ -203,6 +203,7 @@ test.describe('28 - dang ky cho admin bat', () => {
   });
 
   test('10. soi pixel: dang ky va man thanh cong 1440x960 / 390x844, sang/toi; dieu khoan; khong cuon ngang', async ({ browser }) => {
+    test.setTimeout(180_000); // 8 to hop viewport x sang/toi + chup anh: 32s luc may ranh, gap ba lan khi may tai nang
     // Mock-up DangKy.dc.html ve form CO o Phong ban: hien lai phong ban A (da an o buoc 8) de soi dung trang thai do,
     // chup xong an lai de buoc 11 kiem duoc danh muc trong.
     const setDeptA = async (action: 'department.show' | 'department.hide') => {
