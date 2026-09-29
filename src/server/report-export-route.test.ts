@@ -73,7 +73,9 @@ import { getReportData } from '@/server/report';
 import { getProjectSummaries } from '@/server/queries';
 import { defaultOverviewPeriod, parsePeriod } from '@/lib/period';
 import { todayIso } from '@/lib/clock';
-import { GET } from '../../app/api/report/export/route';
+import { GET as ROUTE_GET } from '../../app/api/report/export/route';
+
+const GET = (url = 'http://localhost/api/report/export') => ROUTE_GET(new Request(url));
 
 const MONTH = '2026-09';
 const PERIOD = parsePeriod({ month: MONTH }, defaultOverviewPeriod(todayIso()));
@@ -178,7 +180,7 @@ describe('GET /api/report/export - phân quyền và nội dung file', () => {
     login(ADMIN);
     const cache = await import('@/server/cache');
 
-    const res = await GET(new Request('http://localhost/api/report/export?from=2026-01-01&to=2026-03-31'));
+    const res = await GET('http://localhost/api/report/export?from=2026-01-01&to=2026-03-31');
 
     expect(res.status).toBe(200);
     expect(cache.loadPortfolioKpis).toHaveBeenCalledWith({ from: '2026-01-01', to: '2026-03-31' }, {});
@@ -190,7 +192,7 @@ describe('GET /api/report/export - phân quyền và nội dung file', () => {
     login(ADMIN);
     const cache = await import('@/server/cache');
 
-    const res = await GET(new Request('http://localhost/api/report/export?from=rac&to=2026-13-40'));
+    const res = await GET('http://localhost/api/report/export?from=rac&to=2026-13-40');
 
     expect(res.status).toBe(200);
     expect(cache.loadPortfolioKpis).toHaveBeenCalledWith(defaultOverviewPeriod(todayIso()), {});

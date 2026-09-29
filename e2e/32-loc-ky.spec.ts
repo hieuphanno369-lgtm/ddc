@@ -34,6 +34,7 @@ test.describe('32 - Bo loc ky Tong quan', () => {
   test('doi ngay Tu ngay ghi ca from va to len URL', async ({ page }) => {
     await page.goto('/vi/overview?from=2026-07-01&to=2026-08-31');
     const from = page.getByTestId('period-from');
+    await expect(from).toHaveAttribute('data-ready', 'true');
     await from.fill('10/06/2026');
     await from.press('Enter');
     await expect(page).toHaveURL(/from=2026-06-10/);
@@ -92,6 +93,7 @@ test.describe('32 - Bo loc ky Tong quan', () => {
   test('ngay nhap sai bao loi, khong doi URL; nhap dung dd/mm/yyyy doi ky; lich bam chon doi ky', async ({ page }) => {
     await page.goto('/vi/overview?from=2026-07-01&to=2026-08-31');
     const from = page.getByTestId('period-from');
+    await expect(from).toHaveAttribute('data-ready', 'true');
     await from.fill('31/02/2026');
     await from.press('Enter');
     await expect(page.getByTestId('period-from-error')).toBeVisible();
@@ -136,6 +138,7 @@ test.describe('32 - Bo loc ky Tong quan', () => {
     await expect(page.locator('a[href^="/api/report/export"]')).toHaveAttribute('href', /from=\d{4}-\d{2}-\d{2}&to=/);
     // Doi ngay tren trang Bao cao ghi len URL.
     const f = page.getByTestId('period-from');
+    await expect(f).toHaveAttribute('data-ready', 'true');
     await f.fill('01/03/2026');
     await f.press('Enter');
     await expect(page).toHaveURL(/from=2026-03-01/);

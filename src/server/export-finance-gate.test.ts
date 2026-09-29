@@ -44,7 +44,9 @@ import { getCurrentUser } from '@/lib/session';
 import { exportProjects } from '@/server/queries';
 import { repo } from '@/server/repo/mock-repo';
 import { GET as GET_EXPORT } from '../../app/api/export/route';
-import { GET as GET_REPORT_EXPORT } from '../../app/api/report/export/route';
+import { GET as ROUTE_REPORT_EXPORT } from '../../app/api/report/export/route';
+
+const GET_REPORT_EXPORT = () => ROUTE_REPORT_EXPORT(new Request('http://localhost/api/report/export'));
 
 const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.com.vn', role: 'admin', canViewFinance: true };
 const BOD_NO_FINANCE: CurrentUser = { name: 'BOD', email: 'bod@daidung.com.vn', role: 'bod', canViewFinance: false };

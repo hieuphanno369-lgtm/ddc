@@ -34,6 +34,9 @@ export function DateField({
   const [text, setText] = useState(formatDmy(value));
   const [error, setError] = useState<string | null>(null);
   const skipBlur = useRef(false);
+  // `data-ready` = đã hydrate xong (e2e chờ thuộc tính này trước khi gõ, tránh gõ vào ô chưa có trình xử lý).
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
 
   // Giá trị từ ngoài (URL) đổi thì ô theo đó và xoá lỗi cũ.
   useEffect(() => {
@@ -68,6 +71,7 @@ export function DateField({
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errId : undefined}
           data-testid={testId}
+          data-ready={ready}
           onChange={(e) => {
             setText(maskDmy(e.target.value));
             if (error) setError(null);

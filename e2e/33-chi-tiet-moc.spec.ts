@@ -84,6 +84,7 @@ test.describe('33 - Chi tiet: moc thang, ky, tuan', () => {
   test('nhap ngay nguon luc dd/mm/yyyy: dung doi URL, sai bao loi', async ({ page }) => {
     await page.goto('/vi/projects/1?month=2026-08');
     const input = page.getByTestId('day-input');
+    await expect(input).toHaveAttribute('data-ready', 'true');
     await input.fill('10/08/2026');
     await input.press('Enter');
     await expect(page).toHaveURL(/day=2026-08-10/);

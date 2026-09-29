@@ -9,14 +9,14 @@ import { safeCell } from '@/lib/excel-safe';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req?: Request) {
+export async function GET(req: Request) {
   const user = await getCurrentUser();
   if (!user || !['admin', 'bod'].includes(user.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   const canViewFinance = user.canViewFinance;
   // T-2: cùng tham số kỳ với trang /report (from/to hoặc month); rác rơi về kỳ mặc định, không ném lỗi.
-  const sp = req ? new URL(req.url).searchParams : new URLSearchParams();
+  const sp = new URL(req.url).searchParams;
   const period = parsePeriod(
     { from: sp.get('from') ?? undefined, to: sp.get('to') ?? undefined, month: sp.get('month') ?? undefined },
     defaultOverviewPeriod(todayIso()),
