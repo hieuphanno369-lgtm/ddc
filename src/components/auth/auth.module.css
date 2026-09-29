@@ -1,0 +1,348 @@
+/* P3F-2: khung trang xac thuc (Dang nhap / Quen mat khau / Dat lai / Dang ky).
+   Mau, be mat kinh mo dung token app/tokens.css; bo cuc, chu, animation theo docs/design/dang-nhap-2026-09-29.
+   Chi animation transform/opacity; moi vong lap vo han tu tat khi prefers-reduced-motion. */
+
+.shell {
+  --a-text: var(--label);
+  --a-text-2: rgba(10,31,61,.64);
+  --a-text-3: rgba(10,31,61,.50);
+  --a-label: rgba(10,31,61,.70);
+  --a-link: #1d5a9e;
+  --a-accent-text: #1d5a9e;
+  --a-alert-label: #9a6400;
+  --a-inp-bg: var(--glass-3);
+  --a-inp-border: var(--sep-2);
+  --a-focus: #1d5a9e;
+  --a-focus-ring: rgba(29,90,158,.12);
+  --a-btn: linear-gradient(160deg,#2a6db4,#1d5a9e);
+  --a-btn-shadow: 0 1px 2px rgba(10,31,61,.05), 0 6px 16px rgba(29,90,158,.28);
+  --a-ghost-bg: rgba(10,31,61,.05);
+  --a-ghost-border: rgba(10,31,61,.16);
+  --a-crane: #1d5a9e;
+  --a-column: #7d93b3;
+  --a-ground: rgba(10,31,61,.18);
+  --a-cable: rgba(10,31,61,.55);
+  --a-hook: rgba(10,31,61,.70);
+  --a-sling: rgba(10,31,61,.45);
+  --a-spark: #f5b301;
+  --a-bar-done: #1d5a9e;
+  --a-bar-plan-border: rgba(10,31,61,.35);
+  --a-seg-on-bg: #ffffff;
+  --a-seg-on-shadow: 0 1px 3px rgba(10,31,61,.12);
+  --a-seg-off: rgba(10,31,61,.60);
+  --a-brand-sub: rgba(10,31,61,.55);
+  --a-hero-p: rgba(10,31,61,.66);
+  --a-gantt-title: rgba(10,31,61,.60);
+  --a-legend: rgba(10,31,61,.62);
+  --a-month: rgba(10,31,61,.45);
+  --a-row-text: rgba(10,31,61,.75);
+  --a-nut: #c28a00;
+  --a-done-icon: #1b7a44;
+  --a-eye: rgba(10,31,61,.55);
+  --a-placeholder: rgba(10,31,61,.45);
+  --a-divider: rgba(10,31,61,.16);
+
+  display: flex;
+  box-sizing: border-box;
+  min-height: 100dvh;
+  padding: 24px;
+  position: relative;
+  z-index: 1;
+  color: var(--a-text);
+}
+
+:global(:root[data-theme="dark"]) .shell {
+  --a-text-2: rgba(235,242,250,.64);
+  --a-text-3: rgba(235,242,250,.50);
+  --a-label: rgba(235,242,250,.72);
+  --a-link: #8cbcf0;
+  --a-accent-text: #f5c542;
+  --a-alert-label: #f5c542;
+  --a-focus: #4e8ed0;
+  --a-focus-ring: rgba(78,142,208,.22);
+  --a-btn: linear-gradient(160deg,#6ba6e0,#3f7fc2);
+  --a-btn-shadow: 0 6px 18px rgba(78,142,208,.35);
+  --a-ghost-bg: rgba(255,255,255,.06);
+  --a-ghost-border: rgba(255,255,255,.16);
+  --a-crane: #6ba6e0;
+  --a-column: #4a6488;
+  --a-ground: rgba(255,255,255,.18);
+  --a-cable: #e6e9f0;
+  --a-hook: rgba(230,233,240,.75);
+  --a-sling: rgba(230,233,240,.5);
+  --a-spark: #ffd08a;
+  --a-bar-done: #4e8ed0;
+  --a-bar-plan-border: rgba(235,242,250,.35);
+  --a-seg-on-bg: rgba(255,255,255,.14);
+  --a-seg-on-shadow: none;
+  --a-seg-off: rgba(235,242,250,.60);
+  --a-brand-sub: rgba(235,242,250,.55);
+  --a-hero-p: rgba(235,242,250,.66);
+  --a-gantt-title: rgba(235,242,250,.58);
+  --a-legend: rgba(235,242,250,.62);
+  --a-month: rgba(235,242,250,.45);
+  --a-row-text: rgba(235,242,250,.75);
+  --a-nut: #f5c542;
+  --a-done-icon: var(--ok);
+  --a-eye: rgba(235,242,250,.60);
+  --a-placeholder: rgba(235,242,250,.45);
+  --a-divider: rgba(255,255,255,.16);
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme="light"])) .shell {
+    --a-text-2: rgba(235,242,250,.64);
+    --a-text-3: rgba(235,242,250,.50);
+    --a-label: rgba(235,242,250,.72);
+    --a-link: #8cbcf0;
+    --a-accent-text: #f5c542;
+    --a-alert-label: #f5c542;
+    --a-focus: #4e8ed0;
+    --a-focus-ring: rgba(78,142,208,.22);
+    --a-btn: linear-gradient(160deg,#6ba6e0,#3f7fc2);
+    --a-btn-shadow: 0 6px 18px rgba(78,142,208,.35);
+    --a-ghost-bg: rgba(255,255,255,.06);
+    --a-ghost-border: rgba(255,255,255,.16);
+    --a-crane: #6ba6e0;
+    --a-column: #4a6488;
+    --a-ground: rgba(255,255,255,.18);
+    --a-cable: #e6e9f0;
+    --a-hook: rgba(230,233,240,.75);
+    --a-sling: rgba(230,233,240,.5);
+    --a-spark: #ffd08a;
+    --a-bar-done: #4e8ed0;
+    --a-bar-plan-border: rgba(235,242,250,.35);
+    --a-seg-on-bg: rgba(255,255,255,.14);
+    --a-seg-on-shadow: none;
+    --a-seg-off: rgba(235,242,250,.60);
+    --a-brand-sub: rgba(235,242,250,.55);
+    --a-hero-p: rgba(235,242,250,.66);
+    --a-gantt-title: rgba(235,242,250,.58);
+    --a-legend: rgba(235,242,250,.62);
+    --a-month: rgba(235,242,250,.45);
+    --a-row-text: rgba(235,242,250,.75);
+    --a-nut: #f5c542;
+    --a-done-icon: var(--ok);
+    --a-eye: rgba(235,242,250,.60);
+    --a-placeholder: rgba(235,242,250,.45);
+    --a-divider: rgba(255,255,255,.16);
+  }
+}
+
+/* ---- Be mat kinh mo ---- */
+.glass {
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(var(--mat-regular)) saturate(var(--mat-sat));
+  backdrop-filter: blur(var(--mat-regular)) saturate(var(--mat-sat));
+  border: .5px solid var(--glass-stroke);
+  box-shadow: var(--e3), var(--inner-hi);
+}
+.glass2 {
+  background: var(--glass-2);
+  -webkit-backdrop-filter: blur(var(--mat-chrome)) saturate(var(--mat-sat));
+  backdrop-filter: blur(var(--mat-chrome)) saturate(var(--mat-sat));
+  border: .5px solid var(--glass-stroke);
+  box-shadow: var(--inner-hi);
+}
+
+/* ---- Nua trai: minh hoa ---- */
+.showcase {
+  flex: 0 1 796px;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 40px 48px;
+  border-radius: 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.showcaseReg { flex-basis: 696px; }
+
+.brand { display: flex; align-items: center; gap: 12px; }
+.logoBox {
+  width: 48px; height: 48px; flex: none; border-radius: 12px; background: #ffffff; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(10,31,61,.10);
+}
+.logoBox img { width: 44px; height: 44px; object-fit: contain; }
+.brandText { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.brandTitle {
+  display: block; font-size: 17px; font-weight: 700; letter-spacing: -.01em; text-transform: lowercase; color: var(--a-text);
+}
+.brandTitle::first-letter { text-transform: uppercase; }
+.brandSub {
+  display: block; font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--a-brand-sub);
+}
+.brandSm { gap: 10px; }
+.brandSm .logoBox { width: 40px; height: 40px; border-radius: 11px; }
+.brandSm .logoBox img { width: 36px; height: 36px; }
+.brandSm .brandText { gap: 0; }
+.brandSm .brandTitle { font-size: 15px; }
+.brandSm .brandSub { font-size: 10px; }
+
+.heroBlock { display: flex; flex-direction: column; gap: 18px; }
+.heroBlockReg { gap: 22px; }
+.heroRow { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.heroRowReg { gap: 12px; }
+.heroText { display: flex; flex-direction: column; gap: 16px; padding-bottom: 18px; min-width: 0; }
+.heroTitle { margin: 0; font-size: 54px; line-height: 1.05; font-weight: 800; letter-spacing: -.035em; color: var(--a-text); }
+.heroTitle span { color: var(--a-accent-text); }
+.heroTitleReg { font-size: 48px; line-height: 1.06; }
+.heroBody { margin: 0; max-width: 380px; flex-shrink: 1; font-size: 17px; line-height: 1.55; color: var(--a-hero-p); }
+.heroBodyReg { max-width: 330px; font-size: 16px; }
+.crane { flex-shrink: 0; overflow: visible; }
+.craneFrame { stroke: var(--a-crane); }
+.craneGold { fill: #f5b301; }
+.craneWeight { fill: var(--a-crane); fill-opacity: .18; }
+.craneColumn { stroke: var(--a-column); }
+.craneGround { stroke: var(--a-ground); }
+.craneCable { fill: var(--a-cable); }
+.craneHook { stroke: var(--a-hook); }
+.craneSling { stroke: var(--a-sling); }
+.craneSpark { stroke: var(--a-spark); }
+
+/* ---- Gantt minh hoa ---- */
+.gantt { border-radius: 20px; padding: 20px 22px 24px; display: flex; flex-direction: column; gap: 14px; }
+.ganttCompact { padding: 22px; gap: 4px; }
+.ganttHead { display: flex; justify-content: space-between; align-items: center; }
+.ganttTitle { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--a-gantt-title); }
+.legend { display: flex; gap: 16px; font-size: 12px; color: var(--a-legend); }
+.legend span { display: flex; align-items: center; gap: 6px; }
+.swDone { width: 14px; height: 6px; border-radius: 3px; background: var(--a-bar-done); }
+.swRun { width: 14px; height: 6px; border-radius: 3px; background: #f5b301; }
+.swPlan { width: 12px; height: 4px; border-radius: 3px; border: 1px dashed var(--a-bar-plan-border); }
+.months { display: flex; gap: 12px; font-size: 11px; font-weight: 600; color: var(--a-month); }
+.monthsLabel { width: 124px; flex-shrink: 0; }
+.monthsGrid { flex-grow: 1; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.rows { position: relative; display: flex; flex-direction: column; }
+.row { display: flex; align-items: center; gap: 12px; height: 34px; }
+.rowCompact { height: 32px; }
+.rowLabel {
+  width: 124px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--a-row-text);
+}
+.rowLabelCompact { width: 118px; }
+.rowLabelRun { font-weight: 650; color: var(--a-text); }
+.rowLabel svg { flex-shrink: 0; }
+.nut { color: var(--a-nut); }
+.track { flex-grow: 1; position: relative; height: 10px; }
+.barDone, .barRun, .barPlan { position: absolute; height: 10px; border-radius: 5px; box-sizing: border-box; }
+.barDone { background: var(--a-bar-done); }
+.barRun { background: #f5b301; }
+.barRunRing { box-shadow: 0 0 0 4px rgba(245,179,1,.18); }
+.barPlan { border: 1px dashed var(--a-bar-plan-border); }
+.todayLine {
+  position: absolute; top: -6px; bottom: -6px; left: calc(136px + (100% - 136px) * .58); width: 0; border-left: 1.5px solid #d93a30;
+}
+.todayPill {
+  position: absolute; top: -28px; left: calc(136px + (100% - 136px) * .58); transform: translateX(-50%);
+  padding: 2px 8px; border-radius: 999px; background: #d93a30; color: #ffffff;
+  font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+}
+
+.alertRow { display: flex; justify-content: flex-end; margin-top: -28px; padding-right: 24px; }
+.alertCard {
+  width: 320px; box-sizing: border-box; padding: 12px 16px; border-radius: 16px;
+  display: flex; gap: 12px; align-items: flex-start; background: var(--glass-3);
+}
+.pulse { position: relative; width: 8px; height: 8px; margin: 6px 4px 0; flex: none; border-radius: 4px; background: #f5b301; }
+.pulse::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: #f5b301; animation: authPing 1.8s ease-out 1.6s infinite; }
+.alertBody { display: flex; flex-direction: column; gap: 2px; }
+.alertLabel { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--a-alert-label); }
+.alertText { font-size: 14px; line-height: 1.4; color: var(--a-text); }
+.doneRow { display: flex; justify-content: flex-end; margin-top: -26px; padding-right: 24px; }
+.doneCard {
+  padding: 12px 16px; border-radius: 16px; display: flex; gap: 10px; align-items: center; background: var(--glass-3);
+}
+.doneCard svg { color: var(--a-done-icon); flex-shrink: 0; }
+.doneText { font-size: 14px; color: var(--a-text); }
+
+.foot {
+  display: flex; justify-content: space-between; gap: 12px; font-size: 11px; font-weight: 600; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--a-text-3);
+}
+
+/* ---- Nua phai: form ---- */
+.side { flex: 1 0 492px; min-width: 0; position: relative; display: flex; align-items: center; justify-content: center; }
+.card {
+  width: 452px; max-width: 100%; box-sizing: border-box; padding: 40px 40px 36px; border-radius: 26px;
+}
+.card480 { width: 480px; padding: 38px 40px 32px; }
+
+.seg {
+  position: absolute; top: 16px; right: 16px; display: flex; gap: 2px; padding: 3px; border-radius: 12px;
+}
+.segBtn {
+  position: relative; height: 32px; padding: 0 12px; border: 0; border-radius: 9px; background: transparent;
+  color: var(--a-seg-off); font-family: inherit; font-size: 13px; font-weight: 600; line-height: 1; cursor: pointer;
+}
+.segBtn::after { content: ''; position: absolute; inset: -6px; }
+.segBtn[aria-pressed="true"] { background: var(--a-seg-on-bg); color: var(--a-text); font-weight: 650; box-shadow: var(--a-seg-on-shadow); }
+.segCompact {
+  position: relative; min-width: 44px; height: 36px; padding: 0 12px; border-radius: 11px; color: var(--a-text);
+  font-family: inherit; font-size: 13px; font-weight: 650; line-height: 1; cursor: pointer;
+}
+.segCompact::after { content: ''; position: absolute; inset: -4px; }
+.segBtn:focus-visible, .segCompact:focus-visible { outline: 2px solid var(--a-focus); outline-offset: 2px; }
+
+.mobileHead { display: none; flex-direction: column; gap: 22px; order: 1; }
+.mobileTop { display: flex; align-items: center; justify-content: space-between; }
+.mobileHero { margin: 0; padding: 4px 4px 0; font-size: 32px; line-height: 1.08; font-weight: 800; letter-spacing: -.035em; color: var(--a-text); }
+.mobileHero span { color: var(--a-accent-text); }
+.mobileFoot {
+  display: none; order: 3; margin-top: auto; text-align: center; font-size: 10px; font-weight: 600; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--a-text-3);
+}
+
+/* ---- Man nho (< 1280px): an panel trai, hien dau trang di dong ---- */
+@media (max-width: 1279.98px) {
+  .shell { flex-direction: column; gap: 22px; padding: 28px 16px; }
+  .showcase { display: none; }
+  .mobileHead { display: flex; }
+  .mobileFoot { display: block; }
+  .side { flex: 0 0 auto; width: 100%; order: 2; }
+  .seg { display: none; }
+  .card { width: 100%; max-width: 480px; padding: 24px 20px; border-radius: 24px; }
+}
+
+/* ---- Animation (chi transform/opacity) ---- */
+.up { animation: authUp .6s cubic-bezier(.2,.8,.2,1) both; }
+.u1 { animation-delay: .05s; }
+.u2 { animation-delay: .12s; }
+.u3 { animation-delay: .19s; }
+.u4 { animation-delay: .26s; }
+.u5 { animation-delay: .33s; }
+.u6 { animation-delay: .40s; }
+.bar { transform-origin: left center; animation: authGrow .9s cubic-bezier(.2,.8,.2,1) both; }
+.d1 { animation-delay: .15s; }
+.d2 { animation-delay: .30s; }
+.d3 { animation-delay: .45s; }
+.d4 { animation-delay: .60s; }
+.d5 { animation-delay: .75s; }
+.today { animation: authFade .5s ease 1.1s both; }
+.pop { animation: authUp .6s cubic-bezier(.2,.8,.2,1) 1.4s both; }
+.spin { transform-origin: 50% 50%; animation: authSpin 6s linear infinite; }
+.trolley { animation: authTrolley 10s cubic-bezier(.45,0,.2,1) infinite; }
+.cable { transform-box: fill-box; transform-origin: 50% 0; animation: authCable 10s cubic-bezier(.45,0,.2,1) infinite; }
+.hook { animation: authHook 10s cubic-bezier(.45,0,.2,1) infinite; }
+.hb { animation: authHb 10s linear infinite; }
+.placed { animation: authPlaced 10s linear infinite; }
+.spark { opacity: 0; animation: authSpark 10s linear infinite; }
+.blink { animation: authBlink 1.6s ease-in-out infinite; }
+
+@keyframes authUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes authGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes authFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes authPing { 0% { transform: scale(1); opacity: .6; } 100% { transform: scale(3); opacity: 0; } }
+@keyframes authSpin { to { transform: rotate(360deg); } }
+@keyframes authTrolley { 0%, 8% { transform: translateX(0); } 28%, 68% { transform: translateX(100px); } 88%, 100% { transform: translateX(0); } }
+@keyframes authCable { 0%, 28% { transform: scaleY(1); } 44%, 54% { transform: scaleY(2.95); } 68%, 100% { transform: scaleY(1); } }
+@keyframes authHook { 0%, 28% { transform: translateY(0); } 44%, 54% { transform: translateY(78px); } 68%, 100% { transform: translateY(0); } }
+@keyframes authHb { 0%, 47% { opacity: 1; } 49%, 92% { opacity: 0; } 95%, 100% { opacity: 1; } }
+@keyframes authPlaced { 0%, 47% { opacity: 0; } 49%, 90% { opacity: 1; } 93%, 100% { opacity: 0; } }
+@keyframes authSpark { 0%, 48% { opacity: 0; } 50% { opacity: 1; } 52% { opacity: .2; } 54% { opacity: 1; } 56% { opacity: .2; } 58% { opacity: 1; } 62%, 100% { opacity: 0; } }
+@keyframes authBlink { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+
+/* Quy tac chung cuoi globals.css chi rut animation-duration, khong du cho vong lap vo han: tu tat o day. */
+@media (prefers-reduced-motion: reduce) {
+  .up, .bar, .today, .pop, .pulse::after, .spin, .trolley, .cable, .hook, .hb, .placed, .spark, .blink { animation: none; }
+  .spark, .placed { opacity: 0; }
+}

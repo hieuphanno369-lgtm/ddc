@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { getTranslations } from 'next-intl/server';
+import { AuthCard } from '@/components/auth/AuthCard';
 import { Link } from '@/i18n/navigation';
 import { getAuthSmtpConfig } from '@/server/auth-mail';
 import { ForgotPasswordForm } from '@/components/layout/ForgotPasswordForm';
@@ -13,8 +14,7 @@ export default async function ForgotPasswordPage() {
   const smtpReady = Boolean(process.env.NEXTAUTH_URL) && (await getAuthSmtpConfig()) !== null;
 
   return (
-    <div className="authwrap">
-      <div className="authcard">
+    <AuthCard width={452}>
         <div className="brandbox">
           <div className="appicon is-brand overflow-hidden" style={{ width: 56, height: 56, flex: '0 0 56px' }}>
             <Image src="/logo.png" alt="DDC" width={56} height={56} className="h-full w-full object-cover" />
@@ -32,7 +32,6 @@ export default async function ForgotPasswordPage() {
             </Link>
           </div>
         )}
-      </div>
-    </div>
+    </AuthCard>
   );
 }

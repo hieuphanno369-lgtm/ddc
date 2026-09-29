@@ -28,7 +28,7 @@ describe('7.3 - doi ten app hien thi', () => {
   it('khong con chuoi ten cu "DDC Control Tower" (bo qua comment) trong layout/login/notify-message/AppShell', () => {
     const files = [
       'app/[locale]/layout.tsx',
-      'app/[locale]/login/page.tsx',
+      'app/[locale]/(auth)/login/page.tsx',
       'src/lib/notify-message.ts',
       'src/components/layout/AppShell.tsx',
     ];

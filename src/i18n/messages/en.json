@@ -1229,5 +1229,32 @@
       "last_active": "At least 1 stage must stay active",
       "generic": "Save failed"
     }
+  },
+  "authPage": {
+    "heroLine1": "Every project.",
+    "heroLine2": "One view.",
+    "heroBody": "Track progress, value chain and alerts for every project on a single screen.",
+    "registerHero1": "In step,",
+    "registerHero2": "on every",
+    "registerHero3": "site.",
+    "registerBody": "One shared picture for the whole company: progress, value chain and what needs attention today.",
+    "ganttTitle": "Value chain progress",
+    "legendDone": "Done",
+    "legendRunning": "In progress",
+    "legendPlan": "Planned",
+    "stageDesign": "Design",
+    "stageProcurement": "Procurement",
+    "stageFabrication": "Fabrication",
+    "stageDelivery": "Delivery",
+    "stageErection": "Erection",
+    "months": "Jul,Aug,Sep,Oct,Nov,Dec",
+    "today": "Today",
+    "alertLabel": "Alert",
+    "alertText": "Fabrication is behind schedule",
+    "doneToast": "Design stage just completed",
+    "footerNote": "Internal system · Authorised accounts only",
+    "footerShort": "Internal system",
+    "copyright": "© Dai Dung",
+    "changeLanguage": "Change language"
   }
 }

@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
+import { AuthCard } from '@/components/auth/AuthCard';
 import { Link } from '@/i18n/navigation';
 import { getAuthStore } from '@/server/auth-store';
 import { isResetTokenUsable } from '@/server/password-reset';
@@ -23,8 +24,7 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
   const usable = await isResetTokenUsable(getAuthStore(), token);
 
   return (
-    <div className="authwrap">
-      <div className="authcard">
+    <AuthCard width={452}>
         <div className="brandbox">
           <div className="appicon is-brand overflow-hidden" style={{ width: 56, height: 56, flex: '0 0 56px' }}>
             <Image src="/logo.png" alt="DDC" width={56} height={56} className="h-full w-full object-cover" />
@@ -41,7 +41,6 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
             </Link>
           </div>
         )}
-      </div>
-    </div>
+    </AuthCard>
   );
 }

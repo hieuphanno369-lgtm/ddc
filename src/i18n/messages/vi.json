@@ -1229,5 +1229,32 @@
       "last_active": "Phải còn ít nhất 1 giai đoạn đang dùng",
       "generic": "Lưu thất bại"
     }
+  },
+  "authPage": {
+    "heroLine1": "Mọi dự án.",
+    "heroLine2": "Một tầm nhìn.",
+    "heroBody": "Theo dõi tiến độ, chuỗi giá trị và cảnh báo của toàn bộ dự án trên một màn hình duy nhất.",
+    "registerHero1": "Cùng một nhịp,",
+    "registerHero2": "trên mọi",
+    "registerHero3": "công trình.",
+    "registerBody": "Nơi cả công ty cùng nhìn vào một bức tranh: tiến độ, chuỗi giá trị và những việc cần chú ý hôm nay.",
+    "ganttTitle": "Tiến độ chuỗi giá trị",
+    "legendDone": "Hoàn thành",
+    "legendRunning": "Đang chạy",
+    "legendPlan": "Kế hoạch",
+    "stageDesign": "Thiết kế",
+    "stageProcurement": "Mua sắm",
+    "stageFabrication": "Gia công",
+    "stageDelivery": "Vận chuyển",
+    "stageErection": "Lắp dựng",
+    "months": "T7,T8,T9,T10,T11,T12",
+    "today": "Hôm nay",
+    "alertLabel": "Cảnh báo",
+    "alertText": "Gia công chậm so với kế hoạch",
+    "doneToast": "Thiết kế vừa hoàn thành",
+    "footerNote": "Hệ thống nội bộ · Chỉ dành cho tài khoản được cấp quyền",
+    "footerShort": "Hệ thống nội bộ",
+    "copyright": "© Đại Dũng",
+    "changeLanguage": "Đổi ngôn ngữ"
   }
 }

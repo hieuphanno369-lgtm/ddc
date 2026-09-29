@@ -67,14 +67,18 @@ const CHANGED_SOURCES: Record<string, string> = {
   'ManpowerMonthChart': 'src/components/project/ManpowerMonthChart.tsx',
   'TopPriorityList': 'src/components/dashboard/TopPriorityList.tsx',
   'layout [locale] (metadata)': 'app/[locale]/layout.tsx',
-  'trang /login': 'app/[locale]/login/page.tsx',
+  'trang /login': 'app/[locale]/(auth)/login/page.tsx',
   'StageEditor': 'src/components/admin/StageEditor.tsx',
   'LoginForm': 'src/components/layout/LoginForm.tsx',
   'UserEditor': 'src/components/admin/UserEditor.tsx',
-  'trang /quen-mat-khau': 'app/[locale]/quen-mat-khau/page.tsx',
-  'trang /dat-lai-mat-khau': 'app/[locale]/dat-lai-mat-khau/page.tsx',
+  'trang /quen-mat-khau': 'app/[locale]/(auth)/quen-mat-khau/page.tsx',
+  'trang /dat-lai-mat-khau': 'app/[locale]/(auth)/dat-lai-mat-khau/page.tsx',
   'ForgotPasswordForm': 'src/components/layout/ForgotPasswordForm.tsx',
   'ResetPasswordForm': 'src/components/layout/ResetPasswordForm.tsx',
+  'AuthShowcase': 'src/components/auth/AuthShowcase.tsx',
+  'AuthBrand': 'src/components/auth/AuthBrand.tsx',
+  'AuthLocaleSwitch': 'src/components/auth/AuthLocaleSwitch.tsx',
+  'GanttArt': 'src/components/auth/GanttArt.tsx',
 };
 
 describe('i18n: vi/en phủ key như nhau', () => {
