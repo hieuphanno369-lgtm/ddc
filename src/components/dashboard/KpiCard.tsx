@@ -1,5 +1,6 @@
 import { IconArrowDown, IconArrowUp, type IconProps } from '@/components/icons';
 import type { ScheduleGapDirection } from '@/lib/schedule-gap';
+import { HelpTip } from '@/components/ui/HelpTip';
 
 export type KpiTone = 'neutral' | 'ok' | 'warn' | 'danger';
 
@@ -29,6 +30,8 @@ export interface KpiCardProps {
   scheduleGap?: KpiScheduleGapNote;
   /** Co -> ca the la <a href> (anchor cuon toi chart), them class "tap" (da co CSS: globals.css:253). */
   href?: string;
+  /** Icon "?" giai thich chi so (P4): ngay sau nhan .lb. Co help thi the mo overflow de bong bong khong bi cat. */
+  help?: { text: string; label: string };
 }
 
 /** Mau chu so chinh theo sac thai. The hero luon chu trang (nen gradient). */
@@ -65,6 +68,7 @@ export function KpiCard({
   note,
   scheduleGap,
   href,
+  help,
 }: KpiCardProps) {
   const deltaUp = (delta ?? 0) > 0;
   const hasDelta = delta != null && delta !== 0;
@@ -82,7 +86,7 @@ export function KpiCard({
         </div>
       )}
 
-      <div className="lb">{label}</div>
+      <div className="lb">{label}{help && <HelpTip text={help.text} label={help.label} />}</div>
       <div className="vl" style={hero ? (heroAlert ? { color: 'var(--gold)' } : undefined) : { color: TONE_VALUE[tone] }}>
         {value}
       </div>
@@ -125,10 +129,10 @@ export function KpiCard({
   const cls = `kpi rise${hero ? ' key' : ''}${href ? ' tap' : ''}`;
 
   return href ? (
-    <a href={href} className={cls} style={{ color: 'inherit', textDecoration: 'none' }}>
+    <a href={href} className={cls} style={{ color: 'inherit', textDecoration: 'none', ...(help ? { overflow: 'visible' } : null) }}>
       {body}
     </a>
   ) : (
-    <div className={cls}>{body}</div>
+    <div className={cls} style={help ? { overflow: 'visible' } : undefined}>{body}</div>
   );
 }

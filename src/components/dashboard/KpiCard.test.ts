@@ -201,3 +201,32 @@ describe('KpiCard - href/note (P1B Task 1: bam de cuon toi chart)', () => {
     expect(out).toContain('<div class="sb"><span>KH 5</span></div>');
   });
 });
+
+describe('KpiCard - icon "?" (P4, prop help)', () => {
+  it('co help: hien nut .help ngay sau nhan .lb va mo overflow cho the', () => {
+    const out = renderToStaticMarkup(
+      React.createElement(KpiCard, { ...BASE, help: { text: 'Giai thich Y', label: 'Giai thich Y' } })
+    );
+
+    expect(out).toContain('class="help"');
+    expect(out).toContain('Giai thich Y');
+    expect(out).toMatch(/class="lb">Tổng số dự án<button/);
+    expect(out).toContain('overflow:visible');
+  });
+
+  it('khong co help: khong co nut .help va khong doi style the', () => {
+    const out = renderToStaticMarkup(React.createElement(KpiCard, BASE));
+
+    expect(out).not.toContain('class="help"');
+    expect(out).not.toContain('overflow:visible');
+  });
+
+  it('the co href van co help (khong mat anchor)', () => {
+    const out = renderToStaticMarkup(
+      React.createElement(KpiCard, { ...BASE, href: '#res-manpower', help: { text: 'Z', label: 'Z' } })
+    );
+
+    expect(out).toContain('href="#res-manpower"');
+    expect(out).toContain('class="help"');
+  });
+});
