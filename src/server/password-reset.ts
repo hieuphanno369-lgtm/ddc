@@ -11,6 +11,7 @@ import {
   type ResetTokenKind,
 } from '@/lib/login-policy';
 import { generateResetToken, hashResetToken, isWellFormedResetToken } from '@/lib/reset-token';
+import { errorFields, logger } from '@/lib/logger';
 import type { Locale } from '@/i18n/routing';
 import type { AuthStore } from './repo/types';
 import type { SmtpConfig } from './notify/email';
@@ -165,7 +166,7 @@ export async function requestPasswordReset(
     .then(() => withTimeout(finishPasswordResetRequest(store, mailer, smtp, email, ip, locale, baseUrl, now), RESET_JOB_TIMEOUT_MS))
     .catch((e) => {
       // R6/G5 - KHONG log `e.message` (co the chua thong tin ha tang/DB), chi log ten loi/ma loi.
-      console.error('[password-reset] loi xu ly nen', e instanceof Error ? e.name : String(e));
+      logger.error('password_reset.background_failed', errorFields(e));
     });
 
   return { status: 'accepted' };

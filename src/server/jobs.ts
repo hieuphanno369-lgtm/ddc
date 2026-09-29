@@ -2,6 +2,7 @@ import { todayIso } from '@/lib/clock';
 import { isAlertsDailyDue } from '@/lib/job-schedule';
 import { logActivity } from '@/lib/activity';
 import { AUTH_DATA_RETENTION_MS, SIGNUP_PENDING_MAX_AGE_MS } from '@/lib/login-policy';
+import { errorFields, logger } from '@/lib/logger';
 import type { JobName, JobTrigger } from './repo/types';
 import { repo } from './repo';
 import { runAlertEngine } from './alert-engine';
@@ -24,8 +25,7 @@ export async function runJob(
     try {
       await getAuthStore().pruneAuthData(new Date(Date.now() - AUTH_DATA_RETENTION_MS).toISOString());
     } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error('[jobs] pruneAuthData loi (khong lam hong job):', e instanceof Error ? e.name : String(e));
+      logger.error('jobs.prune_auth_failed', errorFields(e));
     }
     // S3 - đăng ký chờ quá 14 ngày bị xoá (IP nằm lại vô thời hạn, admin bật nhầm người đã nghỉ việc); ghi nhật ký. Cùng
     // cách bọc lỗi riêng như trên.
@@ -33,8 +33,7 @@ export async function runJob(
       const removed = await getSignupStore().pruneStale(new Date(Date.now() - SIGNUP_PENDING_MAX_AGE_MS).toISOString());
       if (removed > 0) await logActivity({ name: 'system', email: 'system' }, 'signup_expire', String(removed));
     } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error('[jobs] pruneStale dang ky cho loi (khong lam hong job):', e instanceof Error ? e.name : String(e));
+      logger.error('jobs.prune_stale_signup_failed', errorFields(e));
     }
     const result = { status: 'ok' as const, detail: `checked=${r.checked} created=${r.created}` };
     await repo.finishJobRun(id, result.status, result.detail);
@@ -71,8 +70,7 @@ export async function runDueJobs(trigger: 'lazy' | 'cron'): Promise<void> {
     }
     await retryPendingNotifications();
   } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error('[jobs] runDueJobs loi (khong lam vo trang):', e);
+    logger.error('jobs.run_due_failed', errorFields(e));
   } finally {
     g.__ddcJobsBusy = false;
   }

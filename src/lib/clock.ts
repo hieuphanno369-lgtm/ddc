@@ -5,6 +5,8 @@
  * KHÔNG import file này từ src/data/seed/* - seed phải deterministic, giữ hằng số riêng.
  */
 
+import { logger } from './logger';
+
 export const APP_TIMEZONE = 'Asia/Ho_Chi_Minh';
 
 export type YearMonth = string; // 'YYYY-MM'
@@ -44,11 +46,10 @@ export function todayIso(): IsoDate {
     if (process.env.NODE_ENV !== 'production') return override;
     if (!warnedFakeTodayInProd) {
       warnedFakeTodayInProd = true;
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[clock] DDC_FAKE_TODAY="${override}" bị BỎ QUA vì NODE_ENV=production - đồng hồ dùng giờ thật. ` +
-        'Xoá biến này khỏi môi trường production (chỉ dùng cho test/demo).',
-      );
+      logger.warn('clock.fake_today_ignored', {
+        fakeToday: override,
+        hint: 'Xoa DDC_FAKE_TODAY khoi moi truong production',
+      });
     }
   }
   return new Intl.DateTimeFormat('en-CA', {

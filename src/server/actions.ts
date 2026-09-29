@@ -10,6 +10,7 @@ import { logActivity } from '@/lib/activity';
 import { hashPassword, verifyPassword } from '@/lib/password';
 import { reissueSessionCookie, invalidateCurrentSessionCookie } from '@/lib/auth';
 import { clientIpFrom } from '@/lib/client-ip';
+import { errorFields, logger } from '@/lib/logger';
 import { ACCOUNT_GUESS_WINDOW_MS, IP_FAIL_LIMIT, IP_FAIL_WINDOW_MS, LOGIN_LOCK_THRESHOLD } from '@/lib/login-policy';
 import { calcChainPctActual, findCurrentStage, isSameStageSet, normPct, StagesChangedError, stageOrder, validateStageWeights } from '@/lib/stages';
 import { isReservedProjectCode, ProjectCodeTakenError } from '@/lib/project-code';
@@ -462,7 +463,7 @@ export async function changePasswordAction(currentPassword: string, newPassword:
           try {
             await logActivity(user, 'login_locked', String(result.count));
           } catch (e) {
-            console.error('[changePasswordAction]', e instanceof Error ? e.name : String(e));
+            logger.error('auth.change_password_failed', errorFields(e));
           }
         }
       }
