@@ -1,3 +1,4 @@
+import { resetTokenKindOf } from '@/lib/login-policy';
 import type { AuthAccountState, AuthStore, ThrottleKind, UserAccount } from './types';
 
 /**
@@ -203,6 +204,12 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
       const account = source.findAccount(t.email);
       if (!account || account.passwordHash === '' || !account.isActive) return false;
       return true;
+    },
+
+    async peekResetTokenKind(tokenHash, nowIso) {
+      if (!(await this.peekResetToken(tokenHash, nowIso))) return null;
+      const t = resetTokens.find((x) => x.tokenHash === tokenHash);
+      return t ? resetTokenKindOf(new Date(t.createdAt), new Date(t.expiresAt)) : null;
     },
 
     async consumeResetToken(tokenHash, passwordHash, nowIso) {

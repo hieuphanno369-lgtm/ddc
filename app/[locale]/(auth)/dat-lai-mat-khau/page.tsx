@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import { getAuthStore } from '@/server/auth-store';
-import { isResetTokenUsable } from '@/server/password-reset';
+import { getResetTokenKind } from '@/server/password-reset';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
 import { AuthHeading, AuthLink, AuthNotice } from '@/components/auth/parts';
@@ -20,13 +20,14 @@ export const metadata: Metadata = {
 export default async function ResetPasswordPage({ searchParams }: { searchParams: Promise<{ token?: string }> }) {
   const t = await getTranslations();
   const { token } = await searchParams;
-  // S12 - GET chỉ ĐỌC token (isResetTokenUsable không tiêu token) để quyết hiện form hay báo lỗi.
-  const usable = await isResetTokenUsable(getAuthStore(), token);
+  // S12 - GET chỉ ĐỌC token (không tiêu token) để quyết hiện form hay báo lỗi. Loại link (lời mời hay quên mật khẩu) do
+  // server suy từ token, không đọc tham số URL nào khác.
+  const kind = await getResetTokenKind(getAuthStore(), token);
 
   return (
     <AuthCard width={452}>
-      {usable ? (
-        <ResetPasswordForm token={token ?? ''} />
+      {kind ? (
+        <ResetPasswordForm token={token ?? ''} kind={kind} />
       ) : (
         <div className={s.stack20}>
           <AuthHeading title={t('authPage.invalidTitle')} />

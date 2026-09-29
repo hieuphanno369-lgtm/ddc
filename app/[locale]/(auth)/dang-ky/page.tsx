@@ -29,12 +29,11 @@ export default async function SignupPage({ params }: { params: Promise<{ locale:
     );
   }
 
-  const googleEnabled = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
   const departments = await getSignupStore().listActiveDepartments();
 
   return (
     <AuthCard width={480}>
-      <SignupForm departments={departments} googleEnabled={googleEnabled} />
+      <SignupForm departments={departments} />
     </AuthCard>
   );
 }

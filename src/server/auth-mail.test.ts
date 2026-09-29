@@ -109,9 +109,13 @@ describe('signupMailer - email bao tai khoan da san sang (P3F-3)', () => {
     expect(vi1.text).toContain('a@daidung.vn');
     expect(vi1.text).toContain('https://app.example.com/vi/dat-lai-mat-khau?token=T');
     expect(vi1.text).toContain('72 giờ');
+    expect(vi1.subject.toLowerCase()).not.toContain('đặt lại');
+    expect(vi1.text.toLowerCase()).not.toContain('đặt lại');
     expect(vi1.text).not.toContain('{name}');
     const en1 = await signupMailer.compose('en', 'a@daidung.vn', 'https://app.example.com/en/dat-lai-mat-khau?token=T');
     expect(en1.subject).toBe('Set a password for your account');
     expect(en1.text).toContain('72 hours');
+    expect(en1.subject.toLowerCase()).not.toContain('reset');
+    expect(en1.text.toLowerCase()).not.toContain('reset');
   });
 });

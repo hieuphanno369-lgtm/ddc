@@ -63,6 +63,8 @@ test.describe('22 - quen mat khau (D2)', () => {
       const token = await insertToken(new Date(Date.now() + 30 * 60_000));
 
       await page.goto(`/vi/dat-lai-mat-khau?token=${token}`);
+      // Link quen mat khau (han 30 phut) giu chu "Dat lai mat khau", khong lan sang chu cua loi moi.
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(vi('authSecurity.resetTitle'));
       // Khop CHINH XAC nhan (khong dung substring): "Nhap lai mat khau moi" chua san "mat khau moi"
       // nen hasText substring se khop nham ca 2 truong.
       await page.getByLabel(vi('auth.newPassword'), { exact: true }).fill(NEW_PW);

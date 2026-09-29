@@ -81,5 +81,17 @@ export const SIGNUP_WINDOW_MS = 3_600_000;
 export const SIGNUP_NAME_MAX = 100;
 /** S1: link đặt mật khẩu gửi khi admin bật tài khoản có hạn 72 giờ (dùng 1 lần, chỉ lưu hash). */
 export const SIGNUP_INVITE_TTL_MS = 72 * 3_600_000;
+
+/** Loại link trên trang `/dat-lai-mat-khau`: 'invite' = lời mời đặt mật khẩu (bật đăng ký), 'reset' = quên mật khẩu. */
+export type ResetTokenKind = 'reset' | 'invite';
+
+/**
+ * Server tự suy loại link từ thời hạn đã lưu (không tin tham số URL): link quên mật khẩu sống `RESET_TOKEN_TTL_MS`,
+ * lời mời sống lâu hơn hẳn (`SIGNUP_INVITE_TTL_MS`). Ngưỡng gấp đôi hạn quên mật khẩu để chịu được lệch đồng hồ giữa app
+ * và DB (`createdAt` do DB đặt, `expiresAt` do app tính). Không cần cột đánh dấu nên không cần migration.
+ */
+export function resetTokenKindOf(createdAt: Date, expiresAt: Date): ResetTokenKind {
+  return expiresAt.getTime() - createdAt.getTime() > 2 * RESET_TOKEN_TTL_MS ? 'invite' : 'reset';
+}
 /** S3: đăng ký chờ quá 14 ngày bị job dọn tự xoá. */
 export const SIGNUP_PENDING_MAX_AGE_MS = 14 * 24 * 3_600_000;

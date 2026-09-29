@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { submitPasswordResetAction } from '@/server/actions-password-reset';
+import type { ResetTokenKind } from '@/lib/login-policy';
 import s from './auth.module.css';
 import {
   AuthField,
@@ -18,10 +19,11 @@ type Done = { locked: boolean } | null;
 
 /**
  * P3E (Task 7, D2, S12) - `token` chỉ truyền vào action ('use server'), KHÔNG đưa vào URL nào
- * khác, KHÔNG lưu localStorage/sessionStorage.
+ * khác, KHÔNG lưu localStorage/sessionStorage. `kind` do server suy từ token (trang cha), chỉ đổi chữ hiển thị.
  */
-export function ResetPasswordForm({ token }: { token: string }) {
+export function ResetPasswordForm({ token, kind = 'reset' }: { token: string; kind?: ResetTokenKind }) {
   const t = useTranslations();
+  const invite = kind === 'invite';
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
@@ -51,7 +53,9 @@ export function ResetPasswordForm({ token }: { token: string }) {
     return (
       <div className={s.stack20}>
         <AuthNotice tone="success">
-          {done.locked ? t('authSecurity.resetDoneLocked') : t('authSecurity.resetDone')}
+          {done.locked
+            ? t(invite ? 'signup.inviteDoneLocked' : 'authSecurity.resetDoneLocked')
+            : t(invite ? 'signup.inviteDone' : 'authSecurity.resetDone')}
         </AuthNotice>
         <AuthGhostButton href="/login">{t('authSecurity.backToLogin')}</AuthGhostButton>
       </div>
@@ -61,9 +65,9 @@ export function ResetPasswordForm({ token }: { token: string }) {
   return (
     <form onSubmit={submit} className={s.form}>
       <AuthHeading
-        eyebrow={t('authPage.recoveryEyebrow')}
-        title={t('authSecurity.resetTitle')}
-        intro={t('authPage.resetIntro')}
+        eyebrow={t(invite ? 'signup.inviteEyebrow' : 'authPage.recoveryEyebrow')}
+        title={t(invite ? 'signup.inviteTitle' : 'authSecurity.resetTitle')}
+        intro={t(invite ? 'signup.inviteIntro' : 'authPage.resetIntro')}
       />
       <div className={s.field}>
         <AuthField id="auth-new-password" label={t('auth.newPassword')}>
@@ -88,7 +92,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
       </AuthField>
       {err && <AuthNotice tone="error">{err}</AuthNotice>}
       <AuthPrimaryButton busy={busy} busyLabel={t('authPage.saving')}>
-        {t('authSecurity.resetSubmit')}
+        {t(invite ? 'signup.inviteSubmit' : 'authSecurity.resetSubmit')}
       </AuthPrimaryButton>
     </form>
   );

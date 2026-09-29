@@ -1321,7 +1321,13 @@
     "errSmtpMissing": "Hệ thống chưa cấu hình gửi email nên chưa bật được tài khoản. Hãy cấu hình email trong Quản trị rồi thử lại.",
     "smtpMissing": "Hệ thống chưa cấu hình gửi email nên chưa nhận đăng ký tài khoản. Vui lòng liên hệ quản trị viên.",
     "mailSubject": "Đặt mật khẩu cho tài khoản của bạn",
-    "mailBody": "Tài khoản {email} trên hệ thống Báo cáo quản trị đã được bật.\n\nMở liên kết sau trong vòng 72 giờ để đặt mật khẩu (chỉ dùng được 1 lần):\n{link}\n\nNếu liên kết hết hạn, hãy dùng \"Quên mật khẩu\" ở trang đăng nhập để nhận liên kết mới.\n\nNếu bạn không đăng ký tài khoản này, hãy bỏ qua email này hoặc báo cho quản trị viên."
+    "mailBody": "Tài khoản {email} trên hệ thống Báo cáo quản trị đã được bật.\n\nMở liên kết sau trong vòng 72 giờ để đặt mật khẩu (chỉ dùng được 1 lần):\n{link}\n\nNếu liên kết hết hạn, hãy dùng \"Quên mật khẩu\" ở trang đăng nhập để nhận liên kết mới.\n\nNếu bạn không đăng ký tài khoản này, hãy bỏ qua email này hoặc báo cho quản trị viên.",
+    "inviteEyebrow": "Chào mừng",
+    "inviteTitle": "Đặt mật khẩu",
+    "inviteIntro": "Tài khoản của bạn đã được bật. Chọn mật khẩu để đăng nhập, tối thiểu 8 ký tự.",
+    "inviteSubmit": "Lưu mật khẩu",
+    "inviteDone": "Đã đặt mật khẩu. Đăng nhập bằng mật khẩu vừa chọn.",
+    "inviteDoneLocked": "Đã đặt mật khẩu, nhưng tài khoản đang bị khoá. Liên hệ quản trị để mở khoá."
   },
   "terms": {
     "title": "Điều khoản sử dụng",

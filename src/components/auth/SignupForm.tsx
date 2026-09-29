@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { signIn } from 'next-auth/react';
 import { useLocale, useTranslations } from 'next-intl';
 import { IconCheck } from '@/components/icons';
 import { Link, useRouter } from '@/i18n/navigation';
@@ -11,7 +10,6 @@ import { submitSignupAction } from '@/server/actions-signup';
 import s from './auth.module.css';
 import { cx } from './cx';
 import {
-  AuthDivider,
   AuthField,
   AuthGhostButton,
   AuthHeading,
@@ -21,7 +19,6 @@ import {
   AuthNotice,
   AuthPrimaryButton,
   AuthSelect,
-  GoogleButton,
 } from './parts';
 
 type FieldErrors = { name?: string; department?: string; email?: string };
@@ -30,13 +27,7 @@ type FieldErrors = { name?: string; department?: string; email?: string };
  * P3F-3 - form đăng ký (chờ admin bật). Kiểm ở form chỉ là lớp phụ: server (`requestSignup`) kiểm lại toàn bộ.
  * Form KHÔNG nhận mật khẩu (S1): admin bật xong, người dùng đặt mật khẩu qua link gửi tới email đã đăng ký.
  */
-export function SignupForm({
-  departments,
-  googleEnabled,
-}: {
-  departments: { id: number; name: string }[];
-  googleEnabled: boolean;
-}) {
+export function SignupForm({ departments }: { departments: { id: number; name: string }[] }) {
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
@@ -129,19 +120,6 @@ export function SignupForm({
   return (
     <form onSubmit={submit} className={s.form} noValidate>
       <AuthHeading eyebrow={t('signup.eyebrow')} title={t('signup.title')} intro={t('signup.intro')} />
-
-      {googleEnabled && (
-        <>
-          <GoogleButton
-            busy={busy}
-            onClick={() => {
-              setBusy(true);
-              signIn('google', { callbackUrl: `/${locale}` });
-            }}
-          />
-          <AuthDivider label={t('authPage.orEmail')} />
-        </>
-      )}
 
       {hasDepartments ? (
         <div className={s.grid2}>

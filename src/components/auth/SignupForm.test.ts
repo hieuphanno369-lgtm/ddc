@@ -20,8 +20,8 @@ vi.mock('@/server/actions-signup', () => ({ submitSignupAction: vi.fn() }));
 
 import { SignupForm } from './SignupForm';
 
-const render = (departments: { id: number; name: string }[], googleEnabled = false) =>
-  renderToStaticMarkup(React.createElement(SignupForm, { departments, googleEnabled }));
+const render = (departments: { id: number; name: string }[]) =>
+  renderToStaticMarkup(React.createElement(SignupForm, { departments }));
 
 describe('SignupForm (P3F-3)', () => {
   it('o Phong ban chi hien khi co phong ban dang dung', () => {
@@ -58,11 +58,12 @@ describe('SignupForm (P3F-3)', () => {
   });
 
   it('khong co o checkbox nao', () => {
-    expect(render([{ id: 1, name: 'A' }], true)).not.toContain('type="checkbox"');
+    expect(render([{ id: 1, name: 'A' }])).not.toContain('type="checkbox"');
   });
 
-  it('nut Google chi hien khi googleEnabled', () => {
-    expect(render([], false)).not.toContain('authPage.continueGoogle');
-    expect(render([], true)).toContain('authPage.continueGoogle');
+  it('KHONG co nut Google va dong phan cach "hoac" (Google khong tu tao tai khoan, nut o day gay hieu nham)', () => {
+    const html = render([]);
+    expect(html).not.toContain('authPage.continueGoogle');
+    expect(html).not.toContain('authPage.orEmail');
   });
 });

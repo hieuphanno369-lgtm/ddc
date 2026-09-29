@@ -1,5 +1,6 @@
 import { prisma } from '@/server/db';
 import { Prisma } from '@prisma/client';
+import { resetTokenKindOf } from '@/lib/login-policy';
 import type { AuthAccountState, AuthStore, Role } from './types';
 
 /** Date | null → ISO string | null (khớp `prisma-repo.ts`). */
@@ -199,6 +200,16 @@ export const prismaAuthStore: AuthStore = {
     if (!t || t.usedAt !== null || t.expiresAt.getTime() <= new Date(nowIso).getTime()) return false;
     if (!t.user.isActive || t.user.passwordHash === '') return false;
     return true;
+  },
+
+  async peekResetTokenKind(tokenHash, nowIso) {
+    const t = await prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+      include: { user: true },
+    });
+    if (!t || t.usedAt !== null || t.expiresAt.getTime() <= new Date(nowIso).getTime()) return null;
+    if (!t.user.isActive || t.user.passwordHash === '') return null;
+    return resetTokenKindOf(t.createdAt, t.expiresAt);
   },
 
   async consumeResetToken(tokenHash, passwordHash, nowIso) {

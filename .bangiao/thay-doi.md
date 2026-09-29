@@ -88,3 +88,20 @@ Test: `src/server/signup-moi-dat-mat-khau.test.ts` (mới, test đỏ S1), `pris
 - `pruneAuthData` không xoá token còn hạn (job chạy sau 24 giờ).
 - Admin UI `hasPassword` của tài khoản vừa bật hiển thị "có mật khẩu" (hash ngẫu nhiên), chưa có nhãn "chưa đặt mật khẩu".
 - Tài khoản bật rồi mà người dùng đăng nhập bằng Google: vẫn theo luật hiện có (Google xác minh email).
+
+## Sửa sau reviewer
+
+Chủ dự án chốt 4 việc sau `danh-gia.md`.
+
+1. **Trang Đăng ký bỏ nút "Tiếp tục với Google" và dòng "hoặc dùng email".** `SignupForm.tsx` không còn prop `googleEnabled`; `dang-ky/page.tsx` không đọc biến Google. Trang Đăng nhập giữ nguyên. Key `authPage.orEmail`, `authPage.continueGoogle` vẫn còn dùng ở Đăng nhập nên không xoá key nào. Bố cục kính mờ không đổi: khối bị bỏ là khối tách riêng giữa phần mở đầu và ô Họ tên, các khối còn lại giữ khoảng cách `gap` của form. Môi trường e2e không cấu hình Google nên ảnh e2e 28 bước 10 (1440/390, sáng/tối) vốn đã là dạng không có nút, khớp trang sau khi bỏ.
+2. **Link lời mời dùng chữ "Đặt mật khẩu" / "Set your password".**
+   - Email lời mời (`signup.mailSubject/mailBody`) đã dùng chữ "đặt mật khẩu" từ vòng bảo mật; thêm assertion để giữ (không chứa "đặt lại"/"reset").
+   - Trang `/dat-lai-mat-khau` đổi eyebrow, tiêu đề, câu dẫn, nút, thông báo xong (kể cả nhánh bị khoá) khi mở từ link lời mời. Key mới trong nhóm `signup`: `inviteEyebrow`, `inviteTitle`, `inviteIntro`, `inviteSubmit`, `inviteDone`, `inviteDoneLocked` (vi + en). Luồng Quên mật khẩu giữ nguyên chữ "Đặt lại".
+   - **Cách phân biệt (server quyết, không migration):** hàm `resetTokenKindOf(createdAt, expiresAt)` trong `src/lib/login-policy.ts`: hạn lưu (`expiresAt - createdAt`) lớn hơn 2 lần `RESET_TOKEN_TTL_MS` (60 phút) là `invite` (72 giờ), ngược lại `reset` (30 phút). Ngưỡng gấp đôi để chịu lệch đồng hồ app/DB (`createdAt` do DB đặt). Store thêm `peekResetTokenKind` (cùng điều kiện với `peekResetToken`, chỉ đọc, trả `'reset' | 'invite' | null`) ở `types.ts`, `mock-repo-auth.ts`, `prisma-repo-auth.ts`; `getResetTokenKind` trong `password-reset.ts`; trang chỉ đọc token, bỏ qua mọi tham số URL khác. `peekResetToken` và `isResetTokenUsable` giữ nguyên. `ResetPasswordForm` nhận prop `kind` (mặc định `reset`).
+   - Đổi ngôn ngữ vẫn giữ `?token=` (e2e 27 xanh).
+3. **`/dieu-khoan` bản en:** `[LIÊN HỆ]` thành `[CONTACT]` (`en.json` `terms.s6Body`); vi giữ `[LIÊN HỆ]`. e2e 28 bước 9 kiểm theo từng locale.
+4. **Không thêm nhãn "chưa đặt mật khẩu"** trong Quản trị.
+
+**Test:** `src/lib/login-policy-kind.test.ts` (mới), `signup-moi-dat-mat-khau.test.ts` (loại link lời mời và quên mật khẩu, link đã dùng thì `null`), `prisma-repo-auth.test.ts` (`peekResetTokenKind`), `auth-mail.test.ts`, `SignupForm.test.ts` (không nút Google, không dòng "hoặc"), `login-guard.test.ts` (thêm hàm vào store giả). e2e 28 (bước 2 không nút Google; bước 6 tiêu đề "Đặt mật khẩu", thêm `&kind=reset` trên URL vẫn ra "Đặt mật khẩu"; bước 9), e2e 22 (link quên mật khẩu vẫn tiêu đề "Đặt lại mật khẩu").
+
+**Tester nên soi:** link quên mật khẩu của tài khoản vừa bật vẫn ra chữ "Đặt lại"; lời mời còn hạn nhưng tài khoản bị tắt ra trang link hỏng; mock kho bộ nhớ lấy `createdAt` theo đồng hồ thật nên test đơn vị phải dùng `new Date()` thật khi kiểm loại link.

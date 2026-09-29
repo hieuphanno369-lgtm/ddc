@@ -433,3 +433,28 @@ describe('pruneAuthData (K19)', () => {
     expect(passwordResetTokenDeleteMany).toHaveBeenCalledWith({ where: { OR: [{ expiresAt: { lt: before } }, { usedAt: { lt: before } }] } });
   });
 });
+
+describe('peekResetTokenKind (loai link suy tu han da luu, chi doc)', () => {
+  const row = (createdAt: string, expiresAt: string, over: Record<string, unknown> = {}) => ({
+    tokenHash: 'h', email: 'a@daidung.com.vn', usedAt: null, createdAt: new Date(createdAt), expiresAt: new Date(expiresAt),
+    user: { isActive: true, passwordHash: 'x' }, ...over,
+  });
+
+  it('han 30 phut -> reset; han 72 gio -> invite', async () => {
+    passwordResetTokenFindUnique.mockResolvedValueOnce(row('2026-09-28T00:00:00.000Z', '2026-09-28T00:30:00.000Z'));
+    expect(await prismaAuthStore.peekResetTokenKind('h', NOW_ISO)).toBe('reset');
+    passwordResetTokenFindUnique.mockResolvedValueOnce(row('2026-09-28T00:00:00.000Z', '2026-10-01T00:00:00.000Z'));
+    expect(await prismaAuthStore.peekResetTokenKind('h', NOW_ISO)).toBe('invite');
+  });
+
+  it('khong dung duoc (khong co dong, da dung, tai khoan tat, chi Google) -> null', async () => {
+    passwordResetTokenFindUnique.mockResolvedValueOnce(null);
+    expect(await prismaAuthStore.peekResetTokenKind('h', NOW_ISO)).toBeNull();
+    passwordResetTokenFindUnique.mockResolvedValueOnce(row('2026-09-28T00:00:00.000Z', '2026-10-01T00:00:00.000Z', { usedAt: new Date(NOW_ISO) }));
+    expect(await prismaAuthStore.peekResetTokenKind('h', NOW_ISO)).toBeNull();
+    passwordResetTokenFindUnique.mockResolvedValueOnce(row('2026-09-28T00:00:00.000Z', '2026-10-01T00:00:00.000Z', { user: { isActive: false, passwordHash: 'x' } }));
+    expect(await prismaAuthStore.peekResetTokenKind('h', NOW_ISO)).toBeNull();
+    passwordResetTokenFindUnique.mockResolvedValueOnce(row('2026-09-28T00:00:00.000Z', '2026-10-01T00:00:00.000Z', { user: { isActive: true, passwordHash: '' } }));
+    expect(await prismaAuthStore.peekResetTokenKind('h', NOW_ISO)).toBeNull();
+  });
+});

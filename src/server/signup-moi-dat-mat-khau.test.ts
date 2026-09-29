@@ -37,7 +37,7 @@ vi.mock('./auth-mail', () => ({
 
 import { authOptions } from '@/lib/auth';
 import { approveSignupAction } from './actions-signup-admin';
-import { requestPasswordReset, resetPasswordWithToken } from './password-reset';
+import { __resetRequestQueueIdleForTest, getResetTokenKind, requestPasswordReset, resetPasswordWithToken } from './password-reset';
 import { __signupQueueIdleForTest, requestSignup } from './signup';
 
 const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.vn', role: 'admin', canViewFinance: true };
@@ -96,6 +96,30 @@ describe('S1 - bat dang ky khong con mat khau do nguoi gui form chon', () => {
     const token = tokenOf(sent[0].text);
     expect(await resetPasswordWithToken(auth, { token, newPassword: 'MatKhauMoi1', ip: '203.0.113.9' }, new Date())).toEqual({ ok: true, locked: false });
     expect(((await authorize()({ email: X, password: 'MatKhauMoi1' })) as { email: string } | null)?.email).toBe(X);
+  });
+
+  it('server tu phan biet loi moi (bat dang ky) voi link quen mat khau, khong dua vao tham so URL', async () => {
+    await registerAndApprove();
+    const invite = tokenOf(sent[0].text);
+    expect(await getResetTokenKind(auth, invite, new Date())).toBe('invite');
+    expect(await getResetTokenKind(auth, 'khong-dung-dinh-dang', new Date())).toBeNull();
+
+    // Tai khoan vua dat mat khau xong thi "Quen mat khau" cho link loai 'reset' (30 phut).
+    await resetPasswordWithToken(auth, { token: invite, newPassword: 'MatKhauMoi1', ip: '203.0.113.9' }, new Date());
+    expect(await getResetTokenKind(auth, invite, new Date())).toBeNull();
+    const composed: string[] = [];
+    await requestPasswordReset(
+      auth,
+      {
+        getSmtp: async () => ({ host: 'smtp.test' }) as never,
+        compose: async (_l, _e, link) => ({ subject: 's', text: link }),
+        queue: (_c, _t, _s, text) => void composed.push(text),
+      },
+      { email: X, ip: '203.0.113.5', locale: 'vi', baseUrl: 'https://ddc.test' },
+      new Date(),
+    );
+    await __resetRequestQueueIdleForTest();
+    expect(await getResetTokenKind(auth, tokenOf(composed[0]), new Date())).toBe('reset');
   });
 
   it('link dung 1 lan: lan 2 hong, mat khau khong bi ghi de', async () => {

@@ -4,6 +4,7 @@
  * các type này, chỉ swap phần repository impl.
  */
 import type { AlertCandidate } from '@/lib/alert-rules';
+import type { ResetTokenKind } from '@/lib/login-policy';
 
 export type Market = 'TN' | 'XK' | 'NoiBo';
 export type ProjectType =
@@ -770,6 +771,12 @@ export interface AuthStore {
   replaceResetToken(email: string, tokenHash: string, expiresAtIso: string, requestIp: string): Promise<void>;
   /** Token còn dùng được (chưa dùng, chưa hết hạn, tài khoản còn, có mật khẩu, isActive)? */
   peekResetToken(tokenHash: string, nowIso: string): Promise<boolean>;
+  /**
+   * Cùng điều kiện với `peekResetToken` (chỉ đọc), nhưng trả thêm LOẠI link để trang đặt mật khẩu chọn chữ: 'invite' (lời mời
+   * khi admin bật đăng ký, hạn 72 giờ) hoặc 'reset' (quên mật khẩu, hạn 30 phút); `null` nếu không dùng được. Suy từ hạn
+   * đã lưu (`resetTokenKindOf`), không có cột đánh dấu.
+   */
+  peekResetTokenKind(tokenHash: string, nowIso: string): Promise<ResetTokenKind | null>;
   /**
    * Nguyên tử: đánh dấu token đã dùng + đặt mật khẩu + passwordChangedAt = now + bộ đếm về 0 nếu
    * chưa khoá + vô hiệu token khác của email. L5 (bao-mat.md) - phải kiểm CÙNG điều kiện tài khoản

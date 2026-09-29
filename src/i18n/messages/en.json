@@ -1321,7 +1321,13 @@
     "errSmtpMissing": "Email sending is not configured, so the account cannot be activated yet. Configure email in Administration and try again.",
     "smtpMissing": "Email sending is not configured, so registrations are not accepted yet. Please contact an administrator.",
     "mailSubject": "Set a password for your account",
-    "mailBody": "The account {email} on Management Reports has been activated.\n\nOpen the link below within 72 hours to set your password (it can be used once):\n{link}\n\nIf the link has expired, use \"Forgot password\" on the sign-in page to get a new one.\n\nIf you did not register for this account, ignore this email or tell an administrator."
+    "mailBody": "The account {email} on Management Reports has been activated.\n\nOpen the link below within 72 hours to set your password (it can be used once):\n{link}\n\nIf the link has expired, use \"Forgot password\" on the sign-in page to get a new one.\n\nIf you did not register for this account, ignore this email or tell an administrator.",
+    "inviteEyebrow": "Welcome",
+    "inviteTitle": "Set your password",
+    "inviteIntro": "Your account is now active. Choose a password to sign in, at least 8 characters.",
+    "inviteSubmit": "Save password",
+    "inviteDone": "Your password is set. Sign in with the password you just chose.",
+    "inviteDoneLocked": "Your password is set, but the account is locked. Contact an administrator to unlock it."
   },
   "terms": {
     "title": "Terms of use",
@@ -1338,7 +1344,7 @@
     "s5Title": "5. Company rights",
     "s5Body": "The company may lock or disable an account when these terms are breached, when you no longer need the system, or when you leave the company.",
     "s6Title": "6. Support",
-    "s6Body": "For account help or questions about these terms, please contact [LIÊN HỆ]."
+    "s6Body": "For account help or questions about these terms, please contact [CONTACT]."
   },
   "department": {
     "title": "Departments",

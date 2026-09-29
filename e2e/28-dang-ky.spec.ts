@@ -93,6 +93,9 @@ test.describe('28 - dang ky cho admin bat', () => {
     await page.goto('/vi/dang-ky');
     await page.waitForLoadState('networkidle'); // cho hydrate truoc khi dien/bam form
     await expect(page.locator('#signup-department option', { hasText: DEPT_A })).toHaveCount(1);
+    // Google khong tu tao tai khoan nen trang Dang ky khong co nut Google va dong phan cach "hoac".
+    await expect(page.getByRole('button', { name: vi('authPage.continueGoogle') })).toHaveCount(0);
+    await expect(page.getByText(vi('authPage.orEmail'))).toHaveCount(0);
 
     await fillSignup(page, { dept: DEPT_A, email: 'ten@gmail.com' });
     await submitSignup(page);
@@ -170,10 +173,15 @@ test.describe('28 - dang ky cho admin bat', () => {
     await prisma.passwordResetToken.create({ data: { email: EMAIL_1, tokenHash, expiresAt: new Date(Date.now() + 72 * 3_600_000) } });
     await page.goto(`/vi/dat-lai-mat-khau?token=${token}`);
     await page.waitForLoadState('networkidle');
+    // Link loi moi (han 72 gio): chu "Dat mat khau", khong phai "Dat lai mat khau". Server suy tu token, doi ?kind= tren URL khong doi ket qua.
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(vi('signup.inviteTitle'));
+    await page.goto(`/vi/dat-lai-mat-khau?token=${token}&kind=reset`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(vi('signup.inviteTitle'));
     await page.getByLabel(vi('auth.newPassword'), { exact: true }).fill(NEW_PASSWORD);
     await page.getByLabel(vi('auth.confirmPassword'), { exact: true }).fill(NEW_PASSWORD);
-    await page.getByRole('button', { name: vi('authSecurity.resetSubmit') }).click();
-    await expect(page.getByText(vi('authSecurity.resetDone'))).toBeVisible();
+    await page.getByRole('button', { name: vi('signup.inviteSubmit') }).click();
+    await expect(page.getByText(vi('signup.inviteDone'))).toBeVisible();
 
     await fillLogin(page, EMAIL_1, NEW_PASSWORD);
     await page.waitForURL((u) => !u.pathname.includes('/login'));
@@ -245,7 +253,7 @@ test.describe('28 - dang ky cho admin bat', () => {
     for (const loc of ['vi', 'en'] as const) {
       await page.goto(`/${loc}/dieu-khoan`);
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(loc === 'vi' ? vi('terms.title') : en('terms.title'));
-      await expect(page.getByText('[LIÊN HỆ]')).toBeVisible();
+      await expect(page.getByText(loc === 'vi' ? '[LIÊN HỆ]' : '[CONTACT]')).toBeVisible();
     }
     await page.goto('/vi/dang-ky');
     await page.waitForLoadState('networkidle'); // cho hydrate truoc khi dien/bam form
