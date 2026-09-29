@@ -3,9 +3,15 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P3F-T1 + rule Priority (Tài khoản C) - ĐÃ MERGE vào `main` (2026-09-29)
+Nhánh `feature/p3f-t1`, từ `main` @ `683a5a2` (đã gộp `main` @ `bdc0bbd` có P5-B hạ tầng); hồ sơ `.bangiao/archive/p3f-t1-priority-2026-09-29/` và `archive/p3f-dang-nhap-moi-2026-09-29/danh-gia-vong2.md` (reviewer vòng 2 P3F CHỐT). Không migration.
+- T1: "Quên mật khẩu" không còn huỷ link lời mời 72 giờ còn hạn; đặt mật khẩu bằng 1 link thì mọi link còn lại hỏng. Mọi thao tác token của 1 email khoá tư vấn theo email (`lockResetTokens`), vá thêm race TT-1 (mất lời mời) và deadlock TT-2, cả hai tái hiện đỏ trên DB thật trước khi sửa.
+- Rule Priority (chủ dự án chốt): badge P0 vàng nhấn thương hiệu, P1 navy, P2/P3 xám, độ ưu tiên không dùng đỏ/cam. Thẻ "Top dự án trọng điểm" vẫn là P0 đang triển khai, trễ xếp trước, nhưng bỏ nhãn trễ/đúng (xem ở trang Chi tiết). Cột "Đúng tiến độ" của bảng dự án giữ nguyên.
+- Security DAT, reviewer CHỐT. `npm test` 3228 xanh + 31 skip, real-db 18/18.
+
 ### ✅ P3F - Đăng nhập/Đăng ký mới kính mờ, phòng ban, đăng ký cho admin bật (Tài khoản C, nhận từ B) - ĐÃ MERGE vào `main` (2026-09-29)
 Nhánh `feature/p3f-dang-nhap-moi`, từ `main` @ `2171d61`; hồ sơ `.bangiao/archive/p3f-dang-nhap-moi-2026-09-29/`. Thiết kế kính mờ chủ dự án chốt 2026-09-29.
-Coder Task 1-7 → tester (2 lần bị dừng giữa chừng, checkpoint WIP) → security CẦN SỬA (S1 Cao) → coder sửa S1-S3 + I1 → security vòng 2 CHỐT (T1-T3 Thấp) → C vá T2/T3 → reviewer CẦN SỬA (3 mục tài liệu/hồ sơ) → sửa + 4 quyết định chủ dự án → chủ dự án đồng ý merge (reviewer chưa chạy lại vòng 2). e2e toàn bộ 178/178 trên cổng 3003 + DB `ddc_control_tower_c`.
+Coder Task 1-7 → tester (2 lần bị dừng giữa chừng, checkpoint WIP) → security CẦN SỬA (S1 Cao) → coder sửa S1-S3 + I1 → security vòng 2 CHỐT (T1-T3 Thấp) → C vá T2/T3 → reviewer CẦN SỬA (3 mục tài liệu/hồ sơ) → sửa + 4 quyết định chủ dự án → chủ dự án đồng ý merge; reviewer vòng 2 CHỐT sau merge. e2e toàn bộ 178/178 trên `d7ed919`; sau khi gộp P5-B: 214 + CSP 13/13 (0 vi phạm).
 - **2 migration:** `20260929023746_p3f_dang_ky_phong_ban` (bảng `dim_department`, `signup_request`, `user_roles.departmentId`) và `20260929120000_p3f_dang_ky_bo_mat_khau` (bỏ `signup_request.passwordHash`), đều có rollback trong `prisma/rollback/` (chạy file 2 trước file 1).
 - Đăng ký chỉ email công ty (`@daidung.vn`, `@daidung.com.vn`), KHÔNG nhận mật khẩu (S1: chống chiếm tài khoản đồng nghiệp). Admin bật thì tạo tài khoản với mật khẩu ngẫu nhiên không ai biết + gửi link đặt mật khẩu 72 giờ, dùng 1 lần; thiếu SMTP hoặc `NEXTAUTH_URL` thì tắt form và không bật được. Trang mở từ link lời mời dùng chữ "Đặt mật khẩu" (server suy loại token từ thời hạn, không tin URL).
 - Admin quản phòng ban (ẩn/xoá, xoá bị chặn khi đang dùng), duyệt/từ chối đăng ký, dải nhắc đăng ký chờ; đăng ký chờ quá 14 ngày tự xoá (job `alerts_daily`). Họ tên chặn ký tự điều khiển/tàng hình và được chuẩn hoá NFC.
