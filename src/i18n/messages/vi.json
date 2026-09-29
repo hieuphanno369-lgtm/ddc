@@ -593,7 +593,14 @@
     "account_unlock": "Mở khoá đăng nhập",
     "account_unlock_cli": "Mở khoá bằng lệnh trên server",
     "password_reset_request": "Xin link đặt lại mật khẩu",
-    "password_reset_done": "Đặt lại mật khẩu qua email"
+    "password_reset_done": "Đặt lại mật khẩu qua email",
+    "signup_request": "Gửi đăng ký tài khoản",
+    "signup_approve": "Bật tài khoản đăng ký",
+    "signup_reject": "Từ chối đăng ký",
+    "save_department": "Lưu phòng ban",
+    "hide_department": "Ẩn phòng ban",
+    "show_department": "Hiện lại phòng ban",
+    "delete_department": "Xoá phòng ban"
   },
   "dataGuard": {
     "import": {
@@ -1297,7 +1304,22 @@
     "haveAccount": "Đã có tài khoản?",
     "doneTitle": "Chào mừng bạn!",
     "doneBody": "Đăng ký của bạn đã được ghi nhận. Khi tài khoản sẵn sàng, chúng tôi sẽ báo qua email công ty để bạn đăng nhập.",
-    "rateLimited": "Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau 1 giờ."
+    "rateLimited": "Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau 1 giờ.",
+    "pendingTitle": "Đăng ký đang chờ ({n})",
+    "pendingEmpty": "Không có đăng ký nào đang chờ.",
+    "colSubmitted": "Ngày gửi",
+    "colRole": "Vai trò khi bật",
+    "approve": "Bật tài khoản",
+    "reject": "Từ chối",
+    "rejectConfirm": "Từ chối đăng ký của {email}? Người đăng ký sẽ không nhận được email báo.",
+    "approvedMailed": "Đã bật tài khoản và gửi email báo cho {email}.",
+    "approvedNoMail": "Đã bật tài khoản {email}. Chưa gửi được email vì hệ thống chưa cấu hình gửi email.",
+    "errDuplicateAccount": "Email này đã có tài khoản. Hãy từ chối đăng ký này.",
+    "errNotFound": "Đăng ký này đã được xử lý.",
+    "reminder": "Có {n} đăng ký mới đang chờ bật.",
+    "reminderLink": "Xem trong Quản trị",
+    "mailSubject": "Tài khoản của bạn đã sẵn sàng",
+    "mailBody": "Chào {name},\n\nTài khoản {email} trên hệ thống Báo cáo quản trị đã sẵn sàng. Bạn có thể đăng nhập tại:\n{link}\n\nNếu bạn không đăng ký tài khoản này, hãy báo cho quản trị viên."
   },
   "terms": {
     "title": "Điều khoản sử dụng",
@@ -1315,5 +1337,23 @@
     "s5Body": "Công ty có quyền khoá hoặc tắt tài khoản khi phát hiện vi phạm các điều khoản này, khi bạn không còn cần dùng hệ thống hoặc khi bạn nghỉ việc.",
     "s6Title": "6. Liên hệ hỗ trợ",
     "s6Body": "Cần hỗ trợ về tài khoản hoặc có câu hỏi về điều khoản này, vui lòng liên hệ [LIÊN HỆ]."
+  },
+  "department": {
+    "title": "Phòng ban",
+    "name": "Tên phòng ban",
+    "status": "Trạng thái",
+    "users": "Số người dùng",
+    "active": "Đang dùng",
+    "hidden": "Đã ẩn",
+    "add": "Thêm",
+    "save": "Lưu",
+    "hide": "Ẩn",
+    "show": "Hiện lại",
+    "delete": "Xoá",
+    "confirmDelete": "Xoá phòng ban {name}?",
+    "hint": "Danh mục này hiện trên form Đăng ký. Phòng ban đã có người dùng hoặc đăng ký đang chờ chỉ ẩn được, không xoá được. Danh mục trống thì form Đăng ký không hỏi phòng ban.",
+    "errDuplicate": "Tên phòng ban đã có",
+    "errInvalid": "Tên phòng ban không hợp lệ (1-100 ký tự)",
+    "errInUse": "Phòng ban đang được {count} người dùng hoặc đăng ký, chỉ ẩn được"
   }
 }

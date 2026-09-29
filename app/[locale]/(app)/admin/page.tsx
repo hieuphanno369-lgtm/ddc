@@ -1,6 +1,7 @@
 import { getLocale, getTranslations } from 'next-intl/server';
 import { requireUser } from '@/lib/require-user';
 import { repo } from '@/server/repo';
+import { getSignupStore } from '@/server/signup-store';
 import { historyMonths } from '@/lib/clock';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { IconAlert, IconChecklist, IconFactory, IconMoney, IconUser } from '@/components/icons';
@@ -12,6 +13,8 @@ import { DeleteProject } from '@/components/admin/DeleteProject';
 import { AuditMiniTable } from '@/components/admin/AuditMiniTable';
 import { FactoryEditor } from '@/components/admin/FactoryEditor';
 import { StageEditor } from '@/components/admin/StageEditor';
+import { SignupRequestList } from '@/components/admin/SignupRequestList';
+import { DepartmentEditor } from '@/components/admin/DepartmentEditor';
 import { ExchangeRateEditor } from '@/components/admin/ExchangeRateEditor';
 import { NotifyChannelEditor } from '@/components/admin/NotifyChannelEditor';
 import { hasSecretKey } from '@/lib/secret-box';
@@ -34,9 +37,22 @@ export default async function AdminPage() {
   const teamValues = await repo.getDimFieldValues('team');
   // P7-C2: mọi giai đoạn (cả ngừng dùng) để admin dùng lại được.
   const stages = await repo.getStages();
+  // P3F-3: đọc thẳng từ kho mỗi lần render (không cache tag); client gọi router.refresh() sau thao tác.
+  const signup = getSignupStore();
+  const pending = await signup.listPending();
+  const departments = await signup.listDepartments();
 
   return (
     <>
+      <div id="dang-ky-cho">
+        <Card className="overflow-visible">
+          <CardHeader title={t('signup.pendingTitle', { n: pending.length })} action={<IconUser size={18} />} />
+          <CardBody>
+            <SignupRequestList requests={pending} />
+          </CardBody>
+        </Card>
+      </div>
+
       <Card className="overflow-visible">
         <CardHeader title={t('admin.userRoles')} />
         <CardBody>
@@ -99,6 +115,13 @@ export default async function AdminPage() {
         <CardHeader title={t('factoryAdmin.title')} action={<IconFactory size={18} />} />
         <CardBody>
           <FactoryEditor factories={dims.factories} />
+        </CardBody>
+      </Card>
+
+      <Card className="overflow-visible">
+        <CardHeader title={t('department.title')} action={<IconUser size={18} />} />
+        <CardBody>
+          <DepartmentEditor departments={departments} />
         </CardBody>
       </Card>
 

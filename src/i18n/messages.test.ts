@@ -80,6 +80,9 @@ const CHANGED_SOURCES: Record<string, string> = {
   'GanttArt': 'src/components/auth/GanttArt.tsx',
   'auth parts': 'src/components/auth/parts.tsx',
   'SignupForm': 'src/components/auth/SignupForm.tsx',
+  'SignupRequestList': 'src/components/admin/SignupRequestList.tsx',
+  'DepartmentEditor': 'src/components/admin/DepartmentEditor.tsx',
+  'SignupReminder': 'src/components/layout/SignupReminder.tsx',
   'trang /dieu-khoan': 'app/[locale]/dieu-khoan/page.tsx',
 };
 

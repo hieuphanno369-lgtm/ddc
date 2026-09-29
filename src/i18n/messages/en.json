@@ -593,7 +593,14 @@
     "account_unlock": "Unlocked sign-in",
     "account_unlock_cli": "Unlocked via server command",
     "password_reset_request": "Requested password reset link",
-    "password_reset_done": "Reset password via email"
+    "password_reset_done": "Reset password via email",
+    "signup_request": "Account registration submitted",
+    "signup_approve": "Registration activated",
+    "signup_reject": "Registration declined",
+    "save_department": "Save department",
+    "hide_department": "Hide department",
+    "show_department": "Show department again",
+    "delete_department": "Delete department"
   },
   "dataGuard": {
     "import": {
@@ -1297,7 +1304,22 @@
     "haveAccount": "Already have an account?",
     "doneTitle": "Welcome aboard!",
     "doneBody": "Your registration has been received. When your account is ready, we will let you know at your company email so you can sign in.",
-    "rateLimited": "Too many requests. Please try again in an hour."
+    "rateLimited": "Too many requests. Please try again in an hour.",
+    "pendingTitle": "Pending registrations ({n})",
+    "pendingEmpty": "No pending registrations.",
+    "colSubmitted": "Submitted",
+    "colRole": "Role on activation",
+    "approve": "Activate account",
+    "reject": "Decline",
+    "rejectConfirm": "Decline the registration from {email}? No email will be sent to them.",
+    "approvedMailed": "Account activated and {email} has been notified by email.",
+    "approvedNoMail": "Account {email} activated. No email was sent because email sending is not configured.",
+    "errDuplicateAccount": "This email already has an account. Please decline this registration.",
+    "errNotFound": "This registration has already been handled.",
+    "reminder": "{n} new registrations are waiting for activation.",
+    "reminderLink": "Open Administration",
+    "mailSubject": "Your account is ready",
+    "mailBody": "Hello {name},\n\nYour account {email} on Management Reports is ready. You can sign in at:\n{link}\n\nIf you did not register for this account, please tell an administrator."
   },
   "terms": {
     "title": "Terms of use",
@@ -1315,5 +1337,23 @@
     "s5Body": "The company may lock or disable an account when these terms are breached, when you no longer need the system, or when you leave the company.",
     "s6Title": "6. Support",
     "s6Body": "For account help or questions about these terms, please contact [LIÊN HỆ]."
+  },
+  "department": {
+    "title": "Departments",
+    "name": "Department name",
+    "status": "Status",
+    "users": "Users",
+    "active": "Active",
+    "hidden": "Hidden",
+    "add": "Add",
+    "save": "Save",
+    "hide": "Hide",
+    "show": "Show again",
+    "delete": "Delete",
+    "confirmDelete": "Delete department {name}?",
+    "hint": "This list appears on the registration form. A department with users or pending registrations can only be hidden, not deleted. If the list is empty, the registration form does not ask for a department.",
+    "errDuplicate": "This department name already exists",
+    "errInvalid": "Invalid department name (1-100 characters)",
+    "errInUse": "Used by {count} users or registrations, can only be hidden"
   }
 }

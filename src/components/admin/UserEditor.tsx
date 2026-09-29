@@ -129,7 +129,10 @@ export function UserEditor({ users }: { users: AdminUserRow[] }) {
         </div>
         <div className="field">
           <span className="lb">{t('admin.initialPassword')}</span>
-          <PasswordInput value={password} onChange={setPassword} className={`${inputCls} w-44`} />
+          {/* Khung w-44 bọc ngoài để icon con mắt bám mép ô nhập, không dạt ra mép cột. */}
+          <div className="w-44">
+            <PasswordInput value={password} onChange={setPassword} className={`${inputCls} w-full`} />
+          </div>
           <p className="hintline">{t('authSecurity.googleOnlyHint')}</p>
         </div>
         <select value={role} onChange={(e) => setRole(e.target.value as Role)} className={inputCls} style={{ width: 'auto' }}>
