@@ -98,7 +98,7 @@ describe('queries N+1 (T1 Bước 5)', () => {
 
   it('getReportData: goi getLatestFact 0 lan', async () => {
     const getLatestFact = vi.spyOn(repo, 'getLatestFact');
-    await getReportData('2026-09');
+    await getReportData({ from: '2026-09-01', to: '2026-09-30' });
     expect(getLatestFact).not.toHaveBeenCalled();
   });
 

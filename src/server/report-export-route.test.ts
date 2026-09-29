@@ -76,6 +76,7 @@ import { todayIso } from '@/lib/clock';
 import { GET } from '../../app/api/report/export/route';
 
 const MONTH = '2026-09';
+const PERIOD = parsePeriod({ month: MONTH }, defaultOverviewPeriod(todayIso()));
 const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.com.vn', role: 'admin', canViewFinance: true };
 const BOD: CurrentUser = { name: 'BOD', email: 'bod@daidung.com.vn', role: 'bod', canViewFinance: true };
 const DATA_ENTRY: CurrentUser = { name: 'Dev', email: 'dev@localhost', role: 'data-entry', canViewFinance: false };
@@ -96,14 +97,14 @@ describe('getReportData - nguồn data của /report + export', () => {
   afterEach(() => repo.reset());
 
   it('p0Red chỉ gồm dự án P0 đang nguy cơ phạt hoặc đã bị phạt', async () => {
-    const { p0Red, kpis } = await getReportData(MONTH);
+    const { p0Red, kpis } = await getReportData(PERIOD);
 
     expect(p0Red.map((w) => w.id).sort()).toEqual([1, 2]);
     expect(kpis).toBe(KPIS);
   });
 
   it('R1: rows chỉ gồm dự án thuộc kỳ (cùng tập với Tổng quan), SPI/CPI làm tròn 2 số', async () => {
-    const { rows } = await getReportData(MONTH);
+    const { rows } = await getReportData(PERIOD);
 
     const period = parsePeriod({ month: MONTH }, defaultOverviewPeriod(todayIso()));
     const inPeriod = await getProjectSummaries(period, {});
@@ -131,7 +132,7 @@ describe('getReportData - nguồn data của /report + export', () => {
       'tester',
     );
 
-    const { rows } = await getReportData(MONTH);
+    const { rows } = await getReportData(PERIOD);
     const row = rows.find((r) => r.id === fresh.id);
 
     expect(row).toBeDefined();
@@ -139,7 +140,7 @@ describe('getReportData - nguồn data của /report + export', () => {
   });
 
   it('dự án đang triển khai (đã khởi công): backlog = 0, không phải giá trị HĐ (P1B/T12a bước 8A-4)', async () => {
-    const { rows } = await getReportData(MONTH);
+    const { rows } = await getReportData(PERIOD);
     const inProgress = repo
       .listProjects()
       .find((p) => p.actualStartDate != null);
@@ -170,7 +171,29 @@ describe('GET /api/report/export - phân quyền và nội dung file', () => {
     const wb = await loadSheetNames(res);
     expect(wb.worksheets.map((w) => w.name)).toEqual(['KPI', 'P0-Red', 'DanhSachDuAn']);
     expect(wb.getWorksheet('KPI')!.getRow(1).values).toEqual([undefined, 'Chỉ số', 'Giá trị']);
-    expect(wb.getWorksheet('DanhSachDuAn')!.rowCount).toBe(1 + (await getReportData(MONTH)).rows.length);
+    expect(wb.getWorksheet('DanhSachDuAn')!.rowCount).toBe(1 + (await getReportData(defaultOverviewPeriod(todayIso()))).rows.length);
+  });
+
+  it('T-2: nhận kỳ from/to, ghi dòng "Kỳ báo cáo" và truyền đúng kỳ xuống loader', async () => {
+    login(ADMIN);
+    const cache = await import('@/server/cache');
+
+    const res = await GET(new Request('http://localhost/api/report/export?from=2026-01-01&to=2026-03-31'));
+
+    expect(res.status).toBe(200);
+    expect(cache.loadPortfolioKpis).toHaveBeenCalledWith({ from: '2026-01-01', to: '2026-03-31' }, {});
+    const labels = (await loadSheetNames(res)).getWorksheet('KPI')!.getColumn(1).values as unknown[];
+    expect(labels).toContain('Kỳ báo cáo');
+  });
+
+  it('T-2: from/to rác không ném lỗi, rơi về kỳ mặc định 12 tháng', async () => {
+    login(ADMIN);
+    const cache = await import('@/server/cache');
+
+    const res = await GET(new Request('http://localhost/api/report/export?from=rac&to=2026-13-40'));
+
+    expect(res.status).toBe(200);
+    expect(cache.loadPortfolioKpis).toHaveBeenCalledWith(defaultOverviewPeriod(todayIso()), {});
   });
 
   it('bod tải được file (BOD có quyền xem báo cáo)', async () => {

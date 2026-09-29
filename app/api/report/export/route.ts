@@ -2,25 +2,33 @@ import { NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 import { getCurrentUser } from '@/lib/session';
 import { getReportData } from '@/server/report';
-import { currentMonth } from '@/lib/clock';
+import { todayIso } from '@/lib/clock';
+import { defaultOverviewPeriod, parsePeriod } from '@/lib/period';
+import { formatDmy } from '@/lib/date-input';
 import { safeCell } from '@/lib/excel-safe';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req?: Request) {
   const user = await getCurrentUser();
   if (!user || !['admin', 'bod'].includes(user.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   const canViewFinance = user.canViewFinance;
-  const { kpis, p0Red, rows } = await getReportData(currentMonth());
+  // T-2: cùng tham số kỳ với trang /report (from/to hoặc month); rác rơi về kỳ mặc định, không ném lỗi.
+  const sp = req ? new URL(req.url).searchParams : new URLSearchParams();
+  const period = parsePeriod(
+    { from: sp.get('from') ?? undefined, to: sp.get('to') ?? undefined, month: sp.get('month') ?? undefined },
+    defaultOverviewPeriod(todayIso()),
+  );
+  const { kpis, p0Red, rows } = await getReportData(period);
 
   const wb = new ExcelJS.Workbook();
 
   const kpiWs = wb.addWorksheet('KPI');
   kpiWs.columns = [
     { header: 'Chỉ số', key: 'label', width: 24 },
-    { header: 'Giá trị', key: 'value', width: 16 },
+    { header: 'Giá trị', key: 'value', width: 26 },
   ];
   kpiWs.addRows([
     { label: 'Tổng số dự án', value: kpis.projectsInPeriod },
@@ -29,6 +37,7 @@ export async function GET() {
     { label: 'Nguy cơ phạt', value: kpis.penaltyRisk },
     { label: 'Đã phạt', value: kpis.penalized },
     ...(canViewFinance ? [{ label: 'Backlog (tỷ)', value: kpis.notStartedValue }] : []),
+    { label: 'Kỳ báo cáo', value: `${formatDmy(period.from)} - ${formatDmy(period.to)}` },
   ]);
 
   const p0Ws = wb.addWorksheet('P0-Red');

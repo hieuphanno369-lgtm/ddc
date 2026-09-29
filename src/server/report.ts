@@ -1,6 +1,5 @@
 import { loadPortfolioKpis, loadWatchlist } from '@/server/cache';
-import { currentMonth, todayIso } from '@/lib/clock';
-import { defaultOverviewPeriod, parsePeriod } from '@/lib/period';
+import type { Period } from '@/lib/period';
 import { getProjectSummaries, type PortfolioKpis, type ProjectSummary } from '@/server/queries';
 
 export interface ReportRow {
@@ -19,10 +18,11 @@ export interface ReportData {
   rows: ReportRow[];
 }
 
-/** Nguồn data chung cho trang /report + export Excel. */
-export async function getReportData(month: string = currentMonth()): Promise<ReportData> {
-  // Báo cáo theo trọn tháng `month` (P4: mọi hàm truy vấn nhận Period; cùng 1 object cho mọi lời gọi).
-  const period = parsePeriod({ month }, defaultOverviewPeriod(todayIso()));
+/**
+ * Nguồn data chung cho trang /report + export Excel. T-2: dùng CHUNG kỳ với Tổng quan (page/route đọc kỳ bằng
+ * `parsePeriodChecked` + `defaultOverviewPeriod`); cùng 1 object `period` cho mọi lời gọi để React cache còn memo.
+ */
+export async function getReportData(period: Period): Promise<ReportData> {
   const kpis = await loadPortfolioKpis(period, {});
   const watchlist = await loadWatchlist(period, {});
   const p0Red = watchlist.filter(

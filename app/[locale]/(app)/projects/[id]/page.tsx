@@ -217,6 +217,7 @@ export default async function ProjectDetailPage({
         monthsInPeriod={chartMonths}
         lastDataMonth={t2.lastDataMonth}
       />
+      {t2.invalidPeriod && <p className="hintline" role="status" data-testid="period-invalid">{t('period.invalid')}</p>}
 
       {/* Header */}
       <Card>

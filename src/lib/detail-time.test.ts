@@ -57,6 +57,12 @@ describe('resolveDetailTime (P4 D2, Q6)', () => {
   it('from/to rác -> kỳ mặc định', () => {
     const t = resolveDetailTime({ from: 'xx', to: '2026-13-40' }, project, facts, TODAY);
     expect(t.period).toEqual({ from: '2026-01-01', to: TODAY });
+    expect(t.invalidPeriod).toBe(true);
+  });
+
+  it('không có from/to hoặc from/to hợp lệ: invalidPeriod = false (T-6)', () => {
+    expect(resolveDetailTime({}, project, facts, TODAY).invalidPeriod).toBe(false);
+    expect(resolveDetailTime({ from: '2026-02-01', to: '2026-03-20' }, project, facts, TODAY).invalidPeriod).toBe(false);
   });
 
   it('chưa có số nào và không có ngày bắt đầu: kỳ từ đầu tháng hiện tại, mốc = tháng hiện tại, lastDataMonth null', () => {

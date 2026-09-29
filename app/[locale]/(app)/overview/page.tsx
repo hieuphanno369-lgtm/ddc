@@ -4,7 +4,7 @@ import { requireUser } from '@/lib/require-user';
 import { repo } from '@/server/repo';
 import { formatDateTime } from '@/lib/format';
 import { todayIso } from '@/lib/clock';
-import { defaultOverviewPeriod, parsePeriod } from '@/lib/period';
+import { defaultOverviewPeriod, parsePeriodChecked } from '@/lib/period';
 import { parseDashboardFilters } from '@/lib/overview-params';
 import { safeListSort } from '@/lib/finance-gate';
 import { CardSkeleton } from '@/components/ui/Skeleton';
@@ -52,7 +52,7 @@ export default async function OverviewPage({
   // giá trị rác không được phình thêm khoá cache. Kỳ: from/to hợp lệ, hoặc month=YYYY-MM (trọn tháng), còn lại
   // (kể cả month=all cũ) rơi về kỳ mặc định. Bộ lọc: chỉ nhận giá trị trong danh sách enum (parseDashboardFilters).
   // CÙNG 1 object period/filters truyền xuống mọi widget để React cache (so theo tham chiếu) còn memo.
-  const period = parsePeriod({ from: p(sp, 'from'), to: p(sp, 'to'), month: p(sp, 'month') }, defaultOverviewPeriod(todayIso()));
+  const { period, invalid: periodInvalid } = parsePeriodChecked({ from: p(sp, 'from'), to: p(sp, 'to'), month: p(sp, 'month') }, defaultOverviewPeriod(todayIso()));
   const filters = parseDashboardFilters(sp, dims.teams.map((t) => t.name));
   const groupBy = filters.groupBy ?? 'team';
 
@@ -71,6 +71,7 @@ export default async function OverviewPage({
       <Suspense fallback={<CardSkeleton h={56} />}>
         <FilterBarSection period={period} filters={filters} teams={dims.teams} customers={dims.customers} />
       </Suspense>
+      {periodInvalid && <p className="hintline" role="status" data-testid="period-invalid">{t('period.invalid')}</p>}
 
       <div className="sect"><b>{t('overview.title')}</b><i /></div>
 

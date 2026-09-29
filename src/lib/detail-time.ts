@@ -6,10 +6,12 @@
  */
 
 import { endOfMonth, isValidIsoDate, isValidYearMonth, type IsoDate, type YearMonth } from './clock';
-import { parsePeriod, periodAsOfDate, type Period } from './period';
+import { parsePeriodChecked, periodAsOfDate, type Period } from './period';
 
 export interface DetailTime {
   period: Period;
+  /** from/to có trên URL nhưng không dùng được: trang hiện dòng `period.invalid` (T-6). */
+  invalidPeriod: boolean;
   asOfMonth: YearMonth;
   day: IsoDate;
   /** Tháng lớn nhất có số (<= tháng mốc của kỳ); null = dự án chưa có số nào tới mốc. */
@@ -34,7 +36,7 @@ export function resolveDetailTime(
   // Kỳ mặc định phải có from <= today (dự án bắt đầu trong tương lai thì lấy đầu tháng hiện tại).
   const defaultPeriod: Period = { from: min(lifeFrom, today), to: today };
 
-  const period = parsePeriod({ from: sp.from, to: sp.to }, defaultPeriod);
+  const { period, invalid: invalidPeriod } = parsePeriodChecked({ from: sp.from, to: sp.to }, defaultPeriod);
   const asOfCap = periodAsOfDate(period, today); // min(cuối kỳ, hôm nay)
   const capMonth = asOfCap.slice(0, 7);
   const firstMonth = period.from.slice(0, 7);
@@ -49,5 +51,5 @@ export function resolveDetailTime(
   const day =
     typeof sp.day === 'string' && isValidIsoDate(sp.day) ? max(min(sp.day, asOfCap), lowDay) : defaultDay;
 
-  return { period, asOfMonth, day, lastDataMonth };
+  return { period, invalidPeriod, asOfMonth, day, lastDataMonth };
 }

@@ -1,12 +1,15 @@
 import { getLocale, getTranslations } from 'next-intl/server';
 import { requireUser } from '@/lib/require-user';
 import { getReportData } from '@/server/report';
-import { currentMonth } from '@/lib/clock';
+import { todayIso } from '@/lib/clock';
+import { defaultOverviewPeriod, parsePeriodChecked, periodAsOfDate, periodMonths } from '@/lib/period';
+import { formatMonthShort } from '@/lib/period-format';
 import { Link } from '@/i18n/navigation';
-import { formatPct, formatRatio, formatTyd } from '@/lib/format';
+import { formatDate, formatPct, formatRatio, formatTyd } from '@/lib/format';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Rise } from '@/components/ui/Rise';
 import { KpiCard } from '@/components/dashboard/KpiCard';
+import { ReportPeriodBar } from '@/components/dashboard/ReportPeriodBar';
 import { Badge } from '@/components/ui/Badge';
 import { PenaltyBadge, PriorityBadge } from '@/components/ui/Badges';
 import { THRESHOLDS } from '@/lib/thresholds';
@@ -20,14 +23,30 @@ import {
   IconTrend,
 } from '@/components/icons';
 
-export default async function ReportPage() {
+export default async function ReportPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   // RBAC server-side: trang vận hành dành cho admin + bod (không phó mặc middleware).
+  const sp = await searchParams;
   const locale = await getLocale();
   const user = await requireUser(locale, ['admin', 'bod']);
   const t = await getTranslations();
   const canViewFinance = user.canViewFinance;
-  const { kpis, p0Red, rows } = await getReportData(currentMonth());
-  const prevLabel = t('common.previousMonth');
+  // T-2: CHUNG bộ lọc kỳ với Tổng quan (mặc định 12 tháng gần nhất); rác rơi về mặc định kèm dòng báo (T-6).
+  const s = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
+  const { period, invalid } = parsePeriodChecked({ from: s('from'), to: s('to'), month: s('month') }, defaultOverviewPeriod(todayIso()));
+  const { kpis, p0Red, rows } = await getReportData(period);
+  const prevLabel = t('period.vsPrev');
+  const months = periodMonths(period);
+  const summary = t('period.summary', {
+    from: formatDate(period.from, locale),
+    to: formatDate(period.to, locale),
+    m1: formatMonthShort(months[0]),
+    m2: formatMonthShort(months[months.length - 1]),
+    asOf: formatDate(periodAsOfDate(period, todayIso()), locale),
+  });
 
   return (
     <>
@@ -36,12 +55,16 @@ export default async function ReportPage() {
       <h1 className="sr-only">{t('report.title')}</h1>
       <div className="flex justify-end">
         <a
-          href="/api/report/export"
+          href={`/api/report/export?from=${period.from}&to=${period.to}`}
           className="btn"
         >
           <IconExport size={16} /> {t('common.export')}
         </a>
       </div>
+
+      <ReportPeriodBar period={period} />
+      <p className="hintline" data-testid="period-summary">{summary}</p>
+      {invalid && <p className="hintline" role="status" data-testid="period-invalid">{t('period.invalid')}</p>}
 
       <Rise className={`kpis${canViewFinance ? '' : ' k5'}`}>
         <KpiCard label={t('kpi.totalProjects')} value={String(kpis.projectsInPeriod)} delta={kpis.delta.projectsInPeriod} deltaSuffix={prevLabel} icon={IconProject} />

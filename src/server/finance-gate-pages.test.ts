@@ -26,6 +26,7 @@ vi.mock('@/server/repo', async () => {
   return { repo: mockRepo.repo };
 });
 vi.mock('@/server/report', () => ({ getReportData: vi.fn() }));
+vi.mock('@/components/dashboard/ReportPeriodBar', () => ({ ReportPeriodBar: () => null }));
 vi.mock('@/i18n/navigation', () => ({
   Link: (props: { href: string; children?: React.ReactNode; className?: string }) =>
     React.createElement('a', { href: props.href, className: props.className }, props.children),
@@ -39,7 +40,8 @@ vi.mock('@/components/alerts/AlertList', () => ({
 
 import { getCurrentUser } from '@/lib/session';
 import { getReportData } from '@/server/report';
-import ReportPage from '../../app/[locale]/(app)/report/page';
+import ReportPageReal from '../../app/[locale]/(app)/report/page';
+const ReportPage = () => ReportPageReal({ searchParams: Promise.resolve({}) });
 import AlertsPage from '../../app/[locale]/(app)/alerts/page';
 
 (globalThis as unknown as { React: typeof React }).React = React;

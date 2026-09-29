@@ -38,6 +38,19 @@ export function parsePeriod(sp: { from?: string; to?: string; month?: string }, 
   return fallback;
 }
 
+/**
+ * Như `parsePeriod` nhưng cho biết tham số kỳ có được đưa vào mà không dùng được (T-6): có from/to/month không rỗng
+ * mà kết quả rơi về `fallback` thì `invalid` = true (trang hiện dòng `period.invalid` thay vì im lặng).
+ */
+export function parsePeriodChecked(
+  sp: { from?: string; to?: string; month?: string },
+  fallback: Period,
+): { period: Period; invalid: boolean } {
+  const period = parsePeriod(sp, fallback);
+  const given = [sp.from, sp.to, sp.month].some((v) => typeof v === 'string' && v !== '');
+  return { period, invalid: given && period === fallback };
+}
+
 /** Kỳ mặc định Tổng quan (Q1): ngày 01 của tháng cách 11 tháng tới hôm nay. */
 export function defaultOverviewPeriod(today: IsoDate): Period {
   return { from: `${addMonths(today.slice(0, 7), -11)}-01`, to: today };

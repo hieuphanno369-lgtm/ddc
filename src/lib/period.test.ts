@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  PERIOD_MAX_MONTHS, defaultOverviewPeriod, intersectsPeriod, parsePeriod, periodAsOfDate,
+  PERIOD_MAX_MONTHS, defaultOverviewPeriod, intersectsPeriod, parsePeriod, parsePeriodChecked, periodAsOfDate,
   periodAsOfMonth, periodContains, periodKey, periodMonths, periodSearch, previousPeriod,
 } from './period';
 
@@ -95,3 +95,20 @@ describe('defaultOverviewPeriod (Q1 = 12 tháng gần nhất)', () => {
     expect(periodMonths(defaultOverviewPeriod('2026-09-16'))).toHaveLength(12);
   });
 });
+
+describe('parsePeriodChecked (T-6)', () => {
+  it('không có tham số kỳ: không báo lỗi, dùng mặc định', () => {
+    expect(parsePeriodChecked({}, FB)).toEqual({ period: FB, invalid: false });
+    expect(parsePeriodChecked({ from: '', to: '', month: '' }, FB).invalid).toBe(false);
+  });
+  it('kỳ hợp lệ (from/to hoặc month): không báo lỗi', () => {
+    expect(parsePeriodChecked({ from: '2026-07-01', to: '2026-09-16' }, FB).invalid).toBe(false);
+    expect(parsePeriodChecked({ month: '2026-08' }, FB).invalid).toBe(false);
+  });
+  it('from/to rác, thiếu 1 đầu, month rác: báo lỗi và rơi về mặc định', () => {
+    for (const sp of [{ from: 'rác', to: 'rác' }, { from: '2026-07-01' }, { from: '2026-02-30', to: '2026-03-01' }, { month: 'all' }, { month: 'abc' }]) {
+      expect(parsePeriodChecked(sp, FB), JSON.stringify(sp)).toEqual({ period: FB, invalid: true });
+    }
+  });
+});
+
