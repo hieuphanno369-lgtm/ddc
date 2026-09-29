@@ -3,6 +3,15 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P3F - Đăng nhập/Đăng ký mới kính mờ, phòng ban, đăng ký cho admin bật (Tài khoản C, nhận từ B) - ĐÃ MERGE vào `main` (2026-09-29)
+Nhánh `feature/p3f-dang-nhap-moi`, từ `main` @ `2171d61`; hồ sơ `.bangiao/archive/p3f-dang-nhap-moi-2026-09-29/`. Thiết kế kính mờ chủ dự án chốt 2026-09-29.
+Coder Task 1-7 → tester (2 lần bị dừng giữa chừng, checkpoint WIP) → security CẦN SỬA (S1 Cao) → coder sửa S1-S3 + I1 → security vòng 2 CHỐT (T1-T3 Thấp) → C vá T2/T3 → reviewer CẦN SỬA (3 mục tài liệu/hồ sơ) → sửa + 4 quyết định chủ dự án → chủ dự án đồng ý merge (reviewer chưa chạy lại vòng 2). e2e toàn bộ 178/178 trên cổng 3003 + DB `ddc_control_tower_c`.
+- **2 migration:** `20260929023746_p3f_dang_ky_phong_ban` (bảng `dim_department`, `signup_request`, `user_roles.departmentId`) và `20260929120000_p3f_dang_ky_bo_mat_khau` (bỏ `signup_request.passwordHash`), đều có rollback trong `prisma/rollback/` (chạy file 2 trước file 1).
+- Đăng ký chỉ email công ty (`@daidung.vn`, `@daidung.com.vn`), KHÔNG nhận mật khẩu (S1: chống chiếm tài khoản đồng nghiệp). Admin bật thì tạo tài khoản với mật khẩu ngẫu nhiên không ai biết + gửi link đặt mật khẩu 72 giờ, dùng 1 lần; thiếu SMTP hoặc `NEXTAUTH_URL` thì tắt form và không bật được. Trang mở từ link lời mời dùng chữ "Đặt mật khẩu" (server suy loại token từ thời hạn, không tin URL).
+- Admin quản phòng ban (ẩn/xoá, xoá bị chặn khi đang dùng), duyệt/từ chối đăng ký, dải nhắc đăng ký chờ; đăng ký chờ quá 14 ngày tự xoá (job `alerts_daily`). Họ tên chặn ký tự điều khiển/tàng hình và được chuẩn hoá NFC.
+- Trang công khai mới: `/dang-ky`, `/dieu-khoan` (liên hệ `hieupt1@daidung.vn`). Nút Google chỉ ở trang Đăng nhập.
+- Giới hạn đã biết: T1 (Quên mật khẩu huỷ link lời mời còn hạn, chỉ gây phiền); theo dõi e2e 07 từng rớt khi chạy toàn bộ.
+
 ### ✅ P5-B mục 6-7 - Load test đồng thời, checklist qa-gate, CSP report-only (Tài khoản B) - CHỐT + ĐÃ MERGE vào `main` (2026-09-29)
 Nhánh `feature/p5-b-bao-mat-qa`, từ `main` @ `2171d61`; hồ sơ `.bangiao/archive/p5-b-bao-mat-qa-2026-09-29/`. Chỉ phần không phụ thuộc giao diện P4 của C.
 Coder (8 task) → tester (tái hiện lỗi kịch bản E-1/E-2, `npm ci` sửa `node_modules` lệch lockfile) → security-reviewer CẦN SỬA (M1 phình bộ nhớ rate-limit, L1/L2 phòng thủ thêm, L3/L4/I1 tài liệu) → reviewer CẦN SỬA (đồng bộ) → coder sửa vòng 1 → tester kiểm độc lập XANH → security-reviewer CHỐT vòng 2 → reviewer CHỐT vòng 2. 246 file / 2818 test xanh, e2e 26+27 (header bảo mật + thu vi phạm CSP) xanh trên `next start`.
