@@ -187,6 +187,7 @@ model Project {
   workItemFacts      FactStageWorkItem[]
   stageMilestones    FactStageMilestone[]
   keyMilestones      ProjectKeyMilestone[]
+  backfillWindows    ProjectBackfillWindow[]
   contractors        ProjectContractor[]
   dailyManpower      FactDailyManpower[]
   dailyEquipment     FactDailyEquipmentUsage[]
@@ -630,6 +631,28 @@ model ProjectKeyMilestone {
 
   @@index([projectId, sortOrder])
   @@map("project_key_milestone")
+}
+
+/**
+ * P4: admin bật cho PIC nhập lùi ngày/tháng cũ của 1 dự án trong [fromDate, toDate].
+ * Không xoá dòng: tắt = điền disabledAt; expiresAt = tự hết hiệu lực (30 ngày kể từ lúc bật).
+ */
+model ProjectBackfillWindow {
+  id         Int       @id @default(autoincrement())
+  projectId  Int
+  fromDate   DateTime  @db.Date
+  toDate     DateTime  @db.Date
+  note       String
+  enabledBy  String
+  enabledAt  DateTime  @default(now())
+  expiresAt  DateTime?
+  disabledBy String?
+  disabledAt DateTime?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, disabledAt])
+  @@map("project_backfill_window")
 }
 
 // ---- ERP: nguồn lực ----
