@@ -70,3 +70,15 @@ export function normalizeEmail(raw: unknown): string | null {
   if (email.split('@').length !== 2) return null;
   return email;
 }
+
+/**
+ * P3F-3 - đăng ký tài khoản (trang công khai `/dang-ky`): 10 lần/giờ/IP và 3 lần/giờ/email (đếm cho MỌI email, kể
+ * cả email đã có tài khoản, nên hết lượt không lộ email có tồn tại hay không).
+ */
+export const SIGNUP_IP_LIMIT = 10;
+export const SIGNUP_EMAIL_LIMIT = 3;
+export const SIGNUP_WINDOW_MS = 3_600_000;
+export const SIGNUP_NAME_MAX = 100;
+export const SIGNUP_PASSWORD_MIN = 8;
+/** Chặn gửi chuỗi quá dài vào bcrypt. */
+export const SIGNUP_PASSWORD_MAX = 128;

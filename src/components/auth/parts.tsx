@@ -59,6 +59,14 @@ export function AuthInput({
   return <input {...props} className={cx(s.inp, dense && s.inpDense, className)} />;
 }
 
+export function AuthSelect({
+  dense = false,
+  className,
+  ...props
+}: React.SelectHTMLAttributes<HTMLSelectElement> & { dense?: boolean }) {
+  return <select {...props} className={cx(s.inp, s.select, dense && s.inpDense, className)} />;
+}
+
 export function AuthPasswordInput({
   id,
   value,

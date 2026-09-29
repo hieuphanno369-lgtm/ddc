@@ -79,6 +79,8 @@ const CHANGED_SOURCES: Record<string, string> = {
   'AuthLocaleSwitch': 'src/components/auth/AuthLocaleSwitch.tsx',
   'GanttArt': 'src/components/auth/GanttArt.tsx',
   'auth parts': 'src/components/auth/parts.tsx',
+  'SignupForm': 'src/components/auth/SignupForm.tsx',
+  'trang /dieu-khoan': 'app/[locale]/dieu-khoan/page.tsx',
 };
 
 describe('i18n: vi/en phủ key như nhau', () => {
