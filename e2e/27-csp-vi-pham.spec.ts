@@ -46,13 +46,13 @@ async function settle(page: Page, route: string): Promise<void> {
 test.describe('27 - thu vi pham CSP (khong phien)', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('/vi/login, nut Google, /vi/quen-mat-khau, /vi/dat-lai-mat-khau', async ({ page }) => {
+  test('/vi/login, nut Google, /vi/quen-mat-khau, /vi/dat-lai-mat-khau, /vi/dang-ky, /vi/dieu-khoan', async ({ page }) => {
     await collect(page);
     await page.route('https://accounts.google.com/**', (r) => r.abort());
 
     await page.goto('/vi/login');
     await expect(page.locator('input[type="email"]')).toBeVisible();
-    const google = page.getByRole('button', { name: vi('auth.signInGoogle') });
+    const google = page.getByRole('button', { name: vi('authPage.continueGoogle') });
     if (await google.count()) {
       // Nut Google chi hien khi .env co GOOGLE_CLIENT_ID/SECRET (giong spec 20: khong co thi bo qua buoc bam).
       await expect(google).toBeVisible();
@@ -65,12 +65,21 @@ test.describe('27 - thu vi pham CSP (khong phien)', () => {
     await settle(page, '/vi/login');
 
     await page.goto('/vi/quen-mat-khau');
-    // Khong co SMTP thi trang chi hien thong bao thieu SMTP, khong co form: dung tieu de trang de kiem hien thi.
-    await expect(page.getByText(vi('authSecurity.forgotTitle')).first()).toBeVisible();
+    // P3F: trang luon co tieu de (co SMTP hay khong), dung tieu de de kiem hien thi.
+    await expect(page.getByText(vi('authPage.forgotHeading')).first()).toBeVisible();
     await settle(page, '/vi/quen-mat-khau');
 
     await page.goto('/vi/dat-lai-mat-khau?token=x');
     await settle(page, '/vi/dat-lai-mat-khau?token=x');
+
+    // P3F: 2 trang cong khai moi. Khong co SMTP thi /dang-ky chi hien thong bao, van co tieu de trang.
+    await page.goto('/vi/dang-ky');
+    await expect(page.locator('h1').first()).toBeVisible();
+    await settle(page, '/vi/dang-ky');
+
+    await page.goto('/vi/dieu-khoan');
+    await expect(page.getByText(vi('terms.title')).first()).toBeVisible();
+    await settle(page, '/vi/dieu-khoan');
   });
 });
 
