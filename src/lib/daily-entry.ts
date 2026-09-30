@@ -24,17 +24,39 @@ export interface EquipmentCellInput {
   qtyActual: number;
 }
 
-/** admin: min null (không giới hạn); data-entry: min = today - 7; max = today + 30 cho mọi role. */
-export function dailyDateWindow(role: Role, today: IsoDate): { min: IsoDate | null; max: IsoDate } {
-  const max = addDaysIso(today, DAILY_PLAN_AHEAD_DAYS);
-  if (role === 'admin') return { min: null, max };
-  return { min: addDaysIso(today, -DAILY_EDIT_BACK_DAYS), max };
+/** Khoảng ngày (gồm cả 2 đầu) đang được admin bật nhập bù cho 1 dự án. */
+export interface BackfillRange {
+  from: IsoDate;
+  to: IsoDate;
 }
 
-export function isInWindow(d: IsoDate, w: { min: IsoDate | null; max: IsoDate }): boolean {
+export interface DailyWindow {
+  min: IsoDate | null;
+  max: IsoDate;
+  /** Khoảng nhập bù đang bật: ngày nằm trong 1 khoảng vẫn hợp lệ dù cũ hơn `min` (không bao giờ vượt `max`). */
+  extra?: BackfillRange[];
+}
+
+/**
+ * admin: min null (không giới hạn); data-entry: min = today - 7; max = today + 30 cho mọi role.
+ * `backfill` (P4): khoảng nhập bù đang bật của dự án, chỉ mở thêm ngày cũ cho data-entry.
+ */
+export function dailyDateWindow(role: Role, today: IsoDate, backfill: BackfillRange[] = []): DailyWindow {
+  const max = addDaysIso(today, DAILY_PLAN_AHEAD_DAYS);
+  if (role === 'admin') return { min: null, max };
+  const min = addDaysIso(today, -DAILY_EDIT_BACK_DAYS);
+  return backfill.length > 0 ? { min, max, extra: backfill } : { min, max };
+}
+
+export function isInWindow(d: IsoDate, w: DailyWindow): boolean {
   if (d > w.max) return false;
-  if (w.min != null && d < w.min) return false;
+  if (w.min != null && d < w.min && !(w.extra ?? []).some((r) => d >= r.from && d <= r.to)) return false;
   return true;
+}
+
+/** true khi ngày chỉ hợp lệ nhờ khoảng nhập bù (cũ hơn `min` mà nằm trong 1 khoảng) - dùng để ghi nhãn "nhập bù". */
+export function isBackfillOnly(d: IsoDate, w: DailyWindow): boolean {
+  return w.min != null && d < w.min && isInWindow(d, w);
 }
 
 /** d > today và có actual > 0 ở bất kỳ ô nào → true (Q2: TT > 0 cho ngày tương lai bị từ chối). */

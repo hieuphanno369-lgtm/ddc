@@ -1,5 +1,5 @@
 import { isValidIsoDate, type IsoDate } from '@/lib/clock';
-import { DAILY_VALUE_MAX, isInWindow, type EquipmentCellInput, type ManpowerCellInput } from '@/lib/daily-entry';
+import { DAILY_VALUE_MAX, isInWindow, type DailyWindow, type EquipmentCellInput, type ManpowerCellInput } from '@/lib/daily-entry';
 import type { Contractor, Equipment, Shift } from '@/server/repo/types';
 
 /**
@@ -117,7 +117,7 @@ export interface DailyImportContext {
   members: Contractor[];
   shifts: Shift[];
   equipments: Equipment[];
-  window: { min: IsoDate | null; max: IsoDate };
+  window: DailyWindow;
   today: IsoDate;
 }
 

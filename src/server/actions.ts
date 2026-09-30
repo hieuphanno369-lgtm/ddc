@@ -20,7 +20,9 @@ import type { CreateProjectInput, CurrencyCode, KeyMilestoneInput, Market, Prior
 import { listTag, overviewTag, profileTag, trendTag } from './cache';
 import { addSapCodeSchema, changePasswordSchema, closeAlertSchema, commitImportSchema, createAccountSchema, createDimSchema, createProjectSchema, importFileSchema, IMPORT_LEGACY_MAX_ROWS, lockMonthSchema, mergeDimSchema, renameDimSchema, resetPasswordSchema, saveKeyMilestonesSchema, saveMonthlyDataSchema, userRoleSchema } from './validation';
 import { repo } from './repo';
-import { historyMonths } from '@/lib/clock';
+import { addMonths, historyMonths, todayIso } from '@/lib/clock';
+import type { BackfillRange } from '@/lib/daily-entry';
+import { isMonthAllowed } from '@/lib/monthly-entry';
 import { runAlertEngineSafe } from './alert-engine';
 import { checkProfileRules } from './project-profile-rules';
 import { getAuthStore } from './auth-store';
@@ -42,6 +44,18 @@ async function requireProject(projectId: number): Promise<CurrentUser | null> {
   if (user.role === 'admin') return user;
   if (user.role === 'data-entry' && (await repo.getAssignmentsForUser(user.email)).includes(projectId)) return user;
   return null;
+}
+
+/** Khoảng nhập bù đang bật của dự án (chỉ data-entry cần; admin không giới hạn nên khỏi đọc). */
+async function backfillRangesFor(user: CurrentUser, projectId: number): Promise<BackfillRange[]> {
+  if (user.role === 'admin') return [];
+  const active = await repo.readActiveBackfillWindows(projectId, new Date());
+  return active.map((w) => ({ from: w.fromDate, to: w.toDate }));
+}
+
+/** true khi data-entry lưu tháng cũ hơn "tháng trước" (chỉ hợp lệ nhờ khoảng nhập bù) - để ghi nhãn nhập bù. */
+function isBackfillMonthEntry(role: Role, month: string, today: string): boolean {
+  return role !== 'admin' && month < addMonths(today.slice(0, 7), -1);
 }
 
 /** Cập nhật hồ sơ + số liệu tháng + tài chính. */
@@ -91,6 +105,10 @@ export async function saveMonthlyData(
   const by = user.email;
   const parsed = saveMonthlyDataSchema.safeParse({ projectId, month, patch });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
+  // P4 (Q9=b): luật tháng ở server - data-entry chỉ nhập tháng hiện tại/tháng trước, cũ hơn phải có khoảng nhập bù.
+  const monthlyWindows = await backfillRangesFor(user, projectId);
+  if (!isMonthAllowed(user.role, month, todayIso(), monthlyWindows)) return { ok: false, error: 'out_of_window' };
+  const isBackfillSave = isBackfillMonthEntry(user.role, month, todayIso());
   const {
     pctPlan,
     chain,
@@ -216,7 +234,8 @@ export async function saveMonthlyData(
   }
 
   await runAlertEngineSafe(projectId).catch(() => {});
-  await logActivity(user, 'save_data', `project ${projectId} · ${month}`);
+  if (isBackfillSave) await repo.logAudit('fact_progress_monthly', `${projectId}/${month}`, 'backfill', '', 'nhap bu', by, 'nhap bu lich su');
+  await logActivity(user, isBackfillSave ? 'save_data_backfill' : 'save_data', `project ${projectId} · ${month}`);
   revalidateTag(overviewTag(month));
   revalidateTag(trendTag);
   revalidateTag(listTag(month));
@@ -715,7 +734,7 @@ export async function commitImportAction(month: string, rows: { projectId: numbe
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
 
   let target = parsed.data.rows;
-  const failed: { projectId: number; reason: 'not_assigned' | 'not_found' }[] = [];
+  const failed: { projectId: number; reason: 'not_assigned' | 'not_found' | 'out_of_window' }[] = [];
   if (user.role === 'data-entry') {
     const owned = new Set(await repo.getAssignmentsForUser(user.email));
     target = target.filter((r) => {
@@ -723,6 +742,18 @@ export async function commitImportAction(month: string, rows: { projectId: numbe
       failed.push({ projectId: r.projectId, reason: 'not_assigned' });
       return false;
     });
+    // P4 (Q9=b): cùng luật tháng với saveMonthlyData - tháng cũ hơn "tháng trước" chỉ ghi được cho dự án có khoảng nhập bù giao tháng đó.
+    if (!isMonthAllowed(user.role, month, todayIso(), [])) {
+      const allowed = new Map<number, boolean>();
+      for (const projectId of new Set(target.map((r) => r.projectId))) {
+        allowed.set(projectId, isMonthAllowed(user.role, month, todayIso(), await backfillRangesFor(user, projectId)));
+      }
+      target = target.filter((r) => {
+        if (allowed.get(r.projectId)) return true;
+        failed.push({ projectId: r.projectId, reason: 'out_of_window' });
+        return false;
+      });
+    }
   }
   if (await repo.isMonthLocked(month)) return { ok: false, error: 'locked' };
   const result = await repo.importMonthlyFacts(month, target, user.email);
@@ -732,8 +763,15 @@ export async function commitImportAction(month: string, rows: { projectId: numbe
   for (const projectId of importedProjectIds) {
     await runAlertEngineSafe(projectId).catch(() => {});
   }
+  // Q13: lần nhập chỉ hợp lệ nhờ nhập bù được gán nhãn "nhập bù" trong audit_log (số cũ/mới đã có ở audit của lần ghi).
+  const isBackfillImport = isBackfillMonthEntry(user.role, month, todayIso());
+  if (isBackfillImport) {
+    for (const projectId of importedProjectIds) {
+      await repo.logAudit('fact_progress_monthly', `${projectId}/${month}`, 'backfill', '', 'nhap bu', user.email, 'nhap bu lich su');
+    }
+  }
 
-  await logActivity(user, 'commit_import', `${result.imported} rows`);
+  await logActivity(user, isBackfillImport && importedProjectIds.length > 0 ? 'commit_import_backfill' : 'commit_import', `${result.imported} rows`);
   revalidateTag(overviewTag(month));
   revalidateTag(trendTag);
   revalidateTag(listTag(month));

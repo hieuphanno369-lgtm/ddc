@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dailyDateWindow, hasFutureActual, isInWindow, needsReason } from './daily-entry';
+import { dailyDateWindow, hasFutureActual, isBackfillOnly, isInWindow, needsReason } from './daily-entry';
 import type { FactDailyEquipmentUsage, FactDailyManpowerShift } from '@/server/repo/types';
 
 const TODAY = '2026-09-16';
@@ -11,6 +11,38 @@ describe('dailyDateWindow', () => {
 
   it('data-entry: min = today - 7, max = today + 30', () => {
     expect(dailyDateWindow('data-entry', TODAY)).toEqual({ min: '2026-09-09', max: '2026-10-16' });
+  });
+});
+
+describe('dailyDateWindow + nhap bu (P4)', () => {
+  const backfill = [{ from: '2026-01-01', to: '2026-03-31' }];
+
+  it('data-entry: mo them khoang nhap bu, van chan ngay cu ngoai khoang', () => {
+    const w = dailyDateWindow('data-entry', TODAY, backfill);
+    expect(w).toEqual({ min: '2026-09-09', max: '2026-10-16', extra: backfill });
+    expect(isInWindow('2026-02-15', w)).toBe(true);
+    expect(isInWindow('2026-01-01', w)).toBe(true);
+    expect(isInWindow('2026-03-31', w)).toBe(true);
+    expect(isInWindow('2026-04-01', w)).toBe(false);
+    expect(isInWindow('2025-12-31', w)).toBe(false);
+  });
+
+  it('nhap bu khong bao gio vuot max', () => {
+    const w = dailyDateWindow('data-entry', TODAY, [{ from: '2026-09-01', to: '2026-12-31' }]);
+    expect(isInWindow('2026-10-16', w)).toBe(true);
+    expect(isInWindow('2026-10-17', w)).toBe(false);
+  });
+
+  it('admin khong bi anh huong boi khoang nhap bu', () => {
+    expect(dailyDateWindow('admin', TODAY, backfill)).toEqual({ min: null, max: '2026-10-16' });
+  });
+
+  it('isBackfillOnly: chi ngay cu hon min ma nam trong khoang', () => {
+    const w = dailyDateWindow('data-entry', TODAY, backfill);
+    expect(isBackfillOnly('2026-02-15', w)).toBe(true);
+    expect(isBackfillOnly('2026-09-10', w)).toBe(false);
+    expect(isBackfillOnly('2026-04-10', w)).toBe(false);
+    expect(isBackfillOnly('2026-02-15', dailyDateWindow('admin', TODAY))).toBe(false);
   });
 });
 

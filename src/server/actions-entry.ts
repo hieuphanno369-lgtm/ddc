@@ -3,7 +3,7 @@
 import { logActivity } from '@/lib/activity';
 import { todayIso } from '@/lib/clock';
 import { runAlertEngineSafe } from './alert-engine';
-import { dailyDateWindow, isInWindow, needsReason, hasFutureActual, DAILY_REASON_MIN, type EquipmentCellInput, type ManpowerCellInput } from '@/lib/daily-entry';
+import { dailyDateWindow, isBackfillOnly, isInWindow, needsReason, hasFutureActual, DAILY_REASON_MIN, type DailyWindow, type EquipmentCellInput, type ManpowerCellInput } from '@/lib/daily-entry';
 import {
   DAILY_IMPORT_MAX_DAYS, DAILY_IMPORT_MAX_ROWS, groupImportByDay, parseEquipmentSheet, parseManpowerSheet, type DailyImportRow,
 } from '@/lib/daily-import';
@@ -75,12 +75,13 @@ async function checkDailyPayload(
   workDate: string,
   payload: DailyPayload,
   reason: string | undefined,
-): Promise<{ ok: true } | { ok: false; error: DailySaveError; month?: string }> {
+): Promise<{ ok: true; backfill: boolean } | { ok: false; error: DailySaveError; month?: string }> {
   const project = await repo.getProject(projectId);
   if (!project) return { ok: false, error: 'Not found' };
 
-  const window = dailyDateWindow(user.role, todayIso());
+  const window = await dailyWindowFor(user, projectId);
   if (!isInWindow(workDate, window)) return { ok: false, error: 'out_of_window' };
+  const backfill = isBackfillOnly(workDate, window);
 
   const month = workDate.slice(0, 7);
   if (await repo.isMonthLocked(month)) return { ok: false, error: 'locked', month };
@@ -110,7 +111,19 @@ async function checkDailyPayload(
     return { ok: false, error: 'reason_required' };
   }
 
-  return { ok: true };
+  return { ok: true, backfill };
+}
+
+/** Cửa sổ ngày nhập của user cho 1 dự án: data-entry được mở thêm khoảng nhập bù đang bật (P4, Q11-Q12). */
+async function dailyWindowFor(user: { role: Role }, projectId: number): Promise<DailyWindow> {
+  if (user.role === 'admin') return dailyDateWindow(user.role, todayIso());
+  const active = await repo.readActiveBackfillWindows(projectId, new Date());
+  return dailyDateWindow(user.role, todayIso(), active.map((w) => ({ from: w.fromDate, to: w.toDate })));
+}
+
+/** Q13: ghi nhãn "nhập bù" vào audit_log cho lần lưu chỉ hợp lệ nhờ khoảng nhập bù (số cũ/mới đã có ở audit của lần lưu). */
+async function auditBackfillSave(projectId: number, workDate: string, by: string): Promise<void> {
+  await repo.logAudit('fact_daily_resources', `${projectId}/${workDate}`, 'backfill', '', 'nhap bu', by, 'nhap bu lich su');
 }
 
 /** B (Task 4, P2A): nhập/sửa nhân lực theo ca + thiết bị theo ngày; sửa số ngày cũ phải có lý do. */
@@ -137,7 +150,8 @@ export async function saveDailyResourcesAction(
     parsed.data.reason?.trim() ?? '',
   );
   await runAlertEngineSafe(projectId).catch(() => {});
-  await logActivity(user, 'save_daily_resources', `project ${projectId} · ${workDate}`);
+  if (check.backfill) await auditBackfillSave(projectId, workDate, user.email);
+  await logActivity(user, check.backfill ? 'save_daily_resources_backfill' : 'save_daily_resources', `project ${projectId} · ${workDate}`);
   return { ok: true, ...result };
 }
 
@@ -198,7 +212,7 @@ export async function previewDailyImportAction(
     repo.getShifts(),
     repo.getEquipments(),
   ]);
-  const ctx = { members, shifts, equipments, window: dailyDateWindow(user.role, todayIso()), today: todayIso() };
+  const ctx = { members, shifts, equipments, window: await dailyWindowFor(user, projectId), today: todayIso() };
 
   const mpParsed = parseManpowerSheet(wb.manpower.header, wb.manpower.rows, ctx);
   if (!mpParsed.ok) return { ok: false, error: 'bad_header', sheet: 'manpower' };
@@ -232,9 +246,11 @@ export async function commitDailyImportAction(
   if (!parsed.success) return { ok: false, error: 'Invalid input' };
   if (parsed.data.days.length > DAILY_IMPORT_MAX_DAYS) return { ok: false, error: 'too_many_days' };
 
+  const backfillDays = new Set<string>();
   for (const d of parsed.data.days) {
     const check = await checkDailyPayload(user, projectId, d.workDate, { manpower: d.manpower, equipment: d.equipment }, parsed.data.reason);
     if (!check.ok) return { ...check, workDate: d.workDate };
+    if (check.backfill) backfillDays.add(d.workDate);
   }
 
   let created = 0;
@@ -242,12 +258,17 @@ export async function commitDailyImportAction(
   let unchanged = 0;
   for (const d of parsed.data.days) {
     const r = await repo.saveDailyResources(projectId, d.workDate, { manpower: d.manpower, equipment: d.equipment }, user.email, parsed.data.reason?.trim() ?? '');
+    if (backfillDays.has(d.workDate)) await auditBackfillSave(projectId, d.workDate, user.email);
     created += r.created;
     updated += r.updated;
     unchanged += r.unchanged;
   }
   await runAlertEngineSafe(projectId).catch(() => {});
-  await logActivity(user, 'commit_daily_import', `project ${projectId} · ${parsed.data.days.length} ngày`);
+  await logActivity(
+    user,
+    backfillDays.size > 0 ? 'commit_daily_import_backfill' : 'commit_daily_import',
+    `project ${projectId} · ${parsed.data.days.length} ngày`,
+  );
   return { ok: true, days: parsed.data.days.length, created, updated, unchanged };
 }
 
