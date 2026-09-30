@@ -116,9 +116,9 @@ describe('GET /api/report/export - N-3 bo dong/cot Backlog khi khong quyen tai c
     const wb = await loadWorkbook(await GET_REPORT_EXPORT());
 
     const kpiLabels = wb.getWorksheet('KPI')!.getColumn(1).values as unknown[];
-    expect(kpiLabels).not.toContain('Backlog (tỷ)');
+    expect(kpiLabels).not.toContain('HĐ chưa khởi công (tỷ)');
     const listHeader = wb.getWorksheet('DanhSachDuAn')!.getRow(1).values as unknown[];
-    expect(listHeader).not.toContain('Backlog (tỷ)');
+    expect(listHeader).not.toContain('HĐ chưa khởi công (tỷ)');
   });
 
   it('admin: sheet KPI va DanhSachDuAn co Backlog', async () => {
@@ -127,8 +127,13 @@ describe('GET /api/report/export - N-3 bo dong/cot Backlog khi khong quyen tai c
     const wb = await loadWorkbook(await GET_REPORT_EXPORT());
 
     const kpiLabels = wb.getWorksheet('KPI')!.getColumn(1).values as unknown[];
-    expect(kpiLabels).toContain('Backlog (tỷ)');
+    expect(kpiLabels).toContain('HĐ chưa khởi công (tỷ)');
+    // C-2: nhãn Excel khớp màn hình (vi.json kpi.totalProjects), không còn tên cũ.
+    expect(kpiLabels).toContain('Dự án trong kỳ');
+    expect(kpiLabels).not.toContain('Tổng số dự án');
+    expect(kpiLabels).not.toContain('Backlog (tỷ)');
     const listHeader = wb.getWorksheet('DanhSachDuAn')!.getRow(1).values as unknown[];
-    expect(listHeader).toContain('Backlog (tỷ)');
+    expect(listHeader).toContain('HĐ chưa khởi công (tỷ)');
+    expect(listHeader).not.toContain('Backlog (tỷ)');
   });
 });

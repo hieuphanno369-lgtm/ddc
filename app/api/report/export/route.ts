@@ -31,12 +31,12 @@ export async function GET(req: Request) {
     { header: 'Giá trị', key: 'value', width: 26 },
   ];
   kpiWs.addRows([
-    { label: 'Tổng số dự án', value: kpis.projectsInPeriod },
+    { label: 'Dự án trong kỳ', value: kpis.projectsInPeriod },
     { label: 'Đang triển khai', value: kpis.inProgress },
     { label: 'Trễ tiến độ', value: kpis.behindSchedule },
     { label: 'Nguy cơ phạt', value: kpis.penaltyRisk },
     { label: 'Đã phạt', value: kpis.penalized },
-    ...(canViewFinance ? [{ label: 'Backlog (tỷ)', value: kpis.notStartedValue }] : []),
+    ...(canViewFinance ? [{ label: 'HĐ chưa khởi công (tỷ)', value: kpis.notStartedValue }] : []),
     { label: 'Kỳ báo cáo', value: `${formatDmy(period.from)} - ${formatDmy(period.to)}` },
   ]);
 
@@ -56,7 +56,7 @@ export async function GET(req: Request) {
     { header: 'SPI', key: 'spi', width: 10 },
     { header: 'CPI', key: 'cpi', width: 10 },
     { header: '% TT', key: 'pctActual', width: 10 },
-    ...(canViewFinance ? [{ header: 'Backlog (tỷ)', key: 'backlog', width: 14 }] : []),
+    ...(canViewFinance ? [{ header: 'HĐ chưa khởi công (tỷ)', key: 'backlog', width: 14 }] : []),
   ];
   rows.forEach((r) => ws.addRow({
     code: safeCell(r.code),
