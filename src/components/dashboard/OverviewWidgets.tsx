@@ -16,7 +16,7 @@ import { getOverdueScorecard, type Scorecard } from '@/server/overdue-scorecard'
 import { formatDate, formatTon, formatTyd } from '@/lib/format';
 import { formatMonthShort } from '@/lib/period-format';
 import { todayIso } from '@/lib/clock';
-import { periodAsOfDate, periodMonths } from '@/lib/period';
+import { periodAsOfDate, periodAsOfMonth, periodMonths } from '@/lib/period';
 import { THRESHOLDS } from '@/lib/thresholds';
 import { toTopPriorityItem } from '@/lib/top-priority';
 import { maskGroupRows, maskProjectSummaries, safeListSort, type ListSort } from '@/lib/finance-gate';
@@ -149,7 +149,9 @@ export async function GroupBarCard({
 export async function CapacityCard({ period, filters }: { period: Period; filters: DashboardFilters }) {
   const t = await getTranslations();
   const data = await loadCapacity(period, filters);
-  const months = periodMonths(period);
+  // N-3: sản lượng và công suất chỉ tính tới tháng mốc (tháng sau hôm nay chưa có sản lượng), nên "Cách đọc" cũng chỉ ghi tới đó.
+  const asOfMonth = periodAsOfMonth(period, todayIso());
+  const months = periodMonths(period).filter((m) => m <= asOfMonth);
   return (
     <Card className="overflow-visible">
       <CardHeader
@@ -158,7 +160,7 @@ export async function CapacityCard({ period, filters }: { period: Period; filter
       />
       <CardBody>
         <CapacityBar data={data} />
-        <HowTo text={`${t('period.chartRange', { m1: formatMonthShort(months[0]), m2: formatMonthShort(months[months.length - 1]) })}. ${t('chartHowTo.capacity')}`} />
+        <HowTo text={months.length ? `${t('period.chartRange', { m1: formatMonthShort(months[0]), m2: formatMonthShort(months[months.length - 1]) })}. ${t('chartHowTo.capacity')}` : t('chartHowTo.capacity')} />
       </CardBody>
     </Card>
   );

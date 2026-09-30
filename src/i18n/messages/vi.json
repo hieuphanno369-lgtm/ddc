@@ -1424,7 +1424,7 @@
     "statusDonut": "Bấm một phần của biểu đồ để lọc theo trạng thái; số là dự án trong kỳ tại ngày cuối kỳ.",
     "groupBar": "Cột là sản lượng (tấn) và doanh thu (tỷ đồng) cộng các tháng trong kỳ, theo nhóm đang chọn; bấm cột để lọc.",
     "spiCpi": "Mỗi điểm là SPI/CPI cộng gộp cả danh mục của một tháng; đường ngang là ngưỡng cảnh báo, điểm dưới ngưỡng cần chú ý.",
-    "capacity": "Cột là sản lượng gia công trong kỳ, vạch là công suất nhà máy cùng số tháng; vượt 85% công suất thì tô cảnh báo.",
+    "capacity": "Cột là sản lượng gia công từ đầu kỳ tới tháng mốc, vạch là công suất nhà máy cùng số tháng (tháng sau hôm nay chưa có sản lượng nên chưa tính); vượt 85% công suất thì tô cảnh báo.",
     "sCurve": "Ba đường luỹ kế theo tháng (tỷ đồng): EV dưới PV là chậm, AC trên EV là vượt chi phí; nét đứt là tháng có dự án dùng số tháng trước.",
     "dtSCurve": "Ba đường luỹ kế theo tháng (tỷ đồng): EV dưới PV là chậm, AC trên EV là vượt chi phí; vạch đỏ là tháng đang xem.",
     "dtSpiCpi": "Mỗi điểm là SPI/CPI của dự án trong một tháng; đường ngang là ngưỡng cảnh báo; vạch đỏ là tháng đang xem.",

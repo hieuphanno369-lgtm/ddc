@@ -1424,7 +1424,7 @@
     "statusDonut": "Click a slice to filter by status; counts are projects in the period as of the period end.",
     "groupBar": "Bars are output (tons) and revenue (billion VND) summed over the months of the period, by the selected group; click a bar to filter.",
     "spiCpi": "Each point is the portfolio-wide SPI/CPI of one month; the horizontal line is the warning threshold, points below it need attention.",
-    "capacity": "Bars are processed output in the period, the marker is factory capacity for the same number of months; above 85% of capacity is highlighted.",
+    "capacity": "Bars are processed output from the start of the period up to the as-of month, the marker is factory capacity for the same number of months (months after today have no output yet, so they are not counted); above 85% of capacity is highlighted.",
     "sCurve": "Three cumulative lines by month (billion VND): EV below PV means behind, AC above EV means over cost; dashed segments are months where some projects use the previous month figures.",
     "dtSCurve": "Three cumulative lines by month (billion VND): EV below PV means behind, AC above EV means over cost; the red line is the month being viewed.",
     "dtSpiCpi": "Each point is the project SPI/CPI of one month; the horizontal line is the warning threshold; the red line is the month being viewed.",
