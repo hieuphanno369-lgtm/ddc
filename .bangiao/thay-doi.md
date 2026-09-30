@@ -392,3 +392,47 @@ Phần thiếu hoặc sửa thêm:
 - Không có script `lint` trong `package.json`; không chạy build (`NEXT_FONT_GOOGLE_MOCKED_RESPONSES`) ở đợt này, để nhóm G.
 - Chưa kiểm bằng mắt pixel 1440/390 sáng/tối cho thẻ nhập bù và badge (thuộc Task G2, chưa chụp ảnh ở đợt này).
 - Không cập nhật `PROGRESS.md`, `.serena/memories/`, `CHANGELOG`.
+
+# P4 - Vòng sửa đợt 3 (coder sửa T-7, T-8, P-1, P-3 sau tester nhóm F + G)
+
+Skill đã dùng: `coding-standards`, `frontend-patterns`.
+Mỗi lỗi một commit, có test đỏ tái hiện chuyển xanh, không sửa hay nới test của tester (chỉ thêm ca).
+
+## 1. Commit vòng sửa
+
+- `d64a7b2` T-8: `src/components/ui/DateField.tsx`.
+- `3a033dd` T-7: `src/lib/date-input.ts` + `src/lib/date-input.test.ts`.
+- `4b4ea98` P-1: `src/components/form/BackfillPanel.tsx` + `e2e/37-p4-f-anh.spec.ts`.
+- `6442540` P-3: `src/components/form/DataEntryForm.tsx` + `e2e/37-p4-f-anh.spec.ts`.
+
+## 2. Đã sửa gì và vì sao
+
+- T-8 (gốc): cờ `skipBlur` đặt lúc Enter nhưng Enter không làm ô mất tiêu điểm nên cờ không bao giờ reset và nuốt lần rời ô THẬT kế tiếp. Bỏ hẳn cờ (và import `useRef`). Không cần cờ vì `commit` idempotent: giá trị đã áp dụng thì `text === formatDmy(value)` nên blur không làm gì, giá trị sai thì blur báo lại đúng lỗi đó. Đỏ trước: 2 ca "(BUG T-8)" ở `e2e/36` (chạy lại trên bản cũ bằng `git stash`, đỏ đúng 2 ca). Xanh sau: 2 ca đó + cả `36` 16/16.
+- T-7: `maskDmy` có thêm nhánh cho chuỗi đã có dấu phân tách `/`, `-`, `.` theo dạng `d/m/yyyy`: giữ đúng ý nghĩa, ngày hoặc tháng 1 chữ số mà đã có dấu theo sau thì đệm 0 (`1/2/2026` thành `01/02/2026`, năm cắt tối đa 4 chữ số). Không khớp dạng này (chữ lẫn vào, phần quá dài như `12/3456`, `1//`) thì rơi về nhánh cũ "chỉ giữ chữ số". 8 chữ số liền, gõ dần từng phím và xoá lùi qua "/" vẫn đúng. Đỏ trước: 2 ca "(BUG T-7)" ở `src/lib/date-input-tester.qa.test.ts` và 1 ca e2e. Xanh sau: cả 3 + thêm 24 ca mới ở `src/lib/date-input.test.ts` (bảng đầu vào/đầu ra, gõ từng phím, xoá lùi tới rỗng).
+- P-1: tiêu đề "Nhập bù lịch sử" bị ép hẹp vì `.fsec>.h` xếp h4 và câu mô tả cạnh nhau. Sửa cục bộ ở `BackfillPanel.tsx` bằng style tại chỗ (cột dọc, `marginLeft: 0` cho mô tả), KHÔNG đụng `globals.css` (file nóng) và không đổi các `.fsec` khác. Giữ nguyên style kính mờ. Thêm kiểm pixel vào ca "Hồ sơ dự án (thẻ Nhập bù)" của `e2e/37`: tiêu đề cao dưới 1,5 dòng và câu mô tả nằm dưới tiêu đề. Đã chụp lại `.bangiao/anh-p4-f/hs-the-1440-light.png`, `hs-the-390-dark.png` (kèm 1440-dark, 390-light) và soi bằng mắt: tiêu đề một dòng ở cả hai cỡ, mô tả xuống dòng riêng, không tràn.
+- P-3 (có sẵn từ trước, trang Nhập liệu bước Tiến độ tháng ở 390px): nhãn "Áp dụng" rớt 2 dòng và ô chọn dự án bị cắt "10626-00...". Sửa ở `DataEntryForm.tsx`: nhãn `whiteSpace: nowrap` + `flexShrink: 0`; ô chọn dự án `basis-full sm:basis-0` (từ 640px trở lên giữ nguyên như cũ; dưới 640px ô chiếm cả hàng dưới nhãn "Chọn dự án", hiện đủ "10626-008 - SVĐ PVF", ô chọn tháng và badge trạng thái xuống hàng kế). Thêm kiểm pixel vào ca "Nhập liệu bước Số liệu tháng" của `e2e/37`. Đã chụp lại `nl-thang-390-light.png` và soi bằng mắt. `globals.css` không đụng, nên không cần kiểm "Đang giữ" của A/B (cả hai không giữ file nóng nào lúc đọc).
+
+## 3. P-2 (chỉ đánh giá, KHÔNG đổi giao diện, chờ chủ dự án duyệt)
+
+- Chỗ duy nhất còn `input[type=month]` gốc: `src/components/form/ManpowerPlanEditor.tsx` dòng 183 (ô "Tháng" khi thêm dòng Kế hoạch nhân lực theo tháng).
+- Trình duyệt hiện "January 2027" theo ngôn ngữ giao diện của trình duyệt, không theo ngôn ngữ app (cùng gốc với T-6 vòng trước, `DateField` đã giải quyết cho ô ngày).
+- Đề xuất A (khuyến nghị): thay bằng hai ô chọn (Tháng 1-12 và Năm) hoặc một ô gõ `mm/yyyy` dạng `MonthField` cùng họ `DateField`, luôn tiếng Việt, cùng kiểu ô `.inp`. Ít rủi ro, không đổi bố cục thẻ.
+- Đề xuất B: giữ `input[type=month]`, thêm chú thích định dạng. Rẻ nhưng vẫn hiện tiếng Anh.
+- Chờ chủ dự án chọn. Đây là thay đổi giao diện nên không tự làm.
+
+## 4. Chỗ Tester nên soi kỹ
+
+- `DateField` sau khi bỏ `skipBlur`: mọi form dùng ô ngày (Sửa/Tạo dự án, Mốc chính, Kế hoạch thiết bị, ô kỳ ở Tổng quan/Chi tiết/Báo cáo, thẻ nhập bù, Nhập liệu ngày). Thử: Enter rồi Tab, Enter rồi bấm Lưu, Enter lỗi rồi sửa rồi Tab, chọn từ lịch gốc rồi rời ô, ô `allowEmpty` xoá trống rồi Tab.
+- `maskDmy`: dán `1/2/2026`, `1-2-2026`, `1.2.2026`, `01/02/26`, chuỗi có chữ, chuỗi ISO `2026-02-01` (vẫn ra `20/26/02` như cũ vì phần đầu 4 chữ số, cố ý không đổi), gõ tay từng phím và xoá lùi ở giữa chuỗi.
+- Nhập liệu ở 390px: ô chọn dự án chiếm cả hàng; ở 640px đến 1100px giữ nguyên như cũ.
+- Thẻ Nhập bù ở Hồ sơ dự án: tiêu đề và mô tả ở 390px, 1440px, sáng và tối.
+
+## 5. Kết quả kiểm vòng sửa
+
+- `npx tsc --noEmit`: sạch, exit 0.
+- `npm test` (không đặt `DATABASE_URL`): 308 file (301 xanh, 7 bỏ qua); 3644 test (3574 xanh, 70 bỏ qua), 0 đỏ. Mốc trước (tester): 3626 test; thêm 18 ca mới ở `date-input.test.ts` (16 bảng + 2 ca gõ phím/xoá lùi).
+- `npx vitest run` với `DATABASE_URL` của DB `_c`: 308 file xanh; 3644 test (3643 xanh, 1 bỏ qua), 0 đỏ (2 ca T-7 đã xanh).
+- e2e toàn bộ (`npx playwright test`, cổng 3003, DB `_c`, dev server chạy tay với `--max-old-space-size=6144`): 320 xanh (gồm 3 ca setup), 0 đỏ, 0 chập chờn, 19,8 phút. Trong đó `36-datefield-form` 13/13 (đủ 3 ca đỏ trước), `37-p4-f-anh` 28/28, `35-nhap-bu` xanh.
+- Không chạy `npm run build` ở vòng này (không đụng cấu hình, CSS toàn cục hay route).
+- Việc bỏ qua: chưa kiểm chạm lịch gốc trên điện thoại thật, chưa kiểm trình duyệt giao diện tiếng Anh (như tester đã ghi). Ảnh `.bangiao/anh-p4-f/` vẫn chưa commit như các thư mục ảnh trước.
+- Không cập nhật `PROGRESS.md`, `.serena/memories/`, `CHANGELOG`. Không push.
