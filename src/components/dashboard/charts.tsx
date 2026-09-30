@@ -224,8 +224,8 @@ export function CapacityBar({
         />
         <Tooltip {...TOOLTIP_STYLE} />
         <Legend wrapperStyle={{ fontSize: 'var(--t-caption1)' }} />
-        <Bar dataKey="capacity" name="Công suất kỳ (tấn)" fill={c.neutral} radius={[0, 4, 4, 0]} maxBarSize={16} />
-        <Bar dataKey="processed" name="Sản lượng (tấn)" fill={c.actual} radius={[0, 4, 4, 0]} maxBarSize={16}>
+        <Bar dataKey="capacity" name={t('chartHowTo.capacityLegend')} fill={c.neutral} radius={[0, 4, 4, 0]} maxBarSize={16} />
+        <Bar dataKey="processed" name={t('chartHowTo.outputLegend')} fill={c.actual} radius={[0, 4, 4, 0]} maxBarSize={16}>
           {data.map((d) => (
             <Cell key={d.name} fill={d.warn ? c.warn : c.actual} />
           ))}

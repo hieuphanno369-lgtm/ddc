@@ -1429,7 +1429,9 @@
     "dtSpiCpi": "Each point is the project SPI/CPI of one month; the horizontal line is the warning threshold; the red line is the month being viewed.",
     "axisBillion": "billion VND",
     "axisTon": "tons",
-    "axisIndex": "index"
+    "axisIndex": "index",
+    "capacityLegend": "Period capacity (tons)",
+    "outputLegend": "Output (tons)"
   },
   "helpTip": {
     "ovPeriod": "The date range you pick for the report. Monthly figures (progress, revenue, output) cover the whole months that have a day in the period; daily figures use the exact days. Example: period 15/07 - 10/09 covers whole months 07, 08 and 09.",

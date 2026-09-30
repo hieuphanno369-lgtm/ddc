@@ -30,6 +30,14 @@ describe('i18n P4', () => {
     }
   });
 
+  it('NIT: chú giải biểu đồ công suất có bản dịch thật (không viết cứng tiếng Việt)', () => {
+    for (const k of ['capacityLegend', 'outputLegend']) {
+      expect(vi.chartHowTo[k], k).toBeTruthy();
+      expect(en.chartHowTo[k], k).toBeTruthy();
+      expect(en.chartHowTo[k], k).not.toBe(vi.chartHowTo[k]);
+    }
+  });
+
   it('các nhóm P4 không có dấu gạch dài (em/en dash)', () => {
     for (const g of GROUPS) expect(JSON.stringify([vi[g], en[g]])).not.toMatch(/[–—]/);
   });

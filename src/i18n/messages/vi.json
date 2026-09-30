@@ -1429,7 +1429,9 @@
     "dtSpiCpi": "Mỗi điểm là SPI/CPI của dự án trong một tháng; đường ngang là ngưỡng cảnh báo; vạch đỏ là tháng đang xem.",
     "axisBillion": "tỷ đồng",
     "axisTon": "tấn",
-    "axisIndex": "chỉ số"
+    "axisIndex": "chỉ số",
+    "capacityLegend": "Công suất kỳ (tấn)",
+    "outputLegend": "Sản lượng (tấn)"
   },
   "helpTip": {
     "ovPeriod": "Khoảng ngày bạn chọn để xem báo cáo. Số theo tháng (tiến độ, doanh thu, sản lượng) tính trọn các tháng có ngày nằm trong kỳ; số theo ngày tính đúng từng ngày. Ví dụ kỳ 15/07 - 10/09 tính trọn tháng 07, 08, 09.",
