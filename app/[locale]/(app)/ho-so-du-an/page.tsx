@@ -108,6 +108,7 @@ export default async function HoSoDuAnPage({
             project_equipment_plan: t('projectForm.audit.tbl.project_equipment_plan'),
             project_manpower_plan_month: t('projectForm.audit.tbl.project_manpower_plan_month'),
             project_shift_ratio: t('projectForm.audit.tbl.project_shift_ratio'),
+            project_backfill_window: t('projectForm.audit.tbl.project_backfill_window'),
           }}
         />
       )}

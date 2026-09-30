@@ -75,7 +75,7 @@ export function makeBackfillMockRepo({ getData }: BackfillMockDeps) {
         disabledAt: null,
       };
       store().push(created);
-      auditMock(d, String(id), 'enable', '', `${input.fromDate}..${input.toDate}`, by, input.note);
+      auditMock(d, `${input.projectId}/${id}`, 'enable', '', `${input.fromDate}..${input.toDate}`, by, input.note);
       return { ...created };
     },
 
@@ -85,7 +85,7 @@ export function makeBackfillMockRepo({ getData }: BackfillMockDeps) {
       if (w.disabledAt != null) return 'already';
       w.disabledAt = new Date().toISOString();
       w.disabledBy = by;
-      auditMock(getData(), String(id), 'disable', `${w.fromDate}..${w.toDate}`, '', by);
+      auditMock(getData(), `${w.projectId}/${id}`, 'disable', `${w.fromDate}..${w.toDate}`, '', by);
       return 'ok';
     },
   };

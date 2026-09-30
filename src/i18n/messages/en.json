@@ -843,7 +843,8 @@
         "project_assignments": "Owners",
         "project_equipment_plan": "Equipment plan",
         "project_manpower_plan_month": "Monthly manpower plan",
-        "project_shift_ratio": "Shift ratio"
+        "project_shift_ratio": "Shift ratio",
+        "project_backfill_window": "Historical backfill"
       }
     },
     "nav": "Create / Edit project",

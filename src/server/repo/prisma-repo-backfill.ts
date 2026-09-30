@@ -64,7 +64,7 @@ export const backfillRepoPrisma = {
       const row = await tx.projectBackfillWindow.create({
         data: { projectId: input.projectId, fromDate: from, toDate: to, note: input.note, enabledBy: by, expiresAt: input.expiresAt },
       });
-      await audit(tx, 'project_backfill_window', String(row.id), 'enable', '', `${input.fromDate}..${input.toDate}`, by, input.note);
+      await audit(tx, 'project_backfill_window', `${row.projectId}/${row.id}`, 'enable', '', `${input.fromDate}..${input.toDate}`, by, input.note);
       return toWindow(row);
     });
   },
@@ -76,7 +76,7 @@ export const backfillRepoPrisma = {
       if (!row) return 'not_found' as const;
       const res = await tx.projectBackfillWindow.updateMany({ where: { id, disabledAt: null }, data: { disabledAt: new Date(), disabledBy: by } });
       if (res.count === 0) return 'already' as const;
-      await audit(tx, 'project_backfill_window', String(id), 'disable', `${day(row.fromDate)}..${day(row.toDate)}`, '', by);
+      await audit(tx, 'project_backfill_window', `${row.projectId}/${id}`, 'disable', `${day(row.fromDate)}..${day(row.toDate)}`, '', by);
       return 'ok' as const;
     });
   },

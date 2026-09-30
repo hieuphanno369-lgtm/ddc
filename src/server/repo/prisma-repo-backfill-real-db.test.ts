@@ -16,7 +16,7 @@ describe.skipIf(!hasDb)('backfillRepoPrisma tren Postgres that (DB _c)', () => {
   let projectId = 0;
 
   async function clean() {
-    const ids = (await prisma.projectBackfillWindow.findMany({ where: { projectId }, select: { id: true } })).map((r) => String(r.id));
+    const ids = (await prisma.projectBackfillWindow.findMany({ where: { projectId }, select: { id: true } })).map((r) => `${projectId}/${r.id}`);
     if (ids.length) await prisma.auditLog.deleteMany({ where: { tableName: 'project_backfill_window', recordId: { in: ids } } });
     await prisma.projectBackfillWindow.deleteMany({ where: { projectId } });
   }
@@ -47,10 +47,10 @@ describe.skipIf(!hasDb)('backfillRepoPrisma tren Postgres that (DB _c)', () => {
       repo: backfillRepoPrisma,
       projectId,
       async auditCount(windowId) {
-        return prisma.auditLog.count({ where: { tableName: 'project_backfill_window', recordId: String(windowId) } });
+        return prisma.auditLog.count({ where: { tableName: 'project_backfill_window', recordId: `${projectId}/${windowId}` } });
       },
       async reset() {
-        // Audit của các khoảng đã xoá cũng dọn (recordId là id khoảng).
+        // Audit của các khoảng đã xoá cũng dọn (recordId là <projectId>/<id khoảng>).
         await clean();
       },
     };
@@ -83,5 +83,22 @@ describe.skipIf(!hasDb)('backfillRepoPrisma tren Postgres that (DB _c)', () => {
     const results = await Promise.all([mk('a@x.vn'), mk('b@x.vn'), mk('c@x.vn')]);
     expect(results.filter((r) => typeof r === 'object')).toHaveLength(1);
     expect(results.filter((r) => r === 'overlap')).toHaveLength(2);
+  });
+
+  it('S-3: bat/tat khoang hien trong readProjectAuditTrail cua du an (recordId <projectId>/<id>)', async () => {
+    const { backfillRepoPrisma } = await import('./prisma-repo-backfill');
+    const { formPrismaRepo } = await import('./prisma-repo-form');
+    await clean();
+    const w = await backfillRepoPrisma.createBackfillWindow(
+      { projectId, fromDate: '2026-01-01', toDate: '2026-03-31', note: 'nhat ky test-p4', expiresAt: null },
+      'a@x.vn',
+    );
+    if (typeof w === 'string') throw new Error(`khong tao duoc khoang: ${w}`);
+    await backfillRepoPrisma.disableBackfillWindow(w.id, 'a@x.vn');
+    const mine = (await formPrismaRepo.readProjectAuditTrail(projectId, 100)).filter((x) => x.tableName === 'project_backfill_window');
+    expect(mine.map((x) => x.field).sort()).toEqual(['disable', 'enable']);
+    expect(mine.every((x) => x.recordId === `${projectId}/${w.id}`)).toBe(true);
+    const other = await prisma.project.findFirstOrThrow({ where: { id: { not: projectId } } });
+    expect((await formPrismaRepo.readProjectAuditTrail(other.id, 100)).filter((x) => x.tableName === 'project_backfill_window' && x.recordId.endsWith(`/${w.id}`))).toEqual([]);
   });
 });

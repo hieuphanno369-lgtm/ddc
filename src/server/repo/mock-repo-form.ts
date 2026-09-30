@@ -200,7 +200,7 @@ export function makeFormMockRepo({ getData, persist }: EntryMockDeps) {
     readProjectAuditTrail(projectId: number, limit: number): AuditLogEntry[] {
       const d = getData();
       const exact = new Set(['dim_project', 'dim_project_alias', 'project_key_milestone', 'project_sap_codes', 'project_stage_weight', 'project_equipment_plan', 'project_shift_ratio']);
-      const prefixed = new Set(['project_contractor', 'project_assignments', 'project_manpower_plan_month']);
+      const prefixed = new Set(['project_contractor', 'project_assignments', 'project_manpower_plan_month', 'project_backfill_window']);
       const prefix = `${projectId}/`;
       return d.auditLog
         .filter((a) => (exact.has(a.tableName) && a.recordId === String(projectId)) || (prefixed.has(a.tableName) && a.recordId.startsWith(prefix)))

@@ -843,7 +843,8 @@
         "project_assignments": "Người phụ trách",
         "project_equipment_plan": "Kế hoạch thiết bị",
         "project_manpower_plan_month": "KH nhân lực tháng",
-        "project_shift_ratio": "Tỷ lệ ca"
+        "project_shift_ratio": "Tỷ lệ ca",
+        "project_backfill_window": "Nhập bù lịch sử"
       }
     },
     "nav": "Tạo / Sửa dự án",

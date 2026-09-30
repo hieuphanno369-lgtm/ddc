@@ -34,7 +34,7 @@ test.describe.configure({ mode: 'serial' });
 
 test.describe('35 - Nhap bu lich su', () => {
   test.beforeAll(async () => {
-    const ids = (await prisma.projectBackfillWindow.findMany({ where: { projectId: PROJECT_ID }, select: { id: true } })).map((r) => String(r.id));
+    const ids = (await prisma.projectBackfillWindow.findMany({ where: { projectId: PROJECT_ID }, select: { id: true } })).map((r) => `${PROJECT_ID}/${r.id}`);
     if (ids.length) await prisma.auditLog.deleteMany({ where: { tableName: 'project_backfill_window', recordId: { in: ids } } });
     await prisma.projectBackfillWindow.deleteMany({ where: { projectId: PROJECT_ID } });
     await prisma.auditLog.deleteMany({ where: { field: 'backfill', recordId: `${PROJECT_ID}/${OLD_DAY}` } });

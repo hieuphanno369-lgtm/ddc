@@ -42,7 +42,7 @@ describe.skipIf(!hasDb)('nhap bu lich su tren Postgres that (DB _c) qua server a
   const emails = [ADMIN.email, PIC.email];
 
   async function wipeWindows() {
-    const ids = (await prisma.projectBackfillWindow.findMany({ where: { projectId: { in: [A, B] } }, select: { id: true } })).map((r) => String(r.id));
+    const ids = (await prisma.projectBackfillWindow.findMany({ where: { projectId: { in: [A, B] } }, select: { id: true, projectId: true } })).map((r) => `${r.projectId}/${r.id}`);
     if (ids.length) await prisma.auditLog.deleteMany({ where: { tableName: 'project_backfill_window', recordId: { in: ids } } });
     await prisma.projectBackfillWindow.deleteMany({ where: { projectId: { in: [A, B] } } });
   }
@@ -114,7 +114,7 @@ describe.skipIf(!hasDb)('nhap bu lich su tren Postgres that (DB _c) qua server a
     const days = (w!.expiresAt!.getTime() - w!.enabledAt.getTime()) / 86_400_000;
     expect(days).toBeGreaterThan(29.99);
     expect(days).toBeLessThan(30.01);
-    expect(await prisma.auditLog.count({ where: { tableName: 'project_backfill_window', recordId: String(w!.id), field: 'enable' } })).toBe(1);
+    expect(await prisma.auditLog.count({ where: { tableName: 'project_backfill_window', recordId: `${A}/${w!.id}`, field: 'enable' } })).toBe(1);
     expect(await prisma.activityLog.count({ where: { action: 'backfill_enable', userEmail: ADMIN.email } })).toBe(1);
   });
 
@@ -206,7 +206,7 @@ describe.skipIf(!hasDb)('nhap bu lich su tren Postgres that (DB _c) qua server a
     const after = await prisma.projectBackfillWindow.findUniqueOrThrow({ where: { id: w.id } });
     expect(after.disabledAt).not.toBeNull();
     expect(after.disabledBy).toBe(ADMIN.email);
-    expect(await prisma.auditLog.count({ where: { tableName: 'project_backfill_window', recordId: String(w.id), field: 'disable' } })).toBe(1);
+    expect(await prisma.auditLog.count({ where: { tableName: 'project_backfill_window', recordId: `${A}/${w.id}`, field: 'disable' } })).toBe(1);
     login(PIC);
     expect(await saveDailyResourcesAction(A, '2025-03-11', cell())).toEqual({ ok: false, error: 'out_of_window' });
     await enable(A, '2025-03-01', '2025-03-31');
@@ -278,7 +278,7 @@ describe.skipIf(!hasDb)('nhap bu lich su tren Postgres that (DB _c) qua server a
     const results = await Promise.all(Array.from({ length: 5 }, () => disableBackfillAction(w.id)));
     expect(results.filter((r) => r.ok)).toHaveLength(1);
     expect(results.filter((r) => !r.ok && r.error === 'already')).toHaveLength(4);
-    expect(await prisma.auditLog.count({ where: { tableName: 'project_backfill_window', recordId: String(w.id), field: 'disable' } })).toBe(1);
+    expect(await prisma.auditLog.count({ where: { tableName: 'project_backfill_window', recordId: `${A}/${w.id}`, field: 'disable' } })).toBe(1);
   });
 
   it('2 khoang dong thoi cho 2 du an KHAC nhau khong chan nhau', async () => {
