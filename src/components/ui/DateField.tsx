@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { formatDmy, maskDmy, parseDmy } from '@/lib/date-input';
 import type { IsoDate } from '@/lib/clock';
@@ -42,7 +42,6 @@ export function DateField({
   const errId = useId();
   const [text, setText] = useState(formatDmy(value));
   const [error, setError] = useState<string | null>(null);
-  const skipBlur = useRef(false);
   // `data-ready` = đã hydrate xong (e2e chờ thuộc tính này trước khi gõ, tránh gõ vào ô chưa có trình xử lý).
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
@@ -98,15 +97,12 @@ export function DateField({
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
-              skipBlur.current = true;
               commit(text);
             }
           }}
+          // Không cần cờ "bỏ qua blur sau Enter": Enter không làm mất tiêu điểm, còn lần blur thật sau đó phải luôn được áp dụng.
+          // `commit` idempotent (giá trị đã áp dụng thì `text === formatDmy(value)`, sai thì báo lại đúng lỗi đó).
           onBlur={() => {
-            if (skipBlur.current) {
-              skipBlur.current = false;
-              return;
-            }
             if (text !== formatDmy(value)) commit(text);
           }}
         />
