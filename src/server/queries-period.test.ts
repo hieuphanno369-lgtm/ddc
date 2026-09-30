@@ -151,6 +151,24 @@ describe('P4 công suất theo kỳ', () => {
   });
 });
 
+describe('P4 N-3: công suất kỳ chỉ nhân số tháng tới mốc, không tính tháng sau hôm nay', () => {
+  it('kỳ 06..12 khi hôm nay 2026-09-16: 4 tháng (06..09), công suất = 1200/12 x 4 = 400 (không phải x 7)', async () => {
+    const rows = await getCapacityData(per('2026-06-01', '2026-12-31'));
+    expect(rows[0].capacity).toBe(400);
+    expect(rows[0].processed).toBe(160);
+  });
+
+  it('kỳ hoàn toàn ở tương lai: không ném lỗi, công suất 0 và không cảnh báo', async () => {
+    const rows = await getCapacityData(per('2027-01-01', '2027-03-31'));
+    expect(rows[0].capacity).toBe(0);
+    expect(rows[0].warn).toBe(false);
+  });
+
+  it('kỳ đã kết thúc trước hôm nay giữ nguyên: 06..08 = 3 tháng', async () => {
+    expect((await getCapacityData(per('2026-06-01', '2026-08-31')))[0].capacity).toBe(300);
+  });
+});
+
 describe('P4 C1: đếm "n / total dự án" cho thanh lọc', () => {
   it('total = dự án thuộc kỳ không lọc chiều nào, count = sau lọc', async () => {
     const period = per('2026-06-01', '2026-07-31');

@@ -356,9 +356,11 @@ export async function getTonnageValueByGroup(period: Period, groupBy: GroupBy, f
 }
 
 // ---- Bar: Sản lượng vs công suất ----
-/** Sản lượng = cộng các tháng của kỳ; công suất = công suất tháng x số tháng của kỳ. */
+/** Sản lượng = cộng các tháng của kỳ; công suất = công suất tháng x số tháng của kỳ TỚI THÁNG MỐC (tháng sau hôm nay chưa có sản lượng, N-3). */
 export async function getCapacityData(period: Period, filters: DashboardFilters = {}) {
+  const { asOfMonth } = asOfOf(period);
   const months = periodMonths(period);
+  const monthsToDate = months.filter((m) => m <= asOfMonth).length;
   const [dims, summaries, volumes] = await Promise.all([
     repo.getDims(),
     getProjectSummaries(period, filters),
@@ -369,7 +371,7 @@ export async function getCapacityData(period: Period, filters: DashboardFilters 
     const processed = volumes
       .filter((v) => v.factoryId === factory.id && ids.has(v.projectId))
       .reduce((a, b) => a + b.tonnage, 0);
-    const capacityPeriod = (factory.capacityTonPerYear / 12) * months.length;
+    const capacityPeriod = (factory.capacityTonPerYear / 12) * monthsToDate;
     return {
       name: factory.name,
       region: factory.region,
