@@ -78,6 +78,20 @@ describe('P4 L-3: dự án thiếu số tháng thì mang số tháng trước, k
   });
 });
 
+describe('P4 N-4: delta KPI xét theo bộ lọc, không theo cả danh mục', () => {
+  it('N-4: lọc nhóm chưa có số nào (C, P3) thì delta = null dù danh mục có số ở kỳ trước', async () => {
+    const period = per('2026-08-01', '2026-08-31');
+    expect((await getPortfolioKpis(period)).delta.projectsInPeriod).toBe(0);
+    const kpis = await getPortfolioKpis(period, { priority: 'P3' });
+    expect(Object.values(kpis.delta).every((d) => d === null)).toBe(true);
+  });
+
+  it('N-4: lọc nhóm có số ở cả 2 kỳ (A, P1) vẫn có delta', async () => {
+    const kpis = await getPortfolioKpis(per('2026-08-01', '2026-08-31'), { priority: 'P1' });
+    expect(kpis.delta.projectsInPeriod).toBe(0);
+  });
+});
+
 describe('P4 L-4: không còn "Tất cả" (trộn tháng mới nhất của từng dự án), số phát sinh cộng theo kỳ', () => {
   it('L-4: doanh thu nhóm kỳ 2026-06-15..07-10 = A 12 (5+7) + B 3 = 15', async () => {
     const groups = await getTonnageValueByGroup(per('2026-06-15', '2026-07-10'), 'team');

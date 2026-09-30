@@ -174,7 +174,6 @@ interface PeriodEntry { project: Project; summary: ProjectSummary }
 /**
  * Nền chung của mọi hàm theo kỳ: MỌI dự án đang hoạt động, tính số tồn tại mốc (dòng isLatest có
  * yearMonth lớn nhất <= tháng mốc, mang số tháng trước sang). Việc lọc "thuộc kỳ" và filter làm ở trên.
- * `factRows` = số dự án có ít nhất 1 dòng fact <= mốc (0 → chưa có gì để so sánh, delta = null).
  */
 async function getPeriodBaseUncached(period: Period) {
   const { asOfDate, asOfMonth } = asOfOf(period);
@@ -189,7 +188,7 @@ async function getPeriodBaseUncached(period: Period) {
     const asOf: AsOf<FactSnapshot> | null = row ? { row, sourceYm: row.yearMonth, carried: row.yearMonth !== asOfMonth } : null;
     return { project, summary: summarize(project, asOf, dims, asOfDate) };
   });
-  return { entries, dims, asOfDate, asOfMonth, factRows: facts.length };
+  return { entries, dims, asOfDate, asOfMonth };
 }
 const getPeriodBase = requestMemo(getPeriodBaseUncached);
 
@@ -289,7 +288,9 @@ async function kpisForPeriod(period: Period, filters: DashboardFilters) {
     revenueInPeriod: round1(revenue.filter((r) => ids.has(r.projectId)).reduce((a, r) => a + r.revenue, 0)),
     tonnageInPeriod: Math.round(volume.filter((v) => ids.has(v.projectId)).reduce((a, v) => a + v.tonnage, 0)),
   };
-  return { values, asOfDate, months, factRows: base.factRows };
+  // N-4: đếm số dự án có số TRONG TẬP ĐÃ LỌC (không phải cả danh mục), để lọc một nhóm chưa có số ở kỳ trước thì delta = null.
+  const factRows = scoped.filter((s) => s.dataState.kind !== 'none').length;
+  return { values, asOfDate, months, factRows };
 }
 
 const DELTA_KEYS = [
