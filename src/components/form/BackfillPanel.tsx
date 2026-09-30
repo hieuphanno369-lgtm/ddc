@@ -86,9 +86,10 @@ export function BackfillPanel({
 
   return (
     <div className="fsec" data-testid="backfill-panel">
-      <div className="h">
+      {/* Tiêu đề một dòng, câu mô tả xuống dòng riêng (mặc định `.fsec>.h` xếp cạnh nhau nên tiêu đề bị ép hẹp, rớt chữ). */}
+      <div className="h" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
         <h4>{t('backfill.title')}</h4>
-        <p>{t('backfill.hint')}</p>
+        <p style={{ marginLeft: 0 }}>{t('backfill.hint')}</p>
       </div>
 
       {active.length === 0 ? (

@@ -152,6 +152,14 @@ test.describe('37 - soi pixel nhom F/G (anh o .bangiao/anh-p4-f)', () => {
             .map((c) => `${c.tagName}.${c.className}`.slice(0, 60));
         });
         expect(overflow, 'phan tu tran khoi the nhap bu').toEqual([]);
+        // P-1: tieu de the 1 dong (khong bi ep hep rot chu), cau mo ta nam duoi tieu de
+        const head = await panel.evaluate((el) => {
+          const h4 = el.querySelector('.h h4')!.getBoundingClientRect();
+          const p = el.querySelector('.h p')!.getBoundingClientRect();
+          return { h4Height: h4.height, h4Bottom: h4.bottom, pTop: p.top, lineHeight: parseFloat(getComputedStyle(el.querySelector('.h h4')!).lineHeight) || 20 };
+        });
+        expect(head.h4Height, 'tieu de the nhap bu rot dong').toBeLessThan(head.lineHeight * 1.5);
+        expect(head.pTop, 'cau mo ta phai nam duoi tieu de').toBeGreaterThanOrEqual(head.h4Bottom - 1);
         await checkPage(page, errors);
         await context.close();
       });
