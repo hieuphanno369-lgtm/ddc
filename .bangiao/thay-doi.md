@@ -300,3 +300,95 @@ File nóng đã giữ: `app/globals.css`, `vi.json`, `en.json`, `queries.ts`. Kh
 - Nguyên nhân hai ca đỏ và cả ca `10-ten-app` của tester (mục 11): tiến trình dev server cổng 3003 (PID 37212) có `StartTime` 23:28, tức bị dừng rồi khởi động lại trong lúc suite đang chạy (suite bắt đầu khoảng 23:19); tiến trình mới đang ở 2,3 GB bộ nhớ. Đây là lỗi môi trường (dev server tự chết/bị khởi động lại), không phải code P4. `global-setup` chờ sẵn sàng chỉ chữa được lúc bắt đầu suite. Đề xuất cho điều phối: chạy e2e trên `next start` (bản build) hoặc nâng `NODE_OPTIONS=--max-old-space-size` cho dev server cổng 3003 nếu còn tái diễn.
 - Ảnh soi sau sửa: `.bangiao/anh-p4-sua/sau-{tq,ct,bc}-{1440,390}-{light,dark}.png` (12 ảnh) và `r1.png`, `r2.png` (Báo cáo). Đã soi: "?" không rớt dòng, hai thẻ Doanh thu/Sản lượng cùng cao, đủ 5 nhãn trục X ở 390px, thanh kỳ Chi tiết thẳng cột, timeline 390px không đè chữ, Báo cáo khớp Tổng quan (17, 15, 11).
 - Không cập nhật `D:\_project\DDC_dieu-phoi\phien-C.md` (ngoài worktree), điều phối ghi.
+
+---
+
+# P4 - Thay đổi đợt 3 (Nhóm F: nhập bù lịch sử)
+
+Coder đợt 3 bị ngắt giữa chừng; phiên này đọc lại toàn bộ code chưa commit, đối chiếu F2 đến F5, sửa chỗ thiếu rồi commit theo nhóm.
+Các quyết định đã chốt: Q9 = b (luật tháng ở server), Q10 = a (không vượt khoá sổ), Q11 = a (chỉ admin), Q12 = b (tối đa 24 tháng, tự hết hạn 30 ngày), Q13 = a (không duyệt, chỉ nhật ký), D-24 (thẻ ở Hồ sơ dự án), D-25 (badge vàng ở Nhập liệu).
+
+## 1. Commit đợt 3
+
+- `914fdfb` (phiên trước): F1, bảng `project_backfill_window` (migration chỉ thêm bảng mới).
+- `bfa61ec` F2: repo nhập bù (Prisma + mock), bộ ca dùng chung, khoá dòng dự án khi kiểm trùng khoảng.
+- `c626c7b` F3 và F4: luật cửa sổ ngày, luật tháng ở server, bật/tắt chỉ admin, nhãn nhập bù ở `audit_log` và `activity_log`.
+- `c354a16` F5: giao diện nhập bù, DateField mọi form, i18n, tài liệu, e2e `35-nhap-bu`.
+
+## 2. File đã sửa và để làm gì
+
+### F1 và F2 (repo)
+
+- `prisma/schema.prisma`, `prisma/migrations/*_p4_backfill_window/`: bảng `project_backfill_window` (đã commit `914fdfb`, đã `migrate deploy` trên DB `_c`, `prisma generate` xong).
+- `src/server/repo/prisma-repo-backfill.ts`: `readActiveBackfillWindows`, `listBackfillWindows`, `createBackfillWindow`, `disableBackfillWindow`. Tạo khoảng chạy trong 1 transaction: khoá dòng `dim_project` (`SELECT ... FOR UPDATE`), kiểm trùng khoảng đang hiệu lực, ghi khoảng, ghi `audit_log`. Tắt dùng `updateMany where disabledAt null` nên không race.
+- `src/server/repo/mock-repo-backfill.ts`, `backfill-contract.ts`, `backfill-mock.test.ts`, `prisma-repo-backfill-real-db.test.ts`: bản mock và bộ ca dùng chung chạy trên cả mock và Postgres thật; thêm ca 3 lần tạo đồng thời cùng khoảng.
+- `src/server/repo/index.ts`, `mock-repo.ts`, `types.ts`: gộp repo mới vào `repo`, kiểu `BackfillWindow`.
+- `src/lib/schema-meta/docs.ts`, `docs/DATA_WAREHOUSE_README.md`: mô tả bảng và ERD (chạy lại `npm run docs:erd` cho ra đúng nội dung đã có, không lệch).
+
+### F3 và F4 (luật và server action)
+
+- `src/lib/backfill.ts` (+ test): hằng số Q12 (24 tháng, 30 ngày, ghi chú 5-500), `checkBackfillRange`, `backfillExpiresAt`, `backfillState`.
+- `src/lib/daily-entry.ts` (+ test): `dailyDateWindow(role, today, backfill)` trả thêm `extra`, `isInWindow` nhận ngày trong khoảng, `isBackfillOnly` để gắn nhãn. Vẫn chặn ngày lớn hơn `max`; admin không đổi.
+- `src/lib/daily-import.ts`: kiểu cửa sổ dùng `DailyWindow` (Excel ngày ngoài khoảng vẫn là `out_of_window` từng dòng).
+- `src/lib/monthly-entry.ts` (+ test): `isMonthAllowed` (admin luôn được; data-entry chỉ tháng hiện tại, tháng trước, hoặc tháng giao 1 khoảng nhập bù), `isBackfillMonth`, `backfillMonths`.
+- `src/server/actions-backfill.ts` (+ test): `enableBackfillAction`, `disableBackfillAction`, chỉ `requireRoleUser(['admin'])`, `projectId` số nguyên dương, ghi chú 5-500, `to <= hôm nay`, tối đa 24 tháng, `expiresAt` = bật + 30 ngày, ghi `activity_log`.
+- `src/server/actions-entry.ts`: `checkDailyPayload` và `previewDailyImportAction` lấy khoảng đang bật (chỉ data-entry). Lần lưu chỉ hợp lệ nhờ nhập bù ghi `audit_log` (field `backfill`) và `activity_log` với action `save_daily_resources_backfill` hoặc `commit_daily_import_backfill`. Vẫn qua `requireWriteProject` trước, tháng khoá sổ vẫn `locked`.
+- `src/server/actions.ts` (file nóng, đã giữ): `saveMonthlyData` chặn `out_of_window` theo `isMonthAllowed`; `commitImportAction` lọc từng dự án theo luật tháng (lỗi `out_of_window` từng dòng); nhãn `save_data_backfill`, `commit_import_backfill` và dòng `audit_log`.
+
+### F5 (giao diện, tài liệu, e2e)
+
+- `src/components/form/BackfillPanel.tsx`: thẻ "Nhập bù lịch sử" (D-24): danh sách khoảng đang bật + nút Tắt, form Từ ngày/Đến ngày/Ghi chú, lịch sử khoảng đã tắt hoặc hết hạn.
+- `app/[locale]/(app)/ho-so-du-an/page.tsx`: render thẻ chỉ khi `user.role === 'admin'` và ở chế độ sửa.
+- `app/[locale]/(app)/nhap-lieu/page.tsx`: danh sách tháng = `historyMonths()` cộng tháng giao khoảng nhập bù; cửa sổ ngày nhận khoảng; truyền `backfillRanges`.
+- `src/components/form/DataEntryForm.tsx`: badge vàng "Đang nhập bù dd/mm/yyyy - dd/mm/yyyy" (D-25) và thông báo `out_of_window` cho tháng.
+- `src/components/form/ResourceEntryPanel.tsx`: ô ngày dùng `DateField`, cho chọn tới ngày sớm nhất được phép (kể cả nhờ nhập bù).
+- `src/components/form/ImportPanel.tsx`: kiểu lý do lỗi có thêm `out_of_window` (chữ hiển thị lấy từ `dataGuard.import.reason.out_of_window`).
+- `src/components/ui/DateField.tsx`, `ProjectForm.tsx`, `KeyMilestoneEditor.tsx`, `EquipmentPlanEditor.tsx`: `DateField` áp cho mọi form nhập ngày (chốt sau tester): thêm `variant="form"`, `allowEmpty`, `invalid`.
+- `src/i18n/messages/vi.json`, `en.json`: nhóm `backfill` (đủ 27 key, khớp vi/en), nhãn hoạt động (`activity`), `dataGuard.import.reason.out_of_window`.
+- `src/server/ho-so-du-an-page-guard.test.ts`: mock `BackfillPanel` (client component cần provider i18n), thêm ca thẻ chỉ render cho admin ở chế độ sửa.
+- `docs/huong-dan/nhap-bu-lich-su.md`: hướng dẫn admin bật/tắt, PIC chọn ngày/tháng, Excel, nhật ký.
+- `e2e/35-nhap-bu.spec.ts`: luồng đầy đủ (admin bật, PIC lưu ngày cũ, audit_log + activity_log, PIC và viewer không thấy thẻ, admin tắt, ngày bị khoá lại).
+
+## 3. Rà soát đối chiếu F2 đến F5 (phiên này) và điểm lệch
+
+Đã đối chiếu từng mục, code phiên trước đã đủ: luật cửa sổ ngày (`extra`, vẫn chặn quá `max`), luật tháng (Q9 = b), audit_log + activity_log nhãn nhập bù (ngày, tháng, Excel), hết hạn 30 ngày, tối đa 24 tháng, kiểm trùng khoảng trong transaction, chỉ admin bật/tắt, data-entry không được gán vẫn `Forbidden` (test IDOR ở cả ngày và tháng), tháng khoá sổ vẫn `locked`, i18n vi/en cùng bộ key, badge D-25.
+Phần thiếu hoặc sửa thêm:
+
+- Kiểm trùng khoảng trong transaction READ COMMITTED không chặn được 2 admin bật cùng lúc: thêm khoá `FOR UPDATE` dòng `dim_project` đầu transaction. Ca 3 lần tạo đồng thời ở real-db xanh, nhưng KHÔNG đỏ khi tôi bỏ khoá thử (cửa sổ race quá hẹp trên máy này), nên ca này chỉ là kiểm khói, không chứng minh được khoá. Khoá đúng theo lý thuyết Postgres.
+- `ImportPanel.tsx`: kiểu lý do lỗi thiếu `out_of_window` (chỉ là kiểu, chữ hiển thị đã có).
+- `ho-so-du-an-page-guard.test.ts` đỏ (client component `BackfillPanel` cần provider i18n khi render tĩnh): mock component, thêm ca chỉ admin thấy thẻ.
+- Tài liệu `docs/huong-dan/nhap-bu-lich-su.md` (chưa có), e2e `35-nhap-bu.spec.ts` (chưa có).
+- Không cần sửa tay ERD: `npm run docs:erd` cho ra đúng nội dung đã có trong `docs/DATA_WAREHOUSE_README.md`.
+
+Điểm lệch có chủ ý:
+
+- Độ dài khoảng tính theo tháng LỊCH mà khoảng chạm tới (tối đa 24), không theo số ngày. Ví dụ 15/01/2024 đến 10/01/2026 chạm 25 tháng nên bị `too_long`, dù chưa đủ 24 tháng tròn. Chặt hơn một chút so với "24 tháng" nói chung; đổi sang theo ngày thì sửa `checkBackfillRange`.
+- `expiresAt` = lúc bật + 30 ngày (mili giây), hết hạn là điều kiện đọc, không có job dọn.
+- e2e: kế hoạch ghi tên `34-nhap-bu`, đã đổi thành `35-nhap-bu` (34 đã có `34-p4-bien`). Spec mở khoá tạm tháng của ngày cũ bằng Prisma (seed khoá sổ mọi tháng có số, mà nhập bù không vượt khoá sổ theo Q10) và trả nguyên `snapshotLockedAt` ở `afterAll`. Spec dọn khoảng nhập bù của dự án 1 ở `beforeAll`: DB `_c` được seed lại mỗi lần chạy nên không mất gì.
+- `previewImportAction` (Excel tháng, bước xem trước) không tự báo `out_of_window` cho dự án ngoài khoảng: luật tháng chỉ áp ở `commitImportAction` (theo kế hoạch F4, "sau lọc owned"). Dòng bị chặn hiện ở phần `failed` sau khi lưu. Nếu chủ dự án muốn báo ngay ở bước xem trước thì nói.
+- Các thư mục ảnh `.bangiao/anh-p3f`, `anh-p4`, `anh-p4-test` vẫn chưa commit (không thuộc nhóm F, không đụng).
+
+## 4. Chỗ Tester nên soi kỹ
+
+- Bảo mật: gọi trực tiếp `enableBackfillAction`/`disableBackfillAction` bằng tài khoản bod, viewer, data-entry (phải `Forbidden`); `projectId` âm, 0, số thực; khoảng chồng nhau; khoảng sang tương lai; chuỗi ngày rác.
+- IDOR: PIC của dự án A khi admin bật nhập bù cho dự án B (PIC không được gán B) phải vẫn `Forbidden` ở lưu ngày, lưu tháng, commit Excel ngày, commit Excel tháng.
+- Biên ngày: ngày đúng `from`, đúng `to`, hôm sau `to`, ngày trước `from`, ngày giữa 2 khoảng rời nhau, ngày quá `max` (hôm nay + 30) dù nằm trong khoảng.
+- Biên tháng: tháng chỉ chạm 1 ngày của khoảng (ví dụ khoảng 31/03 đến 02/04 mở cả 03 và 04); "tháng trước" vào tháng 1 (12 năm trước); tháng tương lai với PIC bị chặn.
+- Hết hạn: đổi `expiresAt` về quá khứ trong DB `_c`, PIC lưu ngày cũ phải `out_of_window`, danh sách trong Hồ sơ chuyển sang "Đã hết hạn".
+- Khoá sổ: khoảng chạm tháng đã khoá, PIC lưu phải `locked`; admin mở khoá tháng thì lưu được.
+- Nhật ký: Nhật ký thay đổi có dòng `enable`/`disable` (bảng `project_backfill_window`) và dòng `backfill` (bảng `fact_progress_monthly`, `fact_daily_resources`); Nhật ký hoạt động có nhãn tiếng Việt "(nhập bù)" và không để lộ key thô.
+- Excel ngày có 1 dòng ngoài khoảng: xem trước báo `out_of_window` đúng dòng, dòng khác vẫn xem trước; commit bị chặn nếu có ngày ngoài khoảng.
+- Excel tháng của PIC gồm 2 dự án, chỉ 1 dự án có khoảng nhập bù: dự án còn lại nằm ở `failed` với lý do "Tháng đã quá hạn nhập, cần admin bật nhập bù".
+- Giao diện: thẻ "Nhập bù lịch sử" 1440px và 390px, sáng/tối, ô ngày dd/mm/yyyy (gõ tay, xoá trống, lịch gốc trên điện thoại), badge vàng ở Nhập liệu không rớt dòng; `DateField` mới ở Tạo/Sửa dự án (6 ngày + ngày ký HĐ), Mốc chính, Kế hoạch thiết bị: xoá trống một ngày rồi Lưu phải lưu là "chưa có ngày", không báo lỗi thừa.
+- Đồng thời: 2 admin bật cùng khoảng cho cùng dự án trong cùng lúc chỉ được 1.
+
+## 5. Kết quả kiểm đợt 3
+
+- `npx tsc --noEmit`: sạch.
+- `npm test` (không đặt `DATABASE_URL`): 304 file, 299 xanh, 5 bỏ qua; 3491 test xanh, 54 bỏ qua, 0 đỏ.
+- `npx vitest run` với `DATABASE_URL` của DB `ddc_control_tower_c` (chạy cả các file real-db): 304 file xanh; 3544 test xanh, 1 bỏ qua, 0 đỏ. Riêng `prisma-repo-backfill-real-db.test.ts`: 7 test xanh (6 ca chung + 1 ca đồng thời).
+- `npx prisma migrate status` trên `_c`: 14 migration, "Database schema is up to date"; `prisma generate` xong.
+- e2e toàn bộ (cổng 3003, DB `_c`): 281 xanh, 0 đỏ, 12,5 phút (gồm `35-nhap-bu` 4 ca lúc đó). Sau đó thêm ca thứ 5 (ô ngày cho phép xoá trống) và chạy riêng `35-nhap-bu`: 5 ca xanh (cộng 3 ca setup, 8/8).
+- Không có script `lint` trong `package.json`; không chạy build (`NEXT_FONT_GOOGLE_MOCKED_RESPONSES`) ở đợt này, để nhóm G.
+- Chưa kiểm bằng mắt pixel 1440/390 sáng/tối cho thẻ nhập bù và badge (thuộc Task G2, chưa chụp ảnh ở đợt này).
+- Không cập nhật `PROGRESS.md`, `.serena/memories/`, `CHANGELOG`.
