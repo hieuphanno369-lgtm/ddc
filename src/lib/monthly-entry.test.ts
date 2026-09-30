@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { backfillMonths, isBackfillMonth, isMonthAllowed } from './monthly-entry';
+import { backfillMonths, entryMonths, isBackfillMonth, isMonthAllowed } from './monthly-entry';
 
 const TODAY = '2026-09-16';
 const WIN = [{ from: '2026-01-15', to: '2026-03-10' }];
@@ -55,5 +55,30 @@ describe('isBackfillMonth / backfillMonths', () => {
       '2026-04',
     ]);
     expect(backfillMonths([])).toEqual([]);
+  });
+});
+
+describe('entryMonths (N-2): danh sach thang o Nhap lieu khop isMonthAllowed', () => {
+  const HISTORY = ['2025-10', '2025-11', '2025-12', '2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09'];
+
+  it('admin: giu nguyen 12 thang lich su, cong thang nhap bu (neu co), khong trung', () => {
+    expect(entryMonths('admin', HISTORY, TODAY, [])).toEqual(HISTORY);
+    expect(entryMonths('admin', HISTORY, TODAY, [{ from: '2025-05-01', to: '2025-06-30' }])).toEqual(['2025-05', '2025-06', ...HISTORY]);
+  });
+
+  it('data-entry khong co khoang nhap bu: chi thang hien tai va thang truoc', () => {
+    expect(entryMonths('data-entry', HISTORY, TODAY, [])).toEqual(['2026-08', '2026-09']);
+  });
+
+  it('data-entry co khoang nhap bu: them dung cac thang giao khoang, sap xep cu -> moi', () => {
+    expect(entryMonths('data-entry', HISTORY, TODAY, WIN)).toEqual(['2026-01', '2026-02', '2026-03', '2026-08', '2026-09']);
+  });
+
+  it('moi thang trong danh sach deu qua isMonthAllowed, va khong sot thang nao duoc phep', () => {
+    for (const role of ['admin', 'data-entry'] as const) {
+      const list = entryMonths(role, HISTORY, TODAY, WIN);
+      for (const m of list) expect(isMonthAllowed(role, m, TODAY, WIN), `${role} ${m}`).toBe(true);
+      for (const m of HISTORY) if (isMonthAllowed(role, m, TODAY, WIN)) expect(list).toContain(m);
+    }
   });
 });

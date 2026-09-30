@@ -30,3 +30,13 @@ export function backfillMonths(backfill: BackfillRange[]): YearMonth[] {
   }
   return [...out].sort();
 }
+
+/**
+ * Danh sách tháng hiện ở trang Nhập liệu (cũ → mới): tháng lịch sử + tháng nhập bù, chỉ giữ tháng `isMonthAllowed`
+ * cho vai trò (admin: tất cả), để PIC không chọn được tháng mà lưu kiểu gì cũng báo `out_of_window` (N-2).
+ */
+export function entryMonths(role: Role, history: YearMonth[], today: IsoDate, backfill: BackfillRange[]): YearMonth[] {
+  return [...new Set([...history, ...backfillMonths(backfill)])]
+    .filter((m) => isMonthAllowed(role, m, today, backfill))
+    .sort();
+}

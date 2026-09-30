@@ -3,7 +3,7 @@ import { Link } from '@/i18n/navigation';
 import { repo } from '@/server/repo';
 import { currentMonth, historyMonths, isValidIsoDate, todayIso } from '@/lib/clock';
 import { dailyDateWindow, isInWindow } from '@/lib/daily-entry';
-import { backfillMonths } from '@/lib/monthly-entry';
+import { entryMonths } from '@/lib/monthly-entry';
 import { requireUser } from '@/lib/require-user';
 import { DataEntryForm, type DataEntryStep } from '@/components/form/DataEntryForm';
 import { ResourceEntryPanel } from '@/components/form/ResourceEntryPanel';
@@ -41,7 +41,7 @@ export default async function NhapLieuPage({
     selectedId != null
       ? (await repo.readActiveBackfillWindows(selectedId, new Date())).map((w) => ({ from: w.fromDate, to: w.toDate }))
       : [];
-  const months = [...new Set([...historyMonths(), ...backfillMonths(backfillRanges)])].sort();
+  const months = entryMonths(user.role, historyMonths(), todayIso(), backfillRanges);
   const month =
     typeof sp.month === 'string' && months.includes(sp.month)
       ? sp.month

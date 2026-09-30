@@ -9,7 +9,7 @@ import type { CurrentUser } from '@/lib/session';
 const { redirectCalls, formProps } = vi.hoisted(() => ({
   redirectCalls: [] as string[],
   formProps: [] as Array<{
-    projectId: number; financial?: unknown;
+    projectId: number; financial?: unknown; months?: string[];
     resourcesPanel?: { props: { children: Array<{ props: Record<string, unknown> } | false> } };
   }>,
 }));
@@ -130,6 +130,15 @@ describe('guard /nhap-lieu (F2a)', () => {
     expect(expected).toBeDefined();
     expect(formProps[0].financial).toBeUndefined();
     spy.mockRestore();
+  });
+
+  it('N-2: danh sách tháng khớp luật server (data-entry: tháng hiện tại + tháng trước; admin: 12 tháng)', async () => {
+    login(user('data-entry', false, 'pm@daidung.com.vn'));
+    await visit();
+    expect(formProps.at(-1)!.months).toEqual(['2026-08', '2026-09']);
+    login(user('admin', true));
+    await visit();
+    expect(formProps.at(-1)!.months).toHaveLength(12);
   });
 
   it('admin canViewFinance:true → vẫn nhận đúng financial thật từ repo (không bị ép undefined)', async () => {
