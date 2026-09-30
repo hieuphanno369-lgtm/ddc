@@ -43,6 +43,7 @@ erDiagram
     notify_channel ||--o{ notify_recipient : "channelId"
     user_roles ||--o{ password_reset_token : "email"
     dim_project ||--o{ project_assignments : "projectId"
+    dim_project ||--o{ project_backfill_window : "projectId"
     dim_contractor ||--o{ project_contractor : "contractorId"
     dim_project ||--o{ project_contractor : "projectId"
     dim_equipment ||--o{ project_equipment_plan : "equipmentId"
@@ -374,6 +375,18 @@ erDiagram
       RoleInProject roleInProject
       String assignedBy
       DateTime assignedAt
+    }
+    project_backfill_window {
+      Int id PK
+      Int projectId FK
+      Date fromDate
+      Date toDate
+      String note
+      String enabledBy
+      DateTime enabledAt
+      DateTime expiresAt
+      String disabledBy
+      DateTime disabledAt
     }
     project_contractor {
       Int projectId PK,FK

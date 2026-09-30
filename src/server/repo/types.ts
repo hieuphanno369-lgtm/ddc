@@ -799,3 +799,25 @@ export interface AuthStore {
    */
   pruneAuthData(beforeIso: string): Promise<void>;
 }
+
+/** P4: khoảng nhập bù lịch sử của 1 dự án (admin bật; tắt = điền `disabledAt`). Ngày dạng yyyy-mm-dd. */
+export interface BackfillWindow {
+  id: number;
+  projectId: number;
+  fromDate: string;
+  toDate: string;
+  note: string;
+  enabledBy: string;
+  enabledAt: string;
+  expiresAt: string | null;
+  disabledBy: string | null;
+  disabledAt: string | null;
+}
+
+export interface CreateBackfillWindowInput {
+  projectId: number;
+  fromDate: string;
+  toDate: string;
+  note: string;
+  expiresAt: Date | null;
+}

@@ -265,6 +265,22 @@ export const TABLE_DOCS: Record<string, TableDoc> = {
       actualDate: 'ngày thực tế (null = chưa đạt mốc)',
     },
   },
+  project_backfill_window: {
+    kind: 'support',
+    desc: 'Khoảng nhập bù lịch sử do admin bật cho 1 dự án - cho PIC nhập lùi ngày/tháng cũ. Không xoá dòng: tắt = điền disabledAt.',
+    fields: {
+      id: 'khoá chính',
+      projectId: 'FK tới dim_project.id',
+      fromDate: 'ngày bắt đầu khoảng được nhập bù',
+      toDate: 'ngày kết thúc khoảng được nhập bù (không sau ngày bật)',
+      note: 'lý do nhập bù (5-500 ký tự)',
+      enabledBy: 'email admin bật',
+      enabledAt: 'thời điểm bật',
+      expiresAt: 'tự hết hiệu lực lúc này (30 ngày sau khi bật)',
+      disabledBy: 'email admin tắt (null = chưa tắt)',
+      disabledAt: 'thời điểm tắt (null = chưa tắt)',
+    },
+  },
   project_stage_weight: {
     kind: 'support',
     desc: 'Trọng số từng giai đoạn theo dự án. Tổng các giai đoạn applicable = 100.',
@@ -661,6 +677,7 @@ export const ERD_LAYOUT: Record<string, ErdLayoutPos> = {
   project_equipment_plan: { col: 2, row: 5 },
   project_equipment_quota: { col: 2, row: 6 },
   project_manpower_plan_month: { col: 2, row: 7 },
+  project_backfill_window: { col: 2, row: 8 },
   // Cột 3
   fact_progress_monthly: { col: 3, row: 0 },
   fact_financial: { col: 3, row: 1 },
