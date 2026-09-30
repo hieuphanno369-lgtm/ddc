@@ -6,12 +6,25 @@ const project = { plannedStartDate: '2026-01-01', actualStartDate: '2026-01-10' 
 const facts = ['2026-02', '2026-03', '2026-05'];
 
 describe('resolveDetailTime (P4 D2, Q6)', () => {
-  it('không tham số: kỳ = cả vòng đời tới hôm nay, mốc = tháng gần nhất có số (2026-05)', () => {
+  it('không tham số (N-1): kỳ = cả vòng đời tới hôm nay, mốc = THÁNG HIỆN TẠI (2026-09), lastDataMonth vẫn là tháng có số gần nhất (2026-05)', () => {
     const t = resolveDetailTime({}, project, facts, TODAY);
     expect(t.period).toEqual({ from: '2026-01-01', to: TODAY });
-    expect(t.asOfMonth).toBe('2026-05');
+    expect(t.asOfMonth).toBe('2026-09');
     expect(t.lastDataMonth).toBe('2026-05');
-    expect(t.day).toBe('2026-05-31');
+    expect(t.day).toBe(TODAY);
+  });
+
+  it('N-1: tháng hiện tại có số thì mốc mặc định = tháng hiện tại và lastDataMonth trùng mốc (không mang số)', () => {
+    const t = resolveDetailTime({}, project, [...facts, '2026-09'], TODAY);
+    expect(t.asOfMonth).toBe('2026-09');
+    expect(t.lastDataMonth).toBe('2026-09');
+  });
+
+  it('N-1: kỳ kết thúc trước tháng hiện tại thì mốc mặc định = tháng cuối kỳ (không vượt cuối kỳ)', () => {
+    const t = resolveDetailTime({ from: '2026-01-01', to: '2026-07-20' }, project, facts, TODAY);
+    expect(t.asOfMonth).toBe('2026-07');
+    expect(t.lastDataMonth).toBe('2026-05');
+    expect(t.day).toBe('2026-07-20');
   });
 
   it('tháng có số đầu tiên sớm hơn ngày bắt đầu thì kỳ bắt đầu từ tháng đó', () => {
@@ -33,12 +46,12 @@ describe('resolveDetailTime (P4 D2, Q6)', () => {
     expect(resolveDetailTime({ month: '2020-01' }, project, facts, TODAY).asOfMonth).toBe('2026-01');
   });
 
-  it('?month=abc -> mặc định', () => {
-    expect(resolveDetailTime({ month: 'abc' }, project, facts, TODAY).asOfMonth).toBe('2026-05');
+  it('?month=abc -> mặc định (tháng hiện tại)', () => {
+    expect(resolveDetailTime({ month: 'abc' }, project, facts, TODAY).asOfMonth).toBe('2026-09');
   });
 
   it('?day rác (2026-02-30) -> mặc định; ?day hợp lệ trong kỳ được dùng', () => {
-    expect(resolveDetailTime({ day: '2026-02-30' }, project, facts, TODAY).day).toBe('2026-05-31');
+    expect(resolveDetailTime({ day: '2026-02-30' }, project, facts, TODAY).day).toBe(TODAY);
     expect(resolveDetailTime({ day: '2026-04-12' }, project, facts, TODAY).day).toBe('2026-04-12');
   });
 
@@ -47,7 +60,7 @@ describe('resolveDetailTime (P4 D2, Q6)', () => {
     expect(resolveDetailTime({ day: '2020-01-01' }, project, facts, TODAY).day).toBe('2026-01-01');
   });
 
-  it('from/to hợp lệ thu hẹp kỳ; mốc mặc định = tháng có số gần nhất không vượt cuối kỳ', () => {
+  it('from/to hợp lệ thu hẹp kỳ; mốc mặc định = tháng chứa cuối kỳ (không vượt cuối kỳ)', () => {
     const t = resolveDetailTime({ from: '2026-01-01', to: '2026-03-20' }, project, facts, TODAY);
     expect(t.period).toEqual({ from: '2026-01-01', to: '2026-03-20' });
     expect(t.asOfMonth).toBe('2026-03');

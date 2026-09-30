@@ -94,7 +94,7 @@ export default async function ProjectDetailPage({
   if (!project) notFound();
 
   const today = todayIso();
-  // Kỳ/mốc/ngày phụ thuộc số của dự án (mốc mặc định = tháng gần nhất có số) nên đọc facts trước, phần còn lại gom Promise.all.
+  // Kỳ/mốc/ngày phụ thuộc số của dự án (N-1: mốc mặc định = tháng hiện tại, mang số tháng trước sang) nên đọc facts trước, phần còn lại gom Promise.all.
   const facts = await repo.getFacts(id);
   const t2 = resolveDetailTime(
     { from: str('from'), to: str('to'), month: str('month'), day: str('day') },

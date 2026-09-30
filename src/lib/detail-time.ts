@@ -2,7 +2,8 @@
  * Tham số thời gian trang Chi tiết dự án (P4, Q6): kỳ, tháng mốc (tính số theo tháng), ngày (nhóm nguồn lực).
  * HÀM THUẦN: "hôm nay" nhận qua tham số; mọi tham số URL (`from`, `to`, `month`, `day`) được validate ở đây,
  * giá trị rác rơi về mặc định (không ném lỗi, tránh 500).
- * Mặc định: kỳ = cả vòng đời dự án (từ tháng đầu có số hoặc ngày bắt đầu, tới hôm nay), mốc = tháng gần nhất có số.
+ * Mặc định: kỳ = cả vòng đời dự án (từ tháng đầu có số hoặc ngày bắt đầu, tới hôm nay), mốc = tháng chứa cuối kỳ (N-1: tháng hiện tại,
+ * mang số tháng trước sang nếu tháng đó chưa có số) để Chi tiết cùng một số với dòng dự án ở Tổng quan; kỳ kết thúc trước hôm nay thì mốc = tháng cuối kỳ.
  */
 
 import { endOfMonth, isValidIsoDate, isValidYearMonth, type IsoDate, type YearMonth } from './clock';
@@ -43,8 +44,7 @@ export function resolveDetailTime(
   const clampMonth = (m: YearMonth) => max(min(m, capMonth), min(firstMonth, capMonth));
 
   const lastDataMonth = [...factMonthsAsc].reverse().find((m) => m <= capMonth) ?? null;
-  const asOfMonth =
-    typeof sp.month === 'string' && isValidYearMonth(sp.month) ? clampMonth(sp.month) : (lastDataMonth ?? capMonth);
+  const asOfMonth = typeof sp.month === 'string' && isValidYearMonth(sp.month) ? clampMonth(sp.month) : capMonth;
 
   const defaultDay = min(endOfMonth(asOfMonth), asOfCap);
   const lowDay = min(period.from, asOfCap);

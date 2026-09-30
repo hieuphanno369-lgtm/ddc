@@ -19,14 +19,21 @@ test.use({ storageState: 'e2e/.auth/admin.json' });
 const SHOTS = '.bangiao/anh-p4';
 
 test.describe('33 - Chi tiet: moc thang, ky, tuan', () => {
-  test('mo khong tham so: moc = thang gan nhat co so, KPI ghi "So tai"', async ({ page }) => {
+  test('mo khong tham so (N-1): moc = THANG HIEN TAI (mang so neu chua co), KPI ghi "So tai"', async ({ page }) => {
     await page.goto('/vi/projects/1');
     const bar = page.getByTestId('detail-time-bar');
     await expect(bar).toBeVisible();
     const selected = await bar.getByTestId('month-select').inputValue();
     expect(selected).toMatch(/^\d{4}-\d{2}$/);
-    const [y, m] = selected.split('-');
-    await expect(page.locator('.kpis').first().getByText(vi('asOf.month', { month: `${m}/${y}` })).first()).toBeVisible();
+    const now = new Date();
+    expect(selected).toBe(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
+    // Thang hien tai co so thi "So tai mm/yyyy", chua co thi "Dung so thang mm/yyyy" (mang so): deu la nhan thang.
+    await expect(page.locator('.kpis').first().getByText(/(Số tại|Dùng số tháng) \d{2}\/\d{4}/).first()).toBeVisible();
+  });
+
+  test('N-1: ky ket thuc truoc thang hien tai thi moc mac dinh = thang cuoi ky (khong vuot cuoi ky)', async ({ page }) => {
+    await page.goto('/vi/projects/1?from=2026-01-01&to=2026-03-20');
+    await expect(page.getByTestId('detail-time-bar').getByTestId('month-select')).toHaveValue('2026-03');
   });
 
   test('?month=2026-03: nut lui thang doi URL va doi so %TT', async ({ page }) => {

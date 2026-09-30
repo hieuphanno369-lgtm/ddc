@@ -7,12 +7,13 @@ vi.mock('@/server/repo', async () => {
 });
 
 import { todayIso } from '@/lib/clock';
+import { resolveDetailTime } from '@/lib/detail-time';
 import { periodAsOfDate, type Period } from '@/lib/period';
 import {
   getCapacityData, getPortfolioKpis, getPortfolioSCurve, getProjectCounts, getProjectSummaries, getSpiCpiTrend,
   getProjectSummary, getStatusBreakdown, getTonnageValueByGroup, type ProjectSummary,
 } from './queries';
-import { TEAM_NAME } from './queries-period.fixture';
+import { PROJECT_A, PROJECT_B, TEAM_NAME } from './queries-period.fixture';
 
 const per = (from: string, to: string): Period => ({ from, to });
 const byName = (rows: ProjectSummary[], name: string) => rows.find((r) => r.projectName === name);
@@ -214,5 +215,34 @@ describe('P4 C-3: trang Chi tiết và Tổng quan cùng kỳ cho cùng một s�
 
   it('C-3: không truyền trần thì giữ hành vi cũ (min(cuối tháng, hôm nay)): B đã Hoàn thành tại 06-30', async () => {
     expect((await getProjectSummary(102, '2026-06'))!.status).toBe('Hoan_thanh');
+  });
+});
+
+describe('P4 N-1: Chi tiết mở mặc định cho cùng một số với dòng dự án ở Tổng quan (mốc = tháng hiện tại, mang số)', () => {
+  // Hôm nay ghim 2026-09-16. Tổng quan mặc định: kỳ tới hôm nay. B chỉ có số tới 2026-06 nên ở Tổng quan là số mang sang.
+  const today = todayIso();
+  const factMonths = { 101: ['2026-03', '2026-06', '2026-07', '2026-09'], 102: ['2026-03', '2026-06'] };
+
+  it('N-1: mốc mặc định của Chi tiết dự án đang mang số = tháng hiện tại, và trạng thái/%TT/%KH/phạt/dataState khớp dòng ở Tổng quan', async () => {
+    const overviewPeriod = per('2026-01-01', today);
+    const list = await getProjectSummaries(overviewPeriod);
+    for (const [project, months] of [[PROJECT_A, factMonths[101]], [PROJECT_B, factMonths[102]]] as const) {
+      const t = resolveDetailTime({}, project, months, today);
+      expect(t.asOfMonth, `mốc #${project.id}`).toBe(today.slice(0, 7));
+      const row = list.find((r) => r.id === project.id)!;
+      const detail = (await getProjectSummary(project.id, t.asOfMonth, periodAsOfDate(t.period, today)))!;
+      expect(detail.status, `status #${project.id}`).toBe(row.status);
+      expect(detail.pctActual, `pctActual #${project.id}`).toBe(row.pctActual);
+      expect(detail.pctPlan, `pctPlan #${project.id}`).toBe(row.pctPlan);
+      expect(detail.penalty, `penalty #${project.id}`).toBe(row.penalty);
+      expect(detail.onTrack, `onTrack #${project.id}`).toBe(row.onTrack);
+      expect(detail.dataState, `dataState #${project.id}`).toEqual(row.dataState);
+    }
+  });
+
+  it('N-1: B mang số 2026-06 sang tháng hiện tại; Chi tiết mặc định giữ nhãn mang số (lastDataMonth = 2026-06)', () => {
+    const t = resolveDetailTime({}, PROJECT_B, factMonths[102], today);
+    expect(t.asOfMonth).toBe('2026-09');
+    expect(t.lastDataMonth).toBe('2026-06');
   });
 });
