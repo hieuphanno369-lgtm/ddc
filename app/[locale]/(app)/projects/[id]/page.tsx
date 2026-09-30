@@ -349,9 +349,12 @@ export default async function ProjectDetailPage({
               <div className="flex flex-wrap items-center gap-2">
                 <ValueChainModeChip allStagesLabel={t('valueChainCard.allStages')} stageLabels={stageLabels} />
                 {bottleneck && (
-                  <Badge tone="danger">
-                    {t('detail.bottleneck')}: {stageNames[bottleneck.stageCode] ?? bottleneck.stageCode}
-                  </Badge>
+                  <>
+                    <Badge tone="danger">
+                      {t('detail.bottleneck')}: {stageNames[bottleneck.stageCode] ?? bottleneck.stageCode}
+                    </Badge>
+                    <HelpTip text={t('helpTip.dtBottleneck')} label={t('common.explain')} alignRight />
+                  </>
                 )}
               </div>
             }
@@ -404,20 +407,20 @@ export default async function ProjectDetailPage({
         equipmentAsOf={resources.equipmentAsOfDate}
       />
       <div className="g2">
-        <Card id="res-manpower" style={{ scrollMarginTop: 72 }}>
+        <Card id="res-manpower" style={{ scrollMarginTop: 72 }} className="overflow-visible">
           <CardHeader
             title={t('detail.res.manTitle')}
             subtitle={breakdown.manpowerAsOfDate ? t('asOf.day', { date: formatDate(breakdown.manpowerAsOfDate, locale) }) : undefined}
-            titleExtra={<span className="chip c-plain">{t('detail.res.manual')}</span>}
+            titleExtra={<><span className="chip c-plain">{t('detail.res.manual')}</span><HelpTip text={t('helpTip.dtMobilization')} label={t('common.explain')} /></>}
             action={<Legend items={[{ label: t('detail.planned'), color: 'var(--s-plan)' }, { label: t('detail.actual'), color: 'var(--s-third)' }]} />}
           />
           <CardBody><ResourceBreakdownChart rows={breakdown.manpower} kind="manpower" /></CardBody>
         </Card>
-        <Card id="res-equipment" style={{ scrollMarginTop: 72 }}>
+        <Card id="res-equipment" style={{ scrollMarginTop: 72 }} className="overflow-visible">
           <CardHeader
             title={t('detail.res.eqpTitle')}
             subtitle={breakdown.equipmentAsOfDate ? t('asOf.day', { date: formatDate(breakdown.equipmentAsOfDate, locale) }) : undefined}
-            titleExtra={<span className="chip c-plain">{t('detail.res.manual')}</span>}
+            titleExtra={<><span className="chip c-plain">{t('detail.res.manual')}</span><HelpTip text={t('helpTip.dtMobilization')} label={t('common.explain')} /></>}
             action={<Legend items={[{ label: t('detail.planned'), color: 'var(--s-plan)' }, { label: t('detail.actual'), color: 'var(--s-cost)' }]} />}
           />
           <CardBody><ResourceBreakdownChart rows={breakdown.equipment} kind="equipment" /></CardBody>
