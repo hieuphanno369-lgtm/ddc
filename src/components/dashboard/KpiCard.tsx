@@ -1,5 +1,6 @@
 import { IconArrowDown, IconArrowUp, type IconProps } from '@/components/icons';
 import type { ScheduleGapDirection } from '@/lib/schedule-gap';
+import { HelpTip } from '@/components/ui/HelpTip';
 
 export type KpiTone = 'neutral' | 'ok' | 'warn' | 'danger';
 
@@ -29,6 +30,10 @@ export interface KpiCardProps {
   scheduleGap?: KpiScheduleGapNote;
   /** Co -> ca the la <a href> (anchor cuon toi chart), them class "tap" (da co CSS: globals.css:253). */
   href?: string;
+  /** Icon "?" giai thich chi so (P4): ngay sau nhan .lb. Co help thi the mo overflow de bong bong khong bi cat. */
+  help?: { text: string; label: string };
+  /** Đơn vị đi sau số chính (vd "tấn"): chữ nhỏ hơn, số + đơn vị không xuống dòng (T-5, thẻ hẹp 390px). */
+  unit?: string;
 }
 
 /** Mau chu so chinh theo sac thai. The hero luon chu trang (nen gradient). */
@@ -65,6 +70,8 @@ export function KpiCard({
   note,
   scheduleGap,
   href,
+  help,
+  unit,
 }: KpiCardProps) {
   const deltaUp = (delta ?? 0) > 0;
   const hasDelta = delta != null && delta !== 0;
@@ -74,6 +81,21 @@ export function KpiCard({
   // vi --warn ban sang khong du doi tren nen navy (B-3, danh-gia.md VONG 2).
   const heroAlert = hero && (tone === 'warn' || tone === 'danger');
 
+  // Có delta + diễn giải dài ("so với kỳ trước cùng độ dài"): cho xuống dòng thay vì cắt "..." ở thẻ hẹp.
+  // T-4: dấu "?" dính với 2 TỪ CUỐI của nhãn (không tách được; tiếng Việt mỗi "từ" là 1 âm tiết nên lấy 2),
+  // nên không rơi xuống dòng riêng khi nhãn xuống dòng. Nhãn 1 từ hoặc không có "?" giữ nguyên markup cũ.
+  const tip = help ? <HelpTip text={help.text} label={help.label} onDark={hero} /> : null;
+  const cut = label.lastIndexOf(' ', label.lastIndexOf(' ') - 1);
+  const labelWithHelp = !tip ? label : cut < 0 && !label.includes(' ') ? (
+    <>{label}{tip}</>
+  ) : cut < 0 ? (
+    <span style={{ whiteSpace: 'nowrap' }}>{label}{tip}</span>
+  ) : (
+    <>
+      {label.slice(0, cut + 1)}
+      <span style={{ whiteSpace: 'nowrap' }}>{label.slice(cut + 1)}{tip}</span>
+    </>
+  );
   const body = (
     <>
       {!hero && (
@@ -82,13 +104,14 @@ export function KpiCard({
         </div>
       )}
 
-      <div className="lb">{label}</div>
+      <div className="lb">{labelWithHelp}</div>
       <div className="vl" style={hero ? (heroAlert ? { color: 'var(--gold)' } : undefined) : { color: TONE_VALUE[tone] }}>
         {value}
+        {unit && <span style={{ fontSize: '.55em', fontWeight: 600, opacity: 0.7 }}> {unit}</span>}
       </div>
 
       {(hasDelta || sub || !scheduleGap) && (
-      <div className="sb">
+      <div className="sb" style={hasDelta && deltaSuffix ? { whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', flexWrap: 'wrap', lineHeight: 1.3 } : undefined}>
         {hasDelta ? (
           <>
             <span className={`delta ${good ? 'up' : 'down'}`}>
@@ -125,10 +148,10 @@ export function KpiCard({
   const cls = `kpi rise${hero ? ' key' : ''}${href ? ' tap' : ''}`;
 
   return href ? (
-    <a href={href} className={cls} style={{ color: 'inherit', textDecoration: 'none' }}>
+    <a href={href} className={cls} style={{ color: 'inherit', textDecoration: 'none', ...(help ? { overflow: 'visible' } : null) }}>
       {body}
     </a>
   ) : (
-    <div className={cls}>{body}</div>
+    <div className={cls} style={help ? { overflow: 'visible' } : undefined}>{body}</div>
   );
 }

@@ -1,7 +1,17 @@
 import { logActivity } from '@/lib/activity';
 import { hashPassword } from '@/lib/password';
-import { normalizeEmail, RESET_EMAIL_LIMIT, RESET_IP_LIMIT, RESET_TOKEN_TTL_MS, RESET_WINDOW_MS } from '@/lib/login-policy';
+import {
+  normalizeEmail,
+  RESET_EMAIL_LIMIT,
+  RESET_IP_LIMIT,
+  RESET_SUBMIT_IP_LIMIT,
+  RESET_SUBMIT_IP_WINDOW_MS,
+  RESET_TOKEN_TTL_MS,
+  RESET_WINDOW_MS,
+  type ResetTokenKind,
+} from '@/lib/login-policy';
 import { generateResetToken, hashResetToken, isWellFormedResetToken } from '@/lib/reset-token';
+import { errorFields, logger } from '@/lib/logger';
 import type { Locale } from '@/i18n/routing';
 import type { AuthStore } from './repo/types';
 import type { SmtpConfig } from './notify/email';
@@ -155,35 +165,58 @@ export async function requestPasswordReset(
   resetRequestQueueTail = resetRequestQueueTail
     .then(() => withTimeout(finishPasswordResetRequest(store, mailer, smtp, email, ip, locale, baseUrl, now), RESET_JOB_TIMEOUT_MS))
     .catch((e) => {
-      console.error('[password-reset] loi xu ly nen', e instanceof Error ? e.message : String(e));
+      // R6/G5 - KHONG log `e.message` (co the chua thong tin ha tang/DB), chi log ten loi/ma loi.
+      logger.error('password_reset.background_failed', errorFields(e));
     });
 
   return { status: 'accepted' };
 }
 
 /**
- * K4 - token dùng nguyên tử (`consumeResetToken` trong repo là 1 lệnh khoá tất cả), 2 request
- * đồng thời chỉ 1 cái thắng. Kiểm độ dài mật khẩu TRƯỚC khi đụng token (mật khẩu ngắn không đốt
- * token của người dùng).
+ * S-1 - `resetPasswordWithToken` là server action CÔNG KHAI (không cần đăng
+ * nhập). Đúng thứ tự (khác thứ tự cũ - trước đây bcrypt chạy TRƯỚC khi biết token có tồn tại,
+ * cho phép từ chối dịch vụ CPU chỉ bằng cách gửi token rác liên tục):
+ * 1. "Đặt chỗ" NGUYÊN TỬ theo IP (`reset_submit_ip`) NGAY ĐẦU HÀM, TRƯỚC mọi việc khác (giống
+ *    `checkCredentials` đặt chỗ IP trước bcrypt) - hết chỗ -> `invalid_token` NGAY, KHÔNG đụng tới
+ *    bảng token đặt lại (không có DB nào khác ngoài `reserveThrottle`).
+ * 2. Kiểm định dạng token + độ dài mật khẩu (rẻ, không DB, không CPU nặng).
+ * 3. `peekResetToken` (CHỈ ĐỌC, không đốt token) - token không tồn tại/hết hạn/đã dùng -> trả
+ *    `invalid_token` NGAY, KHÔNG gọi `hashPassword` (bcrypt, cost 10, ~70-100ms, CHẶN event loop).
+ * 4. Token dùng được mới `hashPassword` rồi `consumeResetToken` (K4 - vẫn nguyên tử: giữa lúc peek
+ *    và consume có race thì `consumeResetToken` tự kiểm lại toàn bộ điều kiện, không dựa vào kết
+ *    quả `peek`).
  */
 export async function resetPasswordWithToken(
   store: AuthStore,
-  input: { token: unknown; newPassword: string },
+  input: { token: unknown; newPassword: string; ip?: string },
   now: Date = new Date(),
 ): Promise<{ ok: true; locked: boolean } | { ok: false; error: 'invalid_token' | 'too_short' }> {
+  const nowIso = now.toISOString();
+  const ipKey = (input.ip ?? '').trim() || 'unknown';
+  const sinceIso = new Date(now.getTime() - RESET_SUBMIT_IP_WINDOW_MS).toISOString();
+  const ipReserved = await store.reserveThrottle('reset_submit_ip', ipKey, nowIso, sinceIso, RESET_SUBMIT_IP_LIMIT);
+  if (ipReserved === null) return { ok: false, error: 'invalid_token' };
+
   if (!isWellFormedResetToken(input.token)) return { ok: false, error: 'invalid_token' };
   if (input.newPassword.length < 8) return { ok: false, error: 'too_short' };
 
-  const nowIso = now.toISOString();
-  const result = await store.consumeResetToken(hashResetToken(input.token), hashPassword(input.newPassword), nowIso);
+  const tokenHash = hashResetToken(input.token);
+  const usable = await store.peekResetToken(tokenHash, nowIso);
+  if (!usable) return { ok: false, error: 'invalid_token' };
+
+  const passwordHash = await hashPassword(input.newPassword);
+  const result = await store.consumeResetToken(tokenHash, passwordHash, nowIso);
   if (!result.ok) return { ok: false, error: 'invalid_token' };
 
   await logActivity({ name: result.name || result.email, email: result.email }, 'password_reset_done');
   return { ok: true, locked: result.locked };
 }
 
-/** S12 - trang đặt lại chỉ ĐỌC token ở GET (không tiêu token) để quyết hiện form hay báo lỗi. */
-export async function isResetTokenUsable(store: AuthStore, token: unknown, now: Date = new Date()): Promise<boolean> {
-  if (!isWellFormedResetToken(token)) return false;
-  return store.peekResetToken(hashResetToken(token), now.toISOString());
+/**
+ * S12 - trang đặt lại chỉ ĐỌC token ở GET (không tiêu token) để quyết hiện form hay báo lỗi. Trang đặt mật khẩu chọn chữ ("Đặt mật khẩu" cho lời mời, "Đặt lại mật khẩu" cho quên mật khẩu) theo loại link do SERVER suy
+ * từ hạn token đã lưu, không nhận gợi ý nào từ URL. `null` = link không dùng được (cùng điều kiện `peekResetToken`).
+ */
+export async function getResetTokenKind(store: AuthStore, token: unknown, now: Date = new Date()): Promise<ResetTokenKind | null> {
+  if (!isWellFormedResetToken(token)) return null;
+  return store.peekResetTokenKind(hashResetToken(token), now.toISOString());
 }

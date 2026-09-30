@@ -1,4 +1,4 @@
-import { addDaysIso, currentMonth, endOfMonth, isValidYearMonth, todayIso, type IsoDate } from '@/lib/clock';
+import { addDaysIso, currentMonth, isValidIsoDate, isValidYearMonth, todayIso, type IsoDate } from '@/lib/clock';
 import { sumByDate, type DailyPoint } from '@/lib/daily-series';
 import type { ResourceRow } from '@/lib/resources';
 import { activeStages } from '@/lib/stages';
@@ -6,8 +6,23 @@ import type { WorkItemCompare, WorkItemCompareRow } from '@/lib/stage-timeline';
 import { TRACKING_DAYS, type WeeklyTracking } from '@/lib/tracking';
 import { repo } from './repo';
 
-/** Cửa sổ đọc bảng theo ngày: đủ dài để vẽ ~6 tháng mà không quét cả bảng. */
-const RESOURCE_WINDOW_DAYS = 180;
+/**
+ * Ngày người xem chọn (URL `day`): sai định dạng hoặc ngày không tồn tại -> hôm nay; lớn hơn hôm nay -> hôm nay
+ * (không có số tương lai). Validate NGAY TẠI ĐÂY, không dựa vào caller (bài học N-3: `?month=abc` từng gây 500).
+ */
+function safeDay(day: string): IsoDate {
+  const today = todayIso();
+  return typeof day === 'string' && isValidIsoDate(day) && day <= today ? day : today;
+}
+
+/** Ngày cuối CÓ số của nhân lực và thiết bị, mỗi bên tính riêng, không lớn hơn `day` (Q7 = a, không giới hạn 180 ngày). */
+async function lastDays(projectId: number, day: IsoDate) {
+  const [manpower, equipment] = await Promise.all([
+    repo.readLastDailyDate(projectId, 'manpower', day),
+    repo.readLastDailyDate(projectId, 'equipment', day),
+  ]);
+  return { manpower, equipment };
+}
 
 export interface ResourceSnapshot {
   /**
@@ -31,33 +46,20 @@ export interface ResourceSnapshot {
   equipmentContractors: number;
 }
 
-/** Kết thúc ở min(hôm nay, cuối tháng đang xem) - xem tháng quá khứ phải ra số của tháng đó. */
-export function resourceWindow(yearMonth: string): { from: IsoDate; to: IsoDate } {
-  // N-3: validate NGAY TẠI ĐÂY, không dựa vào caller (vd trang) đã tự validate hay chưa - `?month`
-  // rác/ngoài miền giá trị (`'abc'`, `'9999-12'`) từng lọt thẳng vào endOfMonth() và ném RangeError.
-  const ym = isValidYearMonth(yearMonth) ? yearMonth : currentMonth();
-  const monthEnd = endOfMonth(ym);
-  const today = todayIso();
-  const to = monthEnd < today ? monthEnd : today;
-  return { from: addDaysIso(to, -(RESOURCE_WINDOW_DAYS - 1)), to };
-}
-
 /**
- * Nguồn lực = ẢNH CHỤP ngày gần nhất CÓ dữ liệu, cộng ngang nhà thầu trong đúng ngày đó (Q3).
+ * Nguồn lực = ẢNH CHỤP ngày gần nhất CÓ dữ liệu không lớn hơn `day`, cộng ngang nhà thầu trong đúng ngày đó (Q3, Q7 = a).
  * KHÔNG cộng dồn cả khoảng: 7 ngày × 520 người không phải 3.640 người.
  * Nhân lực và thiết bị có thể nhập lệch ngày → mỗi bên lấy ngày cuối của chính nó,
  * asOfDate trả ngày mới hơn trong hai ngày (đó là ngày ghi dưới scorecard).
  */
-export async function getResourceSnapshot(projectId: number, yearMonth: string): Promise<ResourceSnapshot> {
-  const { from, to } = resourceWindow(yearMonth);
-  const manpower = await repo.getDailyManpower(projectId, from, to);
-  const equipment = await repo.getDailyEquipment(projectId, from, to);
-
-  // Cả 2 repo đều trả đã sort tăng dần theo workDate (Task 6 Bước 7 / Task 7 Bước 5).
-  const lastManpowerDay = manpower.at(-1)?.workDate ?? null;
-  const lastEquipmentDay = equipment.at(-1)?.workDate ?? null;
-  const manpowerRows = manpower.filter((m) => m.workDate === lastManpowerDay);
-  const equipmentRows = equipment.filter((e) => e.workDate === lastEquipmentDay);
+export async function getResourceSnapshot(projectId: number, day: string): Promise<ResourceSnapshot> {
+  const last = await lastDays(projectId, safeDay(day));
+  const [manpowerRows, equipmentRows] = await Promise.all([
+    last.manpower ? repo.getDailyManpower(projectId, last.manpower, last.manpower) : Promise.resolve([]),
+    last.equipment ? repo.getDailyEquipment(projectId, last.equipment, last.equipment) : Promise.resolve([]),
+  ]);
+  const lastManpowerDay = last.manpower;
+  const lastEquipmentDay = last.equipment;
   const days = [lastManpowerDay, lastEquipmentDay].filter((d): d is IsoDate => d != null).sort();
 
   return {
@@ -85,14 +87,18 @@ export interface ResourceBreakdown {
 const byPlannedDesc = (a: ResourceRow, b: ResourceRow) => b.planned - a.planned || a.name.localeCompare(b.name, 'vi');
 
 /** Bảng "Nhân lực theo nhà thầu" / "Thiết bị theo nhóm" (mock-up dòng 759-767) - cùng ngày chụp với getResourceSnapshot. */
-export async function getResourceBreakdown(projectId: number, yearMonth: string): Promise<ResourceBreakdown> {
-  const { from, to } = resourceWindow(yearMonth);
-  const manpower = await repo.getDailyManpower(projectId, from, to);
-  const equipment = await repo.getDailyEquipment(projectId, from, to);
-  const contractors = new Map((await repo.getContractors()).map((c) => [c.id, c]));
-  const equipments = new Map((await repo.getEquipments()).map((e) => [e.id, e]));
-  const manpowerAsOfDate = manpower.at(-1)?.workDate ?? null;
-  const equipmentAsOfDate = equipment.at(-1)?.workDate ?? null;
+export async function getResourceBreakdown(projectId: number, day: string): Promise<ResourceBreakdown> {
+  const last = await lastDays(projectId, safeDay(day));
+  const [manpower, equipment, contractorList, equipmentList] = await Promise.all([
+    last.manpower ? repo.getDailyManpower(projectId, last.manpower, last.manpower) : Promise.resolve([]),
+    last.equipment ? repo.getDailyEquipment(projectId, last.equipment, last.equipment) : Promise.resolve([]),
+    repo.getContractors(),
+    repo.getEquipments(),
+  ]);
+  const contractors = new Map(contractorList.map((c) => [c.id, c]));
+  const equipments = new Map(equipmentList.map((e) => [e.id, e]));
+  const manpowerAsOfDate = last.manpower;
+  const equipmentAsOfDate = last.equipment;
 
   const man = new Map<number, ResourceRow>();
   for (const m of manpower) {
@@ -119,16 +125,19 @@ export async function getResourceBreakdown(projectId: number, yearMonth: string)
 }
 
 /**
- * 7 ngày tracking liên tiếp, kết thúc ở ngày cuối CÓ số liệu (nhân lực hoặc thiết bị) trong
- * resourceWindow(month) - Q4 mặc định (a). Không có số liệu → null.
+ * 7 ngày tracking liên tiếp, kết thúc ở ngày cuối CÓ số liệu (nhân lực hoặc thiết bị) không lớn hơn `day`
+ * - Q4 mặc định (a), Q7 = a. Không có số liệu → null.
  * Nhà thầu = danh sách project_contractor + nhà thầu có số liệu nhưng không còn trong danh sách.
  */
-export async function getWeeklyTracking(projectId: number, yearMonth: string): Promise<WeeklyTracking | null> {
-  const { from, to } = resourceWindow(yearMonth);
-  const manpowerAll = await repo.getDailyManpower(projectId, from, to);
-  const equipmentAll = await repo.getDailyEquipment(projectId, from, to);
-  const lastDay = [manpowerAll.at(-1)?.workDate, equipmentAll.at(-1)?.workDate].filter((d): d is IsoDate => d != null).sort().at(-1);
+export async function getWeeklyTracking(projectId: number, day: string): Promise<WeeklyTracking | null> {
+  const last = await lastDays(projectId, safeDay(day));
+  const lastDay = [last.manpower, last.equipment].filter((d): d is IsoDate => d != null).sort().at(-1);
   if (!lastDay) return null;
+  const weekStart = addDaysIso(lastDay, -(TRACKING_DAYS - 1));
+  const [manpowerAll, equipmentAll] = await Promise.all([
+    repo.getDailyManpower(projectId, weekStart, lastDay),
+    repo.getDailyEquipment(projectId, weekStart, lastDay),
+  ]);
   const days = Array.from({ length: TRACKING_DAYS }, (_, i) => addDaysIso(lastDay, i - (TRACKING_DAYS - 1)));
   const inWeek = (d: IsoDate) => d >= days[0] && d <= lastDay;
   const manpower = manpowerAll.filter((m) => inWeek(m.workDate));
@@ -165,7 +174,8 @@ export async function getWorkItemComparison(projectId: number, yearMonth: string
 }
 
 /** Chuỗi nhân lực theo ngày (đã cộng ngang nhà thầu) để client tự gộp tuần/tháng. */
-export async function getManpowerDaily(projectId: number, yearMonth: string): Promise<DailyPoint[]> {
-  const { from, to } = resourceWindow(yearMonth);
-  return sumByDate(await repo.getDailyManpower(projectId, from, to));
+export async function getManpowerDaily(projectId: number, from: IsoDate, to: IsoDate): Promise<DailyPoint[]> {
+  const a = isValidIsoDate(from) ? from : todayIso();
+  const b = isValidIsoDate(to) ? to : todayIso();
+  return sumByDate(await repo.getDailyManpower(projectId, a <= b ? a : b, a <= b ? b : a));
 }

@@ -1,5 +1,6 @@
 import { addDaysIso, currentMonth, todayIso, type IsoDate } from '@/lib/clock';
 import { ALERT_DEADLINE_DAYS, evaluateProjectAlerts } from '@/lib/alert-rules';
+import { errorFields, logger } from '@/lib/logger';
 import type { NewEngineAlert } from './repo/types';
 import { repo } from './repo';
 import { queueAlertNotifications } from './notify/dispatch';
@@ -95,7 +96,6 @@ export async function runAlertEngineSafe(projectId: number): Promise<void> {
   try {
     await runAlertEngine({ projectIds: [projectId] });
   } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error('[alert-engine] runAlertEngineSafe loi (khong lam vo trang):', e);
+    logger.error('alert_engine.failed', errorFields(e));
   }
 }

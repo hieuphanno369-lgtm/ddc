@@ -5,6 +5,7 @@
  * Usage: npx tsx scripts/perf/bench-data.ts
  */
 import { currentMonth, todayIso } from '@/lib/clock';
+import { defaultOverviewPeriod, parsePeriod } from '@/lib/period';
 import { PERF_PREFIX } from '@/lib/perf-guard';
 import { prisma } from '@/server/db';
 import { getEquipmentPlanGantt } from '@/server/equipment-plan-gantt-queries';
@@ -32,17 +33,19 @@ async function timeit(fn: () => Promise<unknown>): Promise<number> {
 }
 
 async function benchOverview(month: string): Promise<number> {
+  // Kỳ = trọn tháng `month` (P4: hàm truy vấn nhận Period).
+  const period = parsePeriod({ month }, defaultOverviewPeriod(todayIso()));
   return timeit(() =>
     Promise.all([
-      getPortfolioKpis(month, {}),
-      getStatusBreakdown(month, {}),
-      getTonnageValueByGroup(month, 'team', {}),
-      getCapacityData(month, {}),
-      getSpiCpiTrend({}),
-      getPortfolioSCurve({}),
-      getWatchlist(month, {}),
-      listProjects({ month, pageSize: 10 }),
-      getOverdueScorecard(month, {}),
+      getPortfolioKpis(period, {}),
+      getStatusBreakdown(period, {}),
+      getTonnageValueByGroup(period, 'team', {}),
+      getCapacityData(period, {}),
+      getSpiCpiTrend(period, {}),
+      getPortfolioSCurve(period, {}),
+      getWatchlist(period, {}),
+      listProjects({ period, pageSize: 10 }),
+      getOverdueScorecard(period, {}),
       getMissingMonth(month),
       repo.getDims(),
       repo.readLastAuditAt(),
@@ -63,9 +66,9 @@ async function benchDetail(projectId: number, month: string): Promise<number> {
       repo.getAliases(projectId),
       repo.getSapCodes(projectId),
       repo.getDims(),
-      getResourceSnapshot(projectId, month),
-      getResourceBreakdown(projectId, month),
-      getWeeklyTracking(projectId, month),
+      getResourceSnapshot(projectId, todayIso()),
+      getResourceBreakdown(projectId, todayIso()),
+      getWeeklyTracking(projectId, todayIso()),
       repo.getKeyMilestones(projectId),
       repo.getStageWeights(projectId),
       repo.getStageMilestones(projectId),
@@ -79,16 +82,17 @@ async function benchDetail(projectId: number, month: string): Promise<number> {
 
 /** Do rieng tung ham cua nhanh 'all' (tuan tu, khong Promise.all) de chi ra ham cham nhat. */
 async function benchOverviewBreakdown(month: string): Promise<{ label: string; median: number; max: number }[]> {
+  const period = parsePeriod({ month }, defaultOverviewPeriod(todayIso()));
   const fns: { label: string; run: () => Promise<unknown> }[] = [
-    { label: 'getPortfolioKpis', run: () => getPortfolioKpis(month, {}) },
-    { label: 'getStatusBreakdown', run: () => getStatusBreakdown(month, {}) },
-    { label: 'getTonnageValueByGroup', run: () => getTonnageValueByGroup(month, 'team', {}) },
-    { label: 'getCapacityData', run: () => getCapacityData(month, {}) },
-    { label: 'getSpiCpiTrend', run: () => getSpiCpiTrend({}) },
-    { label: 'getPortfolioSCurve', run: () => getPortfolioSCurve({}) },
-    { label: 'getWatchlist', run: () => getWatchlist(month, {}) },
-    { label: 'listProjects', run: () => listProjects({ month, pageSize: 10 }) },
-    { label: 'getOverdueScorecard', run: () => getOverdueScorecard(month, {}) },
+    { label: 'getPortfolioKpis', run: () => getPortfolioKpis(period, {}) },
+    { label: 'getStatusBreakdown', run: () => getStatusBreakdown(period, {}) },
+    { label: 'getTonnageValueByGroup', run: () => getTonnageValueByGroup(period, 'team', {}) },
+    { label: 'getCapacityData', run: () => getCapacityData(period, {}) },
+    { label: 'getSpiCpiTrend', run: () => getSpiCpiTrend(period, {}) },
+    { label: 'getPortfolioSCurve', run: () => getPortfolioSCurve(period, {}) },
+    { label: 'getWatchlist', run: () => getWatchlist(period, {}) },
+    { label: 'listProjects', run: () => listProjects({ period, pageSize: 10 }) },
+    { label: 'getOverdueScorecard', run: () => getOverdueScorecard(period, {}) },
     { label: 'getMissingMonth', run: () => getMissingMonth(month) },
     { label: 'repo.getDims', run: () => repo.getDims() },
     { label: 'repo.readLastAuditAt', run: () => repo.readLastAuditAt() },

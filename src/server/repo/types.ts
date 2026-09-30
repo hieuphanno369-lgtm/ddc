@@ -4,6 +4,7 @@
  * các type này, chỉ swap phần repository impl.
  */
 import type { AlertCandidate } from '@/lib/alert-rules';
+import type { ResetTokenKind } from '@/lib/login-policy';
 
 export type Market = 'TN' | 'XK' | 'NoiBo';
 export type ProjectType =
@@ -438,7 +439,12 @@ export interface UserAccount {
   isActive: boolean;
   createdAt: string;
   lastLoginAt: string | null;
+  /** P3E (Task 5) - khác null nghĩa là đang bị khoá do sai mật khẩu 5 lần liên tiếp. */
+  lockedAt: string | null;
 }
+
+/** P3E (Task 6) - hàng hiển thị trang quản trị: KHÔNG có `passwordHash` (S15, không lộ hash ra trình duyệt). */
+export type AdminUserRow = Omit<UserAccount, 'passwordHash'> & { hasPassword: boolean };
 
 /** Activity log - ghi user làm gì lúc nào (retention 14 ngày). */
 export interface ActivityLogEntry {
@@ -482,7 +488,7 @@ export interface AuditLogEntry {
   note: string;
 }
 
-export type JobName = 'alerts_daily' | 'rates_monthly';
+export type JobName = 'alerts_daily';
 export type JobTrigger = 'cron' | 'lazy' | 'admin';
 
 export interface JobRunEntry {
@@ -588,7 +594,36 @@ export interface SapQueueItem {
  * cả 2 phải trả `reason` GIỐNG HỆT nhau qua từng lần sai (không lộ "email này là tài khoản chỉ
  * Google" qua khác biệt reason/`lockedAt`), xem `login-guard.ts`.
  */
-export type ThrottleKind = 'login_fail_ip' | 'login_fail_unknown_email' | 'reset_req_email' | 'reset_req_ip';
+/**
+ * R7 phần 3, G4 (bao-mat.md) - `'google_denied'` chỉ dùng để hạn chế `activity_log` bị spam bởi các
+ * lần Google từ chối lặp lại của CÙNG 1 email (Google không đi qua form mật khẩu nên không dùng
+ * `login_fail_ip`/`login_fail_unknown_email`/`LOGIN_LOCK_THRESHOLD`); không phải khoá đăng nhập.
+ * S-1 - `'reset_submit_ip'` giới hạn số lần GỬI đặt lại mật khẩu
+ * (`resetPasswordWithToken`) theo IP, chặn từ chối dịch vụ CPU (bcrypt) từ người không đăng nhập.
+ * S-3 - `'login_locked_probe'` KHÔNG dùng để quyết định gì, chỉ để nhánh "tài
+ * khoản thật đang khoá" trong `checkCredentials` tốn ĐÚNG số lượt gọi DB như nhánh "email lạ" (cân
+ * thời gian, chống oracle phân biệt 2 nhánh); kết quả luôn bị bỏ qua.
+ * R3-2 (bao-mat.md vòng 3, Trung) - `'change_pwd_fail_ip'` giới hạn tần suất gọi
+ * `changePasswordAction` theo IP TRƯỚC bcrypt (giống `'login_fail_ip'`), chặn 1 IP tốn CPU đoán mật
+ * khẩu hiện tại qua nhiều phiên/nhiều tài khoản khác nhau; dùng lại `IP_FAIL_LIMIT`/`IP_FAIL_WINDOW_MS`.
+ */
+export type ThrottleKind =
+  | 'login_fail_ip'
+  | 'login_fail_unknown_email'
+  | 'login_locked_probe'
+  | 'reset_req_email'
+  | 'reset_req_ip'
+  | 'reset_submit_ip'
+  | 'google_denied'
+  | 'change_pwd_fail_ip'
+  // R4-2 (bao-mat.md vòng 4, Thấp) - "giữ chỗ" nguyên tử THEO TÀI KHOẢN (email) trước bcrypt, xem
+  // `ACCOUNT_GUESS_WINDOW_MS` (login-policy.ts). R6-1 (bao-mat.md vòng 6) - 1 kind DUY NHẤT dùng chung
+  // cho Đăng nhập và Đổi mật khẩu (chốt R3-2: 2 màn tính chung bộ đếm 5 lần), chỉ `reserveAccountGuess`
+  // ghi kind này.
+  | 'account_guess'
+  // P3F-3: giới hạn tần suất đăng ký tài khoản (10 lần/giờ/IP, 3 lần/giờ/email), xem `SIGNUP_*` (login-policy.ts).
+  | 'signup_ip'
+  | 'signup_email';
 
 export interface AuthAccountState {
   email: string;
@@ -634,8 +669,67 @@ export interface AuthStore {
   resetFailedLogin(email: string): Promise<boolean>;
   /** Xoá khoá + bộ đếm; false nếu không có tài khoản. */
   unlockAccount(email: string): Promise<boolean>;
-  /** Đổi mật khẩu; bumpChangedAt = true thì passwordChangedAt = now. */
+  /**
+   * Đổi mật khẩu; bumpChangedAt = true thì passwordChangedAt = now.
+   * S-2 (chủ dự án chốt 2026-09-28) - LUÔN huỷ (đánh dấu `usedAt = nowIso`) mọi
+   * token đặt lại mật khẩu CÒN HẠN của email này, bất kể `bumpChangedAt` - mật khẩu đã đổi qua đường
+   * nào đó khác (tự đổi trong Cài đặt, admin đặt mật khẩu tạm) thì 1 link đặt lại cũ (nếu còn) không
+   * còn lý do để dùng được nữa.
+   */
   setPassword(email: string, passwordHash: string, bumpChangedAt: boolean, nowIso: string): Promise<boolean>;
+  /**
+   * R3-1 (bao-mat.md vòng 3, Trung) - Compare-and-swap: CHỈ ghi mật khẩu mới khi `passwordHash` trong
+   * DB TẠI THỜI ĐIỂM GHI vẫn đúng bằng `oldHash` (hash đã kiểm bằng `verifyPassword` ở bước trước đó
+   * trong CÙNG request) - chặn race giữa lúc kiểm mật khẩu hiện tại và lúc ghi: 1 request khác (admin
+   * đặt mật khẩu tạm, đặt lại qua email) ghi đè xen giữa 2 bước đó thì request này KHÔNG được phép
+   * thắng (mới ghi đè LẦN NỮA lên mật khẩu vừa đổi hợp lệ đó). Dùng cho đường TỰ đổi mật khẩu trong
+   * Cài đặt (`changePasswordAction`) - LUÔN bump `passwordChangedAt = nowIso` (khác `setPassword`
+   * dùng cho admin/đặt lại qua email, những đường đó không cần kiểm CAS vì không có "hash cũ đã kiểm"
+   * nào để so - admin/token được phép ghi đè vô điều kiện). Cùng transaction, CŨNG huỷ (usedAt =
+   * nowIso) mọi token đặt lại mật khẩu còn hạn của email này, giống `setPassword` (S-2).
+   * Trả `true` khi ghi được (đúng 1 dòng khớp `email` + `passwordHash = oldHash`); `false` khi không
+   * (hash đã đổi khác lúc ghi) - bên gọi PHẢI coi là thất bại (trả lỗi `'current'`), KHÔNG được cấp
+   * lại cookie phiên hay coi là đổi mật khẩu thành công.
+   */
+  setPasswordIfHash(email: string, oldHash: string, newHash: string, nowIso: string): Promise<boolean>;
+  /**
+   * R4-1a (bao-mat.md vòng 4, Trung, chốt chủ dự án 2026-09-28) - thu hồi MỌI phiên hiện có của tài
+   * khoản này ở PHÍA SERVER: bump `passwordChangedAt = nowIso`, KHÔNG đổi `passwordHash`. Mọi token
+   * đã cấp trước mốc này (`token.pwdAt` cũ hơn) sẽ bị đánh `invalid = true` ở lần kiểm định kỳ tiếp
+   * theo (S8, `ACCESS_RECHECK_INTERVAL_MS` - xem `src/lib/auth.ts`) - trễ tối đa khoảng đó, giống mọi
+   * cơ chế kiểm lại định kỳ khác, fail-closed sẵn. Dùng khi khoá tài khoản do đoán sai mật khẩu hiện
+   * tại đủ ngưỡng (`changePasswordAction`) - phiên hiện tại còn được đá NGAY qua
+   * `invalidateCurrentSessionCookie` (phía cookie), hàm này lo phần CÒN LẠI (các phiên khác, nếu có).
+   * `false` nếu không có tài khoản đó.
+   * R5-6 (bao-mat.md vòng 5, Thấp) - KHÔNG được phép kéo `passwordChangedAt` LÙI LẠI: `nowIso` do bên
+   * gọi truyền vào được chụp lúc BẮT ĐẦU request, có thể đã cũ hơn 1 mốc MỚI HƠN đã được ghi bởi 1
+   * thao tác khác nhanh hơn (vd `changePasswordAction` khác vừa đổi mật khẩu thành công) xảy ra xen
+   * giữa - ghi đè bằng giá trị CŨ hơn sẽ vô tình làm mốc thu hồi lùi về trước, có thể khiến 1 phiên lẽ
+   * ra phải bị vô hiệu lại được coi là hợp lệ. Chỉ ghi khi `passwordChangedAt` hiện tại là `null` hoặc
+   * CŨ HƠN `nowIso` (kiểu "GREATEST", không đơn thuần ghi đè vô điều kiện); không ghi được (do đã có
+   * mốc mới hơn) KHÔNG phải là lỗi - tài khoản đó VẪN có `true` (mọi phiên vẫn bị thu hồi, chỉ là nhờ
+   * mốc mới hơn đã ghi từ trước).
+   */
+  revokeSessions(email: string, nowIso: string): Promise<boolean>;
+  /**
+   * R4-2, R5-1, R6-1 - "giữ chỗ" một lượt đoán mật khẩu cho TÀI KHOẢN, dùng CHUNG cho Đăng nhập và
+   * Đổi mật khẩu (kind cố định `account_guess`, bên gọi không truyền kind). Nguyên tử trong 1 giao
+   * dịch: khoá advisory theo `account_guess:email`, đọc `failedLoginCount`/`lockedAt` HIỆN TẠI của tài
+   * khoản TỪ DB (không dựa vào bản chụp cũ), đếm số chỗ ĐANG GIỮ (`auth_throttle` kind `account_guess`,
+   * key = email, `createdAt >= sinceIso`; cửa sổ dài vài phút CHỈ để dọn dòng mồ côi khi tiến trình
+   * chết giữa chừng không kịp `releaseThrottle`). Từ chối (`null`) khi tài khoản không còn, đã bị khoá
+   * (`lockedAt !== null`), hoặc `failedLoginCount + số chỗ đang giữ >= threshold`.
+   * Bên gọi PHẢI giữ chỗ này tới SAU KHI `registerFailedLogin` (nhánh sai) hoặc `resetFailedLogin`
+   * (nhánh đúng) chạy xong rồi mới `releaseThrottle` (try/finally bao cả đoạn, kể cả khi bcrypt/ghi
+   * ném lỗi) - bất biến: số chỗ đang giữ + số lượt sai đã ghi (`failedLoginCount`) không bao giờ vượt
+   * `threshold`.
+   */
+  reserveAccountGuess(
+    email: string,
+    nowIso: string,
+    sinceIso: string,
+    threshold: number,
+  ): Promise<number | null>;
   recordThrottle(kind: ThrottleKind, key: string, nowIso: string): Promise<void>;
   countThrottle(kind: ThrottleKind, key: string, sinceIso: string): Promise<number>;
   /**
@@ -673,10 +767,19 @@ export interface AuthStore {
    * `pruneAuthData` dọn trước đó).
    */
   releaseThrottle(id: number): Promise<void>;
-  /** Xoá mọi token cũ của email rồi tạo token mới (1 transaction). */
+  /**
+   * Tạo token mới cho email (1 transaction). Loại token mới suy từ hạn (`resetTokenKindOf`): lời mời (admin bật) thay MỌI
+   * token cũ; quên mật khẩu chỉ thay token cũ của quên mật khẩu (và dòng đã dùng/hết hạn), KHÔNG huỷ lời mời còn hạn (T1).
+   */
   replaceResetToken(email: string, tokenHash: string, expiresAtIso: string, requestIp: string): Promise<void>;
   /** Token còn dùng được (chưa dùng, chưa hết hạn, tài khoản còn, có mật khẩu, isActive)? */
   peekResetToken(tokenHash: string, nowIso: string): Promise<boolean>;
+  /**
+   * Cùng điều kiện với `peekResetToken` (chỉ đọc), nhưng trả thêm LOẠI link để trang đặt mật khẩu chọn chữ: 'invite' (lời mời
+   * khi admin bật đăng ký, hạn 72 giờ) hoặc 'reset' (quên mật khẩu, hạn 30 phút); `null` nếu không dùng được. Suy từ hạn
+   * đã lưu (`resetTokenKindOf`), không có cột đánh dấu.
+   */
+  peekResetTokenKind(tokenHash: string, nowIso: string): Promise<ResetTokenKind | null>;
   /**
    * Nguyên tử: đánh dấu token đã dùng + đặt mật khẩu + passwordChangedAt = now + bộ đếm về 0 nếu
    * chưa khoá + vô hiệu token khác của email. L5 (bao-mat.md) - phải kiểm CÙNG điều kiện tài khoản
@@ -690,9 +793,31 @@ export interface AuthStore {
     nowIso: string,
   ): Promise<{ ok: true; email: string; name: string; locked: boolean } | { ok: false }>;
   /**
-   * Dọn dữ liệu cũ: xoá mọi dòng `auth_throttle` VÀ mọi token đặt lại mật khẩu có `createdAt <
-   * beforeIso` - token bị xoá THEO TUỔI, BẤT KỂ đã dùng (`usedAt` khác `null`) hay chưa, còn hạn hay
-   * đã hết hạn (K19, gọi định kỳ từ job `alerts_daily`).
+   * Dọn dữ liệu cũ: xoá mọi dòng `auth_throttle` có `createdAt < beforeIso` VÀ mọi token đặt lại mật khẩu đã
+   * hết hạn (`expiresAt < beforeIso`) hoặc đã dùng (`usedAt < beforeIso`) - K19, gọi định kỳ từ job `alerts_daily`.
+   * S1: token theo HẠN DÙNG chứ không theo tuổi tạo, vì link đặt mật khẩu của lời mời sống 72 giờ.
    */
   pruneAuthData(beforeIso: string): Promise<void>;
+}
+
+/** P4: khoảng nhập bù lịch sử của 1 dự án (admin bật; tắt = điền `disabledAt`). Ngày dạng yyyy-mm-dd. */
+export interface BackfillWindow {
+  id: number;
+  projectId: number;
+  fromDate: string;
+  toDate: string;
+  note: string;
+  enabledBy: string;
+  enabledAt: string;
+  expiresAt: string | null;
+  disabledBy: string | null;
+  disabledAt: string | null;
+}
+
+export interface CreateBackfillWindowInput {
+  projectId: number;
+  fromDate: string;
+  toDate: string;
+  note: string;
+  expiresAt: Date | null;
 }

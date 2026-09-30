@@ -18,6 +18,8 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: 0,
+  // May e2e dung chung voi nhieu dev server (3 tai khoan): dang nhap co luc cham hon 5s mac dinh cua expect.
+  expect: { timeout: 15_000 },
   timeout: 60_000,
   reporter: [['list'], ['html', { outputFolder: 'e2e/.report', open: 'never' }]],
   globalSetup: './e2e/global-setup.ts',

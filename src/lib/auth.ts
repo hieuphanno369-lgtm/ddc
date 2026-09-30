@@ -1,14 +1,20 @@
+import { cookies, headers } from 'next/headers';
 import type { NextAuthOptions } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
+import { decode as decodeSessionToken, encode as encodeSessionToken } from 'next-auth/jwt';
 import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import type { Role, UserAccount } from '@/server/repo/types';
+import type { AuthAccountState, Role, UserAccount } from '@/server/repo/types';
 import { prisma } from '@/server/db';
 import { repo } from '@/server/repo/mock-repo';
 import { logActivity } from '@/lib/activity';
-import { verifyPassword } from '@/lib/password';
+import { normalizeEmail, GOOGLE_DENIED_LIMIT, GOOGLE_DENIED_WINDOW_MS } from '@/lib/login-policy';
+import { clientIpFrom } from '@/lib/client-ip';
 import { requireAuthSecret } from '@/lib/env';
+import { errorFields, logger } from '@/lib/logger';
 import { googleAccessDecision, type GoogleProfileLite } from '@/server/google-access';
+import { checkCredentials } from '@/server/login-guard';
+import { getAuthStore } from '@/server/auth-store';
 
 export type Access = { role: Role; canViewFinance: boolean };
 
@@ -45,29 +51,6 @@ export async function resolveAccess(email: string): Promise<Access | null> {
   return accessFromAccount(u);
 }
 
-async function findAccount(email: string): Promise<UserAccount | null> {
-  const e = email.toLowerCase();
-  if (process.env.DATABASE_URL) {
-    try {
-      const row = await prisma.userRole.findUnique({ where: { email: e } });
-      if (!row) return null;
-      return {
-        email: row.email,
-        name: row.name,
-        passwordHash: row.passwordHash,
-        role: row.role as Role,
-        canViewFinance: row.canViewFinance,
-        isActive: row.isActive,
-        createdAt: row.createdAt.toISOString(),
-        lastLoginAt: row.lastLoginAt?.toISOString() ?? null,
-      };
-    } catch {
-      return null;
-    }
-  }
-  return repo.findAccount(e) ?? null;
-}
-
 async function touchLastLogin(email: string) {
   if (process.env.DATABASE_URL) {
     try {
@@ -91,7 +74,7 @@ export const ACCESS_RECHECK_INTERVAL_MS = 5 * 60 * 1000;
  * Dùng chung cho nhánh đăng nhập lẫn nhánh kiểm lại định kỳ trong callback `jwt`: tài khoản null
  * hoặc bị tắt (`isActive=false`) -> `token.invalid = true`; ngược lại gán quyền qua `accessFromAccount`.
  */
-function applyAccountToToken(token: JWT, account: UserAccount | null): void {
+function applyAccountToToken(token: JWT, account: AuthAccountState | null): void {
   if (!account || !account.isActive) {
     // Tài khoản bị khoá/tắt hoặc đã bị xoá khỏi DB - vô hiệu session ở callback session().
     token.invalid = true;
@@ -117,16 +100,28 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        // TODO: rate-limit login chống brute-force - dùng src/lib/rate-limit.ts.
-        const email = (credentials?.email ?? '').toLowerCase().trim();
+        // Task 6 (D3) - nối vào `checkCredentials`/`AuthStore` thật: khoá sau 5 lần sai, giới hạn
+        // theo IP, không lộ tài khoản chỉ Google/tài khoản không tồn tại (K5-K7, L1, L7, R1-R3, G2).
+        const email = normalizeEmail(credentials?.email);
         const password = credentials?.password ?? '';
         if (!email || !password) return null;
-        const account = await findAccount(email);
-        if (!account || !account.isActive || !account.passwordHash) return null;
-        if (!verifyPassword(password, account.passwordHash)) return null;
-        // TODO: thiếu flow "quên mật khẩu" self-service - admin mất pass = chết cứng. Blocker pre-prod.
-        await touchLastLogin(email);
-        return { id: email, email, name: account.name };
+        const ip = clientIpFrom(await headers());
+        try {
+          const result = await checkCredentials(getAuthStore(), { email, password, ip });
+          if (!result.ok) {
+            if (result.reason === 'locked' || result.reason === 'ip_limited') throw new Error(result.reason);
+            return null;
+          }
+          await touchLastLogin(email);
+          return { id: result.account.email, email: result.account.email, name: result.account.name };
+        } catch (e) {
+          // G5 - `locked`/`ip_limited` PHẢI ném nguyên văn (next-auth cần đúng 2 chuỗi này ở
+          // `res.error`); lỗi khác (ví dụ Prisma mất kết nối) thì KHÔNG log `e.message` (có thể chứa
+          // chuỗi kết nối DB), trả `null` (next-auth hiện `CredentialsSignin` chung).
+          if (e instanceof Error && (e.message === 'locked' || e.message === 'ip_limited')) throw e;
+          logger.error('auth.authorize_failed', errorFields(e));
+          return null;
+        }
       },
     }),
     GoogleProvider({
@@ -141,11 +136,11 @@ export const authOptions: NextAuthOptions = {
       const email = user.email?.toLowerCase() ?? '';
       if (account?.provider === 'google') {
         // S9: chỉ vào khi email đã xác minh, có trong danh sách admin thêm, đang hoạt động,
-        // chưa bị khoá (lockedAt thật sẽ nối vào ở Task 6, sau khi có cột DB - Task 5).
-        const found = email ? await findAccount(email) : null;
+        // chưa bị khoá - `lockedAt` thật từ Task 5 (không còn cứng `null` như bản Task 3).
+        const found = email ? await getAuthStore().getAccountState(email) : null;
         const decision = googleAccessDecision(
           profile as GoogleProfileLite,
-          found ? { isActive: found.isActive, lockedAt: null } : null,
+          found ? { isActive: found.isActive, lockedAt: found.lockedAt } : null,
         );
         if (decision !== 'allow') {
           // L8 (bao-mat.md) - ghi lại lần bị từ chối kèm lý do, để admin thấy được ai đã thử vào
@@ -153,19 +148,23 @@ export const authOptions: NextAuthOptions = {
           // R7 (bao-mat.md vòng 2) - nhánh `unverified` nghĩa là Google CHƯA xác minh email, nên
           // toàn bộ `profile`/`user` (kể cả `name`) là dữ liệu KHÔNG đáng tin (ai đó có thể tự khai
           // tên bất kỳ); dùng tên CỐ ĐỊNH thay vì `user.name` để admin không hiểu nhầm là tên thật.
-          // R7 (chưa làm, để Task 5-6) - báo cáo bảo mật đề nghị giới hạn tần suất ghi
-          // `login_google_denied`; callback này KHÔNG có `AuthStore`/bảng đếm nào để tiêm vào (khác
-          // `checkCredentials`), và không được đụng `schema.prisma` ở vòng sửa này - Task 5 thêm
-          // `ThrottleKind` riêng `'google_denied'` (không dùng chung `login_fail_unknown_email` - kind
-          // đó đếm theo email cho nhánh CREDENTIALS sai/email lạ, còn đây là log Google bị từ chối,
-          // 2 việc khác nhau dù cùng khoá theo email), Task 6 bước 6.3 gọi
-          // `reserveThrottle('google_denied', email, ...)` trước khi ghi log, thay vì tự chế 1 bộ đếm
-          // trong tiến trình (không sống sót qua restart, không đúng với nhiều instance).
           const who = decision === 'unverified' ? { name: '(email chua xac minh)', email } : { name: user.name ?? email, email };
-          try {
-            await logActivity(who, 'login_google_denied', decision);
-          } catch {
-            /* ignore */
+          // R7 phần 3, G4 (bao-mat.md) - hạn chế `activity_log` bị spam bởi các lần Google từ chối
+          // lặp lại của CÙNG 1 email: "đặt chỗ" TRƯỚC khi ghi log; còn chỗ (`id` khác null) thì ghi
+          // như cũ, hết chỗ thì VẪN từ chối đăng nhập (return false) nhưng KHÔNG ghi log thêm (giống
+          // cách `requestPasswordReset` bỏ log khi hết chỗ IP - L4, tránh việc chặn spam log lại làm
+          // log bị spam).
+          if (email) {
+            const now = new Date();
+            const sinceIso = new Date(now.getTime() - GOOGLE_DENIED_WINDOW_MS).toISOString();
+            const reserved = await getAuthStore().reserveThrottle('google_denied', email, now.toISOString(), sinceIso, GOOGLE_DENIED_LIMIT);
+            if (reserved !== null) {
+              try {
+                await logActivity(who, 'login_google_denied', decision);
+              } catch {
+                /* ignore */
+              }
+            }
           }
           return false;
         }
@@ -177,14 +176,42 @@ export const authOptions: NextAuthOptions = {
       }
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
+      // R2-1 - nhánh `trigger === 'update'` CHỈ được SIẾT, không bao giờ nới. `POST /api/auth/session`
+      // (csrfToken lấy công khai) sinh `trigger: 'update'` cho BẤT KỲ ai giữ cookie phiên, kể cả cookie
+      // bị đánh cắp, nên nhánh này không gọi `applyAccountToToken` (có thể hạ `invalid`), không đụng
+      // `token.pwdAt`; chỉ đặt `invalid = true` khi tài khoản không còn/bị tắt (R3-4) hoặc mật khẩu đã
+      // đổi sau lúc phiên đăng nhập. Cấp cookie mới cho phiên vừa tự đổi mật khẩu là việc của
+      // `reissueSessionCookie` (server-side, trong `changePasswordAction`).
+      if (trigger === 'update') {
+        const email = token.email;
+        if (typeof email === 'string' && email) {
+          const account = await getAuthStore().getAccountState(email);
+          // R3-4 (bao-mat.md vòng 3, Thấp) - tài khoản không còn/đã bị TẮT (isActive=false) cũng phải
+          // vô hiệu ngay ở nhánh này, nhất quán với nhánh kiểm định kỳ (`applyAccountToToken`) - trước
+          // đây nhánh update chỉ so `passwordChangedAt`, bỏ qua `isActive`, nên 1 tài khoản vừa bị tắt
+          // (chưa qua ACCESS_RECHECK_INTERVAL_MS) vẫn nhận role/canViewFinance trong phản hồi JSON của
+          // `POST /api/auth/session` dù middleware/trang khác đã coi phiên là hợp lệ tới lúc đó.
+          if (!account || !account.isActive) {
+            token.invalid = true;
+          } else {
+            const changedAtMs = account.passwordChangedAt ? Date.parse(account.passwordChangedAt) : 0;
+            if (changedAtMs > (token.pwdAt ?? 0)) token.invalid = true;
+          }
+        }
+        return token;
+      }
       if (user?.email) {
-        // K14 (đóng L-11): 1 lần đọc tài khoản (findAccount), quyền dựng thẳng từ đó - không gọi
-        // resolveAccess() thêm lần nữa (trước đây đọc DB 2 lần: findAccount() ở authorize/signIn
-        // rồi resolveAccess() ở đây).
-        const account = await findAccount(user.email);
+        // K14 (đóng L-11): 1 lần đọc tài khoản (getAccountState), quyền dựng thẳng từ đó - không
+        // gọi resolveAccess() thêm lần nữa (trước đây đọc DB 2 lần: findAccount() ở authorize/signIn
+        // rồi resolveAccess() ở đây). Task 7 - dùng `AuthStore.getAccountState` thay vì `findAccount`
+        // cục bộ để có sẵn `passwordChangedAt` (S8), không cần thêm cột này vào `UserAccount`.
+        const account = await getAuthStore().getAccountState(user.email);
         applyAccountToToken(token, account);
         if (account) token.name = account.name || token.name;
+        // S8 (Task 7) - lưu mốc đổi mật khẩu LÚC đăng nhập; dùng để phát hiện phiên cũ khi mật khẩu
+        // bị đổi (đặt lại qua email/admin đặt mật khẩu tạm) SAU thời điểm này.
+        token.pwdAt = account?.passwordChangedAt ? Date.parse(account.passwordChangedAt) : 0;
         return token;
       }
       // T-5: token đã có (không phải lần đăng nhập) - đọc lại quyền định kỳ mỗi
@@ -193,8 +220,22 @@ export const authOptions: NextAuthOptions = {
       if (typeof email === 'string' && email) {
         const last = typeof token.accessCheckedAt === 'number' ? token.accessCheckedAt : 0;
         if (Date.now() - last > ACCESS_RECHECK_INTERVAL_MS) {
-          const account = await findAccount(email);
+          // R4-1b (bao-mat.md vòng 4, Trung) - `invalid` phải "dính": nếu token ĐÃ bị đánh dấu vô
+          // hiệu từ trước (vd `invalidateCurrentSessionCookie` khi khoá tài khoản do đoán sai mật
+          // khẩu hiện tại - R4-1a), nhánh kiểm định kỳ này KHÔNG BAO GIỜ được hạ nó về hợp lệ lại.
+          // `applyAccountToToken` bên dưới có thể tạm đặt lại `invalid = false` (chỉ dựa theo
+          // `isActive` hiện tại của DB), rồi phép so `changedAtMs > pwdAt` có thể (hoặc không) đặt
+          // lại `true` - nếu DB CHƯA (hoặc không) phản ánh lý do vô hiệu ban đầu bằng
+          // `passwordChangedAt` thì kết quả cuối vẫn phải là `true` vì token này đã từng bị vô hiệu.
+          const wasInvalid = token.invalid === true;
+          const account = await getAuthStore().getAccountState(email);
           applyAccountToToken(token, account);
+          // S8 - mật khẩu đã đổi SAU lúc token này đăng nhập (`token.pwdAt`) -> vô hiệu, dù
+          // isActive/lockedAt bình thường (không cho phiên cũ dùng mật khẩu đã bị lộ tiếp tục sống,
+          // trễ tối đa `ACCESS_RECHECK_INTERVAL_MS` như mọi kiểm lại định kỳ khác - T-5).
+          const changedAtMs = account?.passwordChangedAt ? Date.parse(account.passwordChangedAt) : 0;
+          if (changedAtMs > (token.pwdAt ?? 0)) token.invalid = true;
+          if (wasInvalid) token.invalid = true;
         }
       }
       return token;
@@ -214,3 +255,84 @@ export const authOptions: NextAuthOptions = {
     },
   },
 };
+
+/**
+ * R2-1 (bao-mat.md vòng 2, CAO) - Cách vá 1: thay vì để client gọi `update()` (mở đường cho phiên bị
+ * đánh cắp "hồi sinh" qua `POST /api/auth/session` - xem callback `jwt` ở trên), CHỈ request đã đi
+ * qua `changePasswordAction` (đã kiểm `currentPassword` đúng) mới được phép cấp lại cookie phiên MỚI
+ * cho CHÍNH phiên hiện tại, ngay phía server, sau khi đổi mật khẩu thành công.
+ * Không tin dữ liệu client gửi lên: đọc token TỪ COOKIE HIỆN TẠI của chính request này (không nhận
+ * tham số nào từ ngoài ngoài `email` đã được `changePasswordAction` xác thực). Dùng chung
+ * `secret`/`session.maxAge` của `authOptions` (không nhân bản hằng số); tên cookie + thuộc tính khớp
+ * `defaultCookies` của next-auth (không có `authOptions.cookies` tuỳ biến nên next-auth dùng đúng mặc
+ * định này) - `secureCookie` suy từ `NEXTAUTH_URL` (không bao giờ tin header `Host`, cùng quy ước
+ * K11), đúng quy tắc mặc định mà `next-auth/jwt`'s `getToken()` và `middleware.ts` đang dùng khi đọc
+ * token. Không xử lý cookie bị chia nhỏ (chunk) - payload JWT của app này nhỏ (email/role/pwdAt...),
+ * không chạm ngưỡng ~4KB next-auth mới chia nhỏ cookie.
+ * Dùng chung cho `reissueSessionCookie` (cấp lại cookie sau khi tự đổi mật khẩu) và
+ * `invalidateCurrentSessionCookie` (R3-2 - đá ngay phiên hiện tại khi tài khoản bị khoá do đoán sai
+ * mật khẩu hiện tại nhiều lần) - cả 2 chỉ được sửa cookie của ĐÚNG người gọi (`token.email === email`),
+ * không bao giờ đụng tới cookie của người khác.
+ */
+async function withOwnSessionCookie(email: string, tag: string, mutate: (token: JWT) => Promise<void>): Promise<void> {
+  try {
+    const secureCookie = process.env.NEXTAUTH_URL?.startsWith('https://') ?? !!process.env.VERCEL;
+    const cookieName = secureCookie ? '__Secure-next-auth.session-token' : 'next-auth.session-token';
+    const store = await cookies();
+    const raw = store.get(cookieName)?.value;
+    if (!raw) return; // không có cookie phiên nào đang mở trong request này - bỏ qua, không phải lỗi
+
+    const secret = requireAuthSecret();
+    const token = await decodeSessionToken({ token: raw, secret });
+    // Chỉ sửa cookie của ĐÚNG người mà bên gọi đã xác thực (email đã qua requireAuth ở actions.ts).
+    if (!token || token.email !== email) return;
+
+    await mutate(token);
+
+    const maxAge = authOptions.session?.maxAge ?? 8 * 60 * 60;
+    const newRaw = await encodeSessionToken({ token, secret, maxAge });
+    store.set(cookieName, newRaw, {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      secure: secureCookie,
+      maxAge,
+    });
+  } catch (e) {
+    // Sửa cookie ở đây chỉ là tiện ích/hàng rào thêm - lỗi ở đây KHÔNG được làm hỏng hành động đã
+    // thành công (đổi mật khẩu, khoá tài khoản); không log message (có thể chứa dữ liệu nhạy cảm).
+    logger.error('auth.session_cookie_failed', { tag, ...errorFields(e) });
+  }
+}
+
+/**
+ * R3-1, R4-3 - cấp lại cookie cho phiên vừa tự đổi mật khẩu. `newHash` là hash mà
+ * `changePasswordAction` VỪA GHI qua `setPasswordIfHash`. Giữa lúc ghi và lúc hàm này đọc lại tài
+ * khoản, 1 request KHÁC (admin đặt mật khẩu tạm, đặt lại qua email) có thể đã ghi đè mật khẩu; khi
+ * đó hash trong DB khác `newHash` và phiên bị vô hiệu (fail-closed) thay vì được "hồi sinh" bằng mốc
+ * `pwdAt` của lần ghi đã thua. So hash (bcrypt có salt nên không thể trùng) không phụ thuộc đồng hồ.
+ */
+export async function reissueSessionCookie(email: string, newHash: string): Promise<void> {
+  await withOwnSessionCookie(email, 'reissueSessionCookie', async (token) => {
+    const account = await getAuthStore().getAccountState(email);
+    applyAccountToToken(token, account);
+    const dbChangedAtMs = account?.passwordChangedAt ? Date.parse(account.passwordChangedAt) : 0;
+    token.pwdAt = dbChangedAtMs;
+    if (!account || account.passwordHash !== newHash) token.invalid = true;
+  });
+}
+
+/**
+ * R3-2 (bao-mat.md vòng 3, Trung, chủ dự án chốt 2026-09-28) - tài khoản vừa bị KHOÁ ngay trong
+ * `changePasswordAction` (đủ 5 lần đoán sai mật khẩu hiện tại): khác với khoá do đăng nhập sai (Q1 =
+ * phương án a - không cắt phiên đang mở, chỉ chặn đăng nhập MỚI), ở đây kẻ đoán mật khẩu ĐANG GIỮ
+ * chính phiên đó (có thể là cookie bị đánh cắp) nên phiên hiện tại PHẢI bị đá ngay, không chờ
+ * `ACCESS_RECHECK_INTERVAL_MS`. Chỉ đặt `token.invalid = true` (không đổi `role`/`pwdAt`/... gì
+ * khác) - lần request kế tiếp của phiên này (middleware hoặc `session()` callback) sẽ tự đẩy về
+ * `/login`.
+ */
+export async function invalidateCurrentSessionCookie(email: string): Promise<void> {
+  await withOwnSessionCookie(email, 'invalidateCurrentSessionCookie', async (token) => {
+    token.invalid = true;
+  });
+}

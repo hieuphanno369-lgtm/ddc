@@ -28,6 +28,13 @@ export function need(key: string): string {
   return value;
 }
 
+/**
+ * P3E (Task 6, bước 6.10) - mật khẩu dùng chung cho 2 tài khoản e2e tạo sẵn ở `global-setup.ts`
+ * (`e2e-khoa@daidung.com.vn`, `e2e-quenmk@daidung.com.vn`); KHÔNG phải mật khẩu thật, chỉ tồn tại
+ * trên DB tạm/DB dev của e2e.
+ */
+export const E2E_LOCK_PASSWORD = 'E2e-Khoa-2026!';
+
 /** DB tạm riêng cho e2e của A (chủ dự án chốt 2026-09-27). Seed xoá/nạp lại mỗi lần chạy, không phải DB thật. */
 export const E2E_A_DB_NAME = 'ddc_control_tower_e2e_a';
 /**

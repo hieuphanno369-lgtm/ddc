@@ -1,8 +1,10 @@
 import { getTranslations } from 'next-intl/server';
 import { repo } from '@/server/repo';
+import { logger } from '@/lib/logger';
 import { sendEmail, type SmtpConfig } from './notify/email';
 import { smtpConfigFromChannel } from './notify/dispatch';
 import type { ResetMailer } from './password-reset';
+import type { Locale } from '@/i18n/routing';
 
 /**
  * Q6=(a) - kênh email đầu tiên (id nhỏ nhất) có ĐỦ cấu hình SMTP hợp lệ, kể cả khi kênh đó đang
@@ -28,10 +30,10 @@ export function queueAuthEmail(cfg: SmtpConfig, to: string, subject: string, tex
     .then(() => sendEmail(cfg, [to], subject, text))
     .then((r) => {
       // S13 - KHÔNG log địa chỉ nhận hay nội dung, chỉ mã lỗi.
-      if (!r.ok) console.error('[auth-mail] gui email dat lai mat khau that bai', r.error);
+      if (!r.ok) logger.error('auth_mail.send_failed', { errCode: String(r.error) });
     })
     .catch(() => {
-      console.error('[auth-mail] gui email dat lai mat khau loi ngoai y muon');
+      logger.error('auth_mail.unexpected');
     });
 }
 
@@ -48,6 +50,26 @@ export const resetMailer: ResetMailer = {
   async compose(locale, email, link) {
     const t = await getTranslations({ locale, namespace: 'authSecurity' });
     return { subject: t('mailSubject'), text: t('mailBody', { email, link }) };
+  },
+  queue: queueAuthEmail,
+};
+
+/**
+ * P3F-3 (S1) - email "đặt mật khẩu" khi admin bật đăng ký: link đặt mật khẩu hạn 72 giờ. Không chứa họ tên do người
+ * đăng ký tự gõ (S2). Dùng chung kênh SMTP và hàng đợi với quên mật khẩu.
+ */
+export interface SignupMailer {
+  getSmtp(): Promise<SmtpConfig | null>;
+  compose(locale: Locale, email: string, link: string): Promise<{ subject: string; text: string }>;
+  /** Xếp hàng gửi nền - không throw, không được `await`. */
+  queue(cfg: SmtpConfig, to: string, subject: string, text: string): void;
+}
+
+export const signupMailer: SignupMailer = {
+  getSmtp: getAuthSmtpConfig,
+  async compose(locale, email, link) {
+    const t = await getTranslations({ locale });
+    return { subject: t('signup.mailSubject'), text: t('signup.mailBody', { email, link }) };
   },
   queue: queueAuthEmail,
 };

@@ -39,6 +39,8 @@ vi.mock('@/components/ui/Badges', () => ({
 }));
 vi.mock('@/components/project/WhatIf', () => ({ WhatIf: () => null }));
 vi.mock('@/components/project/ProjectSwitcher', () => ({ ProjectSwitcher: () => null }));
+vi.mock('@/components/project/DetailTimeBar', () => ({ DetailTimeBar: () => null }));
+vi.mock('@/components/project/ResourceDayNav', () => ({ ResourceDayNav: () => null }));
 
 import { getCurrentUser } from '@/lib/session';
 import ProjectDetailPage from '../../app/[locale]/(app)/projects/[id]/page';
@@ -86,6 +88,18 @@ describe('/projects/1 - render với searchParams.month rác (A-3, vòng CAN SUA
 
   it('?month=2026-07 (hợp lệ) vẫn render đúng, không bị guard chặn nhầm giá trị hợp lệ', async () => {
     await expect(render({ month: '2026-07' })).resolves.toContain(repo.getProject(1)!.projectName);
+  });
+
+  it('P4: from/to/day rác (ngày không tồn tại, năm tràn số, chuỗi dài, mảng) không ném 500', async () => {
+    const name = repo.getProject(1)!.projectName;
+    await expect(render({ from: '2026-02-30', to: 'abc' })).resolves.toContain(name);
+    await expect(render({ from: '9999-12-31', to: '9999-12-31' })).resolves.toContain(name);
+    await expect(render({ day: '2026-13-45' })).resolves.toContain(name);
+    await expect(render({ day: 'x'.repeat(5000), month: ['2026-07', '2026-08'] })).resolves.toContain(name);
+  });
+
+  it('P4: from/to/month/day hợp lệ vẫn render (mở từ link Tổng quan giữ kỳ)', async () => {
+    await expect(render({ from: '2026-01-01', to: '2026-08-31', month: '2026-06', day: '2026-06-10' })).resolves.toContain(repo.getProject(1)!.projectName);
   });
 });
 

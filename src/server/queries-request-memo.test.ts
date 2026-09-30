@@ -32,21 +32,27 @@ import { getProjectSummaries } from './queries';
 describe('requestMemo - nhanh co React.cache (T1 Buoc 11)', () => {
   beforeEach(() => vi.restoreAllMocks());
 
-  it('cung yearMonth + cung tham chieu filters: chi doc repo 1 lan, tra cung ket qua', async () => {
+  it('cung tham chieu period + cung tham chieu filters: chi doc repo 1 lan, tra cung ket qua', async () => {
     const spy = vi.spyOn(repo, 'listProjects');
+    const period = { from: '2031-01-01', to: '2031-01-31' };
     const filters = { status: 'all' as const };
-    const a = await getProjectSummaries('2031-01', filters);
-    const b = await getProjectSummaries('2031-01', filters);
+    const a = await getProjectSummaries(period, filters);
+    const b = await getProjectSummaries(period, filters);
     expect(spy).toHaveBeenCalledTimes(1);
     expect(b).toBe(a);
   });
 
-  it('khac yearMonth hoac khac tham chieu filters: doc lai (khong tra nham ket qua cu)', async () => {
+  it('khac tham chieu period: doc lai; cung period nhung khac filters: dung lai nen (khong doc lai) va ket qua theo filters moi', async () => {
     const spy = vi.spyOn(repo, 'listProjects');
-    await getProjectSummaries('2031-02');
-    await getProjectSummaries('2031-03');
-    await getProjectSummaries('2031-03', { status: 'all' });
-    await getProjectSummaries('2031-03', { status: 'all' });
-    expect(spy).toHaveBeenCalledTimes(4);
+    const p1 = { from: '2031-02-01', to: '2031-02-28' };
+    const p2 = { from: '2031-03-01', to: '2031-03-31' };
+    await getProjectSummaries(p1);
+    await getProjectSummaries(p2);
+    expect(spy).toHaveBeenCalledTimes(2);
+    const all = await getProjectSummaries(p2, { status: 'all' });
+    const none = await getProjectSummaries(p2, { status: 'Hoan_thanh' });
+    expect(spy).toHaveBeenCalledTimes(2); // nen theo period da memo, filters chi loc them
+    expect(none.every((s) => s.status === 'Hoan_thanh')).toBe(true);
+    expect(none.length).toBeLessThanOrEqual(all.length);
   });
 });

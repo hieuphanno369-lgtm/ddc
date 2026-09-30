@@ -31,6 +31,7 @@ vi.mock('@/server/repo', async () => {
   return { repo: mockRepo.repo };
 });
 vi.mock('@/server/actions', () => ({ closeAlertAction: vi.fn() }));
+vi.mock('@/components/dashboard/ReportPeriodBar', () => ({ ReportPeriodBar: () => null }));
 vi.mock('@/server/report', () => ({
   getReportData: vi.fn(async () => ({
     kpis: {
@@ -62,7 +63,8 @@ vi.mock('@/server/audit-log-page', async () => {
 
 import * as React from 'react';
 import { getCurrentUser } from '@/lib/session';
-import ReportPage from '../../app/[locale]/(app)/report/page';
+import ReportPageReal from '../../app/[locale]/(app)/report/page';
+const ReportPage = () => ReportPageReal({ searchParams: Promise.resolve({}) });
 import AlertsPage from '../../app/[locale]/(app)/alerts/page';
 import CompliancePage from '../../app/[locale]/(app)/compliance/page';
 import AuditPage from '../../app/[locale]/(app)/audit/page';

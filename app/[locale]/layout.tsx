@@ -3,7 +3,9 @@ import { notFound } from 'next/navigation';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, getTranslations } from 'next-intl/server';
 import { Inter } from 'next/font/google';
+import { headers } from 'next/headers';
 import { routing } from '@/i18n/routing';
+import { NONCE_HEADER } from '@/lib/security-headers';
 import '../tokens.css';
 import '../globals.css';
 
@@ -30,10 +32,13 @@ export default async function LocaleLayout({
     notFound();
   }
   const messages = await getMessages();
+  // Nonce CSP do middleware sinh mỗi request (P5-B), để script chọn giao diện chạy được khi CSP có nonce.
+  const nonce = (await headers()).get(NONCE_HEADER) ?? undefined;
   return (
     <html lang={locale} className={inter.variable} suppressHydrationWarning>
       <head>
         <script
+          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('ddc-theme')||'system';var r=document.documentElement;if(t==='light'||t==='dark'){r.setAttribute('data-theme',t)}else{r.removeAttribute('data-theme')}}catch(e){}})();`,
           }}

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Bộ icon kết cấu thép</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Be Vietnam Pro',system-ui,sans-serif;background:#0B1220;color:#E6E9F0}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+.spin{animation:spin 6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+</style>
+</helmet>
+<div style="width: 880px; height: 400px; box-sizing: border-box; padding: 48px 56px; background: #0B1220; display: flex; flex-direction: column; gap: 32px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span class="mono" style="font-size: 12px; letter-spacing: 0.14em; color: #8C96AB">BỘ ICON · NÉT 1.8 · KHUNG 24</span>
+<h2 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.02em">Ngành kết cấu thép</h2>
+</div>
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 24px 8px; border-radius: 14px; border: 1px solid rgba(255,255,255,.09); background: rgba(255,255,255,.03)">
+<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#E6E9F0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V4l16 16z"></path><path d="M8 16v-4l4 4z"></path><path d="M4 8h2M4 12h2"></path></svg>
+<span style="font-size: 14px; color: #C9CFDB">Thiết kế</span>
+</div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 24px 8px; border-radius: 14px; border: 1px solid rgba(255,255,255,.09); background: rgba(255,255,255,.03)">
+<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#E6E9F0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14M5 20h14M12 4v16"></path></svg>
+<span style="font-size: 14px; color: #C9CFDB">Thép hình</span>
+</div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 24px 8px; border-radius: 14px; border: 1px solid rgba(245,158,75,.4); background: rgba(245,158,75,.06)">
+<svg class="spin" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#F59E4B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z"></path><circle cx="12" cy="12" r="3.2"></circle></svg>
+<span style="font-size: 14px; color: #C9CFDB">Gia công · đang tải</span>
+</div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 24px 8px; border-radius: 14px; border: 1px solid rgba(255,255,255,.09); background: rgba(255,255,255,.03)">
+<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#E6E9F0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 7h12v9H2z"></path><path d="M14 10h4l3 3v3h-7"></path><circle cx="6" cy="18" r="2"></circle><circle cx="17" cy="18" r="2"></circle><path d="M3 4.5h10"></path></svg>
+<span style="font-size: 14px; color: #C9CFDB">Vận chuyển</span>
+</div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 24px 8px; border-radius: 14px; border: 1px solid rgba(255,255,255,.09); background: rgba(255,255,255,.03)">
+<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#E6E9F0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 21V4"></path><path d="M4 21h6"></path><path d="M3 6h18"></path><path d="M7 4l-3 2M7 4l10 2"></path><path d="M16 6v6"></path><path d="M14 12h4v2h-4z"></path></svg>
+<span style="font-size: 14px; color: #C9CFDB">Lắp dựng</span>
+</div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 24px 8px; border-radius: 14px; border: 1px solid rgba(255,255,255,.09); background: rgba(255,255,255,.03)">
+<div style="width: 40px; height: 40px; border-radius: 10px; background: #FFFFFF; overflow: hidden"><img src="logo.png" alt="Đại Dũng" style="width: 40px; height: 40px; object-fit: cover"></div>
+<span style="font-size: 14px; color: #C9CFDB">Logo Đại Dũng</span>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":880,"height":400}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

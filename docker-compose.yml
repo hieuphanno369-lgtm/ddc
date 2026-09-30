@@ -1,0 +1,109 @@
+# Chạy: docker compose --env-file .env.docker up -d --build
+# Công cụ: docker compose --env-file .env.docker run --rm tools <lệnh>
+x-db-url: &db-url postgresql://ddc:${POSTGRES_PASSWORD:?}@db:5432/ddc_control_tower
+# Mọi service xoay vòng log, không để file log container phình vô hạn làm đầy ổ.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "14"
+
+services:
+  db:
+    image: postgres:${PG_MAJOR:-16}-alpine
+    environment:
+      POSTGRES_USER: ddc
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ddc_control_tower
+      TZ: Asia/Ho_Chi_Minh
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ddc -d ddc_control_tower"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *default-logging
+    restart: unless-stopped
+
+  migrate:
+    image: ddc-control-tower-tools:${APP_IMAGE_TAG:-local}
+    build: &tools-build
+      context: .
+      target: tools
+      secrets: [extra_ca]
+    environment:
+      DATABASE_URL: *db-url
+      DIRECT_URL: *db-url
+    depends_on:
+      db: { condition: service_healthy }
+    logging: *default-logging
+    restart: "no"
+
+  app:
+    image: ddc-control-tower:${APP_IMAGE_TAG:-local}
+    build:
+      context: .
+      target: runner
+      secrets: [extra_ca]
+    environment:
+      DATABASE_URL: *db-url
+      DIRECT_URL: *db-url
+      NEXTAUTH_URL: ${NEXTAUTH_URL:?}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?}
+      NOTIFY_SECRET_KEY: ${NOTIFY_SECRET_KEY:?}
+      CRON_SECRET: ${CRON_SECRET:?}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
+    ports:
+      - "127.0.0.1:${APP_PORT:-3005}:3000"
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health/db',{headers:{'x-forwarded-for':'127.0.0.1'}}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging: *default-logging
+    restart: unless-stopped
+
+  tools:
+    image: ddc-control-tower-tools:${APP_IMAGE_TAG:-local}
+    build: *tools-build
+    profiles: ["tools"]
+    environment:
+      DATABASE_URL: *db-url
+      DIRECT_URL: *db-url
+    depends_on:
+      db: { condition: service_healthy }
+    logging: *default-logging
+
+  backup:
+    image: postgres:${PG_MAJOR:-16}-alpine
+    profiles: ["tools"]
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: ddc
+      PGPASSWORD: ${POSTGRES_PASSWORD:?}
+      PGDATABASE: ddc_control_tower
+      BACKUP_DIR: /backups
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      TZ: Asia/Ho_Chi_Minh
+    volumes:
+      - ./scripts/backup:/scripts:ro
+      - ${BACKUP_DIR:-./.backups}:/backups
+    entrypoint: ["sh"]
+    command: ["/scripts/pg-backup.sh"]
+    depends_on:
+      db: { condition: service_healthy }
+    logging: *default-logging
+
+volumes:
+  pgdata:
+
+secrets:
+  extra_ca:
+    file: ${EXTRA_CA_FILE:-./docker/extra-ca/empty.pem}

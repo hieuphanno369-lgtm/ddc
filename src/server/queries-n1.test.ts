@@ -9,8 +9,12 @@ vi.mock('@/server/repo', async () => {
 });
 vi.mock('@/server/cache', () => ({
   loadPortfolioKpis: vi.fn(async () => ({
-    totalProjects: 0, inProgress: 0, behindSchedule: 0, penaltyRisk: 0, penalized: 0, backlog: 0,
-    delta: { totalProjects: 0, inProgress: 0, behindSchedule: 0, penaltyRisk: 0, penalized: 0, backlog: 0 },
+    projectsInPeriod: 0, inProgress: 0, behindSchedule: 0, penaltyRisk: 0, penalized: 0, notStartedValue: 0,
+    revenueInPeriod: 0, tonnageInPeriod: 0, asOfDate: '2026-09-16', months: ['2026-09'],
+    delta: {
+      projectsInPeriod: 0, inProgress: 0, behindSchedule: 0, penaltyRisk: 0, penalized: 0, notStartedValue: 0,
+      revenueInPeriod: 0, tonnageInPeriod: 0,
+    },
   })),
   loadWatchlist: vi.fn(async () => []),
 }));
@@ -33,14 +37,17 @@ vi.mock('@/components/ui/Badges', () => ({
 }));
 vi.mock('@/components/project/WhatIf', () => ({ WhatIf: () => null }));
 vi.mock('@/components/project/ProjectSwitcher', () => ({ ProjectSwitcher: () => null }));
+vi.mock('@/components/project/DetailTimeBar', () => ({ DetailTimeBar: () => null }));
+vi.mock('@/components/project/ResourceDayNav', () => ({ ResourceDayNav: () => null }));
 
 import { getCurrentUser } from '@/lib/session';
 import { repo } from '@/server/repo';
-import { getProjectSummaries, getSpiCpiTrend, getTonnageValueByGroup } from './queries';
+import { getPortfolioKpis, getProjectSummaries, getSpiCpiTrend, getTonnageValueByGroup } from './queries';
 import { getReportData } from './report';
 import ProjectDetailPage from '../../app/[locale]/(app)/projects/[id]/page';
 
 (globalThis as unknown as { React: typeof React }).React = React;
+const PERIOD = { from: '2026-09-01', to: '2026-09-30' };
 const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.com.vn', role: 'admin', canViewFinance: true };
 
 /**
@@ -52,29 +59,46 @@ describe('queries N+1 (T1 Bước 5)', () => {
     const getLatestFact = vi.spyOn(repo, 'getLatestFact');
     const getDims = vi.spyOn(repo, 'getDims');
     const getProject = vi.spyOn(repo, 'getProject');
-    await getProjectSummaries('2026-09', { groupBy: 'team', groupKey: 'KD1' });
+    const readFactSnapshotsAsOf = vi.spyOn(repo, 'readFactSnapshotsAsOf');
+    await getProjectSummaries(PERIOD, { groupBy: 'team', groupKey: 'KD1' });
     expect(getLatestFact).not.toHaveBeenCalled();
+    expect(readFactSnapshotsAsOf).toHaveBeenCalledTimes(1);
     expect(getDims).toHaveBeenCalledTimes(1);
     expect(getProject).not.toHaveBeenCalled();
   });
 
   it('getTonnageValueByGroup: goi getProject 0 lan', async () => {
     const getProject = vi.spyOn(repo, 'getProject');
-    await getTonnageValueByGroup('2026-09', 'team');
+    await getTonnageValueByGroup(PERIOD, 'team');
     expect(getProject).not.toHaveBeenCalled();
   });
 
-  it('getSpiCpiTrend({}): goi getFactsForMonth 0 lan va readMonthlyEvm 1 lan', async () => {
+  it('getSpiCpiTrend: goi getFactsForMonth/getFacts 0 lan va readFactSeries 1 lan (khong theo so du an, khong theo so thang)', async () => {
     const getFactsForMonth = vi.spyOn(repo, 'getFactsForMonth');
-    const readMonthlyEvm = vi.spyOn(repo, 'readMonthlyEvm');
-    await getSpiCpiTrend({});
+    const getFacts = vi.spyOn(repo, 'getFacts');
+    const readFactSeries = vi.spyOn(repo, 'readFactSeries');
+    await getSpiCpiTrend({ from: '2025-10-01', to: '2026-09-16' }, {});
     expect(getFactsForMonth).not.toHaveBeenCalled();
-    expect(readMonthlyEvm).toHaveBeenCalledTimes(1);
+    expect(getFacts).not.toHaveBeenCalled();
+    expect(readFactSeries).toHaveBeenCalledTimes(1);
+  });
+
+  it('getPortfolioKpis: doc theo BATCH, khong goi getProject/getFacts/getLatestFact theo tung du an', async () => {
+    const getProject = vi.spyOn(repo, 'getProject');
+    const getFacts = vi.spyOn(repo, 'getFacts');
+    const getLatestFact = vi.spyOn(repo, 'getLatestFact');
+    const readFactSnapshotsAsOf = vi.spyOn(repo, 'readFactSnapshotsAsOf');
+    await getPortfolioKpis(PERIOD, {});
+    expect(getProject).not.toHaveBeenCalled();
+    expect(getFacts).not.toHaveBeenCalled();
+    expect(getLatestFact).not.toHaveBeenCalled();
+    // 2 lan co dinh: ky dang xem + ky lien truoc (so sanh delta), khong doi theo so du an
+    expect(readFactSnapshotsAsOf).toHaveBeenCalledTimes(2);
   });
 
   it('getReportData: goi getLatestFact 0 lan', async () => {
     const getLatestFact = vi.spyOn(repo, 'getLatestFact');
-    await getReportData('2026-09');
+    await getReportData({ from: '2026-09-01', to: '2026-09-30' });
     expect(getLatestFact).not.toHaveBeenCalled();
   });
 

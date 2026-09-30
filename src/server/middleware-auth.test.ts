@@ -56,6 +56,34 @@ describe('middleware - khong co phien', () => {
     expect(passedThrough(await hit('/vi/login'))).toBe(true);
   });
 
+  it('khong token /vi/quen-mat-khau -> cho qua (Task 7, trang public moi)', async () => {
+    getTokenMock.mockResolvedValue(null);
+    expect(passedThrough(await hit('/vi/quen-mat-khau'))).toBe(true);
+  });
+
+  it('khong token /en/dat-lai-mat-khau?token=x -> cho qua (Task 7, trang public moi, co query token)', async () => {
+    getTokenMock.mockResolvedValue(null);
+    expect(passedThrough(await hit('/en/dat-lai-mat-khau?token=x'))).toBe(true);
+  });
+
+  it('khong token /vi/quen-mat-khau-gia -> van bi redirect (so khop dung duong dan, khong phai tien to)', async () => {
+    getTokenMock.mockResolvedValue(null);
+    expect(redirectedTo(await hit('/vi/quen-mat-khau-gia'))).toBe('/vi/login');
+  });
+
+  it('khong token /vi/dang-ky va /en/dieu-khoan -> cho qua (P3F-3, trang public moi)', async () => {
+    getTokenMock.mockResolvedValue(null);
+    expect(passedThrough(await hit('/vi/dang-ky'))).toBe(true);
+    expect(passedThrough(await hit('/en/dieu-khoan'))).toBe(true);
+    expect(passedThrough(await hit('/vi/dieu-khoan'))).toBe(true);
+  });
+
+  it('khong token /vi/dang-ky-gia va /vi/dieu-khoan-gia -> van bi redirect /vi/login', async () => {
+    getTokenMock.mockResolvedValue(null);
+    expect(redirectedTo(await hit('/vi/dang-ky-gia'))).toBe('/vi/login');
+    expect(redirectedTo(await hit('/vi/dieu-khoan-gia'))).toBe('/vi/login');
+  });
+
   it('getToken nem loi -> coi nhu khong phien -> /vi/login', async () => {
     getTokenMock.mockRejectedValue(new Error('bad jwt'));
     expect(redirectedTo(await hit('/vi/overview'))).toBe('/vi/login');

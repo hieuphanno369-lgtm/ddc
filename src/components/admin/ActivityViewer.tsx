@@ -26,7 +26,7 @@ export function ActivityViewer({ activity }: { activity: ActivityLogEntry[] }) {
           setPage(1);
         }}
         className="inp"
-        style={{ width: 'auto' }}
+        style={{ width: 'auto', maxWidth: '100%' }}
       >
         <option value="">{t('admin.allUsers')}</option>
         {users.map((u) => (

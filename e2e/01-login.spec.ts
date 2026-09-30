@@ -1,36 +1,30 @@
 import { test, expect } from '@playwright/test';
 import { need, loadE2eEnv } from './helpers/env';
 import { vi } from './helpers/i18n';
+import { fillLogin } from './helpers/login';
 
 Object.assign(process.env, loadE2eEnv());
 
-async function login(page: import('@playwright/test').Page, email: string, password: string) {
-  await page.goto('/vi/login');
-  await page.locator('input[type="email"]').fill(email);
-  await page.locator('.field', { hasText: vi('auth.password') }).locator('input').fill(password);
-  await page.getByRole('button', { name: vi('auth.signIn') }).click();
-}
-
 test.describe('01 - dang nhap / dang xuat / chan truy cap chua dang nhap', () => {
   test('sai mat khau -> thay thong bao loi', async ({ page }) => {
-    await login(page, need('E2E_ADMIN_EMAIL'), 'mat-khau-sai-e2e');
+    await fillLogin(page, need('E2E_ADMIN_EMAIL'), 'mat-khau-sai-e2e');
     await expect(page.getByText(vi('auth.invalidCredentials'))).toBeVisible();
   });
 
   test('admin dang nhap dung -> ve /vi/overview', async ({ page }) => {
-    await login(page, need('E2E_ADMIN_EMAIL'), need('E2E_ADMIN_PASSWORD'));
+    await fillLogin(page, need('E2E_ADMIN_EMAIL'), need('E2E_ADMIN_PASSWORD'));
     await page.waitForURL('**/vi/overview**');
     expect(page.url()).toContain('/vi/overview');
   });
 
   test('pm dang nhap dung -> ve /vi/nhap-lieu', async ({ page }) => {
-    await login(page, need('E2E_PM_EMAIL'), need('E2E_PM_PASSWORD'));
+    await fillLogin(page, need('E2E_PM_EMAIL'), need('E2E_PM_PASSWORD'));
     await page.waitForURL('**/vi/nhap-lieu**');
     expect(page.url()).toContain('/vi/nhap-lieu');
   });
 
   test('dang xuat qua menu Cai dat -> ve /login', async ({ page }) => {
-    await login(page, need('E2E_ADMIN_EMAIL'), need('E2E_ADMIN_PASSWORD'));
+    await fillLogin(page, need('E2E_ADMIN_EMAIL'), need('E2E_ADMIN_PASSWORD'));
     await page.waitForURL('**/vi/overview**');
 
     await page.getByTitle(vi('settings.title')).click();

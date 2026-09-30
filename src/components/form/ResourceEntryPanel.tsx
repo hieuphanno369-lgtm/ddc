@@ -4,7 +4,7 @@ import { Fragment, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import type { IsoDate } from '@/lib/clock';
-import { isInWindow } from '@/lib/daily-entry';
+import { isInWindow, type DailyWindow } from '@/lib/daily-entry';
 import type { Contractor, Equipment, FactDailyEquipmentUsage, FactDailyManpowerShift, Shift } from '@/server/repo/types';
 import { saveDailyResourcesAction, type DailySaveError } from '@/server/actions-entry';
 import { ContractorJoinBlock } from './ContractorJoinBlock';
@@ -18,13 +18,14 @@ import {
   type ManpowerGridRow,
 } from './resourceEntryState';
 import { Badge } from '@/components/ui/Badge';
+import { DateField } from '@/components/ui/DateField';
 
 export interface ResourceEntryPanelProps {
   projectId: number;
   masterCode: string;
   date: IsoDate;
   today: IsoDate;
-  entryWindow: { min: IsoDate | null; max: IsoDate };
+  entryWindow: DailyWindow;
   monthLocked: boolean;
   members: Contractor[];
   allContractors: Contractor[];
@@ -65,6 +66,11 @@ export function ResourceEntryPanel({
   const [saving, setSaving] = useState(false);
 
   const outOfWindow = !isInWindow(date, entryWindow);
+  // Ô ngày cho chọn tới ngày sớm nhất được phép, kể cả nhờ khoảng nhập bù (ngày nằm giữa các khoảng do server chặn).
+  const earliestDay = [entryWindow.min, ...(entryWindow.extra ?? []).map((r) => r.from)].reduce<IsoDate | null>(
+    (lo, d) => (d == null ? lo : lo == null || d < lo ? d : lo),
+    null,
+  );
   const disabled = monthLocked || outOfWindow;
   const isPast = date < today;
   const totals = manpowerTotals(mGrid, shifts);
@@ -152,14 +158,13 @@ export function ResourceEntryPanel({
 
       <div>
         <div className="sect"><b>{t('dailyEntry.date')}</b><i /></div>
-        <input
-          type="date"
+        <DateField
+          ariaLabel={t('dailyEntry.date')}
+          testId="entry-date"
           value={date}
-          min={entryWindow.min ?? undefined}
+          min={earliestDay ?? undefined}
           max={entryWindow.max}
-          onChange={(e) => updateQuery({ date: e.target.value, step: 'resources' })}
-          className="inp"
-          style={{ width: 'auto' }}
+          onChange={(v) => v && updateQuery({ date: v, step: 'resources' })}
         />
         {monthLocked && <Badge tone="warn" className="ml-2">{t('dailyEntry.locked', { month: date.slice(0, 7) })}</Badge>}
         {outOfWindow && <p className="hintline">{t('dailyEntry.outOfWindow')}</p>}

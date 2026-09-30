@@ -1,34 +1,55 @@
 import { NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 import { getCurrentUser } from '@/lib/session';
+import { rateLimit } from '@/lib/rate-limit';
+import { clientIpFrom } from '@/lib/client-ip';
 import { getReportData } from '@/server/report';
-import { currentMonth } from '@/lib/clock';
+import { todayIso } from '@/lib/clock';
+import { defaultOverviewPeriod, parsePeriod } from '@/lib/period';
+import { formatDmy } from '@/lib/date-input';
 import { safeCell } from '@/lib/excel-safe';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: Request) {
   const user = await getCurrentUser();
   if (!user || !['admin', 'bod'].includes(user.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   const canViewFinance = user.canViewFinance;
-  const { kpis, p0Red, rows } = await getReportData(currentMonth());
+
+  // S-2 (danh-gia-bao-mat.md): kỳ tới 120 tháng dựng workbook trong bộ nhớ, nên giới hạn theo IP như /api/export.
+  const rl = rateLimit(`report-export:${clientIpFrom(req.headers)}`, 30, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec) } },
+    );
+  }
+
+  // T-2: cùng tham số kỳ với trang /report (from/to hoặc month); rác rơi về kỳ mặc định, không ném lỗi.
+  const sp = new URL(req.url).searchParams;
+  const period = parsePeriod(
+    { from: sp.get('from') ?? undefined, to: sp.get('to') ?? undefined, month: sp.get('month') ?? undefined },
+    defaultOverviewPeriod(todayIso()),
+  );
+  const { kpis, p0Red, rows } = await getReportData(period);
 
   const wb = new ExcelJS.Workbook();
 
   const kpiWs = wb.addWorksheet('KPI');
   kpiWs.columns = [
     { header: 'Chỉ số', key: 'label', width: 24 },
-    { header: 'Giá trị', key: 'value', width: 16 },
+    { header: 'Giá trị', key: 'value', width: 26 },
   ];
   kpiWs.addRows([
-    { label: 'Tổng số dự án', value: kpis.totalProjects },
+    { label: 'Dự án trong kỳ', value: kpis.projectsInPeriod },
     { label: 'Đang triển khai', value: kpis.inProgress },
     { label: 'Trễ tiến độ', value: kpis.behindSchedule },
     { label: 'Nguy cơ phạt', value: kpis.penaltyRisk },
     { label: 'Đã phạt', value: kpis.penalized },
-    ...(canViewFinance ? [{ label: 'Backlog (tỷ)', value: kpis.backlog }] : []),
+    ...(canViewFinance ? [{ label: 'HĐ chưa khởi công (tỷ)', value: kpis.notStartedValue }] : []),
+    { label: 'Kỳ báo cáo', value: `${formatDmy(period.from)} - ${formatDmy(period.to)}` },
   ]);
 
   const p0Ws = wb.addWorksheet('P0-Red');
@@ -47,7 +68,7 @@ export async function GET() {
     { header: 'SPI', key: 'spi', width: 10 },
     { header: 'CPI', key: 'cpi', width: 10 },
     { header: '% TT', key: 'pctActual', width: 10 },
-    ...(canViewFinance ? [{ header: 'Backlog (tỷ)', key: 'backlog', width: 14 }] : []),
+    ...(canViewFinance ? [{ header: 'HĐ chưa khởi công (tỷ)', key: 'backlog', width: 14 }] : []),
   ];
   rows.forEach((r) => ws.addRow({
     code: safeCell(r.code),

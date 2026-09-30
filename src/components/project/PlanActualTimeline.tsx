@@ -11,8 +11,8 @@ export interface PlanActualTimelineProps {
 }
 
 const pct = (x: number) => `${(x * 100).toFixed(3)}%`;
-/** Cột nhãn 76px + gap 12px = 88px (mock-up dòng 313, 662). */
-const onAxis = (x: number) => `calc(88px + (100% - 88px) * ${x.toFixed(5)})`;
+/** Cột nhãn 76px + gap 12px = 88px (mock-up dòng 313, 662). Điện thoại hẹp (<= 560px) nhãn xếp trên thanh nên `--tl-off` = 0 (globals.css). */
+const onAxis = (x: number) => `calc(var(--tl-off, 88px) + (100% - var(--tl-off, 88px)) * ${x.toFixed(5)})`;
 
 export function PlanActualTimeline({ geometry: g, labels, planRange, actualRange, planPctText, actualPctText }: PlanActualTimelineProps) {
   // Viên "Hôm nay" sát mép thì neo trái/phải để không bị .card (overflow:hidden) cắt.

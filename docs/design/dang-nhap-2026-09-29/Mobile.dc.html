@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Đăng nhập - điện thoại</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:#0a1f3d;-webkit-font-smoothing:antialiased}
+a{color:#1d5a9e;font-weight:600;text-decoration:none}
+.blob{position:absolute;border-radius:50%;filter:blur(70px)}
+.glass{background:rgba(255,255,255,.60);-webkit-backdrop-filter:blur(22px) saturate(180%);backdrop-filter:blur(22px) saturate(180%);border:.5px solid rgba(255,255,255,.72);box-shadow:0 4px 10px rgba(10,31,61,.06),0 16px 38px rgba(10,31,61,.10),inset 0 .5px 0 rgba(255,255,255,.75)}
+.inp{width:100%;box-sizing:border-box;height:48px;padding:0 14px;border-radius:12px;border:.5px solid rgba(10,31,61,.16);background:rgba(255,255,255,.80);font:500 16px Inter,sans-serif;color:#0a1f3d;outline:none}
+.inp::placeholder{color:rgba(10,31,61,.45)}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:50px;border-radius:12px;border:none;font:650 15px Inter,sans-serif}
+.btn-primary{color:#ffffff;background:linear-gradient(160deg,#2a6db4,#1d5a9e);box-shadow:0 6px 16px rgba(29,90,158,.28)}
+.btn-ghost{color:#0a1f3d;background:rgba(10,31,61,.05);border:.5px solid rgba(10,31,61,.16)}
+.lb{font-size:13px;font-weight:600;color:rgba(10,31,61,.70)}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #e9eef6">
+<div class="blob" style="width: 320px; height: 320px; left: -90px; top: -90px; background: #2a6db4; opacity: .55"></div>
+<div class="blob" style="width: 260px; height: 260px; right: -80px; top: 120px; background: #0f8a63; opacity: .32"></div>
+<div class="blob" style="width: 280px; height: 280px; left: 40px; bottom: -120px; background: #f5b301; opacity: .24"></div>
+<div style="position: relative; z-index: 1; box-sizing: border-box; padding: 28px 16px; display: flex; flex-direction: column; gap: 22px; height: 844px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<div style="display: flex; align-items: center; gap: 10px">
+<div style="width: 40px; height: 40px; border-radius: 11px; background: #ffffff; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(10,31,61,.10)"><img src="/_blob/b39a5c76cbde3f941bc0bbe81eb9b299" alt="Đại Dũng" style="width: 36px; height: 36px; object-fit: contain"></div>
+<div style="display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">Báo cáo quản trị</span><span style="font-size: 10px; font-weight: 600; letter-spacing: .16em; color: rgba(10,31,61,.55)">DANH MỤC DỰ ÁN</span></div>
+</div>
+<button class="glass" style="height: 36px; padding: 0 12px; border-radius: 11px; font: 650 13px Inter,sans-serif; color: #0a1f3d" aria-label="Đổi ngôn ngữ">VI</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 4px 4px 0">
+<h2 style="margin: 0; font-size: 32px; line-height: 1.08; font-weight: 800; letter-spacing: -0.035em">Mọi dự án.<br><span style="color: #1d5a9e">Một tầm nhìn.</span></h2>
+</div>
+<form class="glass" style="border-radius: 24px; padding: 24px 20px; display: flex; flex-direction: column; gap: 16px">
+<h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.02em">Chào mừng trở lại</h1>
+<button type="button" class="btn btn-ghost"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path></svg>Tiếp tục với Google</button>
+<div style="display: flex; align-items: center; gap: 12px; font-size: 13px; color: rgba(10,31,61,.5)"><div style="flex-grow: 1; height: .5px; background: rgba(10,31,61,.16)"></div><span>hoặc dùng email</span><div style="flex-grow: 1; height: .5px; background: rgba(10,31,61,.16)"></div></div>
+<div style="display: flex; flex-direction: column; gap: 7px"><label for="memail" class="lb">Email</label><input id="memail" class="inp" type="email" placeholder="ten@daidung.vn"></div>
+<div style="display: flex; flex-direction: column; gap: 7px"><div style="display: flex; justify-content: space-between"><label for="mpw" class="lb">Mật khẩu</label><a href="#" style="font-size: 13px">Quên mật khẩu?</a></div><input id="mpw" class="inp" type="password" placeholder="Nhập mật khẩu"></div>
+<button type="button" class="btn btn-primary">Đăng nhập</button>
+<p style="margin: 0; font-size: 14px; color: rgba(10,31,61,.64); text-align: center">Chưa có tài khoản? <a href="DangKy.dc.html">Tạo tài khoản</a></p>
+</form>
+<div style="flex-grow: 1"></div>
+<div style="text-align: center; font-size: 10px; font-weight: 600; letter-spacing: .1em; color: rgba(10,31,61,.5)">HỆ THỐNG NỘI BỘ · © ĐẠI DŨNG</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

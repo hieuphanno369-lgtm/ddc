@@ -26,6 +26,7 @@ vi.mock('@/server/repo', async () => {
   return { repo: mockRepo.repo };
 });
 vi.mock('@/server/report', () => ({ getReportData: vi.fn() }));
+vi.mock('@/components/dashboard/ReportPeriodBar', () => ({ ReportPeriodBar: () => null }));
 vi.mock('@/i18n/navigation', () => ({
   Link: (props: { href: string; children?: React.ReactNode; className?: string }) =>
     React.createElement('a', { href: props.href, className: props.className }, props.children),
@@ -39,7 +40,8 @@ vi.mock('@/components/alerts/AlertList', () => ({
 
 import { getCurrentUser } from '@/lib/session';
 import { getReportData } from '@/server/report';
-import ReportPage from '../../app/[locale]/(app)/report/page';
+import ReportPageReal from '../../app/[locale]/(app)/report/page';
+const ReportPage = () => ReportPageReal({ searchParams: Promise.resolve({}) });
 import AlertsPage from '../../app/[locale]/(app)/alerts/page';
 
 (globalThis as unknown as { React: typeof React }).React = React;
@@ -48,13 +50,17 @@ const BOD_NO_FINANCE: CurrentUser = { name: 'BOD', email: 'bod@daidung.com.vn', 
 const BOD_FINANCE: CurrentUser = { name: 'BOD', email: 'bod@daidung.com.vn', role: 'bod', canViewFinance: true };
 
 const KPIS: PortfolioKpis = {
-  totalProjects: 17,
+  projectsInPeriod: 17,
   inProgress: 11,
   behindSchedule: 4,
   penaltyRisk: 3,
   penalized: 1,
-  backlog: 250,
-  delta: { totalProjects: 1, inProgress: 0, behindSchedule: -1, penaltyRisk: 0, penalized: 0, backlog: 10 },
+  notStartedValue: 250,
+  revenueInPeriod: 0,
+  tonnageInPeriod: 0,
+  asOfDate: '2026-09-16',
+  months: ['2026-09'],
+  delta: { projectsInPeriod: 1, inProgress: 0, behindSchedule: -1, penaltyRisk: 0, penalized: 0, notStartedValue: 10, revenueInPeriod: 0, tonnageInPeriod: 0 },
 };
 
 const render = async (page: () => Promise<unknown>) => renderToStaticMarkup((await page()) as React.ReactElement);

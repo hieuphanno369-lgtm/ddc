@@ -5,6 +5,7 @@ import { todayIso } from '@/lib/clock';
 import { requireUser } from '@/lib/require-user';
 import { ProjectForm } from '@/components/form/ProjectForm';
 import { ProjectAuditCard } from '@/components/project/ProjectAuditCard';
+import { BackfillPanel } from '@/components/form/BackfillPanel';
 
 export default async function HoSoDuAnPage({
   searchParams,
@@ -77,6 +78,9 @@ export default async function HoSoDuAnPage({
         today={today}
         stages={stages}
       />
+      {mode === 'edit' && project && user.role === 'admin' && (
+        <BackfillPanel projectId={project.id} windows={await repo.listBackfillWindows(project.id)} today={today} locale={locale} />
+      )}
       {mode === 'edit' && project && (
         <ProjectAuditCard
           entries={auditTrail}
@@ -104,6 +108,7 @@ export default async function HoSoDuAnPage({
             project_equipment_plan: t('projectForm.audit.tbl.project_equipment_plan'),
             project_manpower_plan_month: t('projectForm.audit.tbl.project_manpower_plan_month'),
             project_shift_ratio: t('projectForm.audit.tbl.project_shift_ratio'),
+            project_backfill_window: t('projectForm.audit.tbl.project_backfill_window'),
           }}
         />
       )}

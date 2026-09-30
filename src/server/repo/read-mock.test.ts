@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildRepoData } from '@/data/seed/history';
 import { createReadMock } from './read-mock';
+import { runReadPeriodContract, type PeriodFixture, type PeriodHarness } from './read-period-contract';
 
 const data = buildRepoData();
 const mock = createReadMock(() => data);
@@ -62,29 +63,6 @@ describe('read-mock', () => {
     for (const r of rows) expect(r.yearMonth).toBe(latestByProject.get(r.projectId));
   });
 
-  it('readMonthlyEvm: khop cong tay tren buildRepoData().facts', async () => {
-    const months = ['2026-08', '2026-09'];
-    const ids = [1, 2];
-    const rows = await mock.readMonthlyEvm(months, ids);
-    for (const m of months) {
-      const facts = data.facts.filter((f) => f.isLatest && ids.includes(f.projectId) && f.yearMonth === m);
-      const row = rows.find((r) => r.yearMonth === m);
-      if (facts.length === 0) {
-        expect(row).toBeUndefined();
-        continue;
-      }
-      expect(row).toBeDefined();
-      expect(row!.pv).toBeCloseTo(facts.reduce((s, f) => s + f.pv, 0));
-      expect(row!.ev).toBeCloseTo(facts.reduce((s, f) => s + f.ev, 0));
-      expect(row!.ac).toBeCloseTo(facts.reduce((s, f) => s + f.ac, 0));
-    }
-  });
-
-  it('readMonthlyEvm([], ids) hoac (months, []) -> mang rong', async () => {
-    expect(await mock.readMonthlyEvm([], [1])).toEqual([]);
-    expect(await mock.readMonthlyEvm(['2026-09'], [])).toEqual([]);
-  });
-
   it('readLastAuditAt: ISO cua dong moi nhat', async () => {
     expect(await mock.readLastAuditAt()).toBe('2026-09-20T00:00:00.000Z');
   });
@@ -108,4 +86,41 @@ describe('read-mock', () => {
     expect(page.total).toBe(1);
     expect(page.items.map((r) => r.id)).toEqual([2]);
   });
+});
+
+// ---- P4: hàm đọc theo mốc/kỳ (cùng bộ ca với read-period-real-db.test.ts) ----
+runReadPeriodContract('read-mock: hàm đọc theo mốc/kỳ (P4)', async (): Promise<PeriodHarness> => {
+  const d = buildRepoData();
+  const repo = createReadMock(() => d);
+  const proj = d.projects.slice(0, 3).map((p, i) => ({ ...p, isActive: i !== 2 }));
+  const factoryId = d.factories[0].id;
+  const ids = proj.map((p) => p.id) as [number, number, number];
+  return {
+    repo,
+    async seed(fx: PeriodFixture) {
+      d.projects = proj;
+      d.facts = fx.facts.map((f) => ({
+        projectId: ids[f.p], yearMonth: f.ym, pctPlan: 0, pctActual: f.pct, actualStartDate: null, actualFinishDate: null,
+        bac: 0, pv: f.pv, ev: f.ev, ac: f.ac, spi: null, cpi: null, bottleneckStage: null,
+        equipmentPlanned: 0, equipmentActual: 0, isLatest: f.isLatest, manpowerPlanned: 0, manpowerActual: 0,
+        snapshotLockedAt: null, lockedBy: null, version: f.version, changedBy: '', changedAt: '', changeNote: '',
+      }));
+      d.financial = fx.financial.map((f) => ({
+        projectId: ids[f.p], yearMonth: f.ym, revenuePeriod: f.revenue, revenueCumulative: 0, costActualPeriod: 0,
+        costActualCumulative: 0, grossProfit: 0, grossMarginPct: 0, backlog: 0, arCollected: 0, arOutstanding: 0,
+        arOverdue: f.arOverdue, version: 1, isLatest: f.isLatest, changedBy: '', changedAt: '', changeNote: '',
+      }));
+      d.volumes = fx.volumes.map((v) => ({ projectId: ids[v.p], factoryId, yearMonth: v.ym, tonnageProcessed: v.tonnage }));
+      d.dailyManpowerShifts = fx.manpowerDays.map((m) => ({
+        projectId: ids[m.p], contractorId: 1, workDate: m.day, shiftCode: 'morning', plannedHeadcount: 1, actualHeadcount: 1,
+      }));
+      d.dailyEquipment = fx.equipmentDays.map((e) => ({
+        projectId: ids[e.p], contractorId: 1, equipmentId: 1, workDate: e.day, qtyPlanned: 1, qtyActual: 1,
+      }));
+      d.valueChain = fx.valueChain.map((v) => ({
+        projectId: ids[v.p], stageCode: v.stage, yearMonth: v.ym, pctComplete: v.pct, applicable: true,
+      }));
+      return ids;
+    },
+  };
 });

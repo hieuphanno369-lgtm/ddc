@@ -26,6 +26,7 @@ vi.mock('@/server/repo', async () => {
   return { repo: mockRepo.repo };
 });
 vi.mock('@/server/report', () => ({ getReportData: vi.fn() }));
+vi.mock('@/components/dashboard/ReportPeriodBar', () => ({ ReportPeriodBar: () => null }));
 // getAuditLogPage doc Prisma truc tiep (khong qua repo) - mock lai bang du lieu cua mock-repo de
 // khong choc Postgres that trong test render trang (Bước 3, ke-hoach.md Task 6).
 vi.mock('@/server/audit-log-page', async () => {
@@ -58,7 +59,10 @@ vi.mock('@/components/ui/Badges', () => ({
 
 import { getCurrentUser } from '@/lib/session';
 import { getReportData } from '@/server/report';
-import ReportPage from '../../app/[locale]/(app)/report/page';
+import { defaultOverviewPeriod } from '@/lib/period';
+import { todayIso } from '@/lib/clock';
+import ReportPageReal from '../../app/[locale]/(app)/report/page';
+const ReportPage = () => ReportPageReal({ searchParams: Promise.resolve({}) });
 import AlertsPage from '../../app/[locale]/(app)/alerts/page';
 import AuditPage from '../../app/[locale]/(app)/audit/page';
 
@@ -69,13 +73,17 @@ const BOD: CurrentUser = { name: 'BOD', email: 'bod@daidung.com.vn', role: 'bod'
 const MONTH = '2026-09';
 
 const KPIS: PortfolioKpis = {
-  totalProjects: 17,
+  projectsInPeriod: 17,
   inProgress: 11,
   behindSchedule: 4,
   penaltyRisk: 3,
   penalized: 1,
-  backlog: 250,
-  delta: { totalProjects: 1, inProgress: 0, behindSchedule: -1, penaltyRisk: 0, penalized: 0, backlog: 10 },
+  notStartedValue: 250,
+  revenueInPeriod: 0,
+  tonnageInPeriod: 0,
+  asOfDate: '2026-09-16',
+  months: ['2026-09'],
+  delta: { projectsInPeriod: 1, inProgress: 0, behindSchedule: -1, penaltyRisk: 0, penalized: 0, notStartedValue: 10, revenueInPeriod: 0, tonnageInPeriod: 0 },
 };
 
 const emptyReport = { kpis: KPIS, p0Red: [], rows: [] };
@@ -133,6 +141,7 @@ describe('/report - render nội dung', () => {
           eac: null,
           vac: null,
           bottleneckStage: null,
+          dataState: { kind: 'current', month: '2026-09' },
         },
       ],
       rows: [{ id: 2, code: 'DA-2', name: 'Nhà xưởng Bắc Ninh', spi: null, cpi: null, pctActual: 0, backlog: 0 }],
@@ -148,6 +157,32 @@ describe('/report - render nội dung', () => {
     expect(out).toContain('badge-penalty:penalized');
     expect(out).toContain('report.projectTable');
     expect(out).toContain('/api/report/export');
+  });
+
+  it('T-2: kỳ từ URL được truyền vào getReportData và ghi dòng tóm tắt kỳ, không báo kỳ lỗi', async () => {
+    (getCurrentUser as Mock).mockResolvedValue(ADMIN);
+
+    const out = renderToStaticMarkup(
+      (await ReportPageReal({ searchParams: Promise.resolve({ from: '2026-01-01', to: '2026-03-31' }) })) as React.ReactElement,
+    );
+
+    expect(getReportData).toHaveBeenCalledWith({ from: '2026-01-01', to: '2026-03-31' });
+    expect(out).toContain('period.summary');
+    expect(out).toContain('from=2026-01-01&amp;to=2026-03-31');
+    expect(out).not.toContain('period.invalid');
+  });
+
+  it('T-2 và T-6: không có kỳ thì dùng 12 tháng mặc định; from/to rác thì hiện period.invalid', async () => {
+    (getCurrentUser as Mock).mockResolvedValue(ADMIN);
+
+    const def = await render(ReportPage);
+    expect(def).not.toContain('period.invalid');
+    expect(getReportData).toHaveBeenCalledWith(defaultOverviewPeriod(todayIso()));
+
+    const junk = renderToStaticMarkup(
+      (await ReportPageReal({ searchParams: Promise.resolve({ from: 'rac', to: 'rac' }) })) as React.ReactElement,
+    );
+    expect(junk).toContain('period.invalid');
   });
 
   it('bảng dự án rỗng vẫn hiện dòng thông báo trong bảng', async () => {

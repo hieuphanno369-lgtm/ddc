@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, type HTMLAttributes } from 'react';
+import { Fragment, useRef, type HTMLAttributes } from 'react';
 import { useHoverLift } from './motion';
 
 /**
@@ -40,9 +40,10 @@ export function CardHeader({
       <h3>
         {title}
         {subtitle && <span className="en">{subtitle}</span>}
-        {titleExtra}
+        {titleExtra != null && <Fragment key="titleExtra">{titleExtra}</Fragment>}
       </h3>
-      {action}
+      {/* Fragment co key (ca titleExtra o tren): de tran thi trang Chi tiet bi React dev bao "unique key" (e2e/38 C-4); khong doi DOM. */}
+      {action != null && <Fragment key="action">{action}</Fragment>}
     </div>
   );
 }

@@ -3,6 +3,65 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P4 - Logic số liệu, lọc theo kỳ ngày-ngày, mốc thời gian Chi tiết, nhập bù lịch sử, dấu "?" (Tài khoản C) - CHỐT + ĐÃ MERGE vào `main` (2026-09-30)
+Nhánh `feature/p4-logic-bo-loc`, từ `main` @ `2c20a95`; hồ sơ `.bangiao/archive/p4-logic-bo-loc-2026-09-30/`. Giữ nguyên style kính mờ, chủ dự án chốt D-1..D-25 và Q1..Q13 theo kế hoạch.
+Planner → coder đợt 1-3 → tester (3 lần) → security ĐẠT (S-1..S-3 Thấp, đã vá) → reviewer CẦN SỬA (C-1..C-4) → vá → reviewer CHỐT vòng 2 → chủ dự án duyệt N-1, P-2, mục 1/3/5 → coder N-1, P-2, NIT → reviewer vòng 3 CẦN SỬA 1 lỗi MonthField → vá `05c0313` → CHỐT.
+- **1 migration:** `20260929165146_p4_backfill_window` (chỉ thêm bảng `project_backfill_window`). Bên khác chạy `npx prisma migrate deploy` sau `git merge main`.
+- Logic số: L-1..L-5 (5 lỗi số), F-1..F-6 (xung đột bộ lọc) có test đỏ trước. Trang Báo cáo dùng chung kỳ với Tổng quan và chỉ liệt kê dự án trong kỳ; nhãn Excel khớp màn hình; `?month=all` im lặng về kỳ mặc định.
+- Tổng quan: thanh lọc kỳ ngày-ngày (`DateField` dd/mm/yyyy), KPI 2 nhóm, cột "Số liệu", chart theo kỳ với đoạn nét đứt cho tháng mang số sang, dấu "?" cho từng thẻ.
+- Chi tiết: mốc theo tháng và kỳ, điều hướng tuần, mặc định mốc = tháng hiện tại mang số sang (N-1) để cùng một số với Tổng quan, Brush khi hơn 12 tháng, dấu "?" cho Khâu nghẽn và Huy động nguồn lực. Hệ quả: ngày nguồn lực mặc định là hôm nay.
+- Nhập bù lịch sử (nhóm F): admin bật/tắt theo dự án với cửa sổ ngày, tối đa 24 tháng lịch chạm tới, khoá dòng dự án chống race, nhật ký `recordId` dạng `<projectId>/<id>`. Hướng dẫn `docs/huong-dan/nhap-bu-lich-su.md`.
+- `MonthField` mm/yyyy thay `input[type=month]` ở Kế hoạch nhân lực; gõ sai rồi bấm "Thêm tháng" không còn thêm dòng cũ. Rate limit theo IP cho `/api/report/export`; chỉ kỳ mặc định/tròn tháng ghi `unstable_cache`.
+- Số: tsc sạch, `npm test` 310 file / 3741 xanh + 1 skip (có real-db `_c`), e2e toàn bộ 367/367 (trước bản vá cuối; sau đó chạy lại 40, 33, 03 xanh).
+- Giới hạn đã biết (chủ dự án duyệt): Excel theo tháng chỉ báo dự án ngoài cửa sổ nhập bù ở bước Lưu; timeline Chi tiết dưới 560px xếp nhãn lên trên thanh; `app/globals.css:261` `.kpi .vl` nowrap chưa kiểm số rất lớn.
+
+### ✅ P3F-T1 + rule Priority (Tài khoản C) - ĐÃ MERGE vào `main` (2026-09-29)
+Nhánh `feature/p3f-t1`, từ `main` @ `683a5a2` (đã gộp `main` @ `bdc0bbd` có P5-B hạ tầng); hồ sơ `.bangiao/archive/p3f-t1-priority-2026-09-29/` và `archive/p3f-dang-nhap-moi-2026-09-29/danh-gia-vong2.md` (reviewer vòng 2 P3F CHỐT). Không migration.
+- T1: "Quên mật khẩu" không còn huỷ link lời mời 72 giờ còn hạn; đặt mật khẩu bằng 1 link thì mọi link còn lại hỏng. Mọi thao tác token của 1 email khoá tư vấn theo email (`lockResetTokens`), vá thêm race TT-1 (mất lời mời) và deadlock TT-2, cả hai tái hiện đỏ trên DB thật trước khi sửa.
+- Rule Priority (chủ dự án chốt): badge P0 vàng nhấn thương hiệu, P1 navy, P2/P3 xám, độ ưu tiên không dùng đỏ/cam. Thẻ "Top dự án trọng điểm" vẫn là P0 đang triển khai, trễ xếp trước, nhưng bỏ nhãn trễ/đúng (xem ở trang Chi tiết). Cột "Đúng tiến độ" của bảng dự án giữ nguyên.
+- Security DAT, reviewer CHỐT. `npm test` 3228 xanh + 31 skip, real-db 18/18.
+
+### ✅ P3F - Đăng nhập/Đăng ký mới kính mờ, phòng ban, đăng ký cho admin bật (Tài khoản C, nhận từ B) - ĐÃ MERGE vào `main` (2026-09-29)
+Nhánh `feature/p3f-dang-nhap-moi`, từ `main` @ `2171d61`; hồ sơ `.bangiao/archive/p3f-dang-nhap-moi-2026-09-29/`. Thiết kế kính mờ chủ dự án chốt 2026-09-29.
+Coder Task 1-7 → tester (2 lần bị dừng giữa chừng, checkpoint WIP) → security CẦN SỬA (S1 Cao) → coder sửa S1-S3 + I1 → security vòng 2 CHỐT (T1-T3 Thấp) → C vá T2/T3 → reviewer CẦN SỬA (3 mục tài liệu/hồ sơ) → sửa + 4 quyết định chủ dự án → chủ dự án đồng ý merge; reviewer vòng 2 CHỐT sau merge. e2e toàn bộ 178/178 trên `d7ed919`; sau khi gộp P5-B: 214 + CSP 13/13 (0 vi phạm).
+- **2 migration:** `20260929023746_p3f_dang_ky_phong_ban` (bảng `dim_department`, `signup_request`, `user_roles.departmentId`) và `20260929120000_p3f_dang_ky_bo_mat_khau` (bỏ `signup_request.passwordHash`), đều có rollback trong `prisma/rollback/` (chạy file 2 trước file 1).
+- Đăng ký chỉ email công ty (`@daidung.vn`, `@daidung.com.vn`), KHÔNG nhận mật khẩu (S1: chống chiếm tài khoản đồng nghiệp). Admin bật thì tạo tài khoản với mật khẩu ngẫu nhiên không ai biết + gửi link đặt mật khẩu 72 giờ, dùng 1 lần; thiếu SMTP hoặc `NEXTAUTH_URL` thì tắt form và không bật được. Trang mở từ link lời mời dùng chữ "Đặt mật khẩu" (server suy loại token từ thời hạn, không tin URL).
+- Admin quản phòng ban (ẩn/xoá, xoá bị chặn khi đang dùng), duyệt/từ chối đăng ký, dải nhắc đăng ký chờ; đăng ký chờ quá 14 ngày tự xoá (job `alerts_daily`). Họ tên chặn ký tự điều khiển/tàng hình và được chuẩn hoá NFC.
+- Trang công khai mới: `/dang-ky`, `/dieu-khoan` (liên hệ `hieupt1@daidung.vn`). Nút Google chỉ ở trang Đăng nhập.
+- Giới hạn đã biết: T1 (Quên mật khẩu huỷ link lời mời còn hạn, chỉ gây phiền); theo dõi e2e 07 từng rớt khi chạy toàn bộ.
+
+### ✅ P5 hạ tầng go-live - Docker/compose, health check DB, kiểm env, logging JSON, backup + thử khôi phục, lệnh create-admin, T17 DEPLOY.md (chuyển từ C sang B, Tài khoản B) - CHỐT + ĐÃ MERGE vào `main` (2026-09-29)
+Nhánh `feature/p5-b-ha-tang`, từ `main` @ `ff28fb4`; hồ sơ `.bangiao/archive/p5-b-ha-tang-2026-09-29/`. Chuyển từ hàng đợi của C sang B (đề xuất điều phối, chủ dự án đồng ý) để chạy song song P3F/P4/P4-X của C, không phụ thuộc UI.
+Planner → coder (Task 0-7 + 7b) → tester phát hiện 1 race condition thật (khoá backup) → debugger vá → tester vòng 2 XANH → security-reviewer tìm 2 lỗ hổng trung bình → reviewer xác nhận + thêm 2 mục → CẦN SỬA → coder vá vòng 1 (B-1..B-4) → tester vòng 3 + security-reviewer vòng 2 (ĐẠT) → reviewer vòng 2 CHỐT. 257 file / 2913 test xanh + 16 skip; `npm run build` qua.
+- Logger JSON có cấu trúc, lọc khoá nhạy cảm, không bao giờ ghi `error.message`; thay 15 chỗ `console.*` cũ.
+- `instrumentation.ts` kiểm biến môi trường bắt buộc lúc khởi động (dừng app ở production nếu thiếu/sai), ghi lỗi request chưa bắt.
+- Route `GET /api/health/db` (giới hạn tần suất theo IP TRƯỚC bucket toàn cục - vá sau khi security-reviewer tìm ra TB-1 làm 1 IP đơn lẻ cạn hạn mức chung).
+- Dockerfile multi-stage (`output: 'standalone'`) + `docker-compose.yml` (app/db/migrate/tools/backup, mọi service có xoay vòng log qua anchor `x-logging`); lệnh `npm run create-admin -- <email>` tạo admin đầu tiên (mật khẩu tạm sinh bằng `crypto.randomBytes`, in đúng 1 lần).
+- Script `pg-backup.sh`/`pg-restore-test.sh`: TB-2 (tên bảng từ file dump bị ghép thẳng vào SQL, chạy được lệnh tuỳ ý trên DB thật bằng quyền superuser) đã vá bằng cách bỏ hẳn mọi kết nối tới DB thật trong script restore-test; khoá chống chạy trùng tự dọn khi kẹt quá 6 giờ, bắt thêm tín hiệu INT/TERM/HUP.
+- `docs/DEPLOY.md` viết lại toàn bộ theo Docker Compose (Q1), backup 02:00 (Q2), chỉ log JSON không dùng Sentry (Q3); nhất quán cổng `<APP_PORT>`, `sha256sum -c` bắt buộc trước `dropdb --force`, khối lệnh khôi phục có `set -e` (sửa thêm sau khi CHỐT, trước merge).
+- **Điều kiện trước khi go-live chính thức (không chặn merge nhánh này, ghi vào `lo-trinh.md`):** G-1 chạy thật toàn bộ Docker/compose/backup/restore trên máy có Docker/Linux thật (máy dev không có Docker Desktop, mọi thứ mới kiểm bằng test giả lập `sh` + binary giả); G-3 chủ dự án cần xác nhận chấp nhận rủi ro cố hữu của `pg_restore` (chạy nguyên văn SQL trong file dump bằng quyền superuser - nếu ai sửa được file dump trên NAS/`BACKUP_DIR` thì vẫn chiếm được DB thật).
+- Sổ nợ hardening (không chặn go-live): app dùng superuser Postgres thay vì role riêng; logger còn thiếu vài khoá nhạy cảm (dạng số nhiều/viết liền); `.dockerignore` chưa loại hết tài liệu nội bộ khỏi ảnh `tools`; mã hoá/giới hạn quyền backup trên NAS; `docs/csp-header-bao-mat.md` còn nhắc tiền tố log cũ `[csp-report]`.
+
+### ✅ P5-B mục 6-7 - Load test đồng thời, checklist qa-gate, CSP report-only (Tài khoản B) - CHỐT + ĐÃ MERGE vào `main` (2026-09-29)
+Nhánh `feature/p5-b-bao-mat-qa`, từ `main` @ `2171d61`; hồ sơ `.bangiao/archive/p5-b-bao-mat-qa-2026-09-29/`. Chỉ phần không phụ thuộc giao diện P4 của C.
+Coder (8 task) → tester (tái hiện lỗi kịch bản E-1/E-2, `npm ci` sửa `node_modules` lệch lockfile) → security-reviewer CẦN SỬA (M1 phình bộ nhớ rate-limit, L1/L2 phòng thủ thêm, L3/L4/I1 tài liệu) → reviewer CẦN SỬA (đồng bộ) → coder sửa vòng 1 → tester kiểm độc lập XANH → security-reviewer CHỐT vòng 2 → reviewer CHỐT vòng 2. 246 file / 2818 test xanh, e2e 26+27 (header bảo mật + thu vi phạm CSP) xanh trên `next start`.
+- Load test: thư viện thống kê (percentile nearest-rank, tiêu chí p95/p99/lỗi), script chạy đồng thời có kịch bản theo vai + XFF riêng từng người dùng ảo, cookie jar dùng chung với `measure-pages.ts`. 30 người dùng ảo ĐẠT, 50 và 100 KHÔNG ĐẠT trên máy dev (bão hoà ~12-13 rps) — không phải lỗi mã, đo lại ở P6 trên server thật.
+- CSP report-only: nonce sinh mỗi request ở `middleware.ts` (phủ cả nhánh redirect và intl), 6 header bảo mật, endpoint `/api/csp-report` nhận báo cáo (trần 16 KB, giới hạn tần suất IP + toàn hệ thống, lọc ký tự điều khiển/bidi trước khi log). e2e 27 đo 0 vi phạm CSP trên `next start`.
+- qa-gate: checklist 22 mục (`docs/qa-gate-truoc-go-live.md`), nhật ký các lượt đo thật; nhiều mục còn `CHỜ HẠ TẦNG C` (QG-10, QG-12, QG-15-QG-18) hoặc `CHỜ P4-X` (QG-07, QG-20).
+- Bàn giao proxy cho C: `docs/csp-header-bao-mat.md` (không cache HTML/RSC, HSTS `always`, bẫy thừa kế `add_header`, `limit_req` riêng cho `/api/csp-report`, bind nội bộ không publish cổng 3000, gỡ `x-middleware-subrequest`).
+- Debugger vòng 1 (bằng chứng thật): `node_modules` của B lệch lockfile (next 14 thay vì 15) làm sai lệch cả vòng test trước — `npm ci` + `prisma generate` sửa; `/_next/image?w=48` treo do cache ảnh cũ, xoá `.next/cache/images` hết treo.
+- Còn treo, không chặn merge: QG-13 đo lại ở P6; QG-17 (C) cần thêm log xoay vòng; hai lớp chặn đăng nhập P3D-B xác nhận không bị yếu đi qua cả 2 vòng bảo mật.
+
+### ✅ P3E phần 2 - Đăng nhập: khoá sai mật khẩu, quên/đặt lại mật khẩu qua email, tự đổi mật khẩu, bỏ bảng ảnh (Task 5-8, Tài khoản C làm thay A) - CHỐT + ĐÃ MERGE vào `main` (2026-09-28)
+Nhánh `feature/p3e-c-task5-8` (tách từ `9c74809`); hồ sơ `.bangiao/archive/p3e-task5-8-2026-09-28/`. 238 file / 2700 test xanh + 15 skip (real-db 15/15 chạy tay); e2e 98/98 trên cổng 3003 + DB `ddc_control_tower_c`; build (font mock) qua.
+Coder Task 5-8 -> tester -> security 7 vòng (S-1..S-4, R2-1 Cao, R3-1/R3-2/R4-1 Trung, R4-2..R6-4 Thấp đều đã sửa; vòng 7 CHỐT) -> reviewer CẦN SỬA (Q5 + comment/hồ sơ) -> sửa + tester soi pixel -> chủ dự án đồng ý merge.
+- **Có migration** `20260928080000_p3e_dang_nhap_bo_anh` (cột khoá/đổi mật khẩu, bảng `auth_throttle`, `password_reset_token`, xoá `project_photos`). Bên khác: `git merge main` + `npx prisma migrate deploy` + `npm test`.
+- Task 5: schema + kho Prisma có advisory lock. Task 6: khoá tài khoản sau 5 lần sai, admin mở khoá (kèm mật khẩu tạm), nhãn tài khoản tắt là "Ngưng sử dụng" (Q5=a). Task 7: trang `/quen-mat-khau`, `/dat-lai-mat-khau` (token 1 lần 30 phút). Task 8: dọn `JobName`, `.env.example`, checklist deploy.
+- Bảo mật: tự đổi mật khẩu giữ phiên hiện tại qua cấp lại cookie phía server (không còn `update()` phía client); ghi mật khẩu bằng compare-and-swap; sai mật khẩu hiện tại tính chung khoá 5 lần với đăng nhập, khoá thì đăng xuất mọi phiên; giữ chỗ lượt đoán chung 2 màn (`reserveAccountGuess`, kind `account_guess`); phiên đã vô hiệu không tự sống lại.
+- Quyết định chủ dự án: S-2 (tự đổi mật khẩu không đăng xuất phiên hiện tại), R3-2, R4-1 (đăng xuất mọi phiên khi khoá), R4-2 (sửa cả Đăng nhập), R5-5, phiên vô hiệu không hồi sinh khi mở khoá, chữ `changePasswordDone` mới.
+- Checklist deploy (proxy `X-Forwarded-For` + `TRUSTED_PROXY_HOPS`, khoá `'unknown'` cho `login_fail_ip`/`reset_submit_ip`/`change_pwd_fail_ip`, SMTP, Google OAuth, lọc `token` khỏi access log...) ở `thay-doi.md` trong archive, chuyển vào tài liệu deploy T17.
+- Ghi nhận chưa sửa: bảng người dùng trang Quản trị cuộn ngang; e2e 07 không tự dọn kênh khi đỏ giữa chừng.
+
 ### ✅ P3E phần 1 - Đăng nhập: Google theo danh sách admin, hạ tầng khoá sai mật khẩu và quên mật khẩu, gỡ ảnh hiện trường và tỷ giá VCB (Task 1-4, Tài khoản A) - CHỐT + ĐÃ MERGE vào `main` (2026-09-28)
 Nhánh `feature/p3e-dang-nhap`; hồ sơ `.bangiao/archive/p3e-phan1-2026-09-28/`. Sau merge main (P7-C2): 227 file / 2544 test; e2e 85/85 trên cổng 3010 + DB tạm; build (font mock) qua.
 Coder Task 1-4 -> tester ĐẠT -> security 4 vòng (L1-L8, R1-R7, N1-N4 đều đã sửa, vòng 4 ĐẠT) -> reviewer CẦN SỬA hồ sơ bàn giao -> sửa -> reviewer CHỐT. Merge nửa phase theo đồng ý của chủ dự án (2026-09-28).

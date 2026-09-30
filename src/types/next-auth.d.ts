@@ -18,5 +18,7 @@ declare module 'next-auth/jwt' {
     accessCheckedAt?: number;
     /** T-5: true = tài khoản bị khoá/không còn trong DB - callback session() vô hiệu session. */
     invalid?: boolean;
+    /** P3E (Task 7, S8) - Date.parse(passwordChangedAt) lúc đăng nhập (ms); 0 nếu chưa từng đổi. */
+    pwdAt?: number;
   }
 }

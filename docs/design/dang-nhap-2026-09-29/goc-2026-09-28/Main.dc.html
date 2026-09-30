@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Đăng nhập Báo cáo quản trị</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Be Vietnam Pro',system-ui,sans-serif;background:#F7F6F2;color:#14171F}
+a{color:#9A3412}a:hover{color:#7C2D12}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+.bp{background-color:#0B1220;background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);background-size:32px 32px;animation:drift 40s linear infinite}
+.fld{width:100%;box-sizing:border-box;height:48px;padding:0 14px;border:1px solid #D3D5DA;border-radius:10px;background:#fff;font:inherit;font-size:15px;color:#14171F;transition:border-color .15s,box-shadow .15s}
+.fld::placeholder{color:#737985}
+.fld:focus{outline:none;border-color:#14171F;box-shadow:0 0 0 4px rgba(20,23,31,.08)}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:52px;border-radius:12px;font:inherit;font-size:15px;font-weight:600;cursor:pointer;transition:filter .15s,background-color .15s,box-shadow .15s}
+.btn:active{transform:translateY(1px)}
+.btn-primary{color:#fff;border:0}
+.btn-primary:hover{filter:brightness(.9)}
+.btn-primary:hover .arr{transform:translateX(3px)}
+.arr{transition:transform .2s}
+.btn-google{background:#fff;color:#14171F;border:1px solid #D3D5DA}
+.btn-google:hover{background:#FBFAF8;box-shadow:0 1px 3px rgba(20,23,31,.1)}
+.btn:focus-visible,.lnk:focus-visible,.eye:focus-visible,.seg:focus-visible{outline:2px solid #14171F;outline-offset:2px}
+.lnk{background:none;border:0;padding:0;font:inherit;font-size:14px;font-weight:500;color:#9A3412;cursor:pointer}
+.lnk:hover{text-decoration:underline}
+.eye{background:none;border:0;cursor:pointer;color:#5A6170}
+.eye:hover{color:#14171F}
+.bar{transform-origin:left center;animation:grow .9s cubic-bezier(.2,.8,.2,1) both}
+.d1{animation-delay:.15s}.d2{animation-delay:.3s}.d3{animation-delay:.45s}.d4{animation-delay:.6s}.d5{animation-delay:.75s}
+.up{animation:up .6s cubic-bezier(.2,.8,.2,1) both}
+.u1{animation-delay:.05s}.u2{animation-delay:.12s}.u3{animation-delay:.19s}.u4{animation-delay:.26s}.u5{animation-delay:.33s}.u6{animation-delay:.4s}
+.today{animation:fade .5s ease 1.1s both}
+.pop{animation:up .6s cubic-bezier(.2,.8,.2,1) 1.4s both}
+.pulse{position:relative}
+.pulse::after{content:'';position:absolute;inset:0;border-radius:50%;background:#F59E4B;animation:ping 1.8s ease-out 1.6s infinite}
+.spin{animation:spin 6s linear infinite}
+.spin-fast{animation:spin 1s linear infinite}
+.trolley{animation:trolley 10s cubic-bezier(.45,0,.2,1) infinite}
+.cable{transform-box:fill-box;transform-origin:50% 0;animation:cable 10s cubic-bezier(.45,0,.2,1) infinite}
+.hook{animation:hook 10s cubic-bezier(.45,0,.2,1) infinite}
+.hb{animation:hb 10s linear infinite}
+.placed{animation:placed 10s linear infinite}
+.spark{opacity:0;animation:spark 10s linear infinite}
+.blink{animation:blink 1.6s ease-in-out infinite}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes ping{0%{transform:scale(1);opacity:.6}100%{transform:scale(3);opacity:0}}
+@keyframes drift{from{background-position:0 0}to{background-position:32px 32px}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes trolley{0%,8%{transform:translateX(0)}28%,68%{transform:translateX(100px)}88%,100%{transform:translateX(0)}}
+@keyframes cable{0%,28%{transform:scaleY(1)}44%,54%{transform:scaleY(2.95)}68%,100%{transform:scaleY(1)}}
+@keyframes hook{0%,28%{transform:translateY(0)}44%,54%{transform:translateY(78px)}68%,100%{transform:translateY(0)}}
+@keyframes hb{0%,47%{opacity:1}49%,92%{opacity:0}95%,100%{opacity:1}}
+@keyframes placed{0%,47%{opacity:0}49%,90%{opacity:1}93%,100%{opacity:0}}
+@keyframes spark{0%,48%{opacity:0}50%{opacity:1}52%{opacity:.2}54%{opacity:1}56%{opacity:.2}58%{opacity:1}62%,100%{opacity:0}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.bp,.bar,.up,.today,.pop,.pulse::after,.spin,.trolley,.cable,.hook,.hb,.placed,.spark,.blink{animation:none}.spark{opacity:0}}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; overflow: hidden">
+
+<div class="bp" style="width: 820px; flex-shrink: 0; box-sizing: border-box; padding: 56px 64px; display: flex; flex-direction: column; justify-content: space-between; color: #E6E9F0">
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="width: 48px; height: 48px; flex-shrink: 0; border-radius: 12px; background: #FFFFFF; overflow: hidden; display: flex; align-items: center; justify-content: center"><img src="logo.png" alt="Đại Dũng" style="width: 48px; height: 48px; object-fit: cover"></div>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 17px; font-weight: 600; letter-spacing: -0.01em">Báo cáo quản trị</span>
+<span class="mono" style="font-size: 11px; letter-spacing: 0.14em; color: #8C96AB">DANH MỤC DỰ ÁN</span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px">
+<div class="up" style="display: flex; flex-direction: column; gap: 18px; padding-bottom: 20px">
+<h2 style="margin: 0; font-size: 56px; line-height: 1.06; font-weight: 600; letter-spacing: -0.025em">Mọi dự án.<br>Một tầm nhìn.</h2>
+<p style="margin: 0; max-width: 400px; font-size: 18px; line-height: 1.55; color: #A9B1C2">Theo dõi tiến độ, chuỗi giá trị và cảnh báo của toàn bộ dự án trên một màn hình duy nhất.</p>
+</div>
+<svg width="280" height="228" viewBox="0 0 320 260" fill="none" aria-hidden="true" style="flex-shrink: 0; overflow: visible; margin-bottom: -2px">
+<g stroke="#F59E4B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M60 250h40"></path>
+<path d="M72 250V58M88 250V58"></path>
+<path d="M72 250L88 234L72 218L88 202L72 186L88 170L72 154L88 138L72 122L88 106L72 90L88 74L72 58" stroke-width="1.2" opacity=".7"></path>
+<path d="M72 58L80 26L88 58"></path>
+<path d="M20 58H304M88 50H296M20 50H72"></path>
+<path d="M88 58l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8l8-8l8 8" stroke-width="1.2" opacity=".7"></path>
+<path d="M80 26L296 50M80 26L24 50" stroke-width="1.2"></path>
+<rect x="24" y="58" width="24" height="16" rx="2" fill="#F59E4B" fill-opacity=".25"></rect>
+<rect x="88" y="58" width="14" height="14" rx="2"></rect>
+</g>
+<circle class="blink" cx="80" cy="21" r="3" fill="#FF7A59"></circle>
+<g stroke="#5B78A8" stroke-width="3" stroke-linecap="round">
+<path d="M212 250V208M288 250V208"></path>
+<path d="M204 250h16M280 250h16" stroke-width="2"></path>
+</g>
+<path d="M0 250.5H320" stroke="#E6E9F0" stroke-opacity=".25" stroke-width="1"></path>
+<g class="placed"><rect x="205" y="200" width="90" height="8" rx="1" fill="#F59E4B"></rect><path d="M205 204H295" stroke="#0B1220" stroke-width="1" opacity=".5"></path></g>
+<g class="spark" stroke="#FFD08A" stroke-width="1.5" stroke-linecap="round"><path d="M212 206l-6-6M212 206l-8 2M212 206l-2-9"></path><path d="M288 206l6-6M288 206l8 2M288 206l2-9"></path></g>
+<g class="trolley">
+<rect x="142" y="58" width="16" height="6" rx="1" fill="#F59E4B"></rect>
+<rect class="cable" x="149.25" y="64" width="1.5" height="40" fill="#E6E9F0"></rect>
+<g class="hook">
+<path d="M150 104v5a4 4 0 1 1-4 4" stroke="#E6E9F0" stroke-width="2" stroke-linecap="round"></path>
+<g class="hb">
+<path d="M150 110L112 122M150 110L188 122" stroke="#E6E9F0" stroke-width="1" opacity=".7"></path>
+<rect x="105" y="122" width="90" height="8" rx="1" fill="#F59E4B"></rect>
+<path d="M105 126H195" stroke="#0B1220" stroke-width="1" opacity=".5"></path>
+</g>
+</g>
+</g>
+</svg>
+</div>
+
+<div style="display: flex; flex-direction: column">
+<div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.09); border-radius: 16px; padding: 22px 24px 26px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<span class="mono" style="font-size: 12px; letter-spacing: 0.12em; color: #8C96AB">TIẾN ĐỘ CHUỖI GIÁ TRỊ</span>
+<div class="mono" style="display: flex; gap: 18px; font-size: 11px; color: #8C96AB">
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 6px; border-radius: 3px; background: #5B78A8"></span>Hoàn thành</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 6px; border-radius: 3px; background: #F59E4B"></span>Đang chạy</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 4px; border-radius: 3px; border: 1px dashed rgba(230,233,240,.5)"></span>Kế hoạch</span>
+</div>
+</div>
+<div class="mono" style="display: flex; gap: 12px; font-size: 11px; color: #6E7890">
+<span style="width: 124px; flex-shrink: 0"></span>
+<div style="flex-grow: 1; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr))">
+<span>T7</span><span>T8</span><span>T9</span><span>T10</span><span>T11</span><span>T12</span>
+</div>
+</div>
+<div style="position: relative; display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; gap: 12px; height: 36px">
+<span style="width: 124px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; color: #C9CFDB">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C96AB" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V4l16 16z"></path><path d="M8 16v-4l4 4z"></path><path d="M4 8h2M4 12h2"></path></svg>Thiết kế</span>
+<div style="flex-grow: 1; position: relative; height: 10px"><div class="bar d1" style="position: absolute; left: 0%; width: 34%; height: 10px; border-radius: 5px; background: #5B78A8"></div></div>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; height: 36px">
+<span style="width: 124px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; color: #C9CFDB">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C96AB" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14M5 20h14M12 4v16"></path></svg>Mua sắm</span>
+<div style="flex-grow: 1; position: relative; height: 10px"><div class="bar d2" style="position: absolute; left: 18%; width: 30%; height: 10px; border-radius: 5px; background: #5B78A8"></div></div>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; height: 36px">
+<span style="width: 124px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; color: #FFFFFF; font-weight: 500">
+<svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E4B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z"></path><circle cx="12" cy="12" r="3.2"></circle></svg>Gia công</span>
+<div style="flex-grow: 1; position: relative; height: 10px"><div class="bar d3" style="position: absolute; left: 36%; width: 30%; height: 10px; border-radius: 5px; background: #F59E4B; box-shadow: 0 0 0 4px rgba(245,158,75,.14)"></div></div>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; height: 36px">
+<span style="width: 124px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; color: #C9CFDB">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C96AB" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 7h12v9H2z"></path><path d="M14 10h4l3 3v3h-7"></path><circle cx="6" cy="18" r="2"></circle><circle cx="17" cy="18" r="2"></circle><path d="M3 4.5h10"></path></svg>Vận chuyển</span>
+<div style="flex-grow: 1; position: relative; height: 10px"><div class="bar d4" style="position: absolute; left: 60%; width: 22%; height: 10px; box-sizing: border-box; border-radius: 5px; border: 1px dashed rgba(230,233,240,.4)"></div></div>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; height: 36px">
+<span style="width: 124px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; color: #C9CFDB">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C96AB" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 21V4"></path><path d="M4 21h6"></path><path d="M3 6h18"></path><path d="M7 4l-3 2M7 4l10 2"></path><path d="M16 6v6"></path><path d="M14 12h4v2h-4z"></path></svg>Lắp dựng</span>
+<div style="flex-grow: 1; position: relative; height: 10px"><div class="bar d5" style="position: absolute; left: 70%; width: 30%; height: 10px; box-sizing: border-box; border-radius: 5px; border: 1px dashed rgba(230,233,240,.4)"></div></div>
+</div>
+<div class="today" style="position: absolute; top: -6px; bottom: -6px; left: calc(136px + (100% - 136px) * 0.58); width: 0; border-left: 1.5px solid #F59E4B"></div>
+<div class="today mono" style="position: absolute; top: -30px; left: calc(136px + (100% - 136px) * 0.58); transform: translateX(-50%); padding: 2px 8px; border-radius: 4px; background: #F59E4B; color: #0B1220; font-size: 10px; font-weight: 500; letter-spacing: 0.08em">HÔM NAY</div>
+</div>
+</div>
+<div class="pop" style="display: flex; justify-content: flex-end; margin-top: -26px; padding-right: 28px">
+<div style="width: 330px; box-sizing: border-box; padding: 14px 16px; border-radius: 12px; background: #131C30; border: 1px solid rgba(245,158,75,.35); box-shadow: 0 18px 40px rgba(0,0,0,.45); display: flex; gap: 12px; align-items: flex-start">
+<div class="pulse" style="width: 8px; height: 8px; margin: 6px 4px 0; flex-shrink: 0; border-radius: 4px; background: #F59E4B"></div>
+<div style="display: flex; flex-direction: column; gap: 3px">
+<span class="mono" style="font-size: 11px; letter-spacing: 0.1em; color: #F59E4B">CẢNH BÁO</span>
+<span style="font-size: 14px; line-height: 1.4; color: #E6E9F0">Gia công [TÊN DỰ ÁN] chậm so với kế hoạch</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="mono" style="display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 0.1em; color: #6E7890">
+<span>HỆ THỐNG NỘI BỘ · CHỈ DÀNH CHO TÀI KHOẢN ĐƯỢC CẤP QUYỀN</span>
+<span>© ĐẠI DŨNG</span>
+</div>
+</div>
+
+<div style="flex-grow: 1; position: relative; display: flex; align-items: center; justify-content: center; background: #F7F6F2">
+<div style="position: absolute; top: 32px; right: 40px; display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: #ECEAE4">
+<sc-if value="{{isVi}}" hint-placeholder-val="{{true}}">
+<button class="seg" style="height: 32px; padding: 0 12px; border: 0; border-radius: 8px; background: #FFFFFF; color: #14171F; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 2px rgba(20,23,31,.12)" onClick="{{setVi}}" aria-pressed="true">VI</button>
+<button class="seg" style="height: 32px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: #5A6170; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer" onClick="{{setEn}}" aria-pressed="false">EN</button>
+</sc-if>
+<sc-if value="{{isEn}}" hint-placeholder-val="{{false}}">
+<button class="seg" style="height: 32px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: #5A6170; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer" onClick="{{setVi}}" aria-pressed="false">VI</button>
+<button class="seg" style="height: 32px; padding: 0 12px; border: 0; border-radius: 8px; background: #FFFFFF; color: #14171F; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 2px rgba(20,23,31,.12)" onClick="{{setEn}}" aria-pressed="true">EN</button>
+</sc-if>
+</div>
+
+<div style="width: 400px; display: flex; flex-direction: column">
+
+<sc-if value="{{isLogin}}" hint-placeholder-val="{{true}}">
+<form onSubmit="{{doLogin}}" style="display: flex; flex-direction: column; gap: 22px">
+<div class="up u1" style="display: flex; flex-direction: column; gap: 10px">
+<span class="mono" style="font-size: 12px; letter-spacing: 0.14em; color: {{accent}}">ĐĂNG NHẬP HỆ THỐNG</span>
+<h1 style="margin: 0; font-size: 36px; line-height: 1.15; font-weight: 600; letter-spacing: -0.02em">Chào mừng trở lại</h1>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #5A6170">Đăng nhập bằng tài khoản Google công ty hoặc email đã được quản trị viên cấp quyền.</p>
+</div>
+<button type="button" class="btn btn-google up u2">
+<svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path></svg>
+Tiếp tục với Google
+</button>
+<div class="up u3" style="display: flex; align-items: center; gap: 14px; font-size: 13px; color: #737985">
+<div style="flex-grow: 1; height: 1px; background: #DEDCD6"></div>
+<span>hoặc dùng email</span>
+<div style="flex-grow: 1; height: 1px; background: #DEDCD6"></div>
+</div>
+<div class="up u4" style="display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="email" style="font-size: 14px; font-weight: 500">Email</label>
+<input id="email" class="fld" type="email" autocomplete="email" placeholder="ten@daidung.vn">
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<label for="pw" style="font-size: 14px; font-weight: 500">Mật khẩu</label>
+<button type="button" class="lnk" onClick="{{toForgot}}">Quên mật khẩu?</button>
+</div>
+<div style="position: relative">
+<input id="pw" class="fld" type="{{pwType}}" autocomplete="current-password" placeholder="Nhập mật khẩu" style="padding-right: 52px">
+<button type="button" class="eye" onClick="{{togglePw}}" aria-label="{{pwLabel}}" style="position: absolute; right: 2px; top: 2px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center">
+<sc-if value="{{hidePw}}" hint-placeholder-val="{{true}}">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+</sc-if>
+<sc-if value="{{showPw}}" hint-placeholder-val="{{false}}">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2"></path><path d="M6.6 6.6C3.9 8.3 2 12 2 12s3.5 7 10 7a10.6 10.6 0 0 0 5.4-1.6"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>
+</sc-if>
+</button>
+</div>
+</div>
+<label style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #3A404C; cursor: pointer">
+<input type="checkbox" style="width: 18px; height: 18px; margin: 0; accent-color: #14171F">
+Ghi nhớ trên thiết bị này
+</label>
+</div>
+<button type="submit" class="btn btn-primary up u5" style="background: {{accent}}">
+<sc-if value="{{notLoading}}" hint-placeholder-val="{{true}}">
+Đăng nhập
+<svg class="arr" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>
+</sc-if>
+<sc-if value="{{loading}}" hint-placeholder-val="{{false}}">
+<svg class="spin-fast" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z"></path><circle cx="12" cy="12" r="3.2"></circle></svg>
+Đang đăng nhập
+</sc-if>
+</button>
+<p class="up u6" style="margin: 0; font-size: 14px; color: #5A6170; text-align: center">Chưa có tài khoản? <a href="DangKy.dc.html" style="font-weight: 500">Tạo tài khoản</a></p>
+</form>
+</sc-if>
+
+<sc-if value="{{isForgot}}" hint-placeholder-val="{{false}}">
+<form onSubmit="{{sendReset}}" style="display: flex; flex-direction: column; gap: 22px">
+<button type="button" class="lnk up u1" onClick="{{toLogin}}" style="align-self: flex-start; display: flex; align-items: center; gap: 6px; color: #3A404C">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"></path><path d="M11 18l-6-6 6-6"></path></svg>
+Quay lại đăng nhập
+</button>
+<div class="up u2" style="display: flex; flex-direction: column; gap: 10px">
+<span class="mono" style="font-size: 12px; letter-spacing: 0.14em; color: {{accent}}">KHÔI PHỤC MẬT KHẨU</span>
+<h1 style="margin: 0; font-size: 36px; line-height: 1.15; font-weight: 600; letter-spacing: -0.02em">Quên mật khẩu?</h1>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #5A6170">Nhập email của bạn, hệ thống sẽ gửi liên kết để đặt lại mật khẩu.</p>
+</div>
+<div class="up u3" style="display: flex; flex-direction: column; gap: 8px">
+<label for="email2" style="font-size: 14px; font-weight: 500">Email</label>
+<input id="email2" class="fld" type="email" autocomplete="email" placeholder="ten@daidung.vn">
+</div>
+<button type="submit" class="btn btn-primary up u4" style="background: {{accent}}">Gửi liên kết đặt lại</button>
+</form>
+</sc-if>
+
+<sc-if value="{{isSent}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 22px">
+<div class="up u1" style="width: 56px; height: 56px; border-radius: 16px; background: #14171F; display: flex; align-items: center; justify-content: center">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F59E4B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3.5 6.5l8.5 6.5 8.5-6.5"></path></svg>
+</div>
+<div class="up u2" style="display: flex; flex-direction: column; gap: 10px">
+<h1 style="margin: 0; font-size: 36px; line-height: 1.15; font-weight: 600; letter-spacing: -0.02em">Kiểm tra hộp thư</h1>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #5A6170">Nếu email có trong hệ thống, liên kết đặt lại mật khẩu sẽ đến trong vài phút. Liên kết có hiệu lực trong [THỜI HẠN].</p>
+</div>
+<button type="button" class="btn btn-google up u3" onClick="{{toLogin}}">Quay lại đăng nhập</button>
+</div>
+</sc-if>
+
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#C2410C","options":["#C2410C","#1D4ED8","#0F766E","#14171F"]},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+componentWillUnmount() { clearTimeout(this.timer); }
+renderVals() {
+const screen = this.state.screen || 'login';
+const show = !!this.state.showPw;
+const lang = this.state.lang || 'vi';
+const loading = !!this.state.loading;
+return {
+accent: this.props.accent ?? '#C2410C',
+isLogin: screen === 'login',
+isForgot: screen === 'forgot',
+isSent: screen === 'sent',
+isVi: lang === 'vi',
+isEn: lang === 'en',
+setVi: () => this.setState({ lang: 'vi' }),
+setEn: () => this.setState({ lang: 'en' }),
+pwType: show ? 'text' : 'password',
+showPw: show,
+hidePw: !show,
+pwLabel: show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu',
+togglePw: () => this.setState({ showPw: !show }),
+toForgot: () => this.setState({ screen: 'forgot' }),
+toLogin: () => this.setState({ screen: 'login' }),
+loading: loading,
+notLoading: !loading,
+sendReset: (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ screen: 'sent' }); },
+doLogin: (e) => {
+if (e && e.preventDefault) e.preventDefault();
+this.setState({ loading: true });
+clearTimeout(this.timer);
+this.timer = setTimeout(() => this.setState({ loading: false }), 2200);
+}
+};
+}
+}
+</script>
+</body>
+</html>

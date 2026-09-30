@@ -18,6 +18,8 @@ import type {
   ValueChainProgress,
 } from '@/server/repo/types';
 import type { IsoDate } from '@/lib/clock';
+import type { BackfillRange } from '@/lib/daily-entry';
+import { formatDmy } from '@/lib/date-input';
 import { computeEvm } from '@/lib/evm';
 import { activeStages, calcChainPctActual, findCurrentStage, normPct, stageName, stageNameMap } from '@/lib/stages';
 import { THRESHOLDS } from '@/lib/thresholds';
@@ -63,6 +65,8 @@ interface Props {
   factories: Factory[];
   volumeTonnage: number | null;
   today: IsoDate;
+  /** P4 (D-25): khoảng nhập bù đang bật của dự án (rỗng = không có). */
+  backfillRanges?: BackfillRange[];
   initialStep?: DataEntryStep;
   canEditFinance: boolean;
   resourcesPanel: React.ReactNode;
@@ -90,6 +94,7 @@ export function DataEntryForm({
   factories,
   volumeTonnage,
   today,
+  backfillRanges = [],
   initialStep,
   canEditFinance,
   resourcesPanel,
@@ -256,7 +261,7 @@ export function DataEntryForm({
         <select
           value={projectId}
           onChange={(e) => updateQuery({ project: e.target.value })}
-          className="inp min-w-0 flex-1 sm:max-w-xs"
+          className="inp min-w-0 flex-1 basis-full sm:basis-0 sm:max-w-xs"
           style={{ width: 'auto' }}
         >
           {projects.map((p) => (
@@ -280,6 +285,11 @@ export function DataEntryForm({
         <StatusBadge
           status={project.actualStartDate ? (derivedPctActual >= 1 ? 'Hoan_thanh' : 'Dang_trien_khai') : 'Chuan_bi'}
         />
+        {backfillRanges.map((r) => (
+          <Badge key={`${r.from}_${r.to}`} tone="gold" title={t('backfill.badgeTip')} data-testid="backfill-badge">
+            {t('backfill.active', { from: formatDmy(r.from), to: formatDmy(r.to) })}
+          </Badge>
+        ))}
       </div>
 
       {pendingDraft && (
@@ -379,7 +389,7 @@ export function DataEntryForm({
                           onChange={(e) => set('stagePct', { ...form.stagePct, [s]: e.target.value })}
                           className={inputCls('stagePct.' + s)}
                         />
-                        <label className="inline-row" style={{ fontSize: 'var(--t-caption1)', color: 'var(--label2)' }}>
+                        <label className="inline-row" style={{ fontSize: 'var(--t-caption1)', color: 'var(--label2)', whiteSpace: 'nowrap', flexShrink: 0 }}>
                           <input
                             type="checkbox"
                             checked={form.stageApplicable?.[s] ?? true}
@@ -449,6 +459,7 @@ export function DataEntryForm({
             {(() => {
               if (saveErr === 'no_factory') return t('volumeEntry.noFactory');
               if (saveErr === 'invalid_factory') return t('volumeEntry.invalidFactory');
+              if (saveErr === 'out_of_window') return t('backfill.errMonthNotAllowed', { month });
               const kind = saveErrorKind(saveErr);
               if (kind === 'generic') return t('dataGuard.save.generic', { msg: saveErr });
               if (kind === 'locked') return t('dataGuard.save.locked', { month });

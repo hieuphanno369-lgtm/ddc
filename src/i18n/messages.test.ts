@@ -55,6 +55,7 @@ const CHANGED_SOURCES: Record<string, string> = {
   'trang /admin': 'app/[locale]/(app)/admin/page.tsx',
   'ActivityViewer': 'src/components/admin/ActivityViewer.tsx',
   'ImportPanel': 'src/components/form/ImportPanel.tsx',
+  'MonthField': 'src/components/ui/MonthField.tsx',
   'DailyImportBlock': 'src/components/form/DailyImportBlock.tsx',
   'StageWeightEditor': 'src/components/form/StageWeightEditor.tsx',
   'ProjectForm': 'src/components/form/ProjectForm.tsx',
@@ -67,8 +68,23 @@ const CHANGED_SOURCES: Record<string, string> = {
   'ManpowerMonthChart': 'src/components/project/ManpowerMonthChart.tsx',
   'TopPriorityList': 'src/components/dashboard/TopPriorityList.tsx',
   'layout [locale] (metadata)': 'app/[locale]/layout.tsx',
-  'trang /login': 'app/[locale]/login/page.tsx',
   'StageEditor': 'src/components/admin/StageEditor.tsx',
+  'LoginForm': 'src/components/auth/LoginForm.tsx',
+  'UserEditor': 'src/components/admin/UserEditor.tsx',
+  'trang /quen-mat-khau': 'app/[locale]/(auth)/quen-mat-khau/page.tsx',
+  'trang /dat-lai-mat-khau': 'app/[locale]/(auth)/dat-lai-mat-khau/page.tsx',
+  'ForgotPasswordForm': 'src/components/auth/ForgotPasswordForm.tsx',
+  'ResetPasswordForm': 'src/components/auth/ResetPasswordForm.tsx',
+  'AuthShowcase': 'src/components/auth/AuthShowcase.tsx',
+  'AuthBrand': 'src/components/auth/AuthBrand.tsx',
+  'AuthLocaleSwitch': 'src/components/auth/AuthLocaleSwitch.tsx',
+  'GanttArt': 'src/components/auth/GanttArt.tsx',
+  'auth parts': 'src/components/auth/parts.tsx',
+  'SignupForm': 'src/components/auth/SignupForm.tsx',
+  'SignupRequestList': 'src/components/admin/SignupRequestList.tsx',
+  'DepartmentEditor': 'src/components/admin/DepartmentEditor.tsx',
+  'SignupReminder': 'src/components/layout/SignupReminder.tsx',
+  'trang /dieu-khoan': 'app/[locale]/dieu-khoan/page.tsx',
 };
 
 describe('i18n: vi/en phủ key như nhau', () => {
@@ -100,6 +116,9 @@ describe('i18n: vi/en phủ key như nhau', () => {
       'audit.new',
       'alert.title',
       'alert.owner',
+      'activity.account_unlock_cli',
+      'authSecurity.locked',
+      'authSecurity.unlock',
     ];
     expect(required.filter((k) => !viKeys.includes(k)), 'thiếu ở vi.json').toEqual([]);
     expect(required.filter((k) => !enKeys.includes(k)), 'thiếu ở en.json').toEqual([]);

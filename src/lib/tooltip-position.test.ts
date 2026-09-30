@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clampBubbleX, clampTipPosition, measureAndClampTip, type MeasurableTipElement } from './tooltip-position';
+import { clampBubbleX, clampTipPosition, measureAndClampTip, openBubbleStyle, type MeasurableTipElement } from './tooltip-position';
 
 const VIEWPORT = { viewportWidth: 1440, viewportHeight: 1000 };
 
@@ -135,5 +135,17 @@ describe('clampBubbleX (GOP-3 - bong bong HelpTip)', () => {
     const { left, arrow } = clampBubbleX({ ...btn, anchorLeft, viewportWidth: 250 });
     expect(anchorLeft + left).toBe(12);
     expect(arrow).toBeLessThanOrEqual(250 - 24 - 12);
+  });
+});
+
+describe('openBubbleStyle (HelpTip mo bang bam)', () => {
+  it('hien bong bong: display block, opacity 1, visibility visible', () => {
+    const s = openBubbleStyle(false);
+    expect(s).toMatchObject({ display: 'block', opacity: '1', visibility: 'visible' });
+  });
+
+  it('chua kep viewport: giu can giua -50%; da kep (clamped): khong dich ngang', () => {
+    expect(openBubbleStyle(false).transform).toBe('translateX(-50%) translateY(0) scale(1)');
+    expect(openBubbleStyle(true).transform).toBe('translateY(0) scale(1)');
   });
 });

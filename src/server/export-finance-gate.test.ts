@@ -10,13 +10,17 @@ import type { PortfolioKpis } from '@/server/queries';
  */
 const { KPIS } = vi.hoisted(() => ({
   KPIS: {
-    totalProjects: 17,
+    projectsInPeriod: 17,
     inProgress: 11,
     behindSchedule: 4,
     penaltyRisk: 3,
     penalized: 1,
-    backlog: 250,
-    delta: { totalProjects: 1, inProgress: 0, behindSchedule: -1, penaltyRisk: 0, penalized: 0, backlog: 10 },
+    notStartedValue: 250,
+  revenueInPeriod: 0,
+  tonnageInPeriod: 0,
+  asOfDate: '2026-09-16',
+  months: ['2026-09'],
+    delta: { projectsInPeriod: 1, inProgress: 0, behindSchedule: -1, penaltyRisk: 0, penalized: 0, notStartedValue: 10, revenueInPeriod: 0, tonnageInPeriod: 0 },
   } as PortfolioKpis,
 }));
 
@@ -40,7 +44,9 @@ import { getCurrentUser } from '@/lib/session';
 import { exportProjects } from '@/server/queries';
 import { repo } from '@/server/repo/mock-repo';
 import { GET as GET_EXPORT } from '../../app/api/export/route';
-import { GET as GET_REPORT_EXPORT } from '../../app/api/report/export/route';
+import { GET as ROUTE_REPORT_EXPORT } from '../../app/api/report/export/route';
+
+const GET_REPORT_EXPORT = () => ROUTE_REPORT_EXPORT(new Request('http://localhost/api/report/export'));
 
 const ADMIN: CurrentUser = { name: 'Admin', email: 'admin@daidung.com.vn', role: 'admin', canViewFinance: true };
 const BOD_NO_FINANCE: CurrentUser = { name: 'BOD', email: 'bod@daidung.com.vn', role: 'bod', canViewFinance: false };
@@ -110,9 +116,9 @@ describe('GET /api/report/export - N-3 bo dong/cot Backlog khi khong quyen tai c
     const wb = await loadWorkbook(await GET_REPORT_EXPORT());
 
     const kpiLabels = wb.getWorksheet('KPI')!.getColumn(1).values as unknown[];
-    expect(kpiLabels).not.toContain('Backlog (tỷ)');
+    expect(kpiLabels).not.toContain('HĐ chưa khởi công (tỷ)');
     const listHeader = wb.getWorksheet('DanhSachDuAn')!.getRow(1).values as unknown[];
-    expect(listHeader).not.toContain('Backlog (tỷ)');
+    expect(listHeader).not.toContain('HĐ chưa khởi công (tỷ)');
   });
 
   it('admin: sheet KPI va DanhSachDuAn co Backlog', async () => {
@@ -121,8 +127,13 @@ describe('GET /api/report/export - N-3 bo dong/cot Backlog khi khong quyen tai c
     const wb = await loadWorkbook(await GET_REPORT_EXPORT());
 
     const kpiLabels = wb.getWorksheet('KPI')!.getColumn(1).values as unknown[];
-    expect(kpiLabels).toContain('Backlog (tỷ)');
+    expect(kpiLabels).toContain('HĐ chưa khởi công (tỷ)');
+    // C-2: nhãn Excel khớp màn hình (vi.json kpi.totalProjects), không còn tên cũ.
+    expect(kpiLabels).toContain('Dự án trong kỳ');
+    expect(kpiLabels).not.toContain('Tổng số dự án');
+    expect(kpiLabels).not.toContain('Backlog (tỷ)');
     const listHeader = wb.getWorksheet('DanhSachDuAn')!.getRow(1).values as unknown[];
-    expect(listHeader).toContain('Backlog (tỷ)');
+    expect(listHeader).toContain('HĐ chưa khởi công (tỷ)');
+    expect(listHeader).not.toContain('Backlog (tỷ)');
   });
 });

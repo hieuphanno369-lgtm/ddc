@@ -78,18 +78,37 @@ async function main() {
     check(`readManpowerActualByMonth(${id})`, await readRepoPrisma.readManpowerActualByMonth(id), await mock.readManpowerActualByMonth(id));
   }
 
-  // Buoc 5: T1-code (a) - readFactSnapshots/readFinancialSnapshots/readVolumeSnapshots/readMonthlyEvm.
+  // Buoc 5: T1-code (a) - readFactSnapshots/readFinancialSnapshots/readVolumeSnapshots.
   const allProjectIds = (await prisma.project.findMany({ select: { id: true } })).map((p) => p.id);
   for (const m of [currentMonth(), 'all']) {
     check(`readFactSnapshots(${m})`, await readRepoPrisma.readFactSnapshots(m), await mock.readFactSnapshots(m));
     check(`readFinancialSnapshots(${m})`, await readRepoPrisma.readFinancialSnapshots(m), await mock.readFinancialSnapshots(m));
     check(`readVolumeSnapshots(${m})`, await readRepoPrisma.readVolumeSnapshots(m), await mock.readVolumeSnapshots(m));
   }
+  // P4: 7 ham doc theo moc/ky (ym = thang hien tai, ky = 12 thang gan nhat).
+  const ym = currentMonth();
+  const months = historyMonths();
+  const fromYm = months[0];
+  const toYm = months[months.length - 1];
+  check(`readFactSnapshotsAsOf(${ym})`, await readRepoPrisma.readFactSnapshotsAsOf(ym), await mock.readFactSnapshotsAsOf(ym));
+  check(`readFinancialAsOf(${ym})`, await readRepoPrisma.readFinancialAsOf(ym), await mock.readFinancialAsOf(ym));
+  check(`readRevenueInRange(${fromYm},${toYm})`, await readRepoPrisma.readRevenueInRange(fromYm, toYm), await mock.readRevenueInRange(fromYm, toYm));
+  check(`readVolumeInRange(${fromYm},${toYm})`, await readRepoPrisma.readVolumeInRange(fromYm, toYm), await mock.readVolumeInRange(fromYm, toYm));
   check(
-    'readMonthlyEvm',
-    await readRepoPrisma.readMonthlyEvm(historyMonths(), allProjectIds),
-    await mock.readMonthlyEvm(historyMonths(), allProjectIds),
+    `readFactSeries(${fromYm},${toYm})`,
+    await readRepoPrisma.readFactSeries(fromYm, toYm, allProjectIds),
+    await mock.readFactSeries(fromYm, toYm, allProjectIds),
   );
+  for (const id of projectIds) {
+    check(`readValueChainAsOf(${id},${ym})`, await readRepoPrisma.readValueChainAsOf(id, ym), await mock.readValueChainAsOf(id, ym));
+    for (const kind of ['manpower', 'equipment'] as const) {
+      check(
+        `readLastDailyDate(${id},${kind})`,
+        await readRepoPrisma.readLastDailyDate(id, kind, `${ym}-28`),
+        await mock.readLastDailyDate(id, kind, `${ym}-28`),
+      );
+    }
+  }
 
   await prisma.$disconnect();
 

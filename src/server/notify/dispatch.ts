@@ -1,5 +1,6 @@
 import { repo } from '@/server/repo';
 import { openSecret } from '@/lib/secret-box';
+import { logger } from '@/lib/logger';
 import { noticeFromAlert, noticeSubject, noticeText, severityPasses, webhookPayload, type AlertNotice } from '@/lib/notify-message';
 import type { AlertLog, NotifyChannelForSend } from '@/server/repo/types';
 import { sendEmail, type SmtpConfig } from './email';
@@ -151,7 +152,7 @@ async function processAlert(alert: AlertLog, channels: NotifyChannelForSend[], d
     return allOk ? 'sent' : 'failed';
   } catch {
     // Khong bao gio in URL/bi mat - chi id alert.
-    console.error('[notify] loi alert', alert.id);
+    logger.error('notify.alert_failed', { alertId: alert.id });
     return 'failed';
   }
 }
@@ -169,7 +170,7 @@ export async function dispatchAlertNotifications(alertIds: number[], deps: Dispa
     stats.skipped += alertIds.length - alerts.length;
     return stats;
   } catch {
-    console.error('[notify] loi dispatchAlertNotifications');
+    logger.error('notify.dispatch_failed');
     return { sent: stats.sent, failed: stats.failed, skipped: alertIds.length - stats.sent - stats.failed };
   }
 }
@@ -186,7 +187,7 @@ export async function retryPendingNotifications(deps: DispatchDeps = {}): Promis
     for (const alert of alerts) stats[await processAlert(alert, channels, deps)]++;
     return stats;
   } catch {
-    console.error('[notify] loi retryPendingNotifications');
+    logger.error('notify.retry_failed');
     return stats;
   }
 }

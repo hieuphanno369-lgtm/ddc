@@ -53,7 +53,7 @@ describe('setProjectMemberAction - quyen chi admin', () => {
     // seed: du an 1 da co pm@ la PIC. Tao 1 tai khoan data-entry khac de thu gan PIC thu 2.
     repo.createAccount({
       email: 'de2@daidung.com.vn', name: 'DE2', passwordHash: 'x', role: 'data-entry',
-      canViewFinance: true, isActive: true, createdAt: new Date().toISOString(), lastLoginAt: null,
+      canViewFinance: true, isActive: true, createdAt: new Date().toISOString(), lastLoginAt: null, lockedAt: null,
     });
     const res = await setProjectMemberAction(1, 'de2@daidung.com.vn', 'PIC');
     expect(res).toEqual({ ok: false, error: 'pic_exists' });
@@ -63,7 +63,7 @@ describe('setProjectMemberAction - quyen chi admin', () => {
     login(ADMIN);
     repo.createAccount({
       email: 'de2@daidung.com.vn', name: 'DE2', passwordHash: 'x', role: 'data-entry',
-      canViewFinance: true, isActive: true, createdAt: new Date().toISOString(), lastLoginAt: null,
+      canViewFinance: true, isActive: true, createdAt: new Date().toISOString(), lastLoginAt: null, lockedAt: null,
     });
     const changed = await setProjectMemberAction(1, 'pm@daidung.com.vn', 'Backup');
     expect(changed).toEqual({ ok: true, result: 'changed' });

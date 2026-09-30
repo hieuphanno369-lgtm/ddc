@@ -7,7 +7,9 @@
  */
 import { addMonths, currentMonth } from '@/lib/clock';
 import { assertPerfLocalBase, PERF_PREFIX } from '@/lib/perf-guard';
+import { cookieHeader, type CookieJar } from '@/lib/perf-http';
 import { prisma } from '@/server/db';
+import { login } from './http-session';
 
 const BASE = process.env.PERF_BASE ?? 'http://localhost:3001';
 const EMAIL = process.env.PERF_EMAIL;
@@ -25,47 +27,7 @@ try {
   process.exit(1);
 }
 
-/** Gom cookie tu Set-Cookie qua nhieu request (chi giu name=value, bo attribute). */
-function mergeCookies(jar: Map<string, string>, res: Response) {
-  const raw = typeof res.headers.getSetCookie === 'function'
-    ? res.headers.getSetCookie()
-    : (res.headers.get('set-cookie') ?? '').split(/,(?=[^;]+?=)/);
-  for (const line of raw) {
-    const first = line.split(';')[0]?.trim();
-    if (!first || !first.includes('=')) continue;
-    const idx = first.indexOf('=');
-    jar.set(first.slice(0, idx), first.slice(idx + 1));
-  }
-}
-
-function cookieHeader(jar: Map<string, string>): string {
-  return [...jar.entries()].map(([k, v]) => `${k}=${v}`).join('; ');
-}
-
-async function login(): Promise<Map<string, string>> {
-  const jar = new Map<string, string>();
-
-  const csrfRes = await fetch(`${BASE}/api/auth/csrf`);
-  mergeCookies(jar, csrfRes);
-  const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
-
-  const body = new URLSearchParams({
-    csrfToken, email: EMAIL!, password: PASSWORD!, callbackUrl: `${BASE}/vi/overview`, json: 'true',
-  });
-  const loginRes = await fetch(`${BASE}/api/auth/callback/credentials`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookieHeader(jar) },
-    body: body.toString(),
-    redirect: 'manual',
-  });
-  mergeCookies(jar, loginRes);
-  if (!jar.has('next-auth.session-token') && !jar.has('__Secure-next-auth.session-token')) {
-    throw new Error(`[measure-pages] Dang nhap that bai (status ${loginRes.status}) - kiem tra PERF_EMAIL/PERF_PASSWORD.`);
-  }
-  return jar;
-}
-
-async function measure(url: string, jar: Map<string, string>): Promise<number> {
+async function measure(url: string, jar: CookieJar): Promise<number> {
   const t0 = performance.now();
   const res = await fetch(url, { headers: { Cookie: cookieHeader(jar) }, redirect: 'manual' });
   await res.arrayBuffer();
@@ -87,7 +49,7 @@ async function main() {
   }
 
   console.log(`[measure-pages] Dang nhap ${EMAIL} tai ${BASE}...`);
-  const jar = await login();
+  const jar = await login({ base: BASE, email: EMAIL!, password: PASSWORD!, tag: '[measure-pages]' });
 
   // Buoc 11 muc 4b: goi 1 URL lam nong KHONG thuoc /overview truoc tien - tach chi phi cold-start
   // tien trinh (nap module, mo pool Prisma) ra khoi lan do /overview dau tien. Khong tinh vao ket qua.

@@ -41,7 +41,9 @@ erDiagram
     dim_factory ||--o{ fact_volume : "factoryId"
     dim_project ||--o{ fact_volume : "projectId"
     notify_channel ||--o{ notify_recipient : "channelId"
+    user_roles ||--o{ password_reset_token : "email"
     dim_project ||--o{ project_assignments : "projectId"
+    dim_project ||--o{ project_backfill_window : "projectId"
     dim_contractor ||--o{ project_contractor : "contractorId"
     dim_project ||--o{ project_contractor : "projectId"
     dim_equipment ||--o{ project_equipment_plan : "equipmentId"
@@ -53,7 +55,6 @@ erDiagram
     dim_project ||--o{ project_key_milestone : "projectId"
     dim_project ||--o{ project_manpower_plan_month : "projectId"
     dim_shift ||--o{ project_manpower_plan_month : "shiftCode"
-    dim_project ||--o{ project_photos : "projectId"
     dim_project ||--o{ project_sap_codes : "projectId"
     dim_project ||--o{ project_shift_ratio : "projectId"
     dim_shift ||--o{ project_shift_ratio : "shiftCode"
@@ -61,6 +62,8 @@ erDiagram
     dim_stage ||--o{ project_stage_weight : "stageCode"
     dim_project ||--o{ project_work_item : "projectId"
     dim_project |o--o{ sap_queue : "projectId"
+    dim_department |o--o{ signup_request : "departmentId"
+    dim_department |o--o{ user_roles : "departmentId"
 
     activity_log {
       Int id PK
@@ -103,6 +106,12 @@ erDiagram
       DateTime changedAt
       String note
     }
+    auth_throttle {
+      Int id PK
+      String kind
+      String key
+      DateTime createdAt
+    }
     dim_contractor {
       Int id PK
       String name
@@ -131,6 +140,13 @@ erDiagram
       Int isoWeek
       Date weekStart
       Int dayOfWeek
+    }
+    dim_department {
+      Int id PK
+      String name
+      Boolean isActive
+      DateTime createdAt
+      String updatedBy
     }
     dim_equipment {
       Int id PK
@@ -344,12 +360,33 @@ erDiagram
       AlertType minSeverity
       Boolean isEnabled
     }
+    password_reset_token {
+      Int id PK
+      String email FK
+      String tokenHash
+      DateTime expiresAt
+      DateTime usedAt
+      DateTime createdAt
+      String requestIp
+    }
     project_assignments {
       Int projectId PK,FK
       String userEmail PK
       RoleInProject roleInProject
       String assignedBy
       DateTime assignedAt
+    }
+    project_backfill_window {
+      Int id PK
+      Int projectId FK
+      Date fromDate
+      Date toDate
+      String note
+      String enabledBy
+      DateTime enabledAt
+      DateTime expiresAt
+      String disabledBy
+      DateTime disabledAt
     }
     project_contractor {
       Int projectId PK,FK
@@ -400,15 +437,6 @@ erDiagram
       DateTime updatedAt
       String updatedBy
     }
-    project_photos {
-      Int id PK
-      Int projectId FK
-      String yearMonth
-      String url
-      String caption
-      String uploadedBy
-      DateTime uploadedAt
-    }
     project_sap_codes {
       Int id PK
       Int projectId FK
@@ -444,6 +472,15 @@ erDiagram
       Int projectId FK
       DateTime detectedAt
     }
+    signup_request {
+      Int id PK
+      String email
+      String name
+      Int departmentId FK
+      String locale
+      String requestIp
+      DateTime createdAt
+    }
     user_roles {
       String email PK
       String name
@@ -453,6 +490,10 @@ erDiagram
       Boolean isActive
       DateTime createdAt
       DateTime lastLoginAt
+      Int failedLoginCount
+      DateTime lockedAt
+      DateTime passwordChangedAt
+      Int departmentId FK
     }
 ```
 <!-- ERD:END -->

@@ -206,7 +206,7 @@ function SearchBox() {
   }, [v]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="search hidden md:flex">
-      <IconSearch size={15} />
+      <IconSearch size={15} className="shrink-0" />
       <input value={v} onChange={(e) => setV(e.target.value)} placeholder={t('common.searchProject')} />
     </div>
   );

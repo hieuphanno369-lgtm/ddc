@@ -1,3 +1,4 @@
+import { resetTokenKindOf, type ResetTokenKind } from '@/lib/login-policy';
 import type { AuthAccountState, AuthStore, ThrottleKind, UserAccount } from './types';
 
 /**
@@ -46,6 +47,14 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
 
   function countersFor(email: string): Counters {
     return counters.get(email) ?? { failedLoginCount: 0, lockedAt: null, passwordChangedAt: null };
+  }
+
+  async function peekResetTokenKind(tokenHash: string, nowIso: string): Promise<ResetTokenKind | null> {
+    const t = resetTokens.find((x) => x.tokenHash === tokenHash);
+    if (!t || t.usedAt !== null || nowIso > t.expiresAt) return null;
+    const account = source.findAccount(t.email);
+    if (!account || account.passwordHash === '' || !account.isActive) return null;
+    return resetTokenKindOf(new Date(t.createdAt), new Date(t.expiresAt));
   }
 
   return {
@@ -110,7 +119,62 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
         const c = countersFor(key);
         counters.set(key, { ...c, passwordChangedAt: nowIso });
       }
+      // S-2 - huy moi token dat lai con dung duoc cua email nay, du bumpChangedAt
+      // hay khong (mat khau da doi qua duong khac thi 1 link cu con lai khong con ly do de dung duoc).
+      for (const row of resetTokens) {
+        if (row.email === key && row.usedAt === null) row.usedAt = nowIso;
+      }
       return true;
+    },
+
+    // R3-1 (bao-mat.md vong 3, Trung) - compare-and-swap: chi doi khi passwordHash HIEN TAI cua tai
+    // khoan van dung bang oldHash (da kiem o buoc verify truoc do trong CUNG request) - mo phong dung
+    // hanh vi WHERE ... AND passwordHash = oldHash cua ban Prisma.
+    // R4-4 (bao-mat.md vong 4, Thap) - tai khoan bi TAT hoac bi KHOA xen giua cung phai lam CAS thua,
+    // giong ban Prisma (them dieu kien isActive/lockedAt).
+    async setPasswordIfHash(email, oldHash, newHash, nowIso) {
+      const key = findEmail(email);
+      if (!key) return false;
+      const account = source.findAccount(key);
+      if (!account || account.passwordHash !== oldHash || !account.isActive) return false;
+      const c = countersFor(key);
+      if (c.lockedAt !== null) return false;
+      source.changePassword(key, newHash);
+      counters.set(key, { ...c, passwordChangedAt: nowIso });
+      for (const row of resetTokens) {
+        if (row.email === key && row.usedAt === null) row.usedAt = nowIso;
+      }
+      return true;
+    },
+
+    // R4-1a (bao-mat.md vong 4, Trung, chot chu du an 2026-09-28) - thu hoi moi phien: bump
+    // passwordChangedAt, KHONG doi passwordHash.
+    // R5-6 (bao-mat.md vong 5, Thap) - KHONG duoc keo lui: chi ghi khi chua co passwordChangedAt hoac
+    // moc hien tai CU HON nowIso (kieu "GREATEST"), giong ban Prisma.
+    async revokeSessions(email, nowIso) {
+      const key = findEmail(email);
+      if (!key) return false;
+      const c = countersFor(key);
+      if (c.passwordChangedAt === null || c.passwordChangedAt < nowIso) {
+        counters.set(key, { ...c, passwordChangedAt: nowIso });
+      }
+      return true;
+    },
+
+    // R5-1 (bao-mat.md vong 5, Thap) - xem JSDoc AuthStore.reserveAccountGuess (types.ts). Doc
+    // failedLoginCount/lockedAt TUOI (qua countersFor, khong dua vao ban chup cu ben ngoai) + dem so
+    // cho DANG GIU (chua releaseThrottle) trong cua so sinceIso, roi moi quyet dinh.
+    // R6-1 - 1 kind chung `account_guess` cho ca 2 man (khong nhan kind tu ngoai).
+    async reserveAccountGuess(email, nowIso, sinceIso, threshold) {
+      const key = findEmail(email);
+      if (!key) return null;
+      const c = countersFor(key);
+      if (c.lockedAt !== null) return null;
+      const held = throttle.filter((t) => t.kind === 'account_guess' && t.key === key && t.createdAt >= sinceIso).length;
+      if (c.failedLoginCount + held >= threshold) return null;
+      const id = nextThrottleId++;
+      throttle.push({ id, kind: 'account_guess', key, createdAt: nowIso });
+      return id;
     },
 
     async recordThrottle(kind, key, nowIso) {
@@ -138,17 +202,26 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
 
     async replaceResetToken(email, tokenHash, expiresAtIso, requestIp) {
       const e = email.toLowerCase();
-      resetTokens = resetTokens.filter((t) => t.email !== e);
-      resetTokens.push({ email: e, tokenHash, expiresAt: expiresAtIso, usedAt: null, createdAt: new Date().toISOString(), requestIp });
+      const now = new Date();
+      const nowIso = now.toISOString();
+      // T1: yêu cầu "Quên mật khẩu" chỉ thay token quên mật khẩu cũ, KHÔNG huỷ lời mời còn hạn và chưa dùng.
+      const keepLiveInvites = resetTokenKindOf(now, new Date(expiresAtIso)) === 'reset';
+      resetTokens = resetTokens.filter(
+        (t) =>
+          t.email !== e ||
+          (keepLiveInvites &&
+            t.usedAt === null &&
+            nowIso <= t.expiresAt &&
+            resetTokenKindOf(new Date(t.createdAt), new Date(t.expiresAt)) === 'invite'),
+      );
+      resetTokens.push({ email: e, tokenHash, expiresAt: expiresAtIso, usedAt: null, createdAt: nowIso, requestIp });
     },
 
     async peekResetToken(tokenHash, nowIso) {
-      const t = resetTokens.find((x) => x.tokenHash === tokenHash);
-      if (!t || t.usedAt !== null || nowIso > t.expiresAt) return false;
-      const account = source.findAccount(t.email);
-      if (!account || account.passwordHash === '' || !account.isActive) return false;
-      return true;
+      return (await peekResetTokenKind(tokenHash, nowIso)) !== null;
     },
+
+    peekResetTokenKind,
 
     async consumeResetToken(tokenHash, passwordHash, nowIso) {
       const t = resetTokens.find((x) => x.tokenHash === tokenHash && x.usedAt === null && nowIso <= x.expiresAt);
@@ -170,7 +243,8 @@ export function createMemoryAuthStore(source: MemoryAccountSource): AuthStore {
 
     async pruneAuthData(beforeIso) {
       throttle = throttle.filter((t) => t.createdAt >= beforeIso);
-      resetTokens = resetTokens.filter((t) => t.createdAt >= beforeIso);
+      // S1: dọn theo hạn dùng (hết hạn hoặc đã dùng quá mốc), không theo tuổi tạo: lời mời sống 72 giờ.
+      resetTokens = resetTokens.filter((t) => t.expiresAt >= beforeIso && (t.usedAt === null || t.usedAt >= beforeIso));
     },
   };
 }

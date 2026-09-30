@@ -109,17 +109,9 @@ describe('read-prisma', () => {
     expect(volumeFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { yearMonth: '2026-09' } }));
   });
 
-  it('readMonthlyEvm([], ...) khong goi DB', async () => {
-    const r1 = await readRepoPrisma.readMonthlyEvm([], [1]);
-    const r2 = await readRepoPrisma.readMonthlyEvm(['2026-09'], []);
-    expect(r1).toEqual([]);
-    expect(r2).toEqual([]);
+  it('readFactSeries voi projectIds rong khong goi DB', async () => {
+    expect(await readRepoPrisma.readFactSeries('2026-01', '2026-09', [])).toEqual([]);
     expect(queryRaw).not.toHaveBeenCalled();
-  });
-
-  it('readMonthlyEvm(thang, id) goi $queryRaw 1 lan', async () => {
-    await readRepoPrisma.readMonthlyEvm(['2026-09'], [1, 2]);
-    expect(queryRaw).toHaveBeenCalledTimes(1);
   });
 
   it('ten ham cua readRepoPrisma khong trung ten ham nao cua prisma-repo', () => {

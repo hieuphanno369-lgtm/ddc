@@ -8,69 +8,74 @@ vi.mock('@/server/repo', async () => {
 });
 
 import { repo } from '@/server/repo';
-import { prevMonth } from '@/lib/clock';
+import { previousPeriod, type Period } from '@/lib/period';
+import { getProjectSummaries } from './queries';
 import { getOverdueScorecard } from './overdue-scorecard';
 
-const MONTH = '2026-09';
+// Kỳ trọn tháng 09/2026 (mốc = 2026-09-16 do DDC_FAKE_TODAY), kỳ liền trước cùng độ dài = 2026-08-01..2026-08-31.
+const PERIOD: Period = { from: '2026-09-01', to: '2026-09-30' };
+
+/** Oracle độc lập: công nợ quá hạn của các dự án `ids` = dòng tài chính isLatest gần nhất <= ym (đọc bằng repo.getFinancial). */
+async function arOverdueAt(ids: Set<number>, ym: string): Promise<number> {
+  let sum = 0;
+  for (const id of ids) {
+    const rows = (await repo.getFinancial(id)).filter((f) => f.yearMonth <= ym);
+    if (rows.length) sum += rows[rows.length - 1].arOverdue;
+  }
+  return sum;
+}
+
+const idsOf = async (period: Period, filters = {}) => new Set((await getProjectSummaries(period, filters)).map((s) => s.id));
 
 describe('getOverdueScorecard - đường chạy thuận lợi', () => {
-  it('tháng hợp lệ: value khớp tổng tay từ getFinancialForMonth (không lọc status)', async () => {
-    const r = await getOverdueScorecard(MONTH, {});
-    const expected = (await repo.getFinancialForMonth(MONTH)).reduce((sum, f) => sum + f.arOverdue, 0);
-    expect(r.value).toBe(expected);
+  it('value = Σ công nợ quá hạn tại tháng mốc của dự án thuộc kỳ (không lọc status)', async () => {
+    const r = await getOverdueScorecard(PERIOD, {});
+    expect(r.value).toBe(await arOverdueAt(await idsOf(PERIOD), '2026-09'));
   });
 
-  it('delta = value(tháng) - value(prevMonth), khớp oracle', async () => {
-    const r = await getOverdueScorecard(MONTH, {});
-    const prevExpected = (await repo.getFinancialForMonth(prevMonth(MONTH))).reduce((sum, f) => sum + f.arOverdue, 0);
-    const curExpected = (await repo.getFinancialForMonth(MONTH)).reduce((sum, f) => sum + f.arOverdue, 0);
-    expect(r.delta).toBe(Math.round((curExpected - prevExpected) * 10) / 10);
+  it('delta = value(kỳ) - value(kỳ liền trước cùng độ dài), khớp oracle', async () => {
+    const r = await getOverdueScorecard(PERIOD, {});
+    const prev = previousPeriod(PERIOD);
+    const cur = await arOverdueAt(await idsOf(PERIOD), '2026-09');
+    const before = await arOverdueAt(await idsOf(prev), '2026-08');
+    expect(r.delta).toBe(Math.round((cur - before) * 10) / 10);
   });
 
   it('filter theo team: chỉ cộng dự án của team đó', async () => {
     const projects = await repo.listProjects();
     const teamId = projects[0].teamKdId;
-    const r = await getOverdueScorecard(MONTH, { teamKdId: teamId });
-    const scopedIds = new Set(projects.filter((p) => p.teamKdId === teamId).map((p) => p.id));
-    const expected = (await repo.getFinancialForMonth(MONTH))
-      .filter((f) => scopedIds.has(f.projectId))
-      .reduce((sum, f) => sum + f.arOverdue, 0);
-    expect(r.value).toBe(expected);
+    const r = await getOverdueScorecard(PERIOD, { teamKdId: teamId });
+    const scoped = new Set((await idsOf(PERIOD)).values());
+    const teamIds = new Set(projects.filter((p) => p.teamKdId === teamId && scoped.has(p.id)).map((p) => p.id));
+    expect(r.value).toBe(await arOverdueAt(teamIds, '2026-09'));
   });
 
-  // Tester (P1B): kiem tra delta khi co filter team CUNG dung phạm vi loc do cho ca thang
-  // truoc (prevMonth) - neu cai dat sai (dung ids khong loc cho prev), delta se lech oracle nay.
-  it('filter theo team: delta cung tinh tren PHAM VI DA LOC cho ca thang hien tai lan thang truoc', async () => {
+  // Tester (P1B): delta khi có filter team CŨNG dùng phạm vi lọc đó cho cả kỳ trước.
+  it('filter theo team: delta tính trên PHẠM VI ĐÃ LỌC cho cả kỳ hiện tại lẫn kỳ trước', async () => {
     const projects = await repo.listProjects();
     const teamId = projects[0].teamKdId;
-    const scopedIds = new Set(projects.filter((p) => p.teamKdId === teamId).map((p) => p.id));
+    const filters = { teamKdId: teamId };
+    const r = await getOverdueScorecard(PERIOD, filters);
+    const cur = await arOverdueAt(await idsOf(PERIOD, filters), '2026-09');
+    const before = await arOverdueAt(await idsOf(previousPeriod(PERIOD), filters), '2026-08');
+    expect(r.delta).toBe(Math.round((cur - before) * 10) / 10);
+  });
 
-    const r = await getOverdueScorecard(MONTH, { teamKdId: teamId });
-
-    const curExpected = (await repo.getFinancialForMonth(MONTH))
-      .filter((f) => scopedIds.has(f.projectId))
-      .reduce((sum, f) => sum + f.arOverdue, 0);
-    const prevExpected = (await repo.getFinancialForMonth(prevMonth(MONTH)))
-      .filter((f) => scopedIds.has(f.projectId))
-      .reduce((sum, f) => sum + f.arOverdue, 0);
-
-    expect(r.delta).toBe(Math.round((curExpected - prevExpected) * 10) / 10);
+  it('F-1: filter status áp cho công nợ (cùng tập id với KPI)', async () => {
+    const r = await getOverdueScorecard(PERIOD, { status: 'Hoan_thanh' });
+    const ids = await idsOf(PERIOD, { status: 'Hoan_thanh' });
+    expect(r.value).toBe(await arOverdueAt(ids, '2026-09'));
   });
 });
 
 describe('getOverdueScorecard - biên', () => {
-  it("month='all' -> delta null (không có tháng liền trước hợp lệ)", async () => {
-    const r = await getOverdueScorecard('all', {});
+  it('kỳ mà kỳ liền trước nằm trước cửa sổ dữ liệu -> delta null (không bịa)', async () => {
+    const r = await getOverdueScorecard({ from: '2025-10-01', to: '2025-10-31' }, {});
     expect(r.delta).toBeNull();
   });
 
-  it('tháng rác -> delta null', async () => {
-    const r = await getOverdueScorecard('abc', {});
-    expect(r.delta).toBeNull();
-  });
-
-  it('tháng trước cửa sổ dữ liệu (2020-01) -> value 0, delta null (chưa có dòng tài chính nào)', async () => {
-    const r = await getOverdueScorecard('2020-01', {});
+  it('kỳ trước cửa sổ dữ liệu (2020-01) -> value 0, delta null (chưa có dòng tài chính nào)', async () => {
+    const r = await getOverdueScorecard({ from: '2020-01-01', to: '2020-01-31' }, {});
     expect(r.value).toBe(0);
     expect(r.delta).toBeNull();
   });

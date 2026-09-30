@@ -22,3 +22,6 @@ playwright-report/
 .claude/*.bak-*/
 .claude/skills_archived/
 .claude/__pycache__/
+.env.docker
+.backups/
+.bangiao/checkpoint.md

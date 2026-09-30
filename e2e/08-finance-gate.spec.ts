@@ -8,6 +8,8 @@ test.describe('08 - N-3 gate so tien (viewer)', () => {
     await page.goto('/vi/overview');
 
     await expect(page.getByText(vi('kpi.backlog'))).toHaveCount(0);
+    await expect(page.getByText(vi('kpiGroup.revenue'))).toHaveCount(0);
+    await expect(page.getByText(vi('kpiGroup.tonnage'))).toBeVisible();
     await expect(page.getByText('Trị (tỷ VNĐ)')).toHaveCount(0);
     await expect(page.locator('th', { hasText: vi('metric.contractValue') })).toHaveCount(0);
     await expect(page.locator('option', { hasText: vi('common.value') })).toHaveCount(0);

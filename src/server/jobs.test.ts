@@ -6,9 +6,12 @@ vi.mock('@/server/repo', async () => {
   return { repo: mockRepo.repo };
 });
 
+vi.mock('@/lib/activity', () => ({ logActivity: vi.fn() }));
+
 import { __resetJobThrottleForTest, runDueJobs, runJob } from './jobs';
 
 beforeEach(() => {
+  vi.clearAllMocks();
   repo.reset();
   __resetJobThrottleForTest();
 });
@@ -34,6 +37,70 @@ describe('runJob', () => {
   });
 });
 
+describe('pruneAuthData trong runJob (K19)', () => {
+  it("alerts_daily goi getAuthStore().pruneAuthData voi moc 'now - 24h'", async () => {
+    const { getAuthStore } = await import('./auth-store');
+    const spy = vi.spyOn(getAuthStore(), 'pruneAuthData').mockResolvedValue(undefined);
+    try {
+      const before = Date.now();
+      await runJob('alerts_daily', 'cron');
+      expect(spy).toHaveBeenCalledTimes(1);
+      const beforeIso = spy.mock.calls[0][0];
+      const deltaMs = before - Date.parse(beforeIso);
+      expect(deltaMs).toBeGreaterThanOrEqual(24 * 3_600_000 - 1000);
+      expect(deltaMs).toBeLessThanOrEqual(24 * 3_600_000 + 5000);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('pruneAuthData nem loi - job VAN ok, khong lam hong job chinh', async () => {
+    const { getAuthStore } = await import('./auth-store');
+    const spy = vi.spyOn(getAuthStore(), 'pruneAuthData').mockRejectedValue(new Error('boom-prune'));
+    try {
+      const res = await runJob('alerts_daily', 'cron');
+      expect(res.status).toBe('ok');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe('don dang ky cho qua 14 ngay trong runJob (S3)', () => {
+  it('goi pruneStale voi moc now - 14 ngay va ghi nhat ky signup_expire khi co dong bi xoa', async () => {
+    const { getSignupStore } = await import('./signup-store');
+    const { logActivity } = await import('@/lib/activity');
+    const spy = vi.spyOn(getSignupStore(), 'pruneStale').mockResolvedValue(3);
+    const log = vi.mocked(logActivity);
+    try {
+      const before = Date.now();
+      await runJob('alerts_daily', 'cron');
+      expect(spy).toHaveBeenCalledTimes(1);
+      const deltaMs = before - Date.parse(spy.mock.calls[0][0]);
+      expect(deltaMs).toBeGreaterThanOrEqual(14 * 24 * 3_600_000 - 1000);
+      expect(deltaMs).toBeLessThanOrEqual(14 * 24 * 3_600_000 + 5000);
+      expect(log).toHaveBeenCalledWith({ name: 'system', email: 'system' }, 'signup_expire', '3');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('khong xoa dong nao -> khong ghi nhat ky; pruneStale nem loi -> job VAN ok', async () => {
+    const { getSignupStore } = await import('./signup-store');
+    const { logActivity } = await import('@/lib/activity');
+    const log = vi.mocked(logActivity);
+    const spy = vi.spyOn(getSignupStore(), 'pruneStale').mockResolvedValue(0);
+    try {
+      await runJob('alerts_daily', 'cron');
+      expect(log).not.toHaveBeenCalledWith(expect.anything(), 'signup_expire', expect.anything());
+      spy.mockRejectedValue(new Error('boom-signup'));
+      expect((await runJob('alerts_daily', 'cron')).status).toBe('ok');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
 describe('runDueJobs', () => {
   it('goi 2 lan lien chi chay 1 lan (throttle)', async () => {
     await runDueJobs('lazy');
@@ -52,7 +119,8 @@ describe('runDueJobs', () => {
     try {
       await runDueJobs('lazy');
       expect(fetchSpy).not.toHaveBeenCalled();
-      expect(repo.getRecentJobRuns('rates_monthly', 5)).toHaveLength(0);
+      // Task 8: JobName gio chi con 'alerts_daily' - ep kieu de van kiem duoc khong con job_run ten cu.
+      expect(repo.getRecentJobRuns('rates_monthly' as never, 5)).toHaveLength(0);
     } finally {
       vi.unstubAllGlobals();
     }

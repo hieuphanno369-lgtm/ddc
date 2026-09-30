@@ -129,3 +129,17 @@ export function clampBubbleX({
   const arrow = Math.min(Math.max(center - x, 12), w - 12);
   return { left: x - anchorLeft, arrow };
 }
+
+/**
+ * P4 (Task E3): style inline cua `.help .bub` khi "?" duoc bam mo (mobile khong co hover, iOS Safari khong focus nut).
+ * Gan inline de khong phai sua app/globals.css: display/opacity/visibility ghi de trang thai an cua CSS, transform
+ * khop voi ban :hover (da kep viewport -> khong con dich -50%).
+ */
+export function openBubbleStyle(clamped: boolean): Record<'display' | 'opacity' | 'visibility' | 'transform', string> {
+  return {
+    display: 'block',
+    opacity: '1',
+    visibility: 'visible',
+    transform: clamped ? 'translateY(0) scale(1)' : 'translateX(-50%) translateY(0) scale(1)',
+  };
+}

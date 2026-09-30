@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
-import { exportProjects, type DashboardFilters, type GroupBy } from '@/server/queries';
+import { exportProjects } from '@/server/queries';
 import { rateLimit } from '@/lib/rate-limit';
 import { clientIpFrom } from '@/lib/client-ip';
 import { getCurrentUser } from '@/lib/session';
 import { safeCell } from '@/lib/excel-safe';
-import type { Market, Priority, ProjectType, Status } from '@/server/repo/types';
+import { todayIso } from '@/lib/clock';
+import { defaultOverviewPeriod, parsePeriod } from '@/lib/period';
+import { parseDashboardFilters } from '@/lib/overview-params';
 import { safeListSort, type ListSort } from '@/lib/finance-gate';
 
 export const dynamic = 'force-dynamic';
@@ -28,18 +30,15 @@ export async function GET(req: NextRequest) {
 
   const sp = req.nextUrl.searchParams;
 
-  const filters: DashboardFilters = {
-    status: (sp.get('status') as Status) || 'all',
-    teamKdId: sp.get('team') ? Number(sp.get('team')) : 'all',
-    priority: (sp.get('priority') as Priority) || 'all',
-    market: (sp.get('market') as Market) || 'all',
-    projectType: (sp.get('type') as ProjectType) || 'all',
-    groupBy: sp.get('groupBy') ? (sp.get('groupBy') as GroupBy) : undefined,
-    groupKey: sp.get('groupKey') || undefined,
-  };
+  // Cùng bộ tham số kỳ/bộ lọc với trang Tổng quan; giá trị rác rơi về mặc định, không ném lỗi.
+  const period = parsePeriod(
+    { from: sp.get('from') ?? undefined, to: sp.get('to') ?? undefined, month: sp.get('month') ?? undefined },
+    defaultOverviewPeriod(todayIso()),
+  );
+  const filters = parseDashboardFilters(Object.fromEntries(sp.entries()));
 
   const rows = await exportProjects({
-    month: sp.get('month') || undefined,
+    period,
     filters,
     search: sp.get('search') || undefined,
     sort: safeListSort((sp.get('sort') as ListSort) || 'priority', canViewFinance),

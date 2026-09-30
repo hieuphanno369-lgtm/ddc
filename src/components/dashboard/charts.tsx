@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import {
   Area,
   AreaChart,
   Bar,
   BarChart,
+  Brush,
   CartesianGrid,
   Cell,
   ComposedChart,
@@ -20,7 +22,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
+import { carriedRuns, withRunKeys } from '@/lib/carried-segments';
 import { THRESHOLDS } from '@/lib/thresholds';
 import { formatRatio, formatTyd } from '@/lib/format';
 import { LabelModeSwitch, smartIndices, useLabelMode, valueLabel } from './ChartLabels';
@@ -42,6 +45,21 @@ export const TOOLTIP_STYLE = {
   itemStyle: { color: 'var(--label2)' },
   labelStyle: { color: 'var(--label)', fontWeight: 700, marginBottom: 6 },
 } as const;
+
+/** Nhãn đơn vị trục Y (D-11), xoay dọc sát mép trái. */
+function yUnit(value: string, fill: string) {
+  return { value, angle: -90, position: 'insideLeft', offset: 4, style: { fontSize: 10, fill, textAnchor: 'middle' } } as const;
+}
+
+/** Tooltip: thêm "N dự án dùng số tháng trước" ở tiêu đề khi tháng đó có số mang sang (D-10). */
+function carriedLabel(t: (k: string, v?: Record<string, number>) => string, single = false) {
+  return (label: unknown, payload: readonly { payload?: { carriedProjects?: number } }[]) => {
+    const n = payload?.[0]?.payload?.carriedProjects ?? 0;
+    if (n <= 0) return String(label);
+    // Chart của 1 dự án (trang Chi tiết): "Dùng số tháng trước", không đếm dự án.
+    return `${label} · ${single ? t('asOf.carriedTipOne') : t('asOf.carriedTip', { n })}`;
+  };
+}
 
 export function StatusDonut({
   data,
@@ -88,6 +106,9 @@ export function StatusDonut({
   );
 }
 
+/** Bề rộng tối thiểu cho mỗi nhãn trục X của GroupBar trước khi xoay chéo. */
+const GROUP_LABEL_MIN_PX = 72;
+
 export function GroupBar({
   data,
   onSelect,
@@ -98,19 +119,41 @@ export function GroupBar({
   showValue?: boolean;
 }) {
   const c = useChartTokens();
+  const t = useTranslations();
+  // T-5: chart hẹp (điện thoại) thì Recharts tự bỏ bớt nhãn trục X. Luôn hiện đủ nhãn (interval=0) và xoay chéo khi
+  // mỗi cột chỉ còn dưới ~72px.
+  const [width, setWidth] = useState(0);
+  const tilt = width > 0 && width / Math.max(data.length, 1) < GROUP_LABEL_MIN_PX;
   return (
-    <ResponsiveContainer width="100%" height={260}>
-      <ComposedChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+    <ResponsiveContainer width="100%" height={tilt ? 290 : 260} onResize={(w) => setWidth(w)}>
+      <ComposedChart data={data} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
-        <XAxis dataKey="key" tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} />
+        <XAxis
+          dataKey="key"
+          tick={{ fontSize: 11, fill: c.axis }}
+          tickLine={false}
+          axisLine={false}
+          interval={0}
+          angle={tilt ? -35 : 0}
+          textAnchor={tilt ? 'end' : 'middle'}
+          height={tilt ? 52 : 30}
+        />
         <YAxis
           yAxisId="left"
           tick={{ fontSize: 11, fill: c.axis }}
           tickLine={false}
           axisLine={false}
+          label={yUnit(showValue ? t('chartHowTo.axisBillion') : t('chartHowTo.axisTon'), c.axis)}
         />
         {showValue && (
-          <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} />
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            tick={{ fontSize: 11, fill: c.axis }}
+            tickLine={false}
+            axisLine={false}
+            label={{ ...yUnit(t('chartHowTo.axisTon'), c.axis), angle: 90, position: 'insideRight' }}
+          />
         )}
         <Tooltip {...TOOLTIP_STYLE} />
         <Legend wrapperStyle={{ fontSize: 'var(--t-caption1)' }} />
@@ -159,11 +202,18 @@ export function CapacityBar({
   data: { name: string; processed: number; capacity: number; warn: boolean }[];
 }) {
   const c = useChartTokens();
+  const t = useTranslations();
   return (
     <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={data} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+      <BarChart data={data} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 14 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={c.grid} horizontal={false} />
-        <XAxis type="number" tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} />
+        <XAxis
+          type="number"
+          tick={{ fontSize: 11, fill: c.axis }}
+          tickLine={false}
+          axisLine={false}
+          label={{ value: t('chartHowTo.axisTon'), position: 'insideBottomRight', offset: -2, style: { fontSize: 10, fill: c.axis } }}
+        />
         <YAxis
           type="category"
           dataKey="name"
@@ -174,8 +224,8 @@ export function CapacityBar({
         />
         <Tooltip {...TOOLTIP_STYLE} />
         <Legend wrapperStyle={{ fontSize: 'var(--t-caption1)' }} />
-        <Bar dataKey="capacity" name="Công suất (tấn/tháng)" fill={c.neutral} radius={[0, 4, 4, 0]} maxBarSize={16} />
-        <Bar dataKey="processed" name="Sản lượng (tấn)" fill={c.actual} radius={[0, 4, 4, 0]} maxBarSize={16}>
+        <Bar dataKey="capacity" name={t('chartHowTo.capacityLegend')} fill={c.neutral} radius={[0, 4, 4, 0]} maxBarSize={16} />
+        <Bar dataKey="processed" name={t('chartHowTo.outputLegend')} fill={c.actual} radius={[0, 4, 4, 0]} maxBarSize={16}>
           {data.map((d) => (
             <Cell key={d.name} fill={d.warn ? c.warn : c.actual} />
           ))}
@@ -185,26 +235,63 @@ export function CapacityBar({
   );
 }
 
+/** Quá ngưỡng này thì thêm thanh kéo chọn khoảng tháng (D-20); kéo chỉ phóng to chart, không đổi URL/kỳ. */
+const BRUSH_MIN_POINTS = 13;
+
+type TrendRow = { month: string; spi: number | null; cpi: number | null; carriedProjects?: number };
+
 export function SpiCpiLine({
   data,
+  markerMonth,
+  single = false,
 }: {
-  data: { month: string; spi: number | null; cpi: number | null }[];
+  data: TrendRow[];
+  /** Chart của 1 dự án (Chi tiết): tooltip tháng mang số ghi "Dùng số tháng trước". */
+  single?: boolean;
+  /** Tháng mốc đang xem (vạch đỏ nét đứt, D-19); chỉ vẽ khi tháng đó có trên trục. */
+  markerMonth?: string;
 }) {
   const c = useChartTokens();
+  const t = useTranslations();
   const { mode, setMode } = useLabelMode();
   const spiSel = mode === 'smart' ? smartIndices(data, 'spi') : new Set(data.map((_, i) => i));
   const cpiSel = mode === 'smart' ? smartIndices(data, 'cpi') : new Set(data.map((_, i) => i));
+  const runs = carriedRuns(data.map((d) => d.carriedProjects ?? 0));
+  const rows = withRunKeys(data, ['spi', 'cpi'], runs);
+  const line = (key: 'spi' | 'cpi', stroke: string, sel: Set<number>, name: string) => (
+    <>
+      {/* Đường đầy đủ ẩn nét (giữ chú giải, tooltip, nhãn giá trị); nét thật vẽ theo từng đoạn liền/đứt. */}
+      <Line type="monotone" dataKey={key} name={name} stroke={stroke} strokeOpacity={0} dot={false} activeDot={{ r: 4 }}>
+        <LabelList dataKey={key} content={valueLabel(sel)} />
+      </Line>
+      {runs.map((run, n) => (
+        <Line
+          key={`${key}_r${n}`}
+          type="monotone"
+          dataKey={`${key}_r${n}`}
+          stroke={stroke}
+          strokeWidth={2}
+          strokeDasharray={run.dashed ? '5 4' : undefined}
+          dot={{ r: 3 }}
+          activeDot={false}
+          legendType="none"
+          tooltipType="none"
+          isAnimationActive={false}
+        />
+      ))}
+    </>
+  );
   return (
     <div>
       <div className="mb-1 flex justify-end">
         <LabelModeSwitch mode={mode} onChange={setMode} />
       </div>
-      <ResponsiveContainer width="100%" height={200}>
-        <LineChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+      <ResponsiveContainer width="100%" height={data.length >= BRUSH_MIN_POINTS ? 226 : 200}>
+        <LineChart data={rows} margin={{ top: 8, right: 18, left: 4, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
           <XAxis dataKey="month" tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} />
-          <YAxis domain={[0.6, 1.4]} tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} />
-          <Tooltip {...TOOLTIP_STYLE} formatter={(value) => formatRatio(Number(value))} />
+          <YAxis domain={[0.6, 1.4]} tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} label={yUnit(t('chartHowTo.axisIndex'), c.axis)} />
+          <Tooltip {...TOOLTIP_STYLE} formatter={(value) => formatRatio(Number(value))} labelFormatter={carriedLabel(t, single)} />
           <Legend wrapperStyle={{ fontSize: 'var(--t-caption1)' }} />
           <ReferenceLine
             y={THRESHOLDS.spiWarn}
@@ -212,28 +299,40 @@ export function SpiCpiLine({
             strokeDasharray="4 4"
             label={{ value: String(THRESHOLDS.spiWarn), fontSize: 10, fill: c.warn }}
           />
-          <Line type="monotone" dataKey="spi" name="SPI" stroke={c.actual} strokeWidth={2} dot={{ r: 3 }}>
-            <LabelList dataKey="spi" content={valueLabel(spiSel)} />
-          </Line>
-          <Line type="monotone" dataKey="cpi" name="CPI" stroke={c.third} strokeWidth={2} dot={{ r: 3 }}>
-            <LabelList dataKey="cpi" content={valueLabel(cpiSel)} />
-          </Line>
+          {markerMonth && data.some((d) => d.month === markerMonth) && (
+            <ReferenceLine x={markerMonth} stroke={c.danger} strokeDasharray="4 4" />
+          )}
+          {line('spi', c.actual, spiSel, 'SPI')}
+          {line('cpi', c.third, cpiSel, 'CPI')}
+          {data.length >= BRUSH_MIN_POINTS && <Brush dataKey="month" height={22} stroke={c.axis} fill="transparent" travellerWidth={8} />}
         </LineChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
+type CurveRow = { month: string; pv: number; ev: number; ac: number; carriedProjects?: number };
+
 export function SCurve({
   data,
+  markerMonth,
+  single = false,
 }: {
-  data: { month: string; pv: number; ev: number; ac: number }[];
+  data: CurveRow[];
+  /** Chart của 1 dự án (Chi tiết): tooltip tháng mang số ghi "Dùng số tháng trước". */
+  single?: boolean;
+  /** Tháng mốc đang xem (vạch đỏ nét đứt, D-19); chỉ vẽ khi tháng đó có trên trục. */
+  markerMonth?: string;
 }) {
   const locale = useLocale();
+  const t = useTranslations();
   const c = useChartTokens();
+  const runs = carriedRuns(data.map((d) => d.carriedProjects ?? 0));
+  const rows = withRunKeys(data, ['pv', 'ev', 'ac'], runs);
+  const strokes = { pv: c.plan, ev: c.actual, ac: c.cost } as const;
   return (
-    <ResponsiveContainer width="100%" height={240}>
-      <AreaChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+    <ResponsiveContainer width="100%" height={data.length >= BRUSH_MIN_POINTS ? 266 : 240}>
+      <ComposedChart data={rows} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
         <defs>
           <linearGradient id="pvGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor={c.plan} stopOpacity={0.25} />
@@ -246,13 +345,36 @@ export function SCurve({
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
         <XAxis dataKey="month" tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} />
-        <YAxis tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} />
-        <Tooltip {...TOOLTIP_STYLE} formatter={(value) => formatTyd(Number(value), locale)} />
+        <YAxis tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} label={yUnit(t('chartHowTo.axisBillion'), c.axis)} />
+        <Tooltip {...TOOLTIP_STYLE} formatter={(value) => formatTyd(Number(value), locale)} labelFormatter={carriedLabel(t, single)} />
         <Legend wrapperStyle={{ fontSize: 'var(--t-caption1)' }} />
-        <Area type="monotone" dataKey="pv" name="PV" stroke={c.plan} strokeWidth={2} fill="url(#pvGrad)" />
-        <Area type="monotone" dataKey="ev" name="EV" stroke={c.actual} strokeWidth={2} fill="url(#evGrad)" />
-        <Area type="monotone" dataKey="ac" name="AC" stroke={c.cost} strokeDasharray="5 4" strokeWidth={2} fill="transparent" />
-      </AreaChart>
+        {/* Vùng tô + chú giải + tooltip lấy từ đường đầy đủ (ẩn nét); nét thật vẽ theo từng đoạn liền/đứt. */}
+        <Area type="monotone" dataKey="pv" name="PV" stroke={strokes.pv} strokeOpacity={0} strokeWidth={2} fill="url(#pvGrad)" />
+        <Area type="monotone" dataKey="ev" name="EV" stroke={strokes.ev} strokeOpacity={0} strokeWidth={2} fill="url(#evGrad)" />
+        <Line type="monotone" dataKey="ac" name="AC" stroke={strokes.ac} strokeOpacity={0} dot={false} />
+        {markerMonth && data.some((d) => d.month === markerMonth) && (
+          <ReferenceLine x={markerMonth} stroke={c.danger} strokeDasharray="4 4" />
+        )}
+        {(['pv', 'ev', 'ac'] as const).flatMap((key) =>
+          runs.map((run, n) => (
+            <Line
+              key={`${key}_r${n}`}
+              type="monotone"
+              dataKey={`${key}_r${n}`}
+              stroke={strokes[key]}
+              strokeWidth={2}
+              // AC vốn đã nét đứt "5 4" để phân biệt với PV/EV; đoạn mang số của AC đứt dày hơn "2 3".
+              strokeDasharray={run.dashed ? (key === 'ac' ? '2 3' : '5 4') : key === 'ac' ? '5 4' : undefined}
+              dot={data.length === 1 ? { r: 3 } : false}
+              activeDot={false}
+              legendType="none"
+              tooltipType="none"
+              isAnimationActive={false}
+            />
+          )),
+        )}
+        {data.length >= BRUSH_MIN_POINTS && <Brush dataKey="month" height={22} stroke={c.axis} fill="transparent" travellerWidth={8} />}
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }

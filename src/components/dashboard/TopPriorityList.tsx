@@ -4,14 +4,17 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { formatPct } from '@/lib/format';
-import { isBehindSchedule, type TopPriorityItem } from '@/lib/top-priority';
+import { periodSearch, type Period } from '@/lib/period';
+import type { TopPriorityItem } from '@/lib/top-priority';
 import { maxHeightForRows, WATCHLIST_VISIBLE_ROWS } from '@/lib/visible-rows';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
 import { IconChevronRight } from '@/components/icons';
 
-/** Thẻ "Top dự án trọng điểm" (T2): P0 đang triển khai, trễ xếp trước. Không hiện số tiền. */
-export function TopPriorityList({ items }: { items: TopPriorityItem[] }) {
+/**
+ * Thẻ "Top dự án trọng điểm" (T2): P0 đang triển khai, trễ xếp trước (sắp ở tầng query). Không hiện số tiền.
+ * Chủ dự án chốt 2026-09-29: không hiện trễ/đúng tiến độ ở đây (xem ở trang Chi tiết), chấm màu vàng P0.
+ */
+export function TopPriorityList({ items, period }: { items: TopPriorityItem[]; period: Period }) {
   const t = useTranslations();
   const locale = useLocale();
   const listRef = useRef<HTMLDivElement>(null);
@@ -43,18 +46,12 @@ export function TopPriorityList({ items }: { items: TopPriorityItem[] }) {
             style={overflow ? { maxHeight: measured ?? 400, overflowY: 'auto' } : undefined}
           >
             {items.map((s) => {
-              const behind = isBehindSchedule(s);
               return (
-                <Link key={s.id} href={`/projects/${s.id}`} className="alert">
-                  <span className="dot" style={{ background: behind ? 'var(--danger)' : 'var(--ok)' }} />
+                <Link key={s.id} href={`/projects/${s.id}?${new URLSearchParams(periodSearch(period))}`} className="alert">
+                  <span className="dot" style={{ background: 'var(--gold)' }} />
                   <div className="min-w-0 flex-1">
                     <h4>{s.projectName}</h4>
                     <div className="mt">
-                      {behind ? (
-                        <Badge tone="danger">{t('topPriority.behind')}</Badge>
-                      ) : (
-                        <Badge tone="ok">{t('topPriority.onTrack')}</Badge>
-                      )}
                       <span>
                         {t('metric.pctActual')} {formatPct(s.pctActual, locale)} · {t('metric.pctPlan')}{' '}
                         {formatPct(s.pctPlan, locale)}

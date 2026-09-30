@@ -1,11 +1,21 @@
-import { hashSync, compareSync } from 'bcryptjs';
+import { compare, hash } from 'bcryptjs';
 
-export function hashPassword(password: string): string {
-  return hashSync(password, 10);
+/**
+ * S-1 - bam BAT DONG BO (`bcryptjs.hash`, khong con `hashSync`) de khong chan
+ * event loop: `hashPassword` la ham dung CHUNG cho moi noi doi/dat mat khau, doi nhat quan ca ham
+ * (khong tach rieng 1 ban bat dong bo chi cho 1 noi goi) de tranh 2 API khac nhau cho cung 1 viec.
+ */
+export async function hashPassword(password: string): Promise<string> {
+  return hash(password, 10);
 }
 
-export function verifyPassword(password: string, hash: string): boolean {
-  return compareSync(password, hash);
+/**
+ * Vong sua bao mat 2 (bao-mat.md, ghi chu vong 2 "S-1: DA DONG") - doi `compareSync` -> `compare`
+ * bat dong bo, nhat quan voi `hashPassword` (khong con ham nao trong cap doi/kiem mat khau chan
+ * event loop bang bcrypt dong bo).
+ */
+export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  return compare(password, hash);
 }
 
 /** Độ mạnh mật khẩu: 0 = quá ngắn, 1 = yếu, 2 = trung bình, 3 = mạnh. */

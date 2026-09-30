@@ -33,6 +33,7 @@ const SUMMARY: ProjectSummary = {
   eac: 150,
   vac: -26.6,
   bottleneckStage: null,
+  dataState: { kind: 'current', month: '2026-09' },
 };
 
 describe('maskProjectSummary', () => {
@@ -45,6 +46,10 @@ describe('maskProjectSummary', () => {
     expect(masked.cpi).toBe(0.94);
     expect(masked.pctActual).toBe(48);
     expect(masked.tonnage).toBe(900);
+  });
+
+  it('P4 D-12: dataState (khong phai tien) duoc giu nguyen khi che', () => {
+    expect(maskProjectSummary(SUMMARY, false).dataState).toEqual({ kind: 'current', month: '2026-09' });
   });
 
   it('khong sua object goc', () => {

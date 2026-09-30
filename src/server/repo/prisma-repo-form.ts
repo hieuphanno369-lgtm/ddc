@@ -287,7 +287,7 @@ export const formPrismaRepo = {
 
   async readProjectAuditTrail(projectId: number, limit: number): Promise<AuditLogEntry[]> {
     const exact = ['dim_project', 'dim_project_alias', 'project_key_milestone', 'project_sap_codes', 'project_stage_weight', 'project_equipment_plan', 'project_shift_ratio'];
-    const prefixed = ['project_contractor', 'project_assignments', 'project_manpower_plan_month'];
+    const prefixed = ['project_contractor', 'project_assignments', 'project_manpower_plan_month', 'project_backfill_window'];
     const prefix = `${projectId}/`;
     const rows = await prisma.auditLog.findMany({
       where: {

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createMemoryAuthStore, type MemoryAccountSource } from './mock-repo-auth';
 import type { UserAccount } from './types';
+import { ACCOUNT_GUESS_WINDOW_MS } from '@/lib/login-policy';
 
 function makeSource(accounts: UserAccount[]): MemoryAccountSource {
   return {
@@ -23,6 +24,7 @@ const BASE: UserAccount = {
   isActive: true,
   createdAt: '2026-01-01T00:00:00.000Z',
   lastLoginAt: null,
+  lockedAt: null,
 };
 
 let accounts: UserAccount[];
@@ -159,6 +161,167 @@ describe('replaceResetToken / peekResetToken / consumeResetToken', () => {
   });
 });
 
+describe('setPassword - S-2 huy token dat lai con han cua email do', () => {
+  it('bumpChangedAt = true: doi mat khau xong, token dat lai con han cua email do het dung duoc (peek -> false)', async () => {
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-con-han', '2026-09-27T02:00:00.000Z', '1.2.3.4');
+    expect(await store.peekResetToken('hash-con-han', '2026-09-27T00:00:00.000Z')).toBe(true);
+
+    await store.setPassword('a@daidung.com.vn', 'hash-moi', true, '2026-09-27T00:30:00.000Z');
+
+    expect(await store.peekResetToken('hash-con-han', '2026-09-27T00:00:00.000Z')).toBe(false);
+  });
+
+  it('bumpChangedAt = false: van huy token dat lai con han (mat khau da doi qua duong khac thi link cu khong con ly do dung duoc)', async () => {
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-con-han-2', '2026-09-27T02:00:00.000Z', '1.2.3.4');
+
+    await store.setPassword('a@daidung.com.vn', 'hash-moi', false, '2026-09-27T00:30:00.000Z');
+
+    expect(await store.peekResetToken('hash-con-han-2', '2026-09-27T00:00:00.000Z')).toBe(false);
+  });
+
+  it('token cua email KHAC khong bi dung theo', async () => {
+    accounts.push({ ...BASE, email: 'khac@daidung.com.vn' });
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-a', '2026-09-27T02:00:00.000Z', '1.2.3.4');
+    await store.replaceResetToken('khac@daidung.com.vn', 'hash-khac', '2026-09-27T02:00:00.000Z', '1.2.3.4');
+
+    await store.setPassword('a@daidung.com.vn', 'hash-moi', true, '2026-09-27T00:30:00.000Z');
+
+    expect(await store.peekResetToken('hash-a', '2026-09-27T00:00:00.000Z')).toBe(false);
+    expect(await store.peekResetToken('hash-khac', '2026-09-27T00:00:00.000Z')).toBe(true);
+  });
+});
+
+describe('setPasswordIfHash - R3-1 (bao-mat.md vong 3, Trung) compare-and-swap', () => {
+  it('oldHash khop passwordHash hien tai -> ghi thanh cong, tra true, bump passwordChangedAt', async () => {
+    const ok = await store.setPasswordIfHash('a@daidung.com.vn', 'hash-cu', 'hash-moi', '2026-09-28T00:30:00.000Z');
+
+    expect(ok).toBe(true);
+    const state = await store.getAccountState('a@daidung.com.vn');
+    expect(state?.passwordHash).toBe('hash-moi');
+    expect(state?.passwordChangedAt).toBe('2026-09-28T00:30:00.000Z');
+  });
+
+  it('oldHash KHONG khop (bi ghi de xen giua) -> tra false, KHONG doi mat khau, KHONG bump passwordChangedAt', async () => {
+    const ok = await store.setPasswordIfHash('a@daidung.com.vn', 'hash-sai', 'hash-moi', '2026-09-28T00:30:00.000Z');
+
+    expect(ok).toBe(false);
+    const state = await store.getAccountState('a@daidung.com.vn');
+    expect(state?.passwordHash).toBe('hash-cu');
+    expect(state?.passwordChangedAt).toBeNull();
+  });
+
+  it('ghi thanh cong -> CUNG huy token dat lai con han cua email do (giong setPassword, S-2)', async () => {
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-token-con-han', '2026-09-27T02:00:00.000Z', '1.2.3.4');
+
+    await store.setPasswordIfHash('a@daidung.com.vn', 'hash-cu', 'hash-moi', '2026-09-28T00:30:00.000Z');
+
+    expect(await store.peekResetToken('hash-token-con-han', '2026-09-27T00:00:00.000Z')).toBe(false);
+  });
+
+  it('khong co tai khoan -> tra false', async () => {
+    const ok = await store.setPasswordIfHash('khong-co@daidung.com.vn', 'x', 'y', '2026-09-28T00:30:00.000Z');
+    expect(ok).toBe(false);
+  });
+
+  it('R4-4 (bao-mat.md vong 4, Thap) - tai khoan da bi TAT (isActive=false) -> tra false, KHONG doi mat khau', async () => {
+    accounts[0].isActive = false;
+    const ok = await store.setPasswordIfHash('a@daidung.com.vn', 'hash-cu', 'hash-moi', '2026-09-28T00:30:00.000Z');
+    expect(ok).toBe(false);
+    const state = await store.getAccountState('a@daidung.com.vn');
+    expect(state?.passwordHash).toBe('hash-cu');
+  });
+
+  it('R4-4 - tai khoan dang bi KHOA (lockedAt khac null) -> tra false, KHONG doi mat khau', async () => {
+    for (let i = 1; i <= 5; i++) await store.registerFailedLogin('a@daidung.com.vn', 5, `2026-09-27T00:0${i}:00.000Z`);
+    const ok = await store.setPasswordIfHash('a@daidung.com.vn', 'hash-cu', 'hash-moi', '2026-09-28T00:30:00.000Z');
+    expect(ok).toBe(false);
+    const state = await store.getAccountState('a@daidung.com.vn');
+    expect(state?.passwordHash).toBe('hash-cu');
+  });
+});
+
+describe('revokeSessions - R4-1a (bao-mat.md vong 4, Trung, chot chu du an 2026-09-28)', () => {
+  it('bump passwordChangedAt, KHONG doi passwordHash, tra true', async () => {
+    const ok = await store.revokeSessions('a@daidung.com.vn', '2026-09-28T01:00:00.000Z');
+    expect(ok).toBe(true);
+    const state = await store.getAccountState('a@daidung.com.vn');
+    expect(state?.passwordChangedAt).toBe('2026-09-28T01:00:00.000Z');
+    expect(state?.passwordHash).toBe('hash-cu');
+  });
+
+  it('khong co tai khoan -> tra false', async () => {
+    const ok = await store.revokeSessions('khong-co@daidung.com.vn', '2026-09-28T01:00:00.000Z');
+    expect(ok).toBe(false);
+  });
+
+  it('R5-6 (bao-mat.md vong 5, Thap) - khong duoc keo lui: goi voi nowIso CU HON moc da co -> giu nguyen moc moi, van tra true', async () => {
+    await store.revokeSessions('a@daidung.com.vn', '2026-09-28T01:00:00.000Z');
+    const ok = await store.revokeSessions('a@daidung.com.vn', '2026-09-28T00:30:00.000Z'); // cu hon
+    expect(ok).toBe(true);
+    const state = await store.getAccountState('a@daidung.com.vn');
+    expect(state?.passwordChangedAt).toBe('2026-09-28T01:00:00.000Z'); // KHONG bi keo lui
+  });
+
+  it('R5-6 - goi voi nowIso MOI HON moc da co -> ghi de bang moc moi', async () => {
+    await store.revokeSessions('a@daidung.com.vn', '2026-09-28T01:00:00.000Z');
+    await store.revokeSessions('a@daidung.com.vn', '2026-09-28T02:00:00.000Z'); // moi hon
+    const state = await store.getAccountState('a@daidung.com.vn');
+    expect(state?.passwordChangedAt).toBe('2026-09-28T02:00:00.000Z');
+  });
+});
+
+describe('reserveAccountGuess - R5-1 (bao-mat.md vong 5, Thap)', () => {
+  it('con cho (failedLoginCount + held < threshold) -> ghi + tra id', async () => {
+    const id = await store.reserveAccountGuess('a@daidung.com.vn', 't0', '2000-01-01T00:00:00.000Z', 5);
+    expect(typeof id).toBe('number');
+  });
+
+  it('failedLoginCount + so cho DANG GIU >= threshold -> null, khong ghi them', async () => {
+    // 4 cho dang giu (chua releaseThrottle) + failedLoginCount = 1 (tu 1 lan sai that) = 5 >= 5.
+    await store.registerFailedLogin('a@daidung.com.vn', 5, '2026-09-27T00:01:00.000Z');
+    for (let i = 0; i < 4; i++) {
+      const id = await store.reserveAccountGuess('a@daidung.com.vn', `t${i}`, '2000-01-01T00:00:00.000Z', 5);
+      expect(id).not.toBeNull();
+    }
+    const over = await store.reserveAccountGuess('a@daidung.com.vn', 't4', '2000-01-01T00:00:00.000Z', 5);
+    expect(over).toBeNull();
+  });
+
+  it('tai khoan dang bi khoa (lockedAt khac null) -> null ngay, du chua co cho nao dang giu', async () => {
+    for (let i = 1; i <= 5; i++) await store.registerFailedLogin('a@daidung.com.vn', 5, `2026-09-27T00:0${i}:00.000Z`);
+    const id = await store.reserveAccountGuess('a@daidung.com.vn', 't0', '2000-01-01T00:00:00.000Z', 5);
+    expect(id).toBeNull();
+  });
+
+  it('khong co tai khoan -> null', async () => {
+    const id = await store.reserveAccountGuess('khong-co@daidung.com.vn', 't0', '2000-01-01T00:00:00.000Z', 5);
+    expect(id).toBeNull();
+  });
+
+  it('R5-2 (bao-mat.md vong 5, Thap) - cua so phai du dai: 5 cho dang giu tu T0 (CHUA release), goi lan thu 6 sau 6 GIAY van bi tu choi (cua so 5 phut, khong phai 5 giay nhu vong 4)', async () => {
+    const T0 = '2026-09-28T00:00:00.000Z';
+    for (let i = 0; i < 5; i++) {
+      const sinceIso = new Date(Date.parse(T0) - ACCOUNT_GUESS_WINDOW_MS).toISOString();
+      const id = await store.reserveAccountGuess('a@daidung.com.vn', T0, sinceIso, 5);
+      expect(id).not.toBeNull();
+    }
+    const after6s = new Date(Date.parse(T0) + 6_000).toISOString();
+    const sinceIso6s = new Date(Date.parse(after6s) - ACCOUNT_GUESS_WINDOW_MS).toISOString();
+    const id6 = await store.reserveAccountGuess('a@daidung.com.vn', after6s, sinceIso6s, 5);
+    expect(id6).toBeNull();
+  });
+
+  it('R5-1 - releaseThrottle rut dung cho vua giu, cho lan sau lai con', async () => {
+    const id = await store.reserveAccountGuess('a@daidung.com.vn', 't0', '2000-01-01T00:00:00.000Z', 1);
+    expect(id).not.toBeNull();
+    const blocked = await store.reserveAccountGuess('a@daidung.com.vn', 't1', '2000-01-01T00:00:00.000Z', 1);
+    expect(blocked).toBeNull(); // het cho (threshold=1, da giu 1)
+    await store.releaseThrottle(id as number);
+    const freedUp = await store.reserveAccountGuess('a@daidung.com.vn', 't2', '2000-01-01T00:00:00.000Z', 1);
+    expect(freedUp).not.toBeNull();
+  });
+});
+
 describe('reserveThrottle / releaseThrottle (R2 vong 2, N2 vong 3 - tra/nhan id thay vi boolean)', () => {
   it('con cho thi ghi + tra id (number); het cho thi KHONG ghi them + tra null', async () => {
     for (let i = 0; i < 3; i++) {
@@ -212,5 +375,62 @@ describe('pruneAuthData', () => {
     await store.pruneAuthData('2999-01-01T00:00:00.000Z');
 
     expect(await store.peekResetToken('hash-old', '2026-01-01T00:00:00.000Z')).toBe(false);
+  });
+
+  it('S1: token con han (loi moi 72 gio) KHONG bi xoa du createdAt cu hon moc don; token het han tu lau thi bi xoa', async () => {
+    const hours = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-moi', hours(60), '');
+    await store.pruneAuthData(hours(0));
+    expect(await store.peekResetToken('hash-moi', hours(1))).toBe(true);
+
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-cu', hours(-30), '');
+    await store.pruneAuthData(hours(-24));
+    expect(await store.peekResetToken('hash-cu', hours(-31))).toBe(false);
+  });
+});
+
+describe('T1 - replaceResetToken khong huy loi moi con han khi la yeu cau quen mat khau', () => {
+  const hours = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
+  const minutes = (m: number) => new Date(Date.now() + m * 60_000).toISOString();
+
+  it('token quen mat khau moi KHONG xoa loi moi con han; van thay token quen mat khau cu', async () => {
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-moi', hours(72), '');
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-quen-1', minutes(30), '1.2.3.4');
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-quen-2', minutes(30), '1.2.3.4');
+    expect(await store.peekResetTokenKind('hash-moi', new Date().toISOString())).toBe('invite');
+    expect(await store.peekResetToken('hash-quen-1', new Date().toISOString())).toBe(false);
+    expect(await store.peekResetTokenKind('hash-quen-2', new Date().toISOString())).toBe('reset');
+  });
+
+  it('admin bat (loi moi moi) van thay MOI token cu, ke ca loi moi cu va token quen mat khau', async () => {
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-moi-1', hours(72), '');
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-quen', minutes(30), '1.2.3.4');
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-moi-2', hours(72), '');
+    const now = new Date().toISOString();
+    expect(await store.peekResetToken('hash-moi-1', now)).toBe(false);
+    expect(await store.peekResetToken('hash-quen', now)).toBe(false);
+    expect(await store.peekResetToken('hash-moi-2', now)).toBe(true);
+  });
+
+  it('dat mat khau bang link quen mat khau -> loi moi con lai het hieu luc, va nguoc lai', async () => {
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-moi', hours(72), '');
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-quen', minutes(30), '1.2.3.4');
+    const now = new Date().toISOString();
+    expect((await store.consumeResetToken('hash-quen', 'hash-pw', now)).ok).toBe(true);
+    expect(await store.peekResetToken('hash-moi', now)).toBe(false);
+    expect(await store.consumeResetToken('hash-moi', 'hash-pw2', now)).toEqual({ ok: false });
+
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-moi-b', hours(72), '');
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-quen-b', minutes(30), '1.2.3.4');
+    expect((await store.consumeResetToken('hash-moi-b', 'hash-pw3', now)).ok).toBe(true);
+    expect(await store.peekResetToken('hash-quen-b', now)).toBe(false);
+  });
+
+  it('loi moi da het han hoac da dung thi yeu cau quen mat khau van don di', async () => {
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-moi-het', hours(72), '');
+    await store.consumeResetToken('hash-moi-het', 'hash-pw', new Date().toISOString());
+    await store.replaceResetToken('a@daidung.com.vn', 'hash-quen', minutes(30), '1.2.3.4');
+    expect(await store.peekResetToken('hash-moi-het', new Date().toISOString())).toBe(false);
+    expect(await store.peekResetToken('hash-quen', new Date().toISOString())).toBe(true);
   });
 });

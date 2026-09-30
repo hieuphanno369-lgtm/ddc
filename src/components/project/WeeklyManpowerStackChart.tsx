@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { useTranslations } from 'next-intl';
-import { Bar, CartesianGrid, Cell, ComposedChart, LabelList, Line, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, CartesianGrid, Cell, ComposedChart, LabelList, Line, ReferenceLine, Tooltip, XAxis, YAxis } from 'recharts';
 import { TOOLTIP_STYLE } from '@/components/dashboard/charts';
 import { useChartTokens } from '@/components/dashboard/useChartTokens';
 import { formatDayMonth } from '@/lib/format';
@@ -13,7 +13,7 @@ import type { WeeklyChartData } from '@/server/manpower-queries';
 const WEEK_W = 44;
 
 /** Chart cột chồng theo tuần × nhà thầu (T12b Q3/Q4/Q5): kéo/phím cuộn toàn timeline, lọc tháng. */
-export function WeeklyManpowerStackChart({ data, initialMonth }: { data: WeeklyChartData; initialMonth: string }) {
+export function WeeklyManpowerStackChart({ data, initialMonth, markerMonth }: { data: WeeklyChartData; initialMonth: string; markerMonth?: string }) {
   const t = useTranslations();
   const c = useChartTokens();
   const months = timelineMonths(data.range);
@@ -84,6 +84,8 @@ export function WeeklyManpowerStackChart({ data, initialMonth }: { data: WeeklyC
   if (data.weeks.length === 0) return <p className="empty">{t('manpowerCharts.noData')}</p>;
 
   const highlighted = new Set(month === 'all' ? data.weeks.map((_, i) => i) : weeksInMonth(data.weeks, month));
+  const markerWeek = markerMonth ? weeksInMonth(data.weeks, markerMonth)[0] : undefined;
+  const markerLabel = markerWeek != null ? data.weeks[markerWeek]?.label : undefined;
   const palette = [c.actual, c.third, c.cost, c.plan, c.thirdLt, c.neutral, c.accent2];
   const chartWidth = Math.max(containerWidth, data.weeks.length * WEEK_W);
 
@@ -120,6 +122,8 @@ export function WeeklyManpowerStackChart({ data, initialMonth }: { data: WeeklyC
           <XAxis dataKey="label" tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} interval={0} />
           <YAxis tick={{ fontSize: 11, fill: c.axis }} tickLine={false} axisLine={false} allowDecimals={false} />
           <Tooltip {...TOOLTIP_STYLE} content={weeklyTooltip(data.contractors, t)} />
+          {/* P4 D-19: vạch đỏ nét đứt tại tuần đầu của tháng mốc đang xem. */}
+          {markerLabel && <ReferenceLine x={markerLabel} stroke={c.danger} strokeDasharray="4 4" />}
           {data.contractors.map((ct, i) => (
             <Bar key={ct.id} stackId="a" dataKey={(w: WeekBucket) => w.actualByContractor[ct.id] ?? 0} name={ct.name} fill={palette[i % palette.length]}>
               {data.weeks.map((w, wi) => (

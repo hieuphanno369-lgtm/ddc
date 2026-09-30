@@ -10,6 +10,7 @@ import { ProjectCodeTakenError } from '@/lib/project-code';
 import { createReadMock } from './read-mock';
 import { makeEntryMockRepo } from './mock-repo-entry';
 import { isProjectCodeTakenIn, makeFormMockRepo, replaceStageWeightsIn } from './mock-repo-form';
+import { makeBackfillMockRepo, resetBackfillMock } from './mock-repo-backfill';
 import { makeNotifyMockRepo, resetNotifyMock } from './mock-repo-notify';
 import type {
   ActivityLogEntry,
@@ -101,6 +102,7 @@ function getData(): RepoData {
 const coreRepo = {
   reset() {
     resetNotifyMock();
+    resetBackfillMock();
     delete globalForData.__ddcRepoData;
     if (PERSIST_ENABLED) {
       try {
@@ -924,4 +926,5 @@ export const repo = Object.assign(
   { ...coreRepo, ...makeEntryMockRepo({ getData, persist }), ...makeFormMockRepo({ getData, persist }) },
   createReadMock(getData),
   makeNotifyMockRepo({ getData, persist }),
+  makeBackfillMockRepo({ getData, persist }),
 );

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { vi } from './helpers/i18n';
+import { fillLogin } from './helpers/login';
 
 /**
  * D1 (P3E) - dang nhap Google theo danh sach admin them. Khong co tai khoan Google that trong CI
@@ -30,11 +31,9 @@ test.describe('20 - dang nhap Google (tu choi + tai khoan chi Google)', () => {
 
     const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const page = await ctx.newPage();
-    await page.goto('/vi/login');
-    await page.locator('input[type="email"]').fill(email);
-    await page.locator('.field', { hasText: vi('auth.password') }).locator('input').fill('mat-khau-bat-ky-123');
-    await page.getByRole('button', { name: vi('auth.signIn') }).click();
-    await expect(page.getByText(vi('auth.invalidCredentials'))).toBeVisible();
+    await fillLogin(page, email, 'mat-khau-bat-ky-123');
+    // Dang nhap tra loi cham khi may e2e tai nang (nut o trang thai dang xu ly hon 5s): cho toi 20s.
+    await expect(page.getByText(vi('auth.invalidCredentials'))).toBeVisible({ timeout: 20_000 });
     await ctx.close();
   });
 });

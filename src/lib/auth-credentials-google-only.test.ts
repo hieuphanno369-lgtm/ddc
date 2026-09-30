@@ -4,11 +4,39 @@
  * Yêu cầu bàn giao: "tài khoản chỉ Google (không mật khẩu) không đăng nhập được bằng mật khẩu rỗng"
  * và không đăng nhập được bằng bất kỳ mật khẩu nào khác (K7 - không lộ tài khoản nào chỉ dùng Google).
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hashPassword } from '@/lib/password';
 
-const { findUniqueMock, updateMock } = vi.hoisted(() => ({ findUniqueMock: vi.fn(), updateMock: vi.fn() }));
-vi.mock('@/server/db', () => ({ prisma: { userRole: { findUnique: findUniqueMock, update: updateMock } } }));
+const {
+  findUniqueMock, updateMock, updateManyMock, authThrottleCountMock, authThrottleCreateMock, authThrottleDeleteManyMock, executeRawMock,
+} = vi.hoisted(() => ({
+  findUniqueMock: vi.fn(),
+  updateMock: vi.fn(),
+  updateManyMock: vi.fn(async () => ({ count: 1 })),
+  authThrottleCountMock: vi.fn(async () => 0),
+  authThrottleCreateMock: vi.fn(async () => ({ id: 1 })),
+  authThrottleDeleteManyMock: vi.fn(async () => ({ count: 1 })),
+  executeRawMock: vi.fn(async () => 1),
+}));
+vi.mock('@/server/db', () => ({
+  prisma: {
+    userRole: { findUnique: findUniqueMock, update: updateMock, updateMany: updateManyMock },
+    authThrottle: { count: authThrottleCountMock, create: authThrottleCreateMock, deleteMany: authThrottleDeleteManyMock },
+    $executeRaw: executeRawMock,
+    // Task 6 - `authorize` giờ nối vào `checkCredentials` (qua `getAuthStore()`/`prismaAuthStore`),
+    // cần đặt chỗ IP (`reserveThrottle`) TRƯỚC khi kiểm mật khẩu - mock transaction đơn giản, KHÔNG
+    // kiểm advisory lock thật ở đây (đã có `prisma-repo-auth-real-db.test.ts` trên Postgres thật).
+    $transaction: vi.fn(async (fn: (tx: unknown) => unknown) =>
+      fn({
+        userRole: { findUnique: findUniqueMock, update: updateMock, updateMany: updateManyMock },
+        authThrottle: { count: authThrottleCountMock, create: authThrottleCreateMock },
+        $executeRaw: executeRawMock,
+      })),
+  },
+}));
+// Task 6 - `authorize` đọc IP qua `clientIpFrom(await headers())`; test này không quan tâm IP nên
+// trả header rỗng (không kích hoạt giới hạn IP với `updateManyMock`/`authThrottleCountMock` mặc định).
+vi.mock('next/headers', () => ({ headers: async () => new Map() as unknown as Headers }));
 vi.mock('@/lib/activity');
 
 import { authOptions } from './auth';
@@ -24,21 +52,37 @@ function getAuthorize(): Authorize {
 }
 
 const REAL_PW = 'MatKhauThat1';
+// S-1 - `hashPassword` gio bat dong bo; tinh 1 lan truoc (beforeAll) roi dung
+// lai gia tri, thay vi goi truc tiep (dong bo) trong `row()`.
+let REAL_HASH = '';
+beforeAll(async () => {
+  REAL_HASH = await hashPassword(REAL_PW);
+});
 const row = (over: Partial<Record<string, unknown>> = {}) => ({
   email: 'a@daidung.com.vn',
   name: 'A',
-  passwordHash: hashPassword(REAL_PW),
+  passwordHash: REAL_HASH,
   role: 'viewer',
   canViewFinance: false,
   isActive: true,
   createdAt: new Date(),
   lastLoginAt: null,
+  // R5-1 (bao-mat.md vong 5, Thap) - tu vong 5, `authorize` di qua `reserveAccountGuess` (doc
+  // `lockedAt` qua `tx.userRole.findUnique`) TRUOC khi bcrypt - dong ho gia phai co du `lockedAt`
+  // (mac dinh that trong DB la `null`, KHONG phai `undefined`) de khong bi hieu nham la "dang khoa".
+  lockedAt: null,
+  failedLoginCount: 0,
   ...over,
 });
 
 beforeEach(() => {
   findUniqueMock.mockReset();
   updateMock.mockReset();
+  updateMock.mockResolvedValue({ failedLoginCount: 1 }); // Task 6 - registerFailedLogin doc field nay
+  updateManyMock.mockClear();
+  authThrottleCountMock.mockClear();
+  authThrottleCreateMock.mockClear();
+  authThrottleDeleteManyMock.mockClear();
   vi.stubEnv('DATABASE_URL', 'postgres://x');
 });
 afterEach(() => vi.unstubAllEnvs());
