@@ -252,3 +252,81 @@ Chưa đo trang Chi tiết theo kỳ dài.
 - T-7: nên sửa (1 e2e và 2 unit đỏ).
 - P-1: nên sửa (pixel, thẻ nhập bù).
 - P-2, P-3: tuỳ coder.
+
+## 10. Vòng sửa sau reviewer/security
+
+Nhánh `feature/p4-logic-bo-loc` @ `2f121f7`, DB `ddc_control_tower_c`, dev server cổng 3003 chạy tay với `--max-old-space-size=6144`.
+Skill đã dùng: `test-driven-development`, `verification-before-completion`.
+Kết luận: XANH về logic và giao diện của vòng sửa; ĐỎ có chủ đích 1 ca (lỗi React "unique key" trong console ở Chi tiết, mức thấp, chỉ thấy ở dev); 1 ca chập chờn hạ tầng.
+
+### 10.1 Số liệu từng bước
+
+- `npx tsc --noEmit`: exit 0, sạch.
+- `npx vitest run` với `DATABASE_URL` của `_c`: 309 file xanh, 3697 test xanh, 1 bỏ qua, 0 đỏ (khớp mốc).
+- `npx playwright test` toàn bộ lần 1 (337 ca, trước khi có spec 39): 332 xanh, 2 đỏ, 3 không chạy vì spec 38 chạy tuần tự sau ca đỏ.
+- Hai ca đỏ lần 1: ca "unique key" (lỗi sản phẩm, xem 10.4) và ca S-3 do tôi giả định sai (nhật ký dự án 1 còn 2 dòng cũ của spec 35). Đã sửa spec bằng cách dọn dòng audit `1/...` ở `beforeAll`.
+- `npx playwright test` toàn bộ lần 2 (358 ca, có thêm spec 39 và ca N-3): 355 xanh, 3 đỏ, 0 bỏ qua, 20,9 phút.
+- Ba ca đỏ lần 2: (a) ca "unique key" (lỗi sản phẩm có chủ đích); (b) ca N-3 do đo chiều rộng cột khi Recharts còn animation (lỗi của test tôi, đã sửa bằng cách đọc lại tới khi ổn định, chạy riêng 3 lần xanh); (c) `e2e/36-datefield-form.spec.ts:208` chập chờn (10.4).
+- Chưa chạy lần 3 toàn bộ sau khi sửa (b); thay bằng spec 38 và 39 chạy lại nhiều lượt, spec 36 chạy riêng 16 ca xanh.
+- Các spec liên quan đều xanh trong cả hai lần chạy toàn bộ: `32-loc-ky` (link cũ `?month=all` im lặng, `?month=abc` vẫn hiện "Kỳ không hợp lệ", cả Tổng quan và Báo cáo), `35-nhap-bu` (recordId `<projectId>/<id>`), `34-p4-bien`, `02-overview`, `03-project-detail`, `33-chi-tiet-moc`, `37-p4-f-anh`.
+- Không chạy `npm run build` nên không có `.next` do tôi tạo cần xoá.
+
+### 10.2 Spec mới (đã commit)
+
+- `e2e/38-p4-vong-sua.spec.ts` (21 ca): C-3, C-4, N-2, N-3, S-1, S-3 trên trình duyệt thật.
+- `e2e/39-p4-vong-sua-anh.spec.ts` (20 ca): soi pixel 1440 và 390, sáng và tối, ảnh ở `.bangiao/anh-p4-sua/` (chưa commit).
+- Oracle tính tay từ ngày trong DB bằng Prisma, không gọi lại hàm của ứng dụng.
+
+### 10.3 Hành vi thật trong trình duyệt
+
+- C-3 xanh. Kỳ 01/03 - 27/03/2026, bấm tên dự án 10 từ Tổng quan sang Chi tiết: %KH ra 96,83% (122/126 ngày, đúng oracle), %TT khớp dòng Tổng quan.
+- C-3 (đối chứng cùng phiên): kỳ 01/03 - 31/03 thì Chi tiết ra 100% và "Chậm 82 ngày", kỳ đến 27/03 ra 96,83% và "Chậm 78 ngày".
+- Số 100% là số mà mốc cuối tháng cho ra ở bản trước C-3, nên ca kiểm này sẽ đỏ trên code cũ (suy từ hành vi, chưa chạy trên code cũ).
+- C-3 xanh cho cả 17 dự án ở kỳ 01/07 - 15/07/2026: %KH Chi tiết bằng oracle tại 15/07, %TT và nhãn trạng thái khớp dòng Tổng quan.
+- C-3 xanh cho kỳ 1 ngày, kỳ cắt ngang tháng và kỳ kết thúc ở tương lai (tính tại hôm nay).
+- C-4 xanh. Dấu "?" cạnh badge "Khâu nghẽn" và ở 2 thẻ "Nhân lực theo nhà thầu", "Thiết bị theo nhóm" mở đúng chuỗi `helpTip.dtBottleneck` và `helpTip.dtMobilization`, tiếng Việt và tiếng Anh.
+- C-4: bong bóng nằm trong khung nhìn ở 1440 và 390 (sau khi chờ hết animation), tâm dọc lệch chip "Nhập tay" và badge không quá 4px, thẻ `overflow: visible`.
+- N-2 xanh. Tài khoản `pm` (data-entry) ở Nhập liệu chỉ thấy 2 tháng (tháng trước và tháng hiện tại); `?month=` tháng cũ rơi về tháng hiện tại; admin vẫn 12 tháng.
+- N-2: khi admin bật khoảng nhập bù thì PIC thấy thêm đúng các tháng của khoảng, tắt khoảng thì mất.
+- N-3 xanh. Kỳ kéo sang 3 tháng sau hôm nay cho cùng chiều rộng các cột chart công suất/sản lượng như kỳ kết thúc hôm nay (đo cả bằng tay và bằng spec).
+- S-1 xanh. Kỳ tuỳ ý (5 kiểu, có kỳ từ 2019) và `team`/`customer` id lạ (99999, 1e9, -3) trả 200, không "Kỳ không hợp lệ", đếm `n / total` bằng nhau và bằng oracle số dự án trong kỳ.
+- S-1: id team và customer thật vẫn lọc đúng số dự án.
+- S-1 (đo đĩa): số tệp trong `.next/cache/fetch-cache` là 208 trước và sau khi mở 15 kỳ tuỳ ý và 12 cặp `team`/`customer` lạ (không tăng).
+- S-1 (đối chứng dương): mở 4 kỳ trọn tháng thì lên 244 (tăng 36, là 4 tháng nhân 9 loader), nên cơ chế cache vẫn ghi đúng cho kỳ hợp lệ.
+- S-2 xanh. Gọi liên tiếp 34 lần `/api/report/export` từ phiên admin: 30 lần 200, 4 lần 429 kèm `Retry-After: 57`.
+- S-3 xanh. Admin bật nhập bù dự án 1 qua giao diện: `audit_log.recordId` dạng `1/<id>`, thẻ "Dấu vết thay đổi" ở Hồ sơ dự án 1 hiện dòng "Nhập bù lịch sử" (`enable`, khoảng ngày), Hồ sơ dự án 3 không hiện dòng đó.
+- S-3: bản tiếng Anh hiện "Historical backfill". Tắt khoảng thì thêm dòng `disable`.
+- DB sau khi chạy (mcp postgres chỉ đọc): 0 khoảng nhập bù đang bật, 0 dòng audit `project_backfill_window`, 17 dự án, 0 dữ liệu `test-p4`.
+
+### 10.4 Ca đỏ và chập chờn
+
+- ĐỎ CÓ CHỦ ĐÍCH, lỗi sản phẩm mức thấp (chỉ ở dev): trang Chi tiết ghi lỗi console React `Each child in a list should have a unique "key" prop. Check the render method of CardHeader. It was passed a child from ProjectDetailPage.`
+- Test: `e2e/38-p4-vong-sua.spec.ts`, ca "C-4: trang Chi tiet khong bao loi React unique key trong console (dev)". Đỏ ở cả hai lần chạy toàn bộ và ở mọi lần chạy riêng (khoảng 10 đến 35 cảnh báo cho 6 trang).
+- Chưa chứng minh được gốc. Nghi ngờ mạnh do C-4: `titleExtra={<><span/><HelpTip/></>}` ở 2 thẻ `res-manpower`, `res-equipment` (và cụm badge kèm dấu "?" ở thẻ Chuỗi giá trị) là các Fragment nhiều con đầu tiên được truyền từ server component vào `CardHeader` (client component); trước C-4 mọi `titleExtra` chỉ có một con.
+- Tôi không so được với commit trước C-4 (dựng worktree cũ trên máy này không chạy được), nên đây là suy luận, chưa kiểm chứng.
+- Số cảnh báo mỗi lần tải thay đổi (0 đến 2 mỗi trang, không đều theo dự án), nên có thể lọt nếu chỉ tải ít trang; ca test tải 6 trang để tăng độ bắt.
+- Gợi ý vá cho coder: bọc hai con trong một `<span>` (hoặc gắn `key`) thay vì Fragment. Không ảnh hưởng bố cục.
+- Ngoài ra ở dev mọi trang có lỗi hydration "nonce" (`<script nonce="...">` so với `nonce=""`). Đã có từ trước vòng này (CSP theo nonce), chỉ ở dev, không liên quan P4; ghi lại để khỏi nhầm với lỗi mới.
+- CHẬP CHỜN: `e2e/36-datefield-form.spec.ts:208` ("Ke hoach thiet bi (Nhap lieu)") lần chạy toàn bộ thứ 2 đỏ vì `page.goto('/vi/nhap-lieu?project=1&step=resources')` quá 60 giây (không có lỗi ứng dụng).
+- Lần chạy toàn bộ thứ 1 ca này xanh, chạy riêng cả file 36 xanh 16/16. Chưa rõ gốc, nghi dev server sau 20 phút tải; không phải lỗi P4.
+- CHẬP CHỜN do test của tôi (đã sửa): ca N-3 lần 1 đỏ vì đọc cột Recharts khi animation chưa xong (một cột 3px).
+- Ca kiểm bong bóng "?" ở 390px cũng từng đỏ vì đo khi bong bóng còn đang phóng to (x = -19,98). Sau khi ổn định thì x = 100, rộng 268, nằm trong 390. Không phải lỗi sản phẩm.
+- Ở lượt chạy lẻ đầu tiên sau bản đầy đủ, có 2 ca (C-3 dự án 10, S-1 kỳ tuỳ ý) đỏ một lần rồi xanh khi chạy lại riêng; tôi không kịp lấy log lỗi lúc đó.
+- Sau đó ba lượt chạy lại cả file 38 (và 39) đều chỉ còn 1 ca đỏ có chủ đích.
+
+### 10.5 Soi pixel (1440 và 390, sáng và tối)
+
+- Đã xem bằng mắt: Chi tiết bong bóng "Khâu nghẽn" 1440 sáng và 390 tối, bong bóng thẻ nhân lực 390 sáng, thẻ nhật ký 1440 sáng (tiếng Anh) và 390 tối (tiếng Việt), Nhập liệu PIC 390 sáng, Tổng quan kỳ 01/03 - 27/03 1440 tối.
+- Các tổ hợp còn lại chỉ kiểm bằng script (không cuộn ngang, không pageerror, bong bóng và thẻ trong khung nhìn), chưa nhìn bằng mắt.
+- Không thấy lệch pixel do vòng này gây ra: dấu "?" mới thẳng hàng với chip và badge, bong bóng nằm trong khung nhìn, thẻ nhật ký không tràn (ở 390 bảng cuộn ngang trong thẻ, như các bảng khác).
+- Ghi nhận ngoài phạm vi (không sửa): ô chọn tháng ở Nhập liệu hiển thị dạng thô `2026-09`, khác `09/2026` ở Chi tiết và Tổng quan.
+- Ghi nhận ngoài phạm vi: chú thích chart công suất ở Tổng quan ghi "Tháng 07/2026 - 12/2026" khi kỳ kéo sang tháng chưa tới, trong khi số liệu chỉ tính tới tháng hiện tại (chưa sửa dòng "Cách đọc" như reviewer gợi ý ở N-3).
+- Ghi nhận: chỉ báo lỗi của Next dev ("1 Issue", "3 Issues") hiện trên mọi ảnh, chỉ ở dev.
+
+### 10.6 Việc bỏ qua hoặc chưa kiểm
+
+- Chưa chạy lại toàn bộ e2e lần 3 sau khi sửa spec N-3 (thay bằng chạy riêng như 10.1).
+- Chưa so với commit trước C-4 để kết luận gốc lỗi "unique key".
+- Chưa đo dung lượng cache ở quy mô lớn; chỉ đo số tệp trong `fetch-cache` với dữ liệu seed.
+- Chưa kiểm N-1, P-2 và các mục chờ chủ dự án ở `danh-gia.md` mục 6.
+- Không kiểm trên điện thoại thật.
