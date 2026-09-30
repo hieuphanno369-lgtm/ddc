@@ -6,10 +6,11 @@ vi.mock('@/server/repo', async () => {
   return { repo: fx.repo };
 });
 
-import type { Period } from '@/lib/period';
+import { todayIso } from '@/lib/clock';
+import { periodAsOfDate, type Period } from '@/lib/period';
 import {
   getCapacityData, getPortfolioKpis, getPortfolioSCurve, getProjectCounts, getProjectSummaries, getSpiCpiTrend,
-  getStatusBreakdown, getTonnageValueByGroup, type ProjectSummary,
+  getProjectSummary, getStatusBreakdown, getTonnageValueByGroup, type ProjectSummary,
 } from './queries';
 import { TEAM_NAME } from './queries-period.fixture';
 
@@ -158,5 +159,28 @@ describe('P4 C1: đếm "n / total dự án" cho thanh lọc', () => {
     const filtered = await getProjectCounts(period, { status: 'Hoan_thanh' });
     expect(filtered.total).toBe(all.total);
     expect(filtered.count).toBe(1);
+  });
+});
+
+describe('P4 C-3: trang Chi tiết và Tổng quan cùng kỳ cho cùng một số (mốc = min(to, hôm nay))', () => {
+  // Kỳ kết thúc giữa tháng: B kết thúc thực tế 06-20 (sau mốc 06-15), nên ở Tổng quan B còn "Đang triển khai".
+  const period = per('2026-06-01', '2026-06-15');
+
+  it('C-3: getProjectSummary nhận ngày mốc trần của kỳ, ra cùng trạng thái/%KH/phạt với danh sách', async () => {
+    const asOfCap = periodAsOfDate(period, todayIso());
+    const list = await getProjectSummaries(period);
+    for (const id of [101, 102]) {
+      const row = list.find((r) => r.id === id)!;
+      const detail = (await getProjectSummary(id, '2026-06', asOfCap))!;
+      expect(detail.status, `status #${id}`).toBe(row.status);
+      expect(detail.pctPlan, `pctPlan #${id}`).toBe(row.pctPlan);
+      expect(detail.penalty, `penalty #${id}`).toBe(row.penalty);
+      expect(detail.onTrack, `onTrack #${id}`).toBe(row.onTrack);
+    }
+    expect((await getProjectSummary(102, '2026-06', asOfCap))!.status).toBe('Dang_trien_khai');
+  });
+
+  it('C-3: không truyền trần thì giữ hành vi cũ (min(cuối tháng, hôm nay)): B đã Hoàn thành tại 06-30', async () => {
+    expect((await getProjectSummary(102, '2026-06'))!.status).toBe('Hoan_thanh');
   });
 });

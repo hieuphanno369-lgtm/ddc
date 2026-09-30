@@ -112,7 +112,7 @@ export default async function ProjectDetailPage({
     resources, breakdown, tracking, keyMilestones, stageWeights, stageMilestones, compare,
     projectsList, monthChart, weekly, planGantt, stages,
   ] = await Promise.all([
-    getProjectSummary(id, t2.asOfMonth),
+    getProjectSummary(id, t2.asOfMonth, periodAsOfDate(t2.period, today)),
     repo.readLastAuditAt(),
     chainPromise,
     canViewFinance ? repo.getFinancial(id) : Promise.resolve([] as FactFinancial[]),

@@ -215,14 +215,18 @@ export async function getProjectCounts(period: Period, filters: DashboardFilters
   return { count: scoped.length, total: all.length };
 }
 
-/** Trang Chi tiết: 1 dự án tại tháng mốc, KHÔNG lọc theo kỳ. Ngày mốc = min(cuối tháng, hôm nay). */
-export async function getProjectSummary(projectId: number, asOfMonth: YearMonth): Promise<ProjectSummary | undefined> {
+/**
+ * Trang Chi tiết: 1 dự án tại tháng mốc, KHÔNG lọc theo kỳ. Ngày mốc = min(cuối tháng, hôm nay, `asOfCap`).
+ * `asOfCap` = `periodAsOfDate(kỳ, hôm nay)`: kỳ kết thúc giữa tháng thì số ở Chi tiết tính tại đúng ngày như Tổng quan (C-3).
+ */
+export async function getProjectSummary(projectId: number, asOfMonth: YearMonth, asOfCap?: IsoDate): Promise<ProjectSummary | undefined> {
   // TODO: BOLA - không check quyền đọc project. Viewer/data-entry đọc được detail dự án ngoài scope.
   const p = await repo.getProject(projectId);
   if (!p) return undefined;
   const ym = isValidYearMonth(asOfMonth) ? asOfMonth : currentMonth();
   const today = todayIso();
-  const asOfDate = endOfMonth(ym) < today ? endOfMonth(ym) : today;
+  const cap = asOfCap && asOfCap < today ? asOfCap : today;
+  const asOfDate = endOfMonth(ym) < cap ? endOfMonth(ym) : cap;
   const [facts, dims] = await Promise.all([repo.getFacts(projectId), repo.getDims()]);
   return summarize(p, pickAsOf(facts, ym), dims, asOfDate);
 }
