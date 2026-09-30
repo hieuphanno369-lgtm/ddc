@@ -1,10 +1,10 @@
 /**
- * Nhập/hiển thị ngày dd/mm/yyyy cho ô ngày riêng (`DateField`). HÀM THUẦN.
+ * Nhập/hiển thị ngày dd/mm/yyyy cho ô ngày riêng (`DateField`) và tháng mm/yyyy cho ô tháng riêng (`MonthField`). HÀM THUẦN.
  * Không phụ thuộc ngôn ngữ trình duyệt (ô `input[type=date]` gốc chỉ theo ngôn ngữ giao diện trình duyệt).
  */
 
-import { isValidIsoDate } from './clock';
-import type { IsoDate } from './clock';
+import { isValidIsoDate, isValidYearMonth } from './clock';
+import type { IsoDate, YearMonth } from './clock';
 
 /** Cùng khoảng năm với `parsePeriod` (src/lib/period.ts). */
 const YEAR_MIN = 2000;
@@ -47,4 +47,34 @@ export function parseDmy(text: string): IsoDate | null {
   const iso = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
   const year = Number(m[3]);
   return isValidIsoDate(iso) && year >= YEAR_MIN && year <= YEAR_MAX ? iso : null;
+}
+
+/** '2026-09' -> '09/2026'; giá trị không phải tháng YYYY-MM hợp lệ -> ''. */
+export function formatMy(ym: string): string {
+  return isValidYearMonth(ym) ? `${ym.slice(5, 7)}/${ym.slice(0, 4)}` : '';
+}
+
+/**
+ * Chuẩn hoá chữ đang gõ cho ô tháng: chỉ giữ chữ số (tối đa 6), chèn "/" sau tháng; không chèn "/" ở cuối.
+ * Chuỗi đã có dấu phân tách m/yyyy ("9/2026", "9-2026", "9.2026") giữ đúng ý nghĩa, đệm 0 cho tháng 1 chữ số.
+ */
+export function maskMy(raw: string): string {
+  const m = /^(\d{1,2})[/.-](\d*)$/.exec(raw.trim());
+  if (m) {
+    const [, month, yearRaw] = m;
+    const year = yearRaw.slice(0, 4);
+    return year ? `${month.padStart(2, '0')}/${year}` : month.padStart(2, '0');
+  }
+  const d = raw.replace(/\D/g, '').slice(0, 6);
+  return d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
+}
+
+/** 'mm/yyyy' (cho phép m/yyyy, phân tách "/", "-", "." hoặc 6 chữ số liền) -> YYYY-MM; sai (tháng 00/13, năm ngoài 2000-2999) -> null. */
+export function parseMy(text: string): YearMonth | null {
+  const s = text.trim();
+  const m = /^(\d{1,2})[/.-](\d{4})$/.exec(s) ?? /^(\d{2})(\d{4})$/.exec(s);
+  if (!m) return null;
+  const ym = `${m[2]}-${m[1].padStart(2, '0')}`;
+  const year = Number(m[2]);
+  return isValidYearMonth(ym) && year >= YEAR_MIN && year <= YEAR_MAX ? ym : null;
 }

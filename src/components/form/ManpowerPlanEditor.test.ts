@@ -63,4 +63,17 @@ describe('ManpowerPlanEditor', () => {
     const out = render([], []);
     expect(out).toContain('manpowerPlan.noShift');
   });
+
+  it('P-2: ô thêm tháng là MonthField mm/yyyy (không còn input[type=month] theo ngôn ngữ trình duyệt)', () => {
+    const out = render(seedMonths());
+    expect(out).not.toContain('type="month"');
+    // Tháng gợi ý = tháng sau tháng cuối (12/2026 -> 01/2027), hiện dạng mm/yyyy và gõ được.
+    expect(out).toContain('value="01/2027"');
+    expect(out).toContain('placeholder="monthField.placeholder"');
+    expect(out).toContain('inputMode="numeric"');
+  });
+
+  it('P-2: chưa có tháng nào -> ô thêm tháng gợi ý tháng hiện tại (09/2026)', () => {
+    expect(render([])).toContain('value="09/2026"');
+  });
 });

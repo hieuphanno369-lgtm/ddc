@@ -55,6 +55,7 @@ const CHANGED_SOURCES: Record<string, string> = {
   'trang /admin': 'app/[locale]/(app)/admin/page.tsx',
   'ActivityViewer': 'src/components/admin/ActivityViewer.tsx',
   'ImportPanel': 'src/components/form/ImportPanel.tsx',
+  'MonthField': 'src/components/ui/MonthField.tsx',
   'DailyImportBlock': 'src/components/form/DailyImportBlock.tsx',
   'StageWeightEditor': 'src/components/form/StageWeightEditor.tsx',
   'ProjectForm': 'src/components/form/ProjectForm.tsx',

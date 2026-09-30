@@ -10,6 +10,7 @@ import {
   type PlanRowState,
 } from './manpowerPlanState';
 import { saveManpowerPlanAction } from '@/server/actions-entry';
+import { MonthField } from '@/components/ui/MonthField';
 
 /** P3C-A (T5): bảng nhập kế hoạch nhân lực theo tháng × ca, chia theo tỷ lệ, giữ ô sửa tay. */
 export function ManpowerPlanEditor(p: {
@@ -180,7 +181,7 @@ export function ManpowerPlanEditor(p: {
         </table>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginTop: 10 }}>
-        <input type="month" value={newMonth} onChange={(e) => { setNewMonth(e.target.value); setAddErr(null); }} className="inp" style={{ width: 140 }} />
+        <MonthField variant="form" width={140} ariaLabel={t('manpowerPlan.colMonth')} testId="plan-new-month" value={newMonth} onChange={(v) => { setNewMonth(v); setAddErr(null); }} />
         <button type="button" className="btn ghost" onClick={onAddMonth}>{t('manpowerPlan.addMonth')}</button>
         {addErr && <span className="hintline" style={{ color: 'var(--danger)' }}>{t(`manpowerPlan.err.${addErr === 'duplicate' ? 'duplicate' : 'tooMany'}`)}</span>}
         <button type="button" className="btn" onClick={save} disabled={saving || input == null}>{t('manpowerPlan.save')}</button>

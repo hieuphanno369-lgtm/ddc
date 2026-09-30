@@ -1488,5 +1488,10 @@
     "history": "Lịch sử nhập bù",
     "enabledBy": "{who} bật lúc {time}",
     "badgeTip": "Admin đang mở nhập bù cho dự án này: được nhập thêm ngày và tháng trong khoảng"
+  },
+  "monthField": {
+    "placeholder": "mm/yyyy",
+    "invalid": "Tháng không hợp lệ, nhập dạng mm/yyyy",
+    "pick": "Chọn tháng từ lịch"
   }
 }

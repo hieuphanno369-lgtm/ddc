@@ -1488,5 +1488,10 @@
     "history": "Backfill history",
     "enabledBy": "{who} switched on at {time}",
     "badgeTip": "An admin has opened backfill for this project: extra days and months in the range can be entered"
+  },
+  "monthField": {
+    "placeholder": "mm/yyyy",
+    "invalid": "Invalid month, enter it as mm/yyyy",
+    "pick": "Pick a month from the calendar"
   }
 }

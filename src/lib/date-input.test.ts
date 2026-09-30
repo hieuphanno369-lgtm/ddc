@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDmy, maskDmy, parseDmy } from './date-input';
+import { formatDmy, formatMy, maskDmy, maskMy, parseDmy, parseMy } from './date-input';
 
 describe('formatDmy', () => {
   it('ISO -> dd/mm/yyyy', () => expect(formatDmy('2026-09-29')).toBe('29/09/2026'));
@@ -87,5 +87,46 @@ describe('parseDmy', () => {
     for (const s of ['', 'abc', '2026-09-29', '1/2', '01/02/26', '<script>', '01/02/2026x']) {
       expect(parseDmy(s), s).toBeNull();
     }
+  });
+});
+
+describe('formatMy (ô tháng mm/yyyy)', () => {
+  it('YYYY-MM -> mm/yyyy', () => expect(formatMy('2026-09')).toBe('09/2026'));
+  it('không phải tháng hợp lệ -> chuỗi rỗng', () => {
+    expect(formatMy('')).toBe('');
+    expect(formatMy('2026-13')).toBe('');
+    expect(formatMy('abc')).toBe('');
+  });
+});
+
+describe('maskMy (chèn / sau tháng khi gõ, không chèn / cuối)', () => {
+  it.each([
+    ['0', '0'],
+    ['09', '09'],
+    ['092', '09/2'],
+    ['092026', '09/2026'],
+    ['09202699', '09/2026'],
+    ['09/2026', '09/2026'],
+    ['9/2026', '09/2026'],
+    ['9-2026', '09/2026'],
+    ['9.2026', '09/2026'],
+    ['9/', '09'],
+    ['ab0c9', '09'],
+    ['', ''],
+  ])('%s -> %s', (raw, out) => expect(maskMy(raw)).toBe(out));
+});
+
+describe('parseMy', () => {
+  it.each([
+    ['09/2026', '2026-09'],
+    ['9/2026', '2026-09'],
+    ['9-2026', '2026-09'],
+    ['09.2026', '2026-09'],
+    ['092026', '2026-09'],
+    [' 12/2030 ', '2030-12'],
+  ])('%s -> %s', (text, iso) => expect(parseMy(text)).toBe(iso));
+
+  it.each(['', '13/2026', '00/2026', '09/26', '09/1999', '09/3000', 'ab/2026', '2026-09', '9/2026/1'])('%s -> null', (text) => {
+    expect(parseMy(text)).toBeNull();
   });
 });
