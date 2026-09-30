@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 import { getCurrentUser } from '@/lib/session';
+import { rateLimit } from '@/lib/rate-limit';
+import { clientIpFrom } from '@/lib/client-ip';
 import { getReportData } from '@/server/report';
 import { todayIso } from '@/lib/clock';
 import { defaultOverviewPeriod, parsePeriod } from '@/lib/period';
@@ -15,6 +17,16 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   const canViewFinance = user.canViewFinance;
+
+  // S-2 (danh-gia-bao-mat.md): kỳ tới 120 tháng dựng workbook trong bộ nhớ, nên giới hạn theo IP như /api/export.
+  const rl = rateLimit(`report-export:${clientIpFrom(req.headers)}`, 30, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec) } },
+    );
+  }
+
   // T-2: cùng tham số kỳ với trang /report (from/to hoặc month); rác rơi về kỳ mặc định, không ném lỗi.
   const sp = new URL(req.url).searchParams;
   const period = parsePeriod(

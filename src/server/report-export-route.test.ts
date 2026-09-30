@@ -261,6 +261,26 @@ describe('GET /api/report/export - phân quyền và nội dung file', () => {
     expect(ws.rowCount).toBe(1);
   });
 
+  describe('S-2: giới hạn tần suất theo IP (như /api/export)', () => {
+    const REAL_IP = '203.0.113.90';
+    const reqWith = (fakeFirst: string) =>
+      ROUTE_GET(new Request('http://localhost/api/report/export', { headers: { 'x-forwarded-for': `${fakeFirst}, ${REAL_IP}` } }));
+
+    it('quá 30 lần trong 60 giây thì 429 kèm Retry-After, đổi phần tử đầu XFF không né được', async () => {
+      login(ADMIN);
+      for (let i = 0; i < 30; i++) expect((await reqWith(`10.2.0.${i}`)).status).toBe(200);
+      const over = await reqWith('10.2.0.999');
+      expect(over.status).toBe(429);
+      expect(Number(over.headers.get('Retry-After'))).toBeGreaterThan(0);
+      expect(await over.json()).toEqual({ error: 'Too many requests' });
+    });
+
+    it('403 vẫn ưu tiên trước giới hạn tần suất (không đếm request chưa đăng nhập/không quyền)', async () => {
+      login(VIEWER);
+      for (let i = 0; i < 35; i++) expect((await GET()).status).toBe(403);
+    });
+  });
+
   describe('trường hợp phải thất bại: 403 Forbidden', () => {
     it('viewer bị chặn 403 và không nhận được file', async () => {
       login(VIEWER);
