@@ -27,10 +27,10 @@ import { parseDashboardFilters } from '@/lib/overview-params';
 import { defaultOverviewPeriod, parsePeriod } from '@/lib/period';
 import {
   loadCapacity, loadPortfolioKpis, loadProjectCounts, loadSCurve, loadSpiCpiTrend, loadStatusBreakdown,
-  loadTonnageByGroup, profileTag, trendTag,
+  loadProjectList, loadTonnageByGroup, profileTag, trendTag,
 } from './cache';
 
-const TEAM_NAMES = ['P.KD 01', 'P.KD 03'];
+const DIMS = { teams: [{ id: 1, name: 'P.KD 01' }, { id: 3, name: 'P.KD 03' }], customers: [{ id: 7 }] };
 type Sp = Record<string, string | string[] | undefined>;
 const s = (v: string | string[] | undefined) => (typeof v === 'string' ? v : '');
 
@@ -38,7 +38,7 @@ const s = (v: string | string[] | undefined) => (typeof v === 'string' ? v : '')
 async function keysFor(sp: Sp): Promise<string[]> {
   calls.length = 0;
   const period = parsePeriod({ from: s(sp.from), to: s(sp.to), month: s(sp.month) }, defaultOverviewPeriod(todayIso()));
-  const filters = parseDashboardFilters(sp, TEAM_NAMES);
+  const filters = parseDashboardFilters(sp, DIMS);
   await loadPortfolioKpis(period, filters);
   await loadProjectCounts(period, filters);
   await loadStatusBreakdown(period, filters);
@@ -73,6 +73,7 @@ describe('P4 khoá cache: tham số rác không sinh khoá mới', () => {
     ['chuỗi rất dài', { from: 'x'.repeat(5000), to: 'y'.repeat(5000), month: 'z'.repeat(5000) }],
     ['status/priority/market/type rác', { status: 'hack', priority: 'P9', market: 'zz', type: 'zz' }],
     ['team/customer âm hoặc chữ', { team: '-1', customer: 'abc' }],
+    ['team/customer là id không có thật (S-1)', { team: '99999', customer: '88888' }],
     ['groupBy rác', { groupBy: 'password' }],
     ['tham số lặp (mảng)', { status: ['Hoan_thanh', 'Chuan_bi'], from: ['2026-01-01', '2026-02-01'] }],
   ] as [string, Sp][])('%s: khoá giống hệt khi không có tham số', async (_name, sp) => {
@@ -123,5 +124,38 @@ describe('P4 khoá cache: tham số rác không sinh khoá mới', () => {
     const base = await keysFor({ groupBy: 'team' });
     const drill = await keysFor({ groupBy: 'team', groupKey: 'P.KD 01' });
     expect(drill).not.toEqual(base);
+  });
+});
+
+describe('S-1: kỳ tuỳ ý không ghi vào unstable_cache (chỉ dùng cache theo request)', () => {
+  it('kỳ mặc định và kỳ trọn tháng: có khoá unstable_cache', async () => {
+    expect((await keysFor({})).length).toBe(7);
+    expect((await keysFor({ from: '2026-01-01', to: '2026-03-31' })).length).toBe(7);
+    expect((await keysFor({ month: '2026-08' })).length).toBe(7);
+  });
+
+  it('kỳ giữa tháng, kỳ quá xa, kỳ kết thúc tương lai: KHÔNG có khoá unstable_cache nào', async () => {
+    for (const sp of [
+      { from: '2026-07-15', to: '2026-08-20' },
+      { from: '2020-01-01', to: '2020-03-31' },
+      { from: '2020-01-01', to: '2029-01-17' },
+    ] as Sp[]) {
+      expect(await keysFor(sp), JSON.stringify(sp)).toEqual([]);
+    }
+  });
+
+  it('vòng lặp tấn công to tăng dần: không phình khoá (0 khoá mới)', async () => {
+    let total = 0;
+    for (let d = 1; d <= 28; d++) total += (await keysFor({ from: '2020-01-01', to: `2029-01-${String(d).padStart(2, '0')}` })).length;
+    expect(total).toBe(0);
+  });
+
+  it('danh sách dự án có ô tìm kiếm (chuỗi tự do) cũng không ghi khoá', async () => {
+    calls.length = 0;
+    const period = defaultOverviewPeriod(todayIso());
+    await loadProjectList({ period, filters: {}, search: 'abc', sort: 'priority', page: 1, pageSize: 10 });
+    expect(calls).toHaveLength(0);
+    await loadProjectList({ period, filters: {}, search: '', sort: 'priority', page: 1, pageSize: 10 });
+    expect(calls).toHaveLength(1);
   });
 });

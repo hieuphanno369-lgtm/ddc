@@ -93,6 +93,26 @@ export function intersectsPeriod(start: IsoDate | null, end: IsoDate | null, p: 
   return (start == null || start <= p.to) && (end == null || end >= p.from);
 }
 
+/** Kỳ tròn tháng cũ nhất còn được ghi vào `unstable_cache`: 24 tháng trước tháng hiện tại. */
+export const CACHEABLE_MONTHS_BACK = 24;
+
+/**
+ * S-1: chỉ kỳ mặc định và kỳ tròn tháng gần đây (from là ngày 01, to là hôm nay hoặc cuối một tháng, cả kỳ nằm trong
+ * `CACHEABLE_MONTHS_BACK` tháng gần nhất tới tháng hiện tại) mới được ghi vào `unstable_cache` (đĩa). Tập kỳ này nhỏ
+ * (dưới 400) nên khoá không phình; kỳ tuỳ ý (ngày bất kỳ, năm 2000-2999) chỉ dùng cache theo request, không ghi đĩa.
+ */
+export function isCacheablePeriod(p: Period, today: IsoDate): boolean {
+  const current = today.slice(0, 7);
+  const fromMonth = p.from.slice(0, 7);
+  const toMonth = p.to.slice(0, 7);
+  return (
+    p.from.endsWith('-01') &&
+    (p.to === today || p.to === endOfMonth(toMonth)) &&
+    fromMonth >= addMonths(current, -CACHEABLE_MONTHS_BACK) &&
+    toMonth <= current
+  );
+}
+
 /** Tham số URL để giữ kỳ khi tạo link. */
 export function periodSearch(p: Period): { from: IsoDate; to: IsoDate } {
   return { from: p.from, to: p.to };

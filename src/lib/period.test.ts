@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  PERIOD_MAX_MONTHS, defaultOverviewPeriod, intersectsPeriod, parsePeriod, parsePeriodChecked, periodAsOfDate,
+  PERIOD_MAX_MONTHS, defaultOverviewPeriod, intersectsPeriod, isCacheablePeriod, parsePeriod, parsePeriodChecked, periodAsOfDate,
   periodAsOfMonth, periodContains, periodKey, periodMonths, periodSearch, previousPeriod,
 } from './period';
 
@@ -118,3 +118,40 @@ describe('parsePeriodChecked (T-6)', () => {
   });
 });
 
+
+describe('isCacheablePeriod (S-1): chỉ kỳ mặc định và kỳ trọn tháng gần đây mới được ghi vào unstable_cache', () => {
+  const TODAY = '2026-09-16';
+  it('kỳ mặc định và kỳ tròn tháng (from ngày 01, to hôm nay hoặc cuối tháng) là cacheable', () => {
+    expect(isCacheablePeriod(defaultOverviewPeriod(TODAY), TODAY)).toBe(true);
+    expect(isCacheablePeriod({ from: '2026-01-01', to: '2026-03-31' }, TODAY)).toBe(true);
+    expect(isCacheablePeriod({ from: '2026-08-01', to: '2026-08-31' }, TODAY)).toBe(true);
+    expect(isCacheablePeriod({ from: '2026-01-01', to: TODAY }, TODAY)).toBe(true);
+  });
+  it('kỳ tuỳ ý (giữa tháng) không cacheable', () => {
+    expect(isCacheablePeriod({ from: '2026-07-15', to: '2026-08-31' }, TODAY)).toBe(false);
+    expect(isCacheablePeriod({ from: '2026-07-01', to: '2026-08-20' }, TODAY)).toBe(false);
+    expect(isCacheablePeriod({ from: '2026-07-01', to: '2026-09-15' }, TODAY)).toBe(false);
+  });
+  it('kỳ quá xa (hơn 24 tháng trước) hoặc kết thúc ở tương lai (sau tháng hiện tại) không cacheable', () => {
+    expect(isCacheablePeriod({ from: '2020-01-01', to: '2020-03-31' }, TODAY)).toBe(false);
+    expect(isCacheablePeriod({ from: '2026-01-01', to: '2029-01-31' }, TODAY)).toBe(false);
+    expect(isCacheablePeriod({ from: '2024-09-01', to: '2024-09-30' }, TODAY)).toBe(true);
+    expect(isCacheablePeriod({ from: '2024-08-01', to: '2024-08-31' }, TODAY)).toBe(false);
+  });
+  it('tập khoá bị chặn trên: số kỳ cacheable phân biệt nhỏ hơn 400 dù thử mọi cặp ngày 01 và cuối tháng', () => {
+    let n = 0;
+    for (let y = 2000; y < 2040; y++) for (let m = 1; m <= 12; m++) {
+      const mm = String(m).padStart(2, '0');
+      const from = `${y}-${mm}-01`;
+      for (let y2 = y; y2 < y + 3; y2++) for (let m2 = 1; m2 <= 12; m2++) {
+        const to = endOfMonthIso(y2, m2);
+        if (from <= to && isCacheablePeriod({ from, to }, TODAY)) n++;
+      }
+    }
+    expect(n).toBeLessThan(400);
+  });
+});
+
+function endOfMonthIso(y: number, m: number): string {
+  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+}

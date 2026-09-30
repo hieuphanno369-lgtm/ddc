@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { GROUP_KEY_MAX_LENGTH, MARKETS, PRIORITIES, STATUSES, TYPES, parseDashboardFilters } from './overview-params';
 
+const DIMS = { teams: [{ id: 3, name: 'P.KD 01' }, { id: 5, name: 'P.KD 03' }], customers: [{ id: 12 }, { id: 20 }] };
+
 describe('parseDashboardFilters (chỉ nhận giá trị hợp lệ, để khoá unstable_cache không phình)', () => {
   it('không tham số → mọi chiều là all, groupBy/groupKey undefined', () => {
     expect(parseDashboardFilters({})).toEqual({
@@ -58,8 +60,17 @@ describe('parseDashboardFilters (chỉ nhận giá trị hợp lệ, để khoá
     expect(parseDashboardFilters({ groupKey: 'EPC' }).groupKey).toBeUndefined();
     expect(parseDashboardFilters({ groupBy: 'type', groupKey: 'la' }).groupKey).toBeUndefined();
     expect(parseDashboardFilters({ groupBy: 'market', groupKey: 'XK' }).groupKey).toBe('XK');
-    expect(parseDashboardFilters({ groupBy: 'team', groupKey: 'P.KD 01' }, ['P.KD 01']).groupKey).toBe('P.KD 01');
-    expect(parseDashboardFilters({ groupBy: 'team', groupKey: 'la' }, ['P.KD 01']).groupKey).toBeUndefined();
-    expect(parseDashboardFilters({ groupBy: 'team', groupKey: '-' }, ['P.KD 01']).groupKey).toBe('-');
+    expect(parseDashboardFilters({ groupBy: 'team', groupKey: 'P.KD 01' }, DIMS).groupKey).toBe('P.KD 01');
+    expect(parseDashboardFilters({ groupBy: 'team', groupKey: 'la' }, DIMS).groupKey).toBeUndefined();
+    expect(parseDashboardFilters({ groupBy: 'team', groupKey: '-' }, DIMS).groupKey).toBe('-');
+  });
+
+  it('S-1: team/customer phải là id thật trong dims, id lạ về all (không sinh khoá cache mới)', () => {
+    const ok = parseDashboardFilters({ team: '3', customer: '12' }, DIMS);
+    expect(ok.teamKdId).toBe(3);
+    expect(ok.customerId).toBe(12);
+    const bad = parseDashboardFilters({ team: '999999', customer: '424242' }, DIMS);
+    expect(bad.teamKdId).toBe('all');
+    expect(bad.customerId).toBe('all');
   });
 });

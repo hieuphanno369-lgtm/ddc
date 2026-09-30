@@ -38,6 +38,18 @@ function positiveInt(v: string): number | 'all' {
   return POSITIVE_INT.test(v) ? Number(v) : 'all';
 }
 
+/** Phần dims mà bộ lọc cần để đối chiếu id/tên thật (tách khỏi kiểu server để file này dùng được ở client). */
+export interface FilterDims {
+  teams: readonly { id: number; name: string }[];
+  customers: readonly { id: number }[];
+}
+
+/** Id (team, khách hàng) phải có thật trong dims; không truyền dims thì chỉ kiểm dạng số (chỉ dùng ở test). */
+function knownId(v: string, ids?: readonly number[]): number | 'all' {
+  const n = positiveInt(v);
+  return n === 'all' || !ids || ids.includes(n) ? n : 'all';
+}
+
 function isRealGroup(groupBy: GroupBy, key: string, teamNames?: readonly string[]): boolean {
   if (!key) return false;
   if (groupBy === 'type') return (TYPES as string[]).includes(key);
@@ -48,20 +60,22 @@ function isRealGroup(groupBy: GroupBy, key: string, teamNames?: readonly string[
 
 /**
  * `groupKey` chỉ giữ khi `groupBy` hợp lệ VÀ giá trị thuộc tập nhóm thật (T-1): type/market theo enum,
- * team theo `teamNames` (tên team lấy từ dims). Không thì bỏ, để `?groupKey=<rác>` không sinh thêm khoá cache.
- * Không truyền `teamNames` thì team chỉ bị chặn bởi điều kiện `groupBy` (chỉ dùng ở test).
+ * team theo tên team trong dims. Không thì bỏ, để `?groupKey=<rác>` không sinh thêm khoá cache.
+ * `team`/`customer` cũng phải là id có thật trong dims (S-1), id lạ về 'all'.
+ * Không truyền `dims` thì chỉ kiểm dạng (chỉ dùng ở test).
  */
 export function parseDashboardFilters(
   sp: Record<string, string | string[] | undefined>,
-  teamNames?: readonly string[],
+  dims?: FilterDims,
 ): DashboardFilters {
+  const teamNames = dims?.teams.map((t) => t.name);
   const groupBy = (GROUP_BYS as string[]).includes(str(sp.groupBy)) ? (str(sp.groupBy) as GroupBy) : undefined;
   const rawKey = str(sp.groupKey).slice(0, GROUP_KEY_MAX_LENGTH);
   const groupKey = groupBy && isRealGroup(groupBy, rawKey, teamNames) ? rawKey : undefined;
   return {
     status: oneOf(str(sp.status), STATUSES),
-    teamKdId: positiveInt(str(sp.team)),
-    customerId: positiveInt(str(sp.customer)),
+    teamKdId: knownId(str(sp.team), dims?.teams.map((t) => t.id)),
+    customerId: knownId(str(sp.customer), dims?.customers.map((c) => c.id)),
     priority: oneOf(str(sp.priority), PRIORITIES),
     market: oneOf(str(sp.market), MARKETS),
     projectType: oneOf(str(sp.type), TYPES),
