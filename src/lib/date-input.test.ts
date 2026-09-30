@@ -23,6 +23,43 @@ describe('maskDmy (chèn / khi gõ, không chèn / cuối)', () => {
     ['ab1c5', '15'],
     ['', ''],
   ])('%s -> %s', (raw, out) => expect(maskDmy(raw)).toBe(out));
+
+  // T-7: dán/gõ d/m/yyyy có dấu phân tách giữ đúng ý nghĩa, ngày/tháng 1 chữ số được đệm 0.
+  it.each([
+    ['1/2/2026', '01/02/2026'],
+    ['1-2-2026', '01/02/2026'],
+    ['1.2.2026', '01/02/2026'],
+    ['1/12/2026', '01/12/2026'],
+    ['15/3/2026', '15/03/2026'],
+    ['1/2/26', '01/02/26'],
+    ['1/', '01'],
+    ['1/2', '01/2'],
+    ['1/2/', '01/02'],
+    ['15/', '15'],
+    ['15/0', '15/0'],
+    ['15/09/', '15/09'],
+    [' 1/2/2026 ', '01/02/2026'],
+    ['1/2/20261', '01/02/2026'],
+    ['12/3456', '12/34/56'],
+    ['1//', '1'],
+  ])('dấu phân tách %s -> %s', (raw, out) => expect(maskDmy(raw)).toBe(out));
+
+  it('gõ từng phím "1/2/2026" ra đúng 01/02/2026 và parse được', () => {
+    let text = '';
+    for (const ch of '1/2/2026') text = maskDmy(text + ch);
+    expect(text).toBe('01/02/2026');
+    expect(parseDmy(text)).toBe('2026-02-01');
+  });
+
+  it('xoá lùi từ 01/02/2026 tới rỗng không kẹt ở dấu "/"', () => {
+    let text = '01/02/2026';
+    const seen: string[] = [];
+    while (text) {
+      text = maskDmy(text.slice(0, -1));
+      seen.push(text);
+    }
+    expect(seen).toEqual(['01/02/202', '01/02/20', '01/02/2', '01/02', '01/0', '01', '0', '']);
+  });
 });
 
 describe('parseDmy', () => {

@@ -18,8 +18,20 @@ export function formatDmy(iso: string): string {
 /**
  * Chuẩn hoá chữ đang gõ: chỉ giữ chữ số (tối đa 8), chèn "/" sau ngày và tháng.
  * Không chèn "/" ở cuối để xoá lùi qua dấu "/" không bị kẹt.
+ * Chuỗi đã có dấu phân tách d/m/yyyy ("1/2/2026", "1-2-2026", "1.2.2026") giữ đúng ý nghĩa, đệm 0 cho ngày/tháng 1 chữ số.
  */
 export function maskDmy(raw: string): string {
+  // Có dấu phân tách ("/", "-", "."): giữ đúng ý d/m/yyyy, ngày hoặc tháng 1 chữ số mà đã có dấu theo sau thì đệm 0 ("1/2/2026" -> "01/02/2026").
+  // Không khớp dạng này (chữ lẫn vào, phần quá dài...) thì rơi về nhánh chỉ giữ chữ số bên dưới.
+  const m = /^(\d{1,2})[/.-](?:(\d{1,2})(?:[/.-](\d*))?)?$/.exec(raw.trim());
+  if (m) {
+    const [, day, month, yearRaw] = m;
+    const year = yearRaw?.slice(0, 4);
+    let out = day.padStart(2, '0');
+    if (month !== undefined) out += `/${year === undefined ? month : month.padStart(2, '0')}`;
+    if (year) out += `/${year}`;
+    return out;
+  }
   const d = raw.replace(/\D/g, '').slice(0, 8);
   let out = d.slice(0, 2);
   if (d.length > 2) out += `/${d.slice(2, 4)}`;
