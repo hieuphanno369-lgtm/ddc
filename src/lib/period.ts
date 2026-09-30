@@ -47,7 +47,8 @@ export function parsePeriodChecked(
   fallback: Period,
 ): { period: Period; invalid: boolean } {
   const period = parsePeriod(sp, fallback);
-  const given = [sp.from, sp.to, sp.month].some((v) => typeof v === 'string' && v !== '');
+  // `month=all` là link cũ (trước khi bỏ "Tất cả"): im lặng về kỳ mặc định, không báo lỗi.
+  const given = [sp.from, sp.to, sp.month === 'all' ? undefined : sp.month].some((v) => typeof v === 'string' && v !== '');
   return { period, invalid: given && period === fallback };
 }
 

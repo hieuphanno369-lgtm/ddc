@@ -29,6 +29,13 @@ test.describe('32 - Bo loc ky Tong quan', () => {
     expect(res?.status()).toBe(200);
     await expect(page.getByTestId('period-summary')).toBeVisible();
     await expect(page.getByTestId('period-summary')).toContainText(/^Kỳ /);
+    // Link cu im lang: khong hien "Ky khong hop le" (tham so rac khac van hien).
+    await expect(page.getByTestId('period-invalid')).toHaveCount(0);
+    await page.goto('/vi/overview?month=abc');
+    await expect(page.getByTestId('period-invalid')).toHaveText(vi('period.invalid'));
+    await page.goto('/vi/report?month=all');
+    await expect(page.getByTestId('period-summary')).toBeVisible();
+    await expect(page.getByTestId('period-invalid')).toHaveCount(0);
   });
 
   test('doi ngay Tu ngay ghi ca from va to len URL', async ({ page }) => {

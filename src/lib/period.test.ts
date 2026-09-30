@@ -106,9 +106,15 @@ describe('parsePeriodChecked (T-6)', () => {
     expect(parsePeriodChecked({ month: '2026-08' }, FB).invalid).toBe(false);
   });
   it('from/to rác, thiếu 1 đầu, month rác: báo lỗi và rơi về mặc định', () => {
-    for (const sp of [{ from: 'rác', to: 'rác' }, { from: '2026-07-01' }, { from: '2026-02-30', to: '2026-03-01' }, { month: 'all' }, { month: 'abc' }]) {
+    for (const sp of [{ from: 'rác', to: 'rác' }, { from: '2026-07-01' }, { from: '2026-02-30', to: '2026-03-01' }, { month: 'abc' }]) {
       expect(parsePeriodChecked(sp, FB), JSON.stringify(sp)).toEqual({ period: FB, invalid: true });
     }
+  });
+  it('link cũ ?month=all: im lặng về kỳ mặc định, không báo lỗi (chủ dự án chốt)', () => {
+    expect(parsePeriodChecked({ month: 'all' }, FB)).toEqual({ period: FB, invalid: false });
+  });
+  it('month=all đi kèm from/to rác vẫn báo lỗi (chỉ bỏ qua riêng month=all)', () => {
+    expect(parsePeriodChecked({ month: 'all', from: 'rác', to: 'rác' }, FB).invalid).toBe(true);
   });
 });
 
