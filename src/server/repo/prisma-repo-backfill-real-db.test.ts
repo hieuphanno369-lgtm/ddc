@@ -56,6 +56,22 @@ describe.skipIf(!hasDb)('backfillRepoPrisma tren Postgres that (DB _c)', () => {
     };
   });
 
+  it('NIT: du an ngung hoat dong khong bat duoc nhap bu (khoa dong co dieu kien isActive) -> not_found', async () => {
+    const { backfillRepoPrisma } = await import('./prisma-repo-backfill');
+    await clean();
+    await prisma.project.update({ where: { id: projectId }, data: { isActive: false } });
+    try {
+      const res = await backfillRepoPrisma.createBackfillWindow(
+        { projectId, fromDate: '2026-01-01', toDate: '2026-03-31', note: 'ngung hoat dong test-p4', expiresAt: null },
+        'a@x.vn',
+      );
+      expect(res).toBe('not_found');
+      expect(await prisma.projectBackfillWindow.count({ where: { projectId } })).toBe(0);
+    } finally {
+      await prisma.project.update({ where: { id: projectId }, data: { isActive: true } });
+    }
+  });
+
   it('2 admin bat cung luc cung khoang: dung 1 cai thanh cong, cai con lai overlap (khoa dong du an)', async () => {
     const { backfillRepoPrisma } = await import('./prisma-repo-backfill');
     await clean();

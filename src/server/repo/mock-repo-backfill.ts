@@ -55,7 +55,7 @@ export function makeBackfillMockRepo({ getData }: BackfillMockDeps) {
 
     createBackfillWindow(input: CreateBackfillWindowInput, by: string): BackfillWindow | 'overlap' | 'not_found' {
       const d = getData();
-      if (!d.projects.some((p) => p.id === input.projectId)) return 'not_found';
+      if (!d.projects.some((p) => p.id === input.projectId && p.isActive)) return 'not_found';
       const now = new Date();
       const clash = store().some(
         (w) => w.projectId === input.projectId && isActive(w, now) && w.fromDate <= input.toDate && w.toDate >= input.fromDate,

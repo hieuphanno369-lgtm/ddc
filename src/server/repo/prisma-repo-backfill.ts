@@ -51,8 +51,8 @@ export const backfillRepoPrisma = {
   /** Tạo khoảng mới; trùng khoảng đang hiệu lực → 'overlap'. Kiểm trùng + ghi + audit trong 1 transaction. */
   async createBackfillWindow(input: CreateBackfillWindowInput, by: string): Promise<BackfillWindow | 'overlap' | 'not_found'> {
     return prisma.$transaction(async (tx) => {
-      // Khoá dòng dự án tới hết transaction: 2 admin bật cùng lúc phải xếp hàng, nếu không cả hai cùng qua kiểm trùng (READ COMMITTED).
-      const locked = await tx.$queryRaw<{ id: number }[]>`SELECT "id" FROM "dim_project" WHERE "id" = ${input.projectId} FOR UPDATE`;
+      // Khoá dòng dự án đang hoạt động tới hết transaction: 2 admin bật cùng lúc phải xếp hàng, nếu không cả hai cùng qua kiểm trùng (READ COMMITTED).
+      const locked = await tx.$queryRaw<{ id: number }[]>`SELECT "id" FROM "dim_project" WHERE "id" = ${input.projectId} AND "isActive" = true FOR UPDATE`;
       if (locked.length === 0) return 'not_found' as const;
       const from = dateOnly(input.fromDate);
       const to = dateOnly(input.toDate);
