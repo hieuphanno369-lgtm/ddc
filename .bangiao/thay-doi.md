@@ -504,3 +504,15 @@ Mỗi việc một commit, test đỏ trước rồi mới sửa. Nhánh `featur
 - e2e toàn bộ (`npx playwright test`, cổng 3003, DB `_c`, dev server do Playwright tự khởi và tắt, `--max-old-space-size=6144`): 367 xanh (gồm 3 ca setup), 0 đỏ, 0 chập chờn, 17,2 phút. Gồm `33-chi-tiet-moc`, `38-p4-vong-sua` (ca console "unique key" xanh), `36`, `37`, `39`, `03`, `34`, `40-monthfield` mới 8 ca.
 - Không chạy `npm run build`. Không cập nhật `PROGRESS.md`, `.serena/memories/`, `CHANGELOG`. Không push.
 - Việc bỏ qua: chưa thử chạm lịch gốc `input[type=month]` trên điện thoại thật, chưa thử Firefox/Safari (nhánh không có nút lịch).
+
+### 7.6 Vòng sửa Vòng 3 (reviewer: P-2 gõ sai rồi bấm "Thêm tháng")
+
+Skill đã dùng: `coding-standards`, `frontend-patterns`.
+- Lỗi: gõ `13/2027` rồi bấm "Thêm tháng" thì bảng vẫn thêm dòng tháng gợi ý cũ và dòng báo lỗi biến mất (blur chạy `commit` báo lỗi nhưng không đổi `newMonth`; `onAddMonth` thêm `newMonth` cũ rồi đổi `newMonth` làm `useEffect` của `MonthField` xoá lỗi).
+- Đỏ trước khi sửa: `e2e/40-monthfield.spec.ts` thêm kiểm số dòng bảng trước và sau bằng nhau, lỗi `plan-new-month-error` vẫn hiện, ô còn `13/2027`; thêm 1 ca bấm thẳng nút không qua Enter. Cả 2 ca đỏ (`Expected: 21, Received: 22`), sau sửa xanh.
+- Sửa: `src/components/ui/MonthField.tsx` thêm prop `onInvalidChange(bad)` (gọi `true` khi `commit` báo lỗi, `false` khi áp dụng thành công, khi gõ lại xoá lỗi, và khi giá trị từ ngoài đổi). `src/components/form/ManpowerPlanEditor.tsx` giữ cờ `newMonthBad`, `onAddMonth` dừng sớm khi cờ bật (không đổi `newMonth`, không đụng `addErr`), nên lỗi và giá trị gõ còn nguyên.
+- NIT 1: `MonthField` đặt `aria-invalid` khi `error || invalid`.
+- NIT 2: `src/lib/detail-time.ts` tính `lastDataMonth` với `m <= asOfMonth` (đặt sau dòng tính `asOfMonth`; vì `asOfMonth <= capMonth` nên mặc định không đổi). Chọn `?month=` là tháng trống giữa hai tháng có số (03 và 05, chọn 04) thì chip "Dùng số tháng 03" hiện đúng. Hai test mới ở `src/lib/detail-time.test.ts` (đỏ trước: nhận `2026-05` thay vì `2026-03`; và `2026-05` thay vì null khi mốc trước mọi tháng có số). `lastDataMonth` chỉ dùng ở `DetailTimeBar` qua `page.tsx`.
+- Không viết test đơn vị cho cờ `newMonthBad`: repo chưa có testing-library/jsdom; e2e 40 phủ đường này.
+- Kết quả: `npx tsc --noEmit` sạch; `npm test` với `DATABASE_URL` DB `_c`: 310 file xanh, 3741 test xanh, 1 bỏ qua, 0 đỏ (trước 3739); e2e `40-monthfield` (9 ca) + `33-chi-tiet-moc` + `03-project-detail` cổng 3003: 25 xanh + 3 setup, 0 đỏ. Dev server do Playwright khởi và tắt. Không đụng `globals.css`, không push.
+- Tester soi kỹ: gõ sai rồi bấm "Thêm tháng" có/không qua Enter (không thêm dòng, lỗi còn, ô giữ chữ gõ); sau đó sửa lại đúng rồi bấm thì thêm bình thường; Chi tiết `?month=` tháng trống giữa hai tháng có số hiện chip mang số.

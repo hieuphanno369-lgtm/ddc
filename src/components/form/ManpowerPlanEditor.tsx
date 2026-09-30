@@ -32,6 +32,8 @@ export function ManpowerPlanEditor(p: {
     const last = [...state.rows].map((r) => r.yearMonth).sort().pop();
     return last ? addMonths(last, 1) : today.slice(0, 7);
   });
+  // Ô tháng đang gõ sai (chưa áp dụng): nút "Thêm tháng" không dùng tháng gợi ý cũ, giữ nguyên ô và lỗi.
+  const [newMonthBad, setNewMonthBad] = useState(false);
   const [addErr, setAddErr] = useState<'duplicate' | 'too_many' | null>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ tone: 'ok' | 'bad'; text: string } | null>(null);
@@ -41,6 +43,7 @@ export function ManpowerPlanEditor(p: {
   const input = toPlanInput(state);
 
   function onAddMonth() {
+    if (newMonthBad) return;
     const r = addMonth(state, newMonth);
     if (r === 'duplicate' || r === 'too_many') { setAddErr(r); return; }
     if (r === 'invalid') return;
@@ -181,7 +184,7 @@ export function ManpowerPlanEditor(p: {
         </table>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginTop: 10 }}>
-        <MonthField variant="form" width={140} ariaLabel={t('manpowerPlan.colMonth')} testId="plan-new-month" value={newMonth} onChange={(v) => { setNewMonth(v); setAddErr(null); }} />
+        <MonthField variant="form" width={140} ariaLabel={t('manpowerPlan.colMonth')} testId="plan-new-month" value={newMonth} onChange={(v) => { setNewMonth(v); setAddErr(null); }} onInvalidChange={setNewMonthBad} />
         <button type="button" className="btn ghost" onClick={onAddMonth}>{t('manpowerPlan.addMonth')}</button>
         {addErr && <span className="hintline" style={{ color: 'var(--danger)' }}>{t(`manpowerPlan.err.${addErr === 'duplicate' ? 'duplicate' : 'tooMany'}`)}</span>}
         <button type="button" className="btn" onClick={save} disabled={saving || input == null}>{t('manpowerPlan.save')}</button>

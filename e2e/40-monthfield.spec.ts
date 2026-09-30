@@ -43,12 +43,29 @@ test.describe('40 - MonthField (ô tháng mm/yyyy)', () => {
     const err = page.getByTestId('plan-new-month-error');
     await expect(err).toHaveText(vi('monthField.invalid'));
     await expect(f).toHaveAttribute('aria-invalid', 'true');
-    // Thêm tháng khi ô đang sai: không thêm dòng, giá trị áp dụng vẫn là tháng cũ.
+    // Thêm tháng khi ô đang sai: không thêm dòng nào (kể cả tháng gợi ý cũ), lỗi vẫn hiện, ô giữ nguyên giá trị đã gõ.
+    const rows = page.locator('table.tbl tbody tr');
+    const rowsBefore = await rows.count();
     await page.getByRole('button', { name: vi('manpowerPlan.addMonth') }).click();
     await expect(page.getByRole('cell', { name: '13/2027', exact: true })).toHaveCount(0);
+    await expect(rows).toHaveCount(rowsBefore);
+    await expect(err).toHaveText(vi('monthField.invalid'));
+    await expect(f).toHaveValue('13/2027');
     await f.fill(before);
     await f.press('Enter');
     await expect(err).toHaveCount(0);
+  });
+
+  test('gõ sai rồi bấm thẳng "Thêm tháng" (không Enter): không thêm dòng, lỗi vẫn hiện, ô giữ giá trị gõ', async ({ page }) => {
+    await open(page);
+    const f = field(page);
+    const rows = page.locator('table.tbl tbody tr');
+    const rowsBefore = await rows.count();
+    await f.fill('13/2027');
+    await page.getByRole('button', { name: vi('manpowerPlan.addMonth') }).click();
+    await expect(page.getByTestId('plan-new-month-error')).toHaveText(vi('monthField.invalid'));
+    await expect(rows).toHaveCount(rowsBefore);
+    await expect(f).toHaveValue('13/2027');
   });
 
   test('tháng trùng dòng đã có báo "đã có trong bảng"', async ({ page }) => {

@@ -11,6 +11,7 @@ import { IconCalendar } from '@/components/icons';
  * - Gõ bằng bàn phím (tự chèn "/", bàn phím số trên điện thoại), Enter hoặc rời ô để áp dụng; sai thì báo lỗi (theo ngôn ngữ ứng dụng), không đổi giá trị.
  * - Nút lịch: `input[type=month]` gốc trong suốt phủ lên biểu tượng, chỉ bật khi trình duyệt hỗ trợ (Firefox/Safari desktop không có thì chỉ còn gõ).
  * - `onChange` chỉ được gọi với tháng YYYY-MM hợp lệ (năm 2000-2999).
+ * - `onInvalidChange(bad)`: báo cha khi ô chuyển sang/khỏi trạng thái đang gõ sai (giá trị của cha vẫn là tháng cũ), để nút "Thêm" của cha không dùng nhầm tháng cũ.
  * - `variant="form"`: cỡ như ô `.inp` trong form (cao 38px, rộng hết ô), `invalid` tô viền đỏ như `.inp.bad`.
  */
 export function MonthField({
@@ -21,6 +22,7 @@ export function MonthField({
   width,
   variant = 'compact',
   invalid = false,
+  onInvalidChange,
 }: {
   value: YearMonth;
   onChange: (ym: YearMonth) => void;
@@ -29,6 +31,7 @@ export function MonthField({
   width?: number | string;
   variant?: 'compact' | 'form';
   invalid?: boolean;
+  onInvalidChange?: (bad: boolean) => void;
 }) {
   const isForm = variant === 'form';
   const t = useTranslations();
@@ -49,12 +52,19 @@ export function MonthField({
   useEffect(() => {
     setText(formatMy(value));
     setError(null);
+    onInvalidChange?.(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ chạy khi giá trị từ ngoài đổi
   }, [value]);
 
   function commit(raw: string) {
     const ym = parseMy(raw);
-    if (!ym) return setError(t('monthField.invalid'));
+    if (!ym) {
+      setError(t('monthField.invalid'));
+      onInvalidChange?.(true);
+      return;
+    }
     setError(null);
+    onInvalidChange?.(false);
     setText(formatMy(ym));
     if (ym !== value) onChange(ym);
   }
@@ -76,13 +86,16 @@ export function MonthField({
           }
           value={text}
           aria-label={ariaLabel}
-          aria-invalid={error ? true : undefined}
+          aria-invalid={error || invalid ? true : undefined}
           aria-describedby={error ? errId : undefined}
           data-testid={testId}
           data-ready={ready}
           onChange={(e) => {
             setText(maskMy(e.target.value));
-            if (error) setError(null);
+            if (error) {
+              setError(null);
+              onInvalidChange?.(false);
+            }
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {

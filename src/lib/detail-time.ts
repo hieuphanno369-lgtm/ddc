@@ -15,7 +15,7 @@ export interface DetailTime {
   invalidPeriod: boolean;
   asOfMonth: YearMonth;
   day: IsoDate;
-  /** Tháng lớn nhất có số (<= tháng mốc của kỳ); null = dự án chưa có số nào tới mốc. */
+  /** Tháng lớn nhất có số (<= tháng mốc đang chọn); null = dự án chưa có số nào tới mốc. */
   lastDataMonth: YearMonth | null;
 }
 
@@ -43,8 +43,9 @@ export function resolveDetailTime(
   const firstMonth = period.from.slice(0, 7);
   const clampMonth = (m: YearMonth) => max(min(m, capMonth), min(firstMonth, capMonth));
 
-  const lastDataMonth = [...factMonthsAsc].reverse().find((m) => m <= capMonth) ?? null;
   const asOfMonth = typeof sp.month === 'string' && isValidYearMonth(sp.month) ? clampMonth(sp.month) : capMonth;
+  // Tháng có số gần nhất KHÔNG vượt mốc đang chọn (asOfMonth <= capMonth): chip "mang số" đúng cả khi chọn tháng trống giữa hai tháng có số.
+  const lastDataMonth = [...factMonthsAsc].reverse().find((m) => m <= asOfMonth) ?? null;
 
   const defaultDay = min(endOfMonth(asOfMonth), asOfCap);
   const lowDay = min(period.from, asOfCap);

@@ -38,6 +38,18 @@ describe('resolveDetailTime (P4 D2, Q6)', () => {
     expect(t.day).toBe('2026-03-31');
   });
 
+  it('?month là tháng trống giữa hai tháng có số: lastDataMonth = tháng có số gần nhất không vượt mốc (03), để chip "mang số" hiện đúng', () => {
+    const t = resolveDetailTime({ month: '2026-04' }, project, facts, TODAY);
+    expect(t.asOfMonth).toBe('2026-04');
+    expect(t.lastDataMonth).toBe('2026-03');
+  });
+
+  it('?month trước mọi tháng có số: lastDataMonth null (chưa có số nào tới mốc)', () => {
+    const t = resolveDetailTime({ month: '2026-01' }, project, facts, TODAY);
+    expect(t.asOfMonth).toBe('2026-01');
+    expect(t.lastDataMonth).toBeNull();
+  });
+
   it('?month=2027-01 (tương lai) bị kẹp về tháng cuối của kỳ tới hôm nay', () => {
     expect(resolveDetailTime({ month: '2027-01' }, project, facts, TODAY).asOfMonth).toBe('2026-09');
   });
