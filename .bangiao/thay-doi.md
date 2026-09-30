@@ -436,3 +436,29 @@ Mỗi lỗi một commit, có test đỏ tái hiện chuyển xanh, không sửa
 - Không chạy `npm run build` ở vòng này (không đụng cấu hình, CSS toàn cục hay route).
 - Việc bỏ qua: chưa kiểm chạm lịch gốc trên điện thoại thật, chưa kiểm trình duyệt giao diện tiếng Anh (như tester đã ghi). Ảnh `.bangiao/anh-p4-f/` vẫn chưa commit như các thư mục ảnh trước.
 - Không cập nhật `PROGRESS.md`, `.serena/memories/`, `CHANGELOG`. Không push.
+
+## 6. Vòng sửa sau reviewer và security-reviewer (C-1..C-4, N-2..N-4, NIT, S-1..S-3)
+
+Mỗi mục là một commit riêng, có test kèm theo, nhánh `feature/p4-logic-bo-loc`.
+
+- C-1 `d79ec36`: `?month=all` cũ về kỳ mặc định im lặng, không hiện "Kỳ không hợp lệ"; `?month=abc` vẫn báo.
+- C-2 `d840f95`: nhãn Excel xuất Báo cáo khớp màn hình ("Dự án trong kỳ", "HĐ chưa khởi công (tỷ)").
+- C-3 `96e0d37`: `getProjectSummary` nhận ngày mốc trần của kỳ, nên Chi tiết và Tổng quan cùng ra `pctPlan`, trạng thái, nguy cơ phạt khi kỳ kết thúc giữa tháng.
+- C-4 `738deb7`: gắn dấu "?" cho "Khâu nghẽn" và "Huy động nguồn lực" ở Chi tiết, không đổi bố cục.
+- N-2 `f8ab0ca`: Nhập liệu với `data-entry` chỉ liệt kê tháng mà server cho phép; admin vẫn 12 tháng.
+- N-3 `bd41aa2`: công suất kỳ chỉ nhân số tháng tới tháng mốc, không tính tháng sau hôm nay.
+- N-4 `ec069aa`: delta KPI so kỳ trước xét theo tập đã lọc; không có số trong tập đã lọc thì delta là null.
+- NIT `a064a99`: chú giải chart công suất dùng i18n (`vi.json`, `en.json`, file nóng, đã giữ và nhả).
+- NIT `7f4523d`: khoá dòng `dim_project` khi bật nhập bù chỉ áp cho dự án đang hoạt động; dự án ngừng hoạt động trả `not_found`.
+- S-2 `df3804e`: `/api/report/export` có rate limit theo IP như `/api/export`, trả 429 kèm `Retry-After`.
+- S-1 `4485335`: chỉ kỳ mặc định và kỳ trọn tháng trong 24 tháng gần đây (`isCacheablePeriod`, `src/lib/period.ts`) mới ghi `unstable_cache`; kỳ tuỳ ý và ô tìm kiếm chỉ dùng React `cache` theo request.
+- S-1 (tiếp): `parseDashboardFilters(sp, dims)` đối chiếu `team` và `customer` với id thật trong dims, id lạ về `all`; `/api/export` không truyền dims nên chỉ kiểm dạng số (route đó không dùng khoá cache).
+- S-3 `c912734`: `recordId` nhật ký bật/tắt nhập bù đổi từ `<id khoảng>` sang `<projectId>/<id khoảng>`; `readProjectAuditTrail` (prisma và mock) lấy thêm bảng `project_backfill_window`; thêm nhãn `projectForm.audit.tbl.project_backfill_window` ở `vi.json`, `en.json`, `ho-so-du-an/page.tsx`.
+- S-3 (tiếp): dòng audit cũ (nếu có trên DB đã bật nhập bù) vẫn nằm ở nhật ký toàn hệ thống nhưng không hiện ở thẻ dự án; chỉ có ở DB dev, chưa go-live nên không viết migration dữ liệu.
+- S-3 phần nhãn "nhập bù" ghi ngoài transaction lưu số: CHẤP NHẬN theo đề xuất của security (số cũ/mới vẫn có audit riêng trong transaction); ghi rõ ở đây, không đổi code.
+- S-4: chấp nhận theo security (cửa sổ vài mili giây, có audit, tháng khoá sổ vẫn chặn).
+
+Chưa làm, chờ chủ dự án: N-1 (mốc mặc định của Chi tiết), P-2 (`MonthField`), và các mục 1, 3, 5 ở `danh-gia.md` mục 6.
+
+Kết quả kiểm sau vòng sửa mục 6: `npx tsc --noEmit` sạch; `npx vitest run` với `DATABASE_URL` của DB `_c`: 309 file xanh, 3697 test xanh, 1 bỏ qua, 0 đỏ.
+Chưa chạy lại e2e toàn bộ và build ở vòng này (S-3 đổi `recordId` nên `e2e/35-nhap-bu` cần tester chạy lại).
