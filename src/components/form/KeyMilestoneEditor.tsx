@@ -9,6 +9,7 @@ import {
   removeKeyMilestone, updateKeyMilestone, type KeyMilestoneDraft, type KeyMsErrors, type KeyMsField,
 } from '@/lib/key-milestones';
 import { keyMsStateText } from '@/components/project/keyMsText';
+import { DateField } from '@/components/ui/DateField';
 
 const SUGGEST_KEYS = ['s1', 's2', 's3', 's4', 's5', 's6', 's7'];
 
@@ -66,8 +67,8 @@ export function KeyMilestoneEditor({ id, value, onChange, today, errors = {} }: 
                 <tr key={i}>
                   <td>{i + 1}</td>
                   <td><input data-ms="name" className={cls(i, 'name')} value={r.name} maxLength={KEY_MS_NAME_MAX} onChange={(e) => onChange(updateKeyMilestone(value, i, { name: e.target.value }))} /></td>
-                  <td><input type="date" className={cls(i, 'plannedDate')} value={r.plannedDate} onChange={(e) => onChange(updateKeyMilestone(value, i, { plannedDate: e.target.value }))} /></td>
-                  <td><input type="date" className={cls(i, 'actualDate')} value={r.actualDate ?? ''} onChange={(e) => onChange(updateKeyMilestone(value, i, { actualDate: e.target.value || null }))} /></td>
+                  <td><DateField variant="form" allowEmpty ariaLabel={t('form.keyMs.colPlanned')} invalid={cls(i, 'plannedDate').includes('bad')} value={r.plannedDate} onChange={(v) => onChange(updateKeyMilestone(value, i, { plannedDate: v }))} /></td>
+                  <td><DateField variant="form" allowEmpty ariaLabel={t('form.keyMs.colActual')} invalid={cls(i, 'actualDate').includes('bad')} value={r.actualDate ?? ''} onChange={(v) => onChange(updateKeyMilestone(value, i, { actualDate: v || null }))} /></td>
                   <td><span className="chip" style={{ background: `color-mix(in srgb, ${color} 14%, transparent)`, color }}>{st ? keyMsStateText(t, st) : '-'}</span></td>
                   <td>
                     <button type="button" className="btn ghost" title={t('form.keyMs.remove')} aria-label={t('form.keyMs.remove')} style={{ padding: '5px 9px', minWidth: 0 }} onClick={() => onChange(removeKeyMilestone(value, i))}>✕</button>

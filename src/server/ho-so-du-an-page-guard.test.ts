@@ -2,10 +2,11 @@ import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 import type { CurrentUser } from '@/lib/session';
 
 /** Task 8 (P3A): trang `/ho-so-du-an` tự kiểm quyền server-side (khuôn `nhap-lieu-page-guard.test.ts`). */
-const { redirectCalls, formProps, auditProps } = vi.hoisted(() => ({
+const { redirectCalls, formProps, auditProps, backfillProps } = vi.hoisted(() => ({
   redirectCalls: [] as string[],
   formProps: [] as Array<Record<string, unknown>>,
   auditProps: [] as Array<Record<string, unknown>>,
+  backfillProps: [] as Array<Record<string, unknown>>,
 }));
 
 vi.mock('next/navigation', () => ({
@@ -32,6 +33,12 @@ vi.mock('@/server/repo', async () => {
 vi.mock('@/components/form/ProjectForm', () => ({
   ProjectForm: (props: Record<string, unknown>) => {
     formProps.push(props);
+    return null;
+  },
+}));
+vi.mock('@/components/form/BackfillPanel', () => ({
+  BackfillPanel: (props: Record<string, unknown>) => {
+    backfillProps.push(props);
     return null;
   },
 }));
@@ -73,6 +80,7 @@ afterEach(() => {
   vi.clearAllMocks();
   formProps.length = 0;
   auditProps.length = 0;
+  backfillProps.length = 0;
 });
 
 describe('guard /ho-so-du-an', () => {
@@ -110,6 +118,22 @@ describe('guard /ho-so-du-an', () => {
     const users = formProps[0].assignableUsers as Array<Record<string, unknown>>;
     expect(users.length).toBeGreaterThan(0);
     expect(users.every((u) => !('passwordHash' in u))).toBe(true);
+  });
+
+  it('P4 (D-24): the Nhap bu lich su chi render cho admin o mode edit, PIC va mode new khong co', async () => {
+    login(user('admin'));
+    expect(await visit({ project: '1' })).toBeNull();
+    expect(backfillProps).toHaveLength(1);
+    expect(backfillProps[0].projectId).toBe(1);
+    expect(backfillProps[0].windows).toEqual([]);
+
+    backfillProps.length = 0;
+    expect(await visit()).toBeNull();
+    expect(backfillProps).toHaveLength(0);
+
+    login(user('data-entry', 'pm@daidung.com.vn'));
+    expect(await visit({ project: '1' })).toBeNull();
+    expect(backfillProps).toHaveLength(0);
   });
 
   it('khong co ?project -> mode new', async () => {

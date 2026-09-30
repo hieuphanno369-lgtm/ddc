@@ -601,7 +601,13 @@
     "hide_department": "Ẩn phòng ban",
     "show_department": "Hiện lại phòng ban",
     "delete_department": "Xoá phòng ban",
-    "signup_expire": "Xoá đăng ký chờ quá hạn"
+    "signup_expire": "Xoá đăng ký chờ quá hạn",
+    "backfill_enable": "Bật nhập bù lịch sử",
+    "backfill_disable": "Tắt nhập bù lịch sử",
+    "save_data_backfill": "Lưu số liệu (nhập bù)",
+    "commit_import_backfill": "Commit import (nhập bù)",
+    "save_daily_resources_backfill": "Lưu nhân lực/thiết bị ngày (nhập bù)",
+    "commit_daily_import_backfill": "Commit import ngày (nhập bù)"
   },
   "dataGuard": {
     "import": {
@@ -613,7 +619,8 @@
         "no_pct": "Thiếu % hoàn thành",
         "bad_pct": "% hoàn thành không đọc được",
         "not_assigned": "Bạn không được gán dự án này",
-        "not_found": "Không tìm thấy dự án"
+        "not_found": "Không tìm thấy dự án",
+        "out_of_window": "Tháng đã quá hạn nhập, cần admin bật nhập bù"
       }
     },
     "draft": {
@@ -1465,6 +1472,18 @@
     "errOrder": "Ngày bắt đầu phải trước ngày kết thúc",
     "errMonthNotAllowed": "Tháng {month} đã quá hạn nhập, cần admin bật khoảng nhập bù cho dự án này",
     "errDayNotAllowed": "Ngày {date} đã quá hạn nhập, cần admin bật khoảng nhập bù cho dự án này",
-    "logNote": "nhập bù"
+    "logNote": "nhập bù",
+    "hint": "Cho phép người nhập (PIC) nhập lùi số liệu cũ của dự án này trong khoảng ngày đã chọn. Tối đa 24 tháng, tự tắt sau 30 ngày. Tháng đã khoá sổ vẫn phải mở khoá riêng.",
+    "errInvalid": "Khoảng ngày không hợp lệ (ngày kết thúc không được sau hôm nay)",
+    "errNote": "Ghi chú từ 5 đến 500 ký tự",
+    "errForbidden": "Chỉ admin được bật hoặc tắt nhập bù",
+    "errNotFound": "Không tìm thấy dự án hoặc khoảng nhập bù",
+    "errAlready": "Khoảng này đã được tắt rồi",
+    "errGeneric": "Không lưu được, thử lại sau",
+    "stateDisabled": "Đã tắt",
+    "stateExpired": "Đã hết hạn",
+    "history": "Lịch sử nhập bù",
+    "enabledBy": "{who} bật lúc {time}",
+    "badgeTip": "Admin đang mở nhập bù cho dự án này: được nhập thêm ngày và tháng trong khoảng"
   }
 }

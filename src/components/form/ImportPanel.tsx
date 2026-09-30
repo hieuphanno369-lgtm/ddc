@@ -46,7 +46,7 @@ export function ImportPanel({
   const [result, setResult] = useState<ImportResult | null>(null);
   const [resolveSel, setResolveSel] = useState<Record<number, number>>({});
   const [month, setMonth] = useState(currentMonth);
-  const [committed, setCommitted] = useState<{ imported: number; failed: { projectId: number; reason: 'not_assigned' | 'not_found' }[] } | null>(null);
+  const [committed, setCommitted] = useState<{ imported: number; failed: { projectId: number; reason: 'not_assigned' | 'not_found' | 'out_of_window' }[] } | null>(null);
   const [tooBig, setTooBig] = useState<string | null>(null);
 
   async function onFile(files: FileList | null) {
@@ -82,7 +82,7 @@ export function ImportPanel({
     const res = (await commitImportAction(
       month,
       mapped.map((r) => ({ projectId: r.projectId as number, pctActual: r.pctActual as number })),
-    )) as { ok: boolean; imported?: number; failed?: { projectId: number; reason: 'not_assigned' | 'not_found' }[] };
+    )) as { ok: boolean; imported?: number; failed?: { projectId: number; reason: 'not_assigned' | 'not_found' | 'out_of_window' }[] };
     setCommitted(res.ok ? { imported: res.imported ?? 0, failed: res.failed ?? [] } : null);
     setBusy(false);
     router.refresh();

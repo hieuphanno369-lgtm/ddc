@@ -3,6 +3,7 @@ import { Link } from '@/i18n/navigation';
 import { repo } from '@/server/repo';
 import { currentMonth, historyMonths, isValidIsoDate, todayIso } from '@/lib/clock';
 import { dailyDateWindow, isInWindow } from '@/lib/daily-entry';
+import { backfillMonths } from '@/lib/monthly-entry';
 import { requireUser } from '@/lib/require-user';
 import { DataEntryForm, type DataEntryStep } from '@/components/form/DataEntryForm';
 import { ResourceEntryPanel } from '@/components/form/ResourceEntryPanel';
@@ -35,7 +36,12 @@ export default async function NhapLieuPage({
   const selectedId =
     Number.isFinite(selectedRaw) && all.some((p) => p.id === selectedRaw) ? selectedRaw : all[0]?.id;
 
-  const months = historyMonths();
+  // P4 (D-25): khoảng nhập bù đang bật của dự án đang chọn - mở thêm tháng (danh sách) và ngày (ô chọn ngày).
+  const backfillRanges =
+    selectedId != null
+      ? (await repo.readActiveBackfillWindows(selectedId, new Date())).map((w) => ({ from: w.fromDate, to: w.toDate }))
+      : [];
+  const months = [...new Set([...historyMonths(), ...backfillMonths(backfillRanges)])].sort();
   const month =
     typeof sp.month === 'string' && months.includes(sp.month)
       ? sp.month
@@ -56,7 +62,7 @@ export default async function NhapLieuPage({
     ? (sp.step as DataEntryStep) : undefined;
 
   // Buoc "Nhan luc & Thiet bi" (B, P2A): ngay dang xem trong khoang cho phep theo role (Q2).
-  const entryWindow = dailyDateWindow(user.role, today);
+  const entryWindow = dailyDateWindow(user.role, today, backfillRanges);
   const dateParam = typeof sp.date === 'string' ? sp.date : '';
   const date = isValidIsoDate(dateParam) && isInWindow(dateParam, entryWindow) ? dateParam : today;
   const members = project ? await repo.getContractors(project.id) : [];
@@ -120,6 +126,7 @@ export default async function NhapLieuPage({
             factories={dims.factories}
             volumeTonnage={volumeTonnage}
             today={today}
+            backfillRanges={backfillRanges}
             initialStep={initialStep}
             canEditFinance={user.role === 'admin'}
             stages={stages}

@@ -601,7 +601,13 @@
     "hide_department": "Hide department",
     "show_department": "Show department again",
     "delete_department": "Delete department",
-    "signup_expire": "Remove expired pending registrations"
+    "signup_expire": "Remove expired pending registrations",
+    "backfill_enable": "Switch on historical backfill",
+    "backfill_disable": "Switch off historical backfill",
+    "save_data_backfill": "Save figures (backfill)",
+    "commit_import_backfill": "Commit import (backfill)",
+    "save_daily_resources_backfill": "Save daily resources (backfill)",
+    "commit_daily_import_backfill": "Commit daily import (backfill)"
   },
   "dataGuard": {
     "import": {
@@ -613,7 +619,8 @@
         "no_pct": "Missing % complete",
         "bad_pct": "Unreadable % complete",
         "not_assigned": "You are not assigned to this project",
-        "not_found": "Project not found"
+        "not_found": "Project not found",
+        "out_of_window": "The month is past the entry limit, an admin must switch on backfill"
       }
     },
     "draft": {
@@ -1465,6 +1472,18 @@
     "errOrder": "The start date must be before the end date",
     "errMonthNotAllowed": "Month {month} is past the entry deadline; an admin must enable a backfill range for this project",
     "errDayNotAllowed": "Day {date} is past the entry deadline; an admin must enable a backfill range for this project",
-    "logNote": "backfill"
+    "logNote": "backfill",
+    "hint": "Lets the data-entry owner (PIC) enter older figures for this project within the chosen date range. Up to 24 months, switches off by itself after 30 days. A locked month still needs to be unlocked separately.",
+    "errInvalid": "Invalid date range (the end date cannot be after today)",
+    "errNote": "Note must be 5 to 500 characters",
+    "errForbidden": "Only an admin can switch backfill on or off",
+    "errNotFound": "Project or backfill range not found",
+    "errAlready": "This range is already switched off",
+    "errGeneric": "Could not save, please try again",
+    "stateDisabled": "Switched off",
+    "stateExpired": "Expired",
+    "history": "Backfill history",
+    "enabledBy": "{who} switched on at {time}",
+    "badgeTip": "An admin has opened backfill for this project: extra days and months in the range can be entered"
   }
 }

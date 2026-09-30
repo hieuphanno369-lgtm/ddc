@@ -31,6 +31,7 @@ import { StageWeightEditor } from './StageWeightEditor';
 import { ProjectLinksSection } from './ProjectLinksSection';
 import { HelpTip } from '@/components/ui/HelpTip';
 import { Switch } from '@/components/ui/Switch';
+import { DateField } from '@/components/ui/DateField';
 import type { IsoDate } from '@/lib/clock';
 import type { ProjectMember } from '@/server/repo/types';
 
@@ -551,30 +552,30 @@ export function ProjectForm(p: ProjectFormProps) {
             <div className="h"><span className="n">3</span><h4>{t('projectForm.sec.dates.title')}</h4><p>{t('projectForm.sec.dates.sub')}</p></div>
             <div className="f4 feven">
               <Field label={t('form.contractDate')}>
-                <input type="date" value={form.contractDate} onChange={(e) => set('contractDate', e.target.value)} className="inp" />
+                <DateField variant="form" allowEmpty ariaLabel={t('form.contractDate')} value={form.contractDate} onChange={(v) => set('contractDate', v)} />
               </Field>
               <div className="field" data-field="plannedStartDate">
                 <span className="lb">{t('form.plannedStart')}</span>
-                <input type="date" value={form.plannedStartDate} onChange={(e) => set('plannedStartDate', e.target.value)} className={inputCls('plannedStartDate')} />
+                <DateField variant="form" allowEmpty ariaLabel={t('form.plannedStart')} value={form.plannedStartDate} onChange={(v) => set('plannedStartDate', v)} invalid={!!errors.plannedStartDate} />
               </div>
               <div className="field" data-field="plannedFinishDate">
                 <span className="lb">{t('form.plannedFinish')}<HelpTip text={t('projectForm.tip.plannedFinish')} label={t('projectForm.tip.plannedFinish')} /></span>
-                <input type="date" value={form.plannedFinishDate} onChange={(e) => set('plannedFinishDate', e.target.value)} className={inputCls('plannedFinishDate')} />
+                <DateField variant="form" allowEmpty ariaLabel={t('form.plannedFinish')} value={form.plannedFinishDate} onChange={(v) => set('plannedFinishDate', v)} invalid={!!errors.plannedFinishDate} />
               </div>
               <div className="field" data-field="committedHandoverDate">
                 <span className="lb">{t('form.committedHandover')}<HelpTip text={t('projectForm.tip.committedHandover')} label={t('projectForm.tip.committedHandover')} alignRight /></span>
-                <input type="date" value={form.committedHandoverDate} onChange={(e) => set('committedHandoverDate', e.target.value)} className={inputCls('committedHandoverDate')} />
+                <DateField variant="form" allowEmpty ariaLabel={t('form.committedHandover')} value={form.committedHandoverDate} onChange={(v) => set('committedHandoverDate', v)} invalid={!!errors.committedHandoverDate} />
               </div>
             </div>
             <div style={{ height: 14 }} />
             <div className="f4 feven">
               <div className="field" data-field="actualStartDate">
                 <span className="lb">{t('form.actualStart')}<HelpTip text={t('projectForm.tip.actualStart')} label={t('projectForm.tip.actualStart')} /></span>
-                <input type="date" value={form.actualStartDate} onChange={(e) => set('actualStartDate', e.target.value)} className={inputCls('actualStartDate')} />
+                <DateField variant="form" allowEmpty ariaLabel={t('form.actualStart')} value={form.actualStartDate} onChange={(v) => set('actualStartDate', v)} invalid={!!errors.actualStartDate} />
               </div>
               <div className="field" data-field="actualFinishDate">
                 <span className="lb">{t('form.actualFinish')}<HelpTip text={t('projectForm.tip.actualFinish')} label={t('projectForm.tip.actualFinish')} /></span>
-                <input type="date" value={form.actualFinishDate} onChange={(e) => set('actualFinishDate', e.target.value)} className={inputCls('actualFinishDate')} />
+                <DateField variant="form" allowEmpty ariaLabel={t('form.actualFinish')} value={form.actualFinishDate} onChange={(v) => set('actualFinishDate', v)} invalid={!!errors.actualFinishDate} />
               </div>
               <Field label={t('projectForm.field.penalized')}>
                 <div className="inline-row" style={{ height: 38 }}>

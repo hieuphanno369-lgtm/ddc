@@ -10,7 +10,8 @@ import { IconCalendar } from '@/components/icons';
  * Ô ngày riêng: LUÔN hiện và nhập dd/mm/yyyy (không theo ngôn ngữ giao diện trình duyệt như `input[type=date]`).
  * - Gõ bằng bàn phím (tự chèn "/", bàn phím số trên điện thoại), Enter hoặc rời ô để áp dụng; sai thì báo lỗi, không đổi giá trị.
  * - Nút lịch: `input[type=date]` gốc trong suốt phủ lên biểu tượng nên chạm/bấm mở lịch gốc của thiết bị, không cần thư viện.
- * - Ngoài `min`/`max` (nếu có) cũng báo lỗi. `onChange` chỉ được gọi với ngày ISO hợp lệ.
+ * - Ngoài `min`/`max` (nếu có) cũng báo lỗi. `onChange` chỉ được gọi với ngày ISO hợp lệ (hoặc '' khi `allowEmpty` và ô được xoá trống).
+ * - `variant="form"`: cỡ như ô `.inp` trong form (cao 38px, rộng hết ô), `invalid` tô viền đỏ như `.inp.bad`.
  */
 export function DateField({
   value,
@@ -19,16 +20,24 @@ export function DateField({
   max,
   ariaLabel,
   testId,
-  width = 150,
+  width,
+  variant = 'compact',
+  allowEmpty = false,
+  invalid = false,
 }: {
-  value: IsoDate;
-  onChange: (iso: IsoDate) => void;
+  /** Ngày ISO, hoặc '' khi chưa có ngày (chỉ dùng cùng `allowEmpty`). */
+  value: IsoDate | '';
+  onChange: (iso: IsoDate | '') => void;
   min?: IsoDate;
   max?: IsoDate;
   ariaLabel: string;
   testId?: string;
-  width?: number;
+  width?: number | string;
+  variant?: 'compact' | 'form';
+  allowEmpty?: boolean;
+  invalid?: boolean;
 }) {
+  const isForm = variant === 'form';
   const t = useTranslations();
   const errId = useId();
   const [text, setText] = useState(formatDmy(value));
@@ -45,6 +54,12 @@ export function DateField({
   }, [value]);
 
   function commit(raw: string) {
+    if (allowEmpty && raw.trim() === '') {
+      setError(null);
+      setText('');
+      if (value !== '') onChange('');
+      return;
+    }
     const iso = parseDmy(raw);
     if (!iso) return setError(t('period.dateInvalid'));
     if ((min && iso < min) || (max && iso > max)) {
@@ -56,7 +71,7 @@ export function DateField({
   }
 
   return (
-    <span className="relative inline-flex flex-col" style={{ width }}>
+    <span className="relative inline-flex flex-col" style={{ width: width ?? (isForm ? '100%' : 150) }}>
       <span className="relative inline-flex items-center">
         <input
           type="text"
@@ -64,8 +79,12 @@ export function DateField({
           autoComplete="off"
           placeholder={t('period.datePlaceholder')}
           maxLength={10}
-          className={`inp${error ? ' bad' : ''}`}
-          style={{ width: '100%', padding: '6px 34px 6px 10px', fontSize: 'var(--t-caption1)' }}
+          className={`inp${error || invalid ? ' bad' : ''}`}
+          style={
+            isForm
+              ? { width: '100%', height: 38, paddingRight: 34 }
+              : { width: '100%', padding: '6px 34px 6px 10px', fontSize: 'var(--t-caption1)' }
+          }
           value={text}
           aria-label={ariaLabel}
           aria-invalid={error ? true : undefined}
@@ -111,7 +130,10 @@ export function DateField({
               /* trình duyệt cũ: lịch gốc vẫn mở khi chạm */
             }
           }}
-          onChange={(e) => e.target.value && commit(formatDmy(e.target.value))}
+          onChange={(e) => {
+            if (e.target.value) commit(formatDmy(e.target.value));
+            else if (allowEmpty) commit('');
+          }}
         />
       </span>
       {error && (

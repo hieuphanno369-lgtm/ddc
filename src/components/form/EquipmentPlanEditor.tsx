@@ -11,6 +11,7 @@ import {
   validateEquipmentPlan, type EquipGroupField, type EquipPlanCheck, type EquipSegField, type EquipmentGroupDraft,
 } from '@/lib/equipment-plan';
 import { saveEquipmentPlansAction } from '@/server/actions-entry';
+import { DateField } from '@/components/ui/DateField';
 
 /** P3C-A (T4): bảng nhập kế hoạch dùng thiết bị theo loại (Tổng SL + các đợt) - nguồn Gantt thiết bị. */
 export function EquipmentPlanEditor(p: {
@@ -171,10 +172,10 @@ export function EquipmentPlanEditor(p: {
                     <tr key={si}>
                       <td>{si + 1}</td>
                       <td>
-                        <input type="date" value={s.from} onChange={(e) => updateSegment(gi, si, { from: e.target.value })} className={segCls(gi, si, 'from')} />
+                        <DateField variant="form" allowEmpty width={160} ariaLabel={t('equipmentPlan.colFrom')} value={s.from} onChange={(v) => updateSegment(gi, si, { from: v })} invalid={segCls(gi, si, 'from').includes('bad')} />
                       </td>
                       <td>
-                        <input type="date" value={s.to} onChange={(e) => updateSegment(gi, si, { to: e.target.value })} className={segCls(gi, si, 'to')} />
+                        <DateField variant="form" allowEmpty width={160} ariaLabel={t('equipmentPlan.colTo')} value={s.to} onChange={(v) => updateSegment(gi, si, { to: v })} invalid={segCls(gi, si, 'to').includes('bad')} />
                       </td>
                       <td>
                         <input type="number" min={1} max={EQUIP_QTY_MAX} value={s.qty} onChange={(e) => updateSegment(gi, si, { qty: e.target.value })} className={segCls(gi, si, 'qty')} style={{ width: 80 }} />

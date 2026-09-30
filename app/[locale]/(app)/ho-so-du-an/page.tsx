@@ -5,6 +5,7 @@ import { todayIso } from '@/lib/clock';
 import { requireUser } from '@/lib/require-user';
 import { ProjectForm } from '@/components/form/ProjectForm';
 import { ProjectAuditCard } from '@/components/project/ProjectAuditCard';
+import { BackfillPanel } from '@/components/form/BackfillPanel';
 
 export default async function HoSoDuAnPage({
   searchParams,
@@ -77,6 +78,9 @@ export default async function HoSoDuAnPage({
         today={today}
         stages={stages}
       />
+      {mode === 'edit' && project && user.role === 'admin' && (
+        <BackfillPanel projectId={project.id} windows={await repo.listBackfillWindows(project.id)} today={today} locale={locale} />
+      )}
       {mode === 'edit' && project && (
         <ProjectAuditCard
           entries={auditTrail}
