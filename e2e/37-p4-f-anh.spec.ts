@@ -128,6 +128,13 @@ test.describe('37 - soi pixel nhom F/G (anh o .bangiao/anh-p4-f)', () => {
         await page.goto('/vi/nhap-lieu?project=1');
         await page.waitForTimeout(1200);
         await page.screenshot({ path: `${OUT}/nl-thang-${tag}.png`, fullPage: true });
+        // P-3: nhan "Ap dung" 1 dong; o chon du an du rong de doc ma + ten du an (khong bi cat con ~130px o 390px)
+        const label = page.locator('.stagegrid label.inline-row').first();
+        const lbox = await label.boundingBox();
+        const llh = await label.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight) || 18);
+        expect(lbox!.height, `nhan Ap dung cao ${lbox!.height}px, dong ${llh}px`).toBeLessThan(llh * 1.5);
+        const sbox = await page.locator('select').first().boundingBox();
+        expect(sbox!.width, `o chon du an chi rong ${sbox!.width}px`).toBeGreaterThanOrEqual(Math.min(240, vp.width - 60));
         await checkPage(page, errors);
         await context.close();
       });

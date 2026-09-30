@@ -261,7 +261,7 @@ export function DataEntryForm({
         <select
           value={projectId}
           onChange={(e) => updateQuery({ project: e.target.value })}
-          className="inp min-w-0 flex-1 sm:max-w-xs"
+          className="inp min-w-0 flex-1 basis-full sm:basis-0 sm:max-w-xs"
           style={{ width: 'auto' }}
         >
           {projects.map((p) => (
@@ -389,7 +389,7 @@ export function DataEntryForm({
                           onChange={(e) => set('stagePct', { ...form.stagePct, [s]: e.target.value })}
                           className={inputCls('stagePct.' + s)}
                         />
-                        <label className="inline-row" style={{ fontSize: 'var(--t-caption1)', color: 'var(--label2)' }}>
+                        <label className="inline-row" style={{ fontSize: 'var(--t-caption1)', color: 'var(--label2)', whiteSpace: 'nowrap', flexShrink: 0 }}>
                           <input
                             type="checkbox"
                             checked={form.stageApplicable?.[s] ?? true}
