@@ -1,4 +1,4 @@
-PHAN QUYET: CAN SUA
+PHAN QUYET: CHOT
 
 # Đánh giá reviewer
 
@@ -126,3 +126,135 @@ CẦN SỬA: C-1, C-2, C-3, C-4 (đều nhỏ, khoanh vùng rõ, kèm test).
 Logic cốt lõi L-1..L-5, F-1..F-6, N-6 và nhóm F đúng và có test thật; không có vấn đề chặn.
 Sau khi sửa 4 mục trên và có kết quả `danh-gia-bao-mat.md`, cho reviewer soi lại vòng sửa trước khi CHỐT.
 Ghi chú quy trình: theo luật của vai reviewer (chỉ đọc, không đổi lịch sử git), tôi KHÔNG commit file này; người điều phối commit giúp nếu cần.
+
+## Vòng 2 - soi lại vòng sửa (2026-09-30)
+
+Nhánh `feature/p4-logic-bo-loc` @ `07da17a`, soi `git diff 093fee1..HEAD` (15 commit, 36 file ngoài `.bangiao/`).
+Skill đã dùng: `ddc-tower:code-review`.
+Phán quyết vòng 1 là CẦN SỬA (C-1..C-4); dòng đầu file đã đổi thành phán quyết vòng 2.
+Bản bảo mật `.bangiao/danh-gia-bao-mat.md` là ĐẠT (không phải LO HONG); S-1, S-2 mức thấp và S-3 thông tin đã được vá trong vòng này.
+
+### V2.1 Kiểm chứng độc lập
+
+- `npx tsc --noEmit`: exit 0, sạch.
+- `npm test` với `DATABASE_URL` của DB `ddc_control_tower_c` (có real-db): 309 file xanh; 3699 test xanh, 1 bỏ qua, 0 đỏ.
+- Thêm 2 ca so với số của coder (3697) là 2 ca `Card.test.ts` của `07da17a`.
+- e2e chạy riêng (không chạy toàn bộ): `e2e/38-p4-vong-sua.spec.ts` 3 ca C-4 (gồm ca console "unique key") xanh; chạy lại lần 2 ca console cùng `e2e/03-project-detail.spec.ts` xanh (5/5 gồm setup).
+- Lưu ý: `global-setup` của e2e đã seed lại DB `_c` trong 2 lượt chạy này (17 dự án), đúng như mọi lần chạy e2e.
+
+### V2.2 Từng mục
+
+- C-1 `d79ec36`: đạt, đúng gốc. `parsePeriodChecked` (`src/lib/period.ts:50-51`) bỏ riêng `month=all` khi tính `given`; `month=all` kèm from/to rác vẫn báo. Test `period.test.ts` tách ca đúng như yêu cầu; e2e 32 có ca `?month=all` im lặng và `?month=abc` vẫn báo (tester ghi xanh ở cả Tổng quan và Báo cáo).
+- C-2 `d840f95`: đạt. `app/api/report/export/route.ts` đổi 3 nhãn; `export-finance-gate.test.ts` khẳng định có nhãn mới và KHÔNG còn "Tổng số dự án", "Backlog (tỷ)".
+- C-3 `96e0d37`: đạt, đúng gốc. `getProjectSummary` nhận `asOfCap`, `asOfDate = min(cuối tháng mốc, hôm nay, trần)`; Chi tiết truyền `periodAsOfDate(t2.period, today)`, là nơi gọi duy nhất. Ca mặc định không đổi hành vi (trần = hôm nay). Test `queries-period.test.ts` so `getProjectSummaries` với `getProjectSummary` cùng kỳ giữa tháng trên status, pctPlan, penalty, onTrack, có ca dự án B "Hoàn thành" nếu không truyền trần (sẽ đỏ trên code cũ). e2e 38 kiểm cả 17 dự án với oracle tính tay.
+- C-4 `738deb7`: đạt. 3 dấu "?" dùng `helpTip.dtBottleneck`, `helpTip.dtMobilization`; 2 thẻ nguồn lực thêm `overflow-visible` như các thẻ khác. Test mới `src/i18n/help-tip-usage.test.ts` bắt mọi chuỗi `helpTip.*` mồ côi về sau, có giá trị thật.
+- N-2 `f8ab0ca`: đạt. `entryMonths` lọc theo chính `isMonthAllowed` của server, test khẳng định hai chiều (mọi tháng hiện đều được phép, không sót tháng được phép).
+- N-3 `bd41aa2`: đạt về số. Test kỳ 06..12 ra 400 thay 700, kỳ hoàn toàn tương lai ra 0 và không cảnh báo.
+- N-4 `ec069aa`: đạt. `factRows` đếm trong tập đã lọc (`dataState.kind !== 'none'`); test lọc P3 ra mọi delta null, lọc P1 vẫn có delta.
+- NIT i18n chú giải chart `a064a99`: đạt. NIT `isActive` `7f4523d`: đạt, có test real-db.
+- S-1 `4485335`: đạt. `isCacheablePeriod` chặn tập khoá ghi đĩa (test đếm dưới 400 khi thử mọi cặp ngày 01/cuối tháng 2000-2040); kỳ tuỳ ý và ô tìm kiếm đi React `cache`; `team`/`customer` đối chiếu id thật. Kỳ mặc định (to = hôm nay) vẫn cacheable. Tester đo đĩa: kỳ tuỳ ý không tăng tệp, kỳ trọn tháng tăng đúng 9 loader mỗi kỳ.
+- S-2 `df3804e`: đạt. Rate limit đặt SAU kiểm quyền (403 không bị đếm), khoá theo `clientIpFrom` (đổi phần tử đầu XFF không né được), có test 429 và `Retry-After`.
+- S-3 `c912734`: đạt. `recordId` dạng `<projectId>/<id>` ở cả prisma và mock, `readProjectAuditTrail` thêm `project_backfill_window`, có nhãn vi/en; test real-db khẳng định dự án khác không thấy dòng đó. Phần nhãn nhập bù ngoài transaction: chấp nhận theo đề xuất security, đã ghi ở `thay-doi.md` mục 6.
+- `07da17a`: đạt. `CardHeader` bọc `titleExtra` và `action` trong `Fragment` có key, không thêm thẻ DOM (test `Card.test.ts` so markup chính xác). Gốc: Fragment không key nhiều con đi từ server component qua ranh giới RSC sang client component bị React dev coi như danh sách; sửa ở `CardHeader` chữa cho mọi nơi dùng, không phải vá từng trang. Ca console e2e 38 trước đỏ ở mọi lần chạy của tester (10 đến 35 cảnh báo), nay xanh 2/2 lần tôi chạy. Không đổi giao diện.
+
+### V2.3 Còn lại (không chặn CHỐT)
+
+- NIT (còn từ vòng 1, chưa sửa): `app/globals.css:261` `.kpi .vl` `white-space:nowrap` có thể tràn với số rất lớn.
+- NIT mới: dòng "Cách đọc" của thẻ công suất ở Tổng quan vẫn ghi đủ khoảng tháng của kỳ (vd "Tháng 07/2026 - 12/2026") trong khi số từ N-3 chỉ tính tới tháng mốc; nên ghi khoảng tháng thật (tester ghi nhận ở `ket-qua-test.md` 10.5). Chỗ: `src/components/dashboard/OverviewWidgets.tsx:161` (`months[months.length - 1]` nên cắt ở tháng mốc như `getCapacityData`).
+- Chập chờn hạ tầng `e2e/36-datefield-form.spec.ts:208` (goto quá 60 giây sau 20 phút chạy toàn bộ), chạy riêng xanh; nên theo dõi, không phải lỗi P4.
+- `ket-qua-test.md` mục 10.4 còn ghi ca "unique key" là ĐỎ; thực tế đã xanh sau `07da17a` (xem V2.1), tester nên cập nhật khi chạy lại toàn bộ.
+- Chưa chạy lại e2e toàn bộ sau `07da17a` (thay bằng chạy riêng các ca liên quan).
+- Thư mục ảnh `.bangiao/anh-p3f/`, `anh-p4/`, `anh-p4-f/`, `anh-p4-test/`, `anh-p4-sua/` chưa commit; quyết giữ hay bỏ khi archive trước merge.
+
+### V2.4 Vẫn chờ chủ dự án duyệt (không đụng ở vòng này)
+
+- N-1 (mốc mặc định của Chi tiết) = mục 4 của phần 6.
+- P-2 (`MonthField` cho ô tháng ở `ManpowerPlanEditor`) = mục 2 của phần 6.
+- Mục 1 (Excel tháng báo `out_of_window` ở bước lưu), mục 3 (24 tháng lịch), mục 5 (timeline dưới 560px và các sửa pixel màn hẹp) của phần 6.
+
+### V2.5 Kết luận vòng 2
+
+CHỐT về kỹ thuật: C-1..C-4, N-2..N-4, 2 NIT, S-1..S-3 đều vá đúng gốc, có test thật (không assert rỗng, nhiều ca sẽ đỏ trên code cũ), tsc sạch, unit và real-db xanh, lỗi console React đã hết.
+Merge vào `main` vẫn cần chủ dự án đồng ý và trả lời các mục ở V2.4.
+Tôi không commit file này (vai reviewer chỉ đọc).
+
+## Vòng 3 (07da17a..HEAD: a6286d0, 74a5ca1, d20903b, 52e635f)
+
+Skill đã dùng: `ddc-tower:code-review`.
+Phán quyết vòng 3 ban đầu: CAN SUA (1 lỗi đúng đắn ở P-2). Sau bản vá 05c0313: CHOT (xem V3.6). Dòng đầu file là phán quyết hiện hành.
+
+### V3.1 Số liệu
+
+- `npx tsc --noEmit`: sạch, không lỗi.
+- `npx vitest run` với `DATABASE_URL` của `ddc_control_tower_c` (lấy từ `.env`): 310/310 file xanh, 3739 test xanh, 1 bỏ qua, 0 đỏ.
+- Không chạy e2e (theo giao việc; coder báo 367/367).
+- Diff không có dấu gạch dài; không đụng `app/globals.css`.
+
+### V3.2 N-1 (a6286d0): ĐẠT
+
+- Đúng gốc: `src/lib/detail-time.ts` dòng 45, mốc mặc định bỏ `lastDataMonth ?? capMonth`, lấy `capMonth` = tháng của min(cuối kỳ, hôm nay), nên mốc vẫn kẹp trong kỳ (kỳ kết thúc trước hôm nay thì mốc = tháng cuối kỳ, có test đơn vị và e2e `33` ca `from=2026-01-01&to=2026-03-20`).
+- `?month=` vẫn qua `clampMonth`, rác rơi về mặc định.
+- Số Chi tiết khớp Tổng quan: `src/server/queries-period.test.ts` khối "P4 N-1" so status, %TT, %KH, phạt, onTrack, dataState của cả dự án có số tháng hiện tại (A) và dự án mang số (B); test này đỏ trên code cũ (mốc cũ của B là 2026-06).
+- Chip "Dùng số tháng...": `DetailTimeBar.tsx` dòng 52 `asOfMonth > lastDataMonth`, mặc định B cho mốc 2026-09 > 2026-06 nên chip hiện đúng; nhãn KPI (`page.tsx` dòng 180) theo tháng chuỗi giá trị nên cũng đúng.
+- Ý kiến về ngày nguồn lực mặc định thành hôm nay (`detail-time.ts` dòng 49): chấp nhận được và nhất quán với mốc = tháng hiện tại.
+  Hệ quả thực tế: buổi sáng khi chưa nhập số ngày thì nhóm nguồn lực mặc định có thể trống.
+  Đề xuất (không chặn, cần chủ dự án quyết nếu muốn): lấy ngày gần nhất có số nguồn lực không vượt hôm nay.
+- NIT có từ trước, không do vòng này: `lastDataMonth` tính theo `capMonth` chứ không theo mốc đang chọn, nên khi người dùng chọn `?month=` là tháng trống nằm giữa hai tháng có số (ví dụ số ở 03 và 05, chọn 04) thì chip mang số không hiện dù KPI đang dùng số tháng 03.
+  Chỗ sửa nếu muốn: `src/lib/detail-time.ts` dòng 44, tính `lastDataMonth` với `m <= asOfMonth` (đặt sau dòng tính `asOfMonth`).
+
+### V3.3 P-2 MonthField (74a5ca1): CẦN SỬA 1 chỗ
+
+Đạt:
+- `parseMy`/`maskMy` (`src/lib/date-input.ts` dòng 52-80): tháng 00, 13, năm 1999, 3000, năm 2 chữ số, chữ, ISO `2026-09`, `9/2026/1` đều trả null; nhận `9/2026`, `9-2026`, `09.2026`, `092026`, có khoảng trắng hai đầu. Test bảng có giá trị thật.
+- Dán chuỗi: `maxLength=7` cộng mask; dán `2026-09` thành `20/2609` rồi báo lỗi khi áp dụng, chấp nhận được.
+- i18n: nhóm `monthField` mới ở cuối cả `vi.json` và `en.json`, đủ 3 key, không chèn giữa key cũ; `messages.test.ts` đã đăng ký nguồn `MonthField`.
+- a11y: `aria-label`, `aria-invalid` và `aria-describedby` trỏ dòng lỗi `role="alert"`, input lịch gốc có nhãn và `tabIndex=-1`.
+- Style: dùng lại `.inp`/`.inp.bad`/`.hintline`, không thêm CSS mới, giữ kính mờ.
+
+Lỗi phải sửa (đúng đắn):
+- Gõ tháng sai rồi bấm "Thêm tháng" thì vẫn thêm một dòng tháng CŨ và lỗi biến mất.
+  Luồng: bấm nút làm ô mất focus, `commit` (`src/components/ui/MonthField.tsx` dòng 54-60, gọi từ `onBlur` dòng 94) báo lỗi và không gọi `onChange`, nên `newMonth` giữ giá trị gợi ý cũ; `onAddMonth` (`src/components/form/ManpowerPlanEditor.tsx` dòng 43-51) vẫn thêm `newMonth` cũ rồi `setNewMonth(addMonths(...))`, làm `useEffect` theo `value` trong MonthField xoá lỗi.
+  Người dùng gõ nhầm 13/2027 (định gõ 12/2027) sẽ thấy một dòng tháng khác được thêm im lặng.
+- Cách sửa đề xuất: MonthField báo trạng thái ô đang sai cho cha (ví dụ prop `onInvalidChange(bad: boolean)` gọi trong `commit` và khi gõ lại), `ManpowerPlanEditor.tsx` giữ cờ `newMonthBad` và `onAddMonth` dừng sớm khi cờ bật (dòng 43), dòng 184 truyền callback.
+- Test không bắt được lỗi này: `e2e/40-monthfield.spec.ts` dòng 46-48 ghi chú "không thêm dòng" nhưng chỉ kiểm không có ô `13/2027`.
+  Cần thêm: đếm số dòng bảng trước và sau khi bấm (phải bằng nhau), ô lỗi `plan-new-month-error` vẫn hiện, và ô vẫn giữ `13/2027`.
+  Test này phải đỏ trên code hiện tại trước khi sửa.
+
+NIT (không chặn): prop `invalid` của MonthField tô viền đỏ nhưng không đặt `aria-invalid` (`MonthField.tsx` dòng 79 chỉ xét `error`); hiện chưa nơi nào dùng `invalid`, sửa thành `error || invalid` khi có người dùng.
+
+### V3.4 CapacityCard (d20903b): ĐẠT
+
+- `src/components/dashboard/OverviewWidgets.tsx` dòng 152-163: lọc tháng tới `periodAsOfMonth`, mảng rỗng thì chỉ in câu "Cách đọc", hết lỗi `undefined.slice`.
+- `CapacityCard.test.ts`: ca 1 và ca 3 đỏ trên code cũ (cũ ghi 12/2026; cũ gọi `formatMonthShort(undefined)`), ca 2 giữ hành vi kỳ đã qua. Có giá trị thật.
+- Chữ `chartHowTo.capacity` vi/en sửa nghĩa khớp, cùng key cũ (không thêm key).
+
+### V3.5 Kết luận vòng 3
+
+CAN SUA: chỉ còn lỗi P-2 ở V3.3 (MonthField + ManpowerPlanEditor + e2e 40). N-1 và NIT CapacityCard CHỐT.
+Sau khi sửa: chạy lại `npx tsc --noEmit`, `npm test`, `e2e/40-monthfield.spec.ts` (kèm ảnh lỗi) là đủ để tôi chốt.
+Tôi không commit file này (vai reviewer chỉ đọc).
+
+### V3.6 Soát lại sau bản vá 05c0313: CHỐT
+
+- Lỗi P-2 ở V3.3 đã vá đúng gốc:
+  - `src/components/ui/MonthField.tsx` thêm `onInvalidChange`, bật khi `commit` sai, tắt khi `commit` đúng, khi gõ lại và khi giá trị từ ngoài đổi.
+  - `src/components/form/ManpowerPlanEditor.tsx` giữ cờ `newMonthBad`, `onAddMonth` dừng sớm khi cờ bật (dòng 46), nên không còn thêm im lặng tháng gợi ý cũ và lỗi không bị xoá.
+  - Luồng gõ đúng rồi bấm thẳng "Thêm" vẫn chạy: blur áp dụng tháng mới trước khi click.
+- Test có giá trị thật:
+  - `e2e/40-monthfield.spec.ts` đếm số dòng trước và sau khi bấm, kiểm lỗi còn hiện, kiểm ô giữ `13/2027`.
+  - Thêm ca "gõ sai rồi bấm thẳng Thêm tháng (không Enter)".
+  - Theo luồng code cũ, cả hai ca đều đỏ vì bảng bị thêm một dòng.
+- NIT a11y: `aria-invalid` giờ xét cả `error || invalid`.
+- NIT `lastDataMonth` (`src/lib/detail-time.ts` dòng 48) giờ tính theo `m <= asOfMonth`.
+  Chỉ `DetailTimeBar` dùng giá trị này (chip mang số), nên không ảnh hưởng chỗ khác.
+  Mặc định N-1 không đổi, vì mốc mặc định = `capMonth`.
+  Có 2 test đơn vị mới: tháng trống giữa hai tháng có số cho kết quả 03; tháng trước mọi tháng có số cho kết quả null.
+- Số liệu tôi tự chạy:
+  - `npx tsc --noEmit`: sạch.
+  - `npx vitest run` (DB `_c`): 310/310 file, 3741 xanh, 1 bỏ qua, 0 đỏ.
+  - `npx playwright test e2e/40-monthfield.spec.ts`: 12/12 xanh (gồm 3 bước setup), ảnh ở `.bangiao/anh-p4-sua/`.
+- Không có dấu gạch dài trong diff, không đụng `app/globals.css`, không có key i18n mới.
+- Còn mở, không chặn: đề xuất "ngày nguồn lực mặc định = ngày gần nhất có số" ở V3.2, cần chủ dự án quyết nếu muốn.
+
+Kết luận vòng 3: CHỐT về kỹ thuật. Merge vào `main` vẫn cần chủ dự án đồng ý.
+Tôi không commit file này.

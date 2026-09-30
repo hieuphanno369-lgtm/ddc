@@ -3,6 +3,18 @@
 ## Giai đoạn hiện tại
 **Redesign giao diện "Apple Glass" (nhánh `feature/apple-glass-redesign`, tạo từ `main` sau khi Run 1 merge) — ĐANG CHẠY (bắt đầu 2026-09-23).** Run 1 — ERP data model v2 đã CHỐT + merge vào `main` (local, chưa push). Phase 2 Part B: Postgres local (5433) + swap mock→Prisma HOÀN TẤT. 4 trang nghiệp vụ mới + vá bảo mật P1-P6 (2026-09-20).
 
+### ✅ P4 - Logic số liệu, lọc theo kỳ ngày-ngày, mốc thời gian Chi tiết, nhập bù lịch sử, dấu "?" (Tài khoản C) - CHỐT + ĐÃ MERGE vào `main` (2026-09-30)
+Nhánh `feature/p4-logic-bo-loc`, từ `main` @ `2c20a95`; hồ sơ `.bangiao/archive/p4-logic-bo-loc-2026-09-30/`. Giữ nguyên style kính mờ, chủ dự án chốt D-1..D-25 và Q1..Q13 theo kế hoạch.
+Planner → coder đợt 1-3 → tester (3 lần) → security ĐẠT (S-1..S-3 Thấp, đã vá) → reviewer CẦN SỬA (C-1..C-4) → vá → reviewer CHỐT vòng 2 → chủ dự án duyệt N-1, P-2, mục 1/3/5 → coder N-1, P-2, NIT → reviewer vòng 3 CẦN SỬA 1 lỗi MonthField → vá `05c0313` → CHỐT.
+- **1 migration:** `20260929165146_p4_backfill_window` (chỉ thêm bảng `project_backfill_window`). Bên khác chạy `npx prisma migrate deploy` sau `git merge main`.
+- Logic số: L-1..L-5 (5 lỗi số), F-1..F-6 (xung đột bộ lọc) có test đỏ trước. Trang Báo cáo dùng chung kỳ với Tổng quan và chỉ liệt kê dự án trong kỳ; nhãn Excel khớp màn hình; `?month=all` im lặng về kỳ mặc định.
+- Tổng quan: thanh lọc kỳ ngày-ngày (`DateField` dd/mm/yyyy), KPI 2 nhóm, cột "Số liệu", chart theo kỳ với đoạn nét đứt cho tháng mang số sang, dấu "?" cho từng thẻ.
+- Chi tiết: mốc theo tháng và kỳ, điều hướng tuần, mặc định mốc = tháng hiện tại mang số sang (N-1) để cùng một số với Tổng quan, Brush khi hơn 12 tháng, dấu "?" cho Khâu nghẽn và Huy động nguồn lực. Hệ quả: ngày nguồn lực mặc định là hôm nay.
+- Nhập bù lịch sử (nhóm F): admin bật/tắt theo dự án với cửa sổ ngày, tối đa 24 tháng lịch chạm tới, khoá dòng dự án chống race, nhật ký `recordId` dạng `<projectId>/<id>`. Hướng dẫn `docs/huong-dan/nhap-bu-lich-su.md`.
+- `MonthField` mm/yyyy thay `input[type=month]` ở Kế hoạch nhân lực; gõ sai rồi bấm "Thêm tháng" không còn thêm dòng cũ. Rate limit theo IP cho `/api/report/export`; chỉ kỳ mặc định/tròn tháng ghi `unstable_cache`.
+- Số: tsc sạch, `npm test` 310 file / 3741 xanh + 1 skip (có real-db `_c`), e2e toàn bộ 367/367 (trước bản vá cuối; sau đó chạy lại 40, 33, 03 xanh).
+- Giới hạn đã biết (chủ dự án duyệt): Excel theo tháng chỉ báo dự án ngoài cửa sổ nhập bù ở bước Lưu; timeline Chi tiết dưới 560px xếp nhãn lên trên thanh; `app/globals.css:261` `.kpi .vl` nowrap chưa kiểm số rất lớn.
+
 ### ✅ P3F-T1 + rule Priority (Tài khoản C) - ĐÃ MERGE vào `main` (2026-09-29)
 Nhánh `feature/p3f-t1`, từ `main` @ `683a5a2` (đã gộp `main` @ `bdc0bbd` có P5-B hạ tầng); hồ sơ `.bangiao/archive/p3f-t1-priority-2026-09-29/` và `archive/p3f-dang-nhap-moi-2026-09-29/danh-gia-vong2.md` (reviewer vòng 2 P3F CHỐT). Không migration.
 - T1: "Quên mật khẩu" không còn huỷ link lời mời 72 giờ còn hạn; đặt mật khẩu bằng 1 link thì mọi link còn lại hỏng. Mọi thao tác token của 1 email khoá tư vấn theo email (`lockResetTokens`), vá thêm race TT-1 (mất lời mời) và deadlock TT-2, cả hai tái hiện đỏ trên DB thật trước khi sửa.
