@@ -462,3 +462,45 @@ Chưa làm, chờ chủ dự án: N-1 (mốc mặc định của Chi tiết), P-
 
 Kết quả kiểm sau vòng sửa mục 6: `npx tsc --noEmit` sạch; `npx vitest run` với `DATABASE_URL` của DB `_c`: 309 file xanh, 3697 test xanh, 1 bỏ qua, 0 đỏ.
 Chưa chạy lại e2e toàn bộ và build ở vòng này (S-3 đổi `recordId` nên `e2e/35-nhap-bu` cần tester chạy lại).
+
+## 7. Vòng sửa sau khi chủ dự án duyệt N-1, P-2 và NIT (2026-09-30 tối)
+
+Skill đã dùng: `coding-standards`, `frontend-patterns`, `test-driven-development`.
+Mỗi việc một commit, test đỏ trước rồi mới sửa. Nhánh `feature/p4-logic-bo-loc`, chưa push.
+
+### 7.1 Commit
+
+- `a6286d0` N-1: `src/lib/detail-time.ts`, `src/lib/detail-time.test.ts`, `src/server/queries-period.test.ts`, `e2e/33-chi-tiet-moc.spec.ts`, chú thích ở `app/[locale]/(app)/projects/[id]/page.tsx`.
+- `74a5ca1` P-2: `src/components/ui/MonthField.tsx` (mới), `src/lib/date-input.ts` (+ `formatMy`, `maskMy`, `parseMy`), `src/components/form/ManpowerPlanEditor.tsx`, `src/i18n/messages/vi.json` + `en.json` (nhóm mới `monthField` ở cuối file), test, `e2e/40-monthfield.spec.ts`.
+- `d20903b` NIT: `src/components/dashboard/OverviewWidgets.tsx`, `chartHowTo.capacity` ở `vi.json` + `en.json`, `src/components/dashboard/CapacityCard.test.ts` (mới).
+- Hồ sơ: mục này và mục 10.4 của `ket-qua-test.md` (ca "unique key" nay xanh sau `07da17a`).
+
+### 7.2 Đã sửa gì và vì sao
+
+- N-1: `resolveDetailTime` mặc định `asOfMonth = capMonth` (tháng chứa `min(cuối kỳ, hôm nay)`, tức tháng hiện tại với kỳ mặc định), không còn `lastDataMonth`. Tháng đó chưa có số thì mang số tháng trước sang (đã có sẵn ở `pickAsOf`, `readValueChainAsOf`), nên %KH, trạng thái, nguy cơ phạt ở Chi tiết cùng một số với dòng dự án ở Tổng quan (tính tại hôm nay). Kỳ kết thúc trước tháng hiện tại thì mốc = tháng cuối kỳ (không vượt cuối kỳ). `lastDataMonth` vẫn được trả về nên `DetailTimeBar` vẫn hiện chip nét vàng "Dùng số tháng mm/yyyy" khi mốc lớn hơn tháng có số gần nhất. Ngày nguồn lực mặc định giờ là `min(cuối tháng mốc, cuối kỳ hôm nay)`, tức hôm nay với kỳ mặc định (trước là cuối tháng có số gần nhất). Không đổi chart/KPI khác: mọi chỗ khác chỉ đọc `asOfMonth` đã giải quyết.
+- Đỏ trước của N-1: 6 ca (4 ở `detail-time.test.ts`, 2 ở `queries-period.test.ts`), báo mốc `2026-06` thay vì `2026-09`. Ca so sánh mới ở `queries-period.test.ts` so Chi tiết với Tổng quan cho dự án A (có số tháng hiện tại) và dự án B (chỉ có số tới 06, đang mang số) trên status, `pctActual`, `pctPlan`, `penalty`, `onTrack`, `dataState`.
+- P-2: `MonthField` mm/yyyy cùng họ `DateField`: gõ được (tự chèn "/", chấp nhận `9/2026`, `9-2026`, `092026`), Enter hoặc rời ô để áp dụng, sai báo lỗi (`monthField.invalid`, theo ngôn ngữ ứng dụng vi/en), `data-ready` cho e2e, `aria-invalid`, `role="alert"`. Nút lịch là `input[type=month]` gốc trong suốt, chỉ bật khi trình duyệt hỗ trợ (dò lúc mount), nên Firefox/Safari desktop chỉ còn gõ. Đã grep: `ManpowerPlanEditor` là chỗ duy nhất còn `input[type=month]`. Không đụng `app/globals.css` (dùng class `.inp`, `.hintline` có sẵn). Key i18n mới nằm trong nhóm `monthField` thêm vào CUỐI `vi.json`/`en.json`, không chèn giữa key có sẵn.
+- NIT: thẻ công suất ở Tổng quan ghi "Cách đọc" với khoảng tháng chỉ tới tháng mốc (`periodAsOfMonth`), kỳ bắt đầu sau hôm nay (không có tháng nào tới mốc) thì không ghi khoảng tháng (trước khi vá dòng này ném lỗi `undefined.slice`, test đỏ bắt được). Chữ `chartHowTo.capacity` (vi + en) nói rõ sản lượng tính từ đầu kỳ tới tháng mốc và tháng sau hôm nay chưa tính.
+
+### 7.3 Điểm lệch và lưu ý
+
+- Ô nhập ngày nguồn lực mặc định ở Chi tiết đổi theo N-1 (hôm nay thay vì cuối tháng có số gần nhất). Đây là hệ quả trực tiếp của mốc mới; nếu chủ dự án muốn giữ cuối tháng có số thì phải tách ngày khỏi mốc.
+- `MonthField` không có `min/max` và không có `allowEmpty` (YAGNI: chỗ dùng duy nhất không cần). Thêm khi có chỗ dùng thứ hai.
+- Ô tháng ở Nhập liệu (bước Số liệu tháng, `2026-09` thô, tester ghi nhận ở mục 10.5) là `<select>`, không thuộc P-2, chưa đổi.
+- Khi ô tháng báo lỗi, hàng "Thêm tháng" nhảy nhẹ theo chiều dọc vì dòng lỗi nằm dưới ô (cùng cách `DateField` đang làm); chưa chỉnh.
+- Hai file nóng `vi.json`, `en.json` đã giữ (A và B đều không giữ file nóng lúc đọc) và nhả sau commit.
+
+### 7.4 Chỗ Tester nên soi kỹ
+
+- Chi tiết mở không tham số ở dự án đang mang số: chip "Dùng số tháng ..." hiện, số %KH/%TT/trạng thái bằng dòng ở Tổng quan kỳ mặc định.
+- Chi tiết với `?to=` trước tháng hiện tại: mốc = tháng cuối kỳ; `?month=` vẫn kẹp trong kỳ.
+- Bảng Kế hoạch nhân lực (`/nhap-lieu?project=1&step=resources`): ô "Thêm tháng" gõ `092026`, `9/2026`, `13/2027`, tháng trùng, bản EN; ảnh `.bangiao/anh-p4-sua/o-thang-*.png` và `o-thang-loi-*.png` (1440, 390, sáng, tối).
+- Thẻ công suất ở Tổng quan với kỳ kéo sang tương lai: "Cách đọc" chỉ tới tháng hiện tại.
+
+### 7.5 Kết quả kiểm
+
+- `npx tsc --noEmit`: sạch, exit 0.
+- `npm test` với `DATABASE_URL` của DB `_c` (có real-db): 310 file xanh; 3739 test xanh, 1 bỏ qua, 0 đỏ (mốc trước 309 file, 3699 test).
+- e2e toàn bộ (`npx playwright test`, cổng 3003, DB `_c`, dev server do Playwright tự khởi và tắt, `--max-old-space-size=6144`): 367 xanh (gồm 3 ca setup), 0 đỏ, 0 chập chờn, 17,2 phút. Gồm `33-chi-tiet-moc`, `38-p4-vong-sua` (ca console "unique key" xanh), `36`, `37`, `39`, `03`, `34`, `40-monthfield` mới 8 ca.
+- Không chạy `npm run build`. Không cập nhật `PROGRESS.md`, `.serena/memories/`, `CHANGELOG`. Không push.
+- Việc bỏ qua: chưa thử chạm lịch gốc `input[type=month]` trên điện thoại thật, chưa thử Firefox/Safari (nhánh không có nút lịch).

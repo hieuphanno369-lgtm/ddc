@@ -257,7 +257,8 @@ Chưa đo trang Chi tiết theo kỳ dài.
 
 Nhánh `feature/p4-logic-bo-loc` @ `2f121f7`, DB `ddc_control_tower_c`, dev server cổng 3003 chạy tay với `--max-old-space-size=6144`.
 Skill đã dùng: `test-driven-development`, `verification-before-completion`.
-Kết luận: XANH về logic và giao diện của vòng sửa; ĐỎ có chủ đích 1 ca (lỗi React "unique key" trong console ở Chi tiết, mức thấp, chỉ thấy ở dev); 1 ca chập chờn hạ tầng.
+Kết luận (lúc test, @ `2f121f7`): XANH về logic và giao diện của vòng sửa; ĐỎ có chủ đích 1 ca (lỗi React "unique key" trong console ở Chi tiết, mức thấp, chỉ thấy ở dev); 1 ca chập chờn hạ tầng.
+CẬP NHẬT sau `07da17a` (coder, 2026-09-30): ca "unique key" nay XANH, xem 10.4; các mục 10.5 và 10.6 về dòng "Cách đọc" của thẻ công suất, N-1 và P-2 đã xử lý, xem cuối mục 10.4.
 
 ### 10.1 Số liệu từng bước
 
@@ -300,12 +301,9 @@ Kết luận: XANH về logic và giao diện của vòng sửa; ĐỎ có chủ
 
 ### 10.4 Ca đỏ và chập chờn
 
-- ĐỎ CÓ CHỦ ĐÍCH, lỗi sản phẩm mức thấp (chỉ ở dev): trang Chi tiết ghi lỗi console React `Each child in a list should have a unique "key" prop. Check the render method of CardHeader. It was passed a child from ProjectDetailPage.`
-- Test: `e2e/38-p4-vong-sua.spec.ts`, ca "C-4: trang Chi tiet khong bao loi React unique key trong console (dev)". Đỏ ở cả hai lần chạy toàn bộ và ở mọi lần chạy riêng (khoảng 10 đến 35 cảnh báo cho 6 trang).
-- Chưa chứng minh được gốc. Nghi ngờ mạnh do C-4: `titleExtra={<><span/><HelpTip/></>}` ở 2 thẻ `res-manpower`, `res-equipment` (và cụm badge kèm dấu "?" ở thẻ Chuỗi giá trị) là các Fragment nhiều con đầu tiên được truyền từ server component vào `CardHeader` (client component); trước C-4 mọi `titleExtra` chỉ có một con.
-- Tôi không so được với commit trước C-4 (dựng worktree cũ trên máy này không chạy được), nên đây là suy luận, chưa kiểm chứng.
-- Số cảnh báo mỗi lần tải thay đổi (0 đến 2 mỗi trang, không đều theo dự án), nên có thể lọt nếu chỉ tải ít trang; ca test tải 6 trang để tăng độ bắt.
-- Gợi ý vá cho coder: bọc hai con trong một `<span>` (hoặc gắn `key`) thay vì Fragment. Không ảnh hưởng bố cục.
+- ĐÃ XANH sau `07da17a` (coder vá; reviewer xác nhận ở `danh-gia.md` Vòng 2 mục V2.1): trước đó trang Chi tiết ghi lỗi console React `Each child in a list should have a unique "key" prop. Check the render method of CardHeader. It was passed a child from ProjectDetailPage.`
+- Test: `e2e/38-p4-vong-sua.spec.ts`, ca "C-4: trang Chi tiet khong bao loi React unique key trong console (dev)". Lúc tôi test đỏ ở mọi lần chạy (khoảng 10 đến 35 cảnh báo cho 6 trang); sau `07da17a` xanh (reviewer chạy 2 lượt, coder chạy lại ở vòng N-1/P-2, xem `thay-doi.md` mục 7).
+- Gốc lỗi (theo `07da17a` và reviewer): Fragment nhiều con không key đi từ server component qua ranh giới RSC sang `CardHeader` (client component) bị React dev coi như danh sách. Sửa ở `CardHeader` (bọc `titleExtra` và `action` trong `Fragment` có key, không thêm thẻ DOM), chữa cho mọi nơi dùng. Suy luận cũ của tôi ("nghi do C-4", gợi ý bọc `<span>`) đúng hướng; đã kiểm chứng bằng bản vá thay vì so commit cũ.
 - Ngoài ra ở dev mọi trang có lỗi hydration "nonce" (`<script nonce="...">` so với `nonce=""`). Đã có từ trước vòng này (CSP theo nonce), chỉ ở dev, không liên quan P4; ghi lại để khỏi nhầm với lỗi mới.
 - CHẬP CHỜN: `e2e/36-datefield-form.spec.ts:208` ("Ke hoach thiet bi (Nhap lieu)") lần chạy toàn bộ thứ 2 đỏ vì `page.goto('/vi/nhap-lieu?project=1&step=resources')` quá 60 giây (không có lỗi ứng dụng).
 - Lần chạy toàn bộ thứ 1 ca này xanh, chạy riêng cả file 36 xanh 16/16. Chưa rõ gốc, nghi dev server sau 20 phút tải; không phải lỗi P4.
@@ -320,7 +318,7 @@ Kết luận: XANH về logic và giao diện của vòng sửa; ĐỎ có chủ
 - Các tổ hợp còn lại chỉ kiểm bằng script (không cuộn ngang, không pageerror, bong bóng và thẻ trong khung nhìn), chưa nhìn bằng mắt.
 - Không thấy lệch pixel do vòng này gây ra: dấu "?" mới thẳng hàng với chip và badge, bong bóng nằm trong khung nhìn, thẻ nhật ký không tràn (ở 390 bảng cuộn ngang trong thẻ, như các bảng khác).
 - Ghi nhận ngoài phạm vi (không sửa): ô chọn tháng ở Nhập liệu hiển thị dạng thô `2026-09`, khác `09/2026` ở Chi tiết và Tổng quan.
-- Ghi nhận ngoài phạm vi: chú thích chart công suất ở Tổng quan ghi "Tháng 07/2026 - 12/2026" khi kỳ kéo sang tháng chưa tới, trong khi số liệu chỉ tính tới tháng hiện tại (chưa sửa dòng "Cách đọc" như reviewer gợi ý ở N-3).
+- Ghi nhận ngoài phạm vi: chú thích chart công suất ở Tổng quan ghi "Tháng 07/2026 - 12/2026" khi kỳ kéo sang tháng chưa tới, trong khi số liệu chỉ tính tới tháng hiện tại. ĐÃ SỬA ở `d20903b`: dòng "Cách đọc" chỉ ghi tới tháng mốc (ca mới `src/components/dashboard/CapacityCard.test.ts`).
 - Ghi nhận: chỉ báo lỗi của Next dev ("1 Issue", "3 Issues") hiện trên mọi ảnh, chỉ ở dev.
 
 ### 10.6 Việc bỏ qua hoặc chưa kiểm
@@ -328,5 +326,5 @@ Kết luận: XANH về logic và giao diện của vòng sửa; ĐỎ có chủ
 - Chưa chạy lại toàn bộ e2e lần 3 sau khi sửa spec N-3 (thay bằng chạy riêng như 10.1).
 - Chưa so với commit trước C-4 để kết luận gốc lỗi "unique key".
 - Chưa đo dung lượng cache ở quy mô lớn; chỉ đo số tệp trong `fetch-cache` với dữ liệu seed.
-- Chưa kiểm N-1, P-2 và các mục chờ chủ dự án ở `danh-gia.md` mục 6.
+- N-1 và P-2 (lúc test chưa kiểm vì chờ chủ dự án): chủ dự án đã duyệt, coder đã làm ở `a6286d0` (N-1) và `74a5ca1` (P-2); còn các mục 1, 3, 5 ở `danh-gia.md` mục 6 vẫn chờ chủ dự án.
 - Không kiểm trên điện thoại thật.
