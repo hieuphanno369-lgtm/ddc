@@ -117,3 +117,138 @@ Tôi không sửa code sản phẩm, chỉ thêm file test.
 - T-1: bắt buộc (test đang đỏ).
 - T-2, T-3: nên sửa, mức thấp.
 - T-4, T-5: pixel, coder tự cân đối (T-4 cần `globals.css`).
+
+---
+
+# P4 - Kết quả kiểm thử đợt 3 (tester, nhóm F nhập bù + nhóm G)
+
+Nhánh `feature/p4-logic-bo-loc`, gốc `e873042`, DB `ddc_control_tower_c`, dev server cổng 3003 (chạy tay với `NODE_OPTIONS=--max-old-space-size=6144`, không tự chết suốt suite).
+Skill đã dùng: `test-driven-development`, `verification-before-completion`.
+Tôi chỉ thêm file test, không sửa code sản phẩm.
+Kết luận: KHÔNG xanh hết.
+Có 2 lỗi sản phẩm ở ô ngày `DateField` (T-7, T-8), giữ đỏ có chủ đích (5 test đỏ).
+Toàn bộ logic nhập bù ở server (4 đường ghi, IDOR, biên, hết hạn, khoá sổ, nhãn nhật ký, Excel, race) xanh.
+
+## 1. Kết quả số thật
+
+- `npx tsc --noEmit`: sạch, exit 0.
+- `npm test` (không đặt `DATABASE_URL`), lần chạy đầu: 308 file (299 xanh, 2 đỏ, 7 bỏ qua); 3626 test (3553 xanh, 3 đỏ, 70 bỏ qua).
+- Trong 3 ca đỏ đó, 1 ca là chập chờn do CHÍNH test của tôi (`getAuditLog` sắp theo mili giây nên thứ tự enable/disable không ổn định). Đã sửa (so sánh theo tập), chạy lại file 6 lần liền xanh. Còn 2 ca đỏ có chủ đích (T-7).
+- `npx vitest run` với `DATABASE_URL` của DB `_c` (chạy cả real-db): 308 file (307 xanh, 1 đỏ); 3626 test (3623 xanh, 2 đỏ là đúng 2 ca T-7, 1 bỏ qua).
+- Sau khi chạy, DB `_c` không còn dòng `test-p4-%`, khoảng nhập bù, audit, activity rác, và tháng 2026-03 vẫn khoá đủ (kiểm bằng `mcp__postgres`, chỉ đọc).
+- e2e toàn bộ (`npx playwright test`, cổng 3003, DB `_c`): 317 xanh, 3 đỏ, 0 bỏ qua, 26,4 phút. Ba ca đỏ đều là ca có chủ đích của tôi ở `e2e/36-datefield-form.spec.ts` (T-7 một ca, T-8 hai ca). 0 chập chờn, 0 lỗi `ECONNREFUSED`.
+- `npm run build` với `NEXT_FONT_GOOGLE_MOCKED_RESPONSES=D:\_project\DDC_dieu-phoi\tools\font-mock.js`: exit 0, chỉ có cảnh báo webpack cache của `next-intl` (có sẵn). Đã xoá `.next` sau build và tắt dev server do tôi khởi động.
+- Không có script `lint` trong `package.json`, nên không chạy lint.
+
+## 2. File test đã thêm
+
+- `src/server/backfill-tester.qa.test.ts` (56 ca, mock repo).
+  - Quyền và IDOR trên 4 đường ghi (lưu ngày, lưu tháng, commit Excel ngày, commit Excel tháng) cho viewer, bod, chưa đăng nhập, data-entry không được gán.
+  - Khoảng dự án 1 không mở dự án 16 (không được gán) và không mở dự án 2 (được gán nhưng không có khoảng).
+  - Biên ngày: trước from, đúng from, đúng to, hôm sau to, khoảng 1 ngày, 2 khoảng rời nhau, today-7 và today-8, khoảng lọt vào tương lai vẫn chặn quá max.
+  - Biên khoảng: to = hôm nay, to = mai, from > to, đúng 24 tháng, 25 tháng, ghi chú 4/5/500/501 ký tự và toàn khoảng trắng, đối số sai kiểu, chuỗi SQL, năm 0000/9999, 5 kiểu khoảng chồng, bấm bật hai lần.
+  - Hết hạn đúng mốc 30 ngày (Date giả), tắt rồi bật lại, tắt khoảng dự án 1 không đóng dự án 2.
+  - Biên tháng: khoảng 31/03 đến 02/04 mở cả 03 và 04, tháng tương lai bị chặn, luật thuần "tháng trước" vào tháng 1.
+  - Khoá sổ: tháng khoá luôn `locked` (kể cả admin), khoảng chạy qua tháng khoá và tháng mở.
+  - Nhãn `audit_log` và `activity_log` cho cả 4 đường và bật/tắt, bản dịch vi/en của mọi nhãn nhập bù.
+  - Excel ngày có dòng ngoài khoảng, Excel tháng hai dự án chỉ một có khoảng.
+- `src/server/backfill-tester-real-db.qa.test.ts` (12 ca, Postgres thật qua server action, skip khi không có `DATABASE_URL`).
+  - Luồng bật, lưu ngày, lưu tháng, commit Excel tháng; IDOR trên DB thật.
+  - Hết hạn thật (đổi `expiresAt` về quá khứ, kể cả đúng bằng bây giờ).
+  - Khoá sổ thật (mở khoá tạm tháng 2026-03 rồi trả nguyên `snapshotLockedAt`).
+  - Ba ca race.
+- `src/lib/date-input-tester.qa.test.ts` (9 ca): chuỗi phím qua `maskDmy` rồi `parseDmy` đúng như `DateField` làm; 2 ca đỏ T-7.
+- `e2e/36-datefield-form.spec.ts` (13 ca, 10 xanh, 3 đỏ): `DateField` ở Sửa dự án, Tạo dự án, Mốc chính, Kế hoạch thiết bị; 3 ca đỏ (T-7, T-8).
+- `e2e/37-p4-f-anh.spec.ts` (28 ca xanh): chụp và tự kiểm (không cuộn ngang, không `pageerror`, badge không rớt dòng, thẻ nhập bù không tràn) cho Tổng quan, Chi tiết, Báo cáo, Nhập liệu (2 bước), Hồ sơ dự án ở 1440 và 390, sáng và tối. Ảnh ở `.bangiao/anh-p4-f/` (32 ảnh, chưa commit như các thư mục ảnh trước).
+- `src/server/perf-period-bench.qa.test.ts` (4 ca, skip khi không có `DATABASE_URL`): đo hiệu năng theo kỳ 1, 12, 120 tháng.
+
+## 3. Lỗi sản phẩm cần coder sửa
+
+### T-7 (thấp đến trung bình, nhập ngày) - gõ hoặc dán "1/2/2026" thành "12/20/26" rồi báo sai
+
+- Test đỏ: `src/lib/date-input-tester.qa.test.ts` 2 ca "(BUG T-7)", và `e2e/36-datefield-form.spec.ts` ca "(BUG T-7) dan 1/2/2026".
+- Nguyên nhân: `parseDmy` chấp nhận d/m/yyyy, nhưng mọi ký tự gõ hay dán trong `DateField` đều qua `maskDmy` (chỉ giữ chữ số rồi chèn "/") trước khi tới `parseDmy`. "1/2/2026" thành chữ số `122026`, rồi `12/20/26`, và bị báo "Ngày không hợp lệ".
+- Ảnh hưởng: người dùng gõ ngày không đệm số 0, hoặc dán ngày dạng d/m/yyyy từ Excel, đều bị báo lỗi. Gõ đủ `01/02/2026` hoặc 8 chữ số liền thì đúng.
+- Nghi gốc: `src/lib/date-input.ts` `maskDmy` (dòng 22-28) và `DateField.tsx` `onChange` (`setText(maskDmy(...))`).
+
+### T-8 (trung bình, mất dữ liệu nhập im lặng) - sau Enter, lần rời ô kế tiếp không được áp dụng
+
+- Test đỏ: `e2e/36-datefield-form.spec.ts` hai ca "(BUG T-8)".
+- Tái hiện 1: ở Sửa dự án, ô Ngày ký HĐ gõ `20112025` rồi Enter (đúng), gõ tiếp `21112025` rồi bấm "Lưu thay đổi" (không Enter lần 2). DB vẫn giữ 2025-11-20, giá trị sửa sau cùng bị mất mà không báo gì.
+- Tái hiện 2: gõ `31022026` rồi Enter (báo lỗi), gõ tiếp `3102` rồi Tab. Không báo lỗi lần 2.
+- Nguyên nhân: `onKeyDown` Enter đặt `skipBlur.current = true` để bỏ qua blur kế tiếp, nhưng Enter không làm ô mất tiêu điểm nên cờ không bao giờ được reset. Lần rời ô THẬT sau đó (Tab hoặc bấm nút Lưu) bị nuốt.
+- Ở trang mới, chưa từng Enter, thì Tab và bấm Lưu đều đúng (đã có ca xanh chứng minh).
+- Nghi gốc: `src/components/ui/DateField.tsx` (`skipBlur`, `onKeyDown`, `onBlur`).
+
+## 4. Lệch pixel và điểm nhỏ (không có test đỏ)
+
+- P-1 (pixel, thẻ nhập bù ở Hồ sơ dự án, code sản phẩm): tiêu đề "Nhập bù lịch sử" bị ép hẹp cạnh câu mô tả. Ở 1440px rớt thành "Nhập bù lịch / sử", ở 390px thành 4 dòng "Nhập / bù / lịch / sử". Ảnh: `.bangiao/anh-p4-f/hs-the-1440-light.png`, `hs-the-390-dark.png`. Nghi gốc: `BackfillPanel.tsx` (`.fsec .h` xếp h4 và p cạnh nhau). Gợi ý: cho h4 không co (`white-space: nowrap`) hoặc xếp p xuống dưới ở màn hẹp.
+- P-2 (thấp, có sẵn từ trước P4): ô `input[type=month]` gốc ở "Kế hoạch nhân lực theo tháng" hiện "January 2027" (tiếng Anh) trên trang tiếng Việt, vì theo ngôn ngữ giao diện trình duyệt. Cùng gốc với T-6 vòng trước. Ảnh: `nl-1440-light.png`.
+- P-3 (thấp, có sẵn): ở 390px nhãn "Áp dụng" của bước "Tiến độ tháng" rớt 2 dòng, ô chọn dự án cắt chữ "10626-00...". Ảnh: `nl-thang-390-light.png`.
+- Đã soi và không thấy lệch: badge vàng "Đang nhập bù" một dòng ở 1440 và 390, sáng và tối; thẻ nhập bù không tràn khung (kiểm bằng script cho mọi phần tử con); ô ngày dd/mm/yyyy và biểu tượng lịch thẳng hàng; Tổng quan, Chi tiết, Báo cáo giữ nguyên các chỗ đã sửa ở vòng trước (dấu "?" không rớt dòng, hai thẻ Doanh thu và Sản lượng cùng cao).
+- Ảnh `fullPage` có dải nền gradient cắt ở mép viewport và huy hiệu "1 Issue" của Next dev đè lên nội dung: do chụp full page với nền `fixed` ở chế độ dev, không phải lỗi sản phẩm.
+
+## 5. Điểm lệch coder nêu: bước xem trước Excel
+
+- Tên hàm trong `thay-doi.md` là `previewImportAction`, nhưng hàm thật của Excel THÁNG là `importExcelAction` (Excel NGÀY là `previewDailyImportAction`).
+- `importExcelAction` không nhận tham số tháng nên KHÔNG thể báo `out_of_window`. Kiểm thực tế: PIC xem trước file có dự án được gán vẫn `mapped`, `reason: null`, bất kể dự án đó có khoảng nhập bù hay không.
+- Luật tháng chỉ chặn ở `commitImportAction`: dự án ngoài khoảng vào mảng `failed` với `reason: 'out_of_window'`, dự án có khoảng vẫn ghi. Đã khoá bằng ca "MO TA HANH VI".
+- Excel NGÀY khác: `previewDailyImportAction` báo `out_of_window` đúng dòng, dòng khác vẫn `ok`, commit chặn cả lô nếu có ngày ngoài khoảng. Ca xanh.
+- Kết luận: hành vi đúng kế hoạch F4 ("sau lọc owned" ở commit). Nếu chủ dự án muốn báo sớm ở bước xem trước Excel tháng thì cần thêm ô chọn tháng ở bước xem trước, đó là việc code.
+
+## 6. Ca race thật
+
+- Ca cũ của coder (3 lần tạo đồng thời cùng khoảng) không phát hiện được việc bỏ khoá. Tôi đo độ nhạy: dựng bản sao logic KHÔNG khoá dòng `dim_project` (kiểm trùng rồi ghi, cùng transaction READ COMMITTED) và cho 6 lần tạo đồng thời. Có 2 khoảng thành công ở 29 trên 30 vòng. (Phép đo chạy bằng script tạm, đã xoá, dữ liệu tạm đã dọn.)
+- Trên code sản phẩm (có `FOR UPDATE`), ca mới của tôi (6 lần bật đồng thời, 15 vòng): mỗi vòng đúng 1 thành công, 5 `overlap`, đúng 1 dòng hiệu lực.
+- Ca 4 khoảng gác nhau đồng thời (10 vòng): không bao giờ có 2 khoảng hiệu lực chồng nhau.
+- Ca 5 lần tắt cùng 1 khoảng đồng thời: 1 `ok`, 4 `already`, đúng 1 dòng audit `disable`.
+- Bản không khoá đỏ 29/30 còn bản có khoá xanh 15/15, nên ca mới chứng minh được khoá có tác dụng (khác ca cũ chỉ là kiểm khói).
+
+## 7. G1: hiệu năng
+
+DB `_c`, seed thường: 17 dự án, 204 dòng `fact_progress_monthly`, 204 `fact_financial`, 84 `fact_daily_manpower`, 70 `fact_daily_equipment_usage`.
+`EXPLAIN (ANALYZE, BUFFERS)` chạy trong transaction chỉ đọc. Có thêm bản `SET LOCAL enable_seqscan = off` để xem index có dùng được không, vì bảng quá nhỏ nên planner chọn Seq Scan là hợp lý.
+
+| Hàm | Kế hoạch chọn | Thời gian thực thi | Buffers |
+|---|---|---|---|
+| `readFactSnapshotsAsOf('2026-09')` | Nested Loop, Index Scan Backward `ux_fact_progress_latest` (LATERAL LIMIT 1, 17 vòng) | 0,090 ms | shared hit 52 |
+| `readFactSeries` kỳ 120 tháng, 17 dự án | Append: Seq Scan (bảng 204 dòng) + LATERAL Index Scan `ux_fact_progress_latest`. Ép tắt seqscan thì Bitmap Index Scan trên cùng index | 0,180 ms (ép index 0,194 ms) | 47 (ép index 75) |
+| `readFactSeries` kỳ 12 tháng | như trên | 0,164 ms | 41 |
+| `readRevenueInRange` 120 tháng | HashAggregate trên Seq Scan. Ép tắt seqscan thì Bitmap Index Scan `fact_financial_yearMonth_projectId_idx` | 0,093 ms (ép index 0,110 ms) | 4 (ép index 8) |
+| `readLastDailyDate` nhân lực (dự án 1) | Index Only Scan Backward `fact_daily_manpower_projectId_workDate_idx`, Heap Fetches 0 | 0,542 ms lần đầu, 0,023 ms lần sau | 2 |
+| `readLastDailyDate` thiết bị (dự án 1) | Index Only Scan Backward `fact_daily_equipment_usage_projectId_workDate_idx`, Heap Fetches 0 | 0,122 ms | 2 |
+
+Ý nghĩa: cả 4 truy vấn có index dùng được và dùng đúng (LATERAL với `ORDER BY ... DESC LIMIT 1` đi theo index, `readLastDailyDate` là index-only).
+Với bảng 200 dòng, Seq Scan ở `readFactSeries` và `readRevenueInRange` là lựa chọn đúng của planner, chưa nói được gì về quy mô lớn.
+
+`npx tsx scripts/perf/bench-data.ts` KHÔNG chạy được trên DB `_c`.
+Script in "Khong tim thay du an PERF-0001 - chay `npm run perf:seed` truoc." rồi thoát, vì cần dự án PERF-0001 của `perf:seed`, chỉ chạy được trên DB `_b` (đúng guard).
+Script cũng hardcode tháng hiện tại và `'all'` (kỳ rác, rơi về mặc định), không nhận kỳ 12 hay 120 tháng.
+Vì vậy tôi thêm `src/server/perf-period-bench.qa.test.ts` đo đúng các hàm của trang Tổng quan (không qua `unstable_cache`, 5 vòng, ms):
+
+| Kỳ | Hàm chậm nhất theo median | Cả trang (Promise.all) median / max |
+|---|---|---|
+| 1 tháng (09/2026) | `getPortfolioKpis` 6 (max 218 ở vòng đầu nạp module) | 15 / 17 |
+| 12 tháng (10/2025 đến 09/2026) | `getPortfolioKpis` 4 | 14 / 16 |
+| 120 tháng (10/2016 đến 09/2026) | `getSpiCpiTrend` 3 | 15 / 18 |
+
+Kỳ 120 tháng không chậm hơn 12 tháng rõ rệt trên dữ liệu seed. Bảng từng hàm đầy đủ in ra khi chạy file.
+
+GIỚI HẠN: seed `_c` chỉ có 17 dự án và khoảng 200 dòng mỗi bảng fact, nên CHƯA đo trên 10 triệu dòng.
+Số đo 10 triệu dòng cần `npm run perf:seed` trên DB `_b`. Guard chỉ cho DB `_b`, tôi không chạy và không nới guard, không đụng DB `_a`, `_b`.
+Điều phối cần nhờ chủ dự án cho phép hoặc nhờ B đo trên `_b` nếu muốn có số đó.
+Chưa đo trang Chi tiết theo kỳ dài.
+
+## 8. Việc bỏ qua hoặc chưa kiểm
+
+- Chưa kiểm chạm lịch gốc trên điện thoại thật (iOS Safari, Android Chrome): không có thiết bị, chỉ có Chromium desktop và viewport 390px.
+- Chưa kiểm ô ngày với trình duyệt giao diện tiếng Anh. Ô là `input[type=text]` nên về nguyên lý độc lập ngôn ngữ, nhưng chỉ chạy ở Chromium mặc định.
+- Chưa kiểm mutation trên code sản phẩm (không được sửa code sản phẩm). Độ nhạy chỉ chứng minh cho ca race (mục 6); các ca khác dựa vào việc khẳng định giá trị cụ thể (mã lỗi, `recordId`, `action`).
+- Đã soi ảnh bằng mắt: Tổng quan 1440 tối, Chi tiết 390 sáng, Báo cáo 1440 sáng, Nhập liệu 1440 sáng và 390 tối, Nhập liệu tháng 390 sáng, Hồ sơ 390 sáng, các thẻ nhập bù ở 1440 sáng và 390 tối. Các tổ hợp còn lại chỉ được kiểm bằng script (không cuộn ngang, không lỗi trang), chưa nhìn bằng mắt.
+
+## 9. Việc coder cần làm trước khi qua Reviewer
+
+- T-8: bắt buộc (mất dữ liệu nhập im lặng, 2 test đỏ).
+- T-7: nên sửa (1 e2e và 2 unit đỏ).
+- P-1: nên sửa (pixel, thẻ nhập bù).
+- P-2, P-3: tuỳ coder.
