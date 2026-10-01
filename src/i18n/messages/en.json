@@ -1493,5 +1493,11 @@
     "placeholder": "mm/yyyy",
     "invalid": "Invalid month, enter it as mm/yyyy",
     "pick": "Pick a month from the calendar"
+  },
+  "projectsEmpty": {
+    "title": "No projects yet",
+    "body": "Create the first project to see its progress, manpower and cost details.",
+    "bodyNoCreate": "Project details will appear here once an administrator creates a project.",
+    "create": "Create new project"
   }
 }
