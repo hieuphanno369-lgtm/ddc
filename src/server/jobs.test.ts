@@ -44,11 +44,13 @@ describe('pruneAuthData trong runJob (K19)', () => {
     try {
       const before = Date.now();
       await runJob('alerts_daily', 'cron');
+      const after = Date.now();
       expect(spy).toHaveBeenCalledTimes(1);
-      const beforeIso = spy.mock.calls[0][0];
-      const deltaMs = before - Date.parse(beforeIso);
-      expect(deltaMs).toBeGreaterThanOrEqual(24 * 3_600_000 - 1000);
-      expect(deltaMs).toBeLessThanOrEqual(24 * 3_600_000 + 5000);
+      const cutoff = Date.parse(spy.mock.calls[0][0]);
+      // Mốc = giờ lúc job chạy trừ 24h; giờ đó nằm giữa 2 lần đọc đồng hồ quanh lời gọi, nên chặn theo [before, after]
+      // thay vì dung sai cố định (job chạy chậm vài giây khi máy tải nặng thì dung sai cố định 1s bị vỡ).
+      expect(cutoff).toBeGreaterThanOrEqual(before - 24 * 3_600_000);
+      expect(cutoff).toBeLessThanOrEqual(after - 24 * 3_600_000);
     } finally {
       spy.mockRestore();
     }
@@ -75,10 +77,11 @@ describe('don dang ky cho qua 14 ngay trong runJob (S3)', () => {
     try {
       const before = Date.now();
       await runJob('alerts_daily', 'cron');
+      const after = Date.now();
       expect(spy).toHaveBeenCalledTimes(1);
-      const deltaMs = before - Date.parse(spy.mock.calls[0][0]);
-      expect(deltaMs).toBeGreaterThanOrEqual(14 * 24 * 3_600_000 - 1000);
-      expect(deltaMs).toBeLessThanOrEqual(14 * 24 * 3_600_000 + 5000);
+      const cutoff = Date.parse(spy.mock.calls[0][0]);
+      expect(cutoff).toBeGreaterThanOrEqual(before - 14 * 24 * 3_600_000);
+      expect(cutoff).toBeLessThanOrEqual(after - 14 * 24 * 3_600_000);
       expect(log).toHaveBeenCalledWith({ name: 'system', email: 'system' }, 'signup_expire', '3');
     } finally {
       spy.mockRestore();

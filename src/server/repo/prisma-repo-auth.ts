@@ -2,6 +2,7 @@ import { prisma } from '@/server/db';
 import { Prisma } from '@prisma/client';
 import { resetTokenKindOf, type ResetTokenKind } from '@/lib/login-policy';
 import type { AuthAccountState, AuthStore, Role } from './types';
+import { AUTH_TX_OPTIONS } from './auth-tx';
 
 /** Date | null → ISO string | null (khớp `prisma-repo.ts`). */
 const iso = (d: Date | null | undefined): string | null => (d ? d.toISOString() : null);
@@ -116,7 +117,7 @@ export const prismaAuthStore: AuthStore = {
       // đã đổi qua đường khác thì link đặt lại cũ không còn lý do để dùng.
       await tx.passwordResetToken.updateMany({ where: { email, usedAt: null }, data: { usedAt: now } });
       return result.count > 0;
-    });
+    }, AUTH_TX_OPTIONS);
   },
 
   // R3-1 (bao-mat.md vòng 3, Trung) - compare-and-swap: chỉ `updateMany` khi `passwordHash` hiện tại
@@ -135,7 +136,7 @@ export const prismaAuthStore: AuthStore = {
       if (result.count === 0) return false;
       await tx.passwordResetToken.updateMany({ where: { email, usedAt: null }, data: { usedAt: now } });
       return true;
-    });
+    }, AUTH_TX_OPTIONS);
   },
 
   // R4-1a (bao-mat.md vòng 4, Trung, chốt chủ dự án 2026-09-28) - thu hồi mọi phiên: bump
@@ -168,7 +169,7 @@ export const prismaAuthStore: AuthStore = {
       if ((account.failedLoginCount ?? 0) + held >= threshold) return null;
       const created = await tx.authThrottle.create({ data: { kind, key: email, createdAt: new Date(nowIso) } });
       return created.id;
-    });
+    }, AUTH_TX_OPTIONS);
   },
 
   async recordThrottle(kind, key, nowIso) {
@@ -190,7 +191,7 @@ export const prismaAuthStore: AuthStore = {
       if (count >= limit) return null;
       const created = await tx.authThrottle.create({ data: { kind, key, createdAt: new Date(nowIso) } });
       return created.id;
-    });
+    }, AUTH_TX_OPTIONS);
   },
 
   async releaseThrottle(id) {
@@ -223,7 +224,7 @@ export const prismaAuthStore: AuthStore = {
       await tx.passwordResetToken.create({
         data: { email, tokenHash, expiresAt: new Date(expiresAtIso), requestIp },
       });
-    });
+    }, AUTH_TX_OPTIONS);
   },
 
   async peekResetToken(tokenHash, nowIso) {
@@ -273,7 +274,7 @@ export const prismaAuthStore: AuthStore = {
       await tx.passwordResetToken.updateMany({ where: { email: account.email, usedAt: null }, data: { usedAt: now } });
 
       return { ok: true as const, email: account.email, name: account.name, locked };
-    });
+    }, AUTH_TX_OPTIONS);
   },
 
   async pruneAuthData(beforeIso) {

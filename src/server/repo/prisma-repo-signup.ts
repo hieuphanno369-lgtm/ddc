@@ -7,6 +7,7 @@ import {
   type SignupRequestRow,
   type SignupStore,
 } from './signup-types';
+import { AUTH_TX_OPTIONS } from './auth-tx';
 
 /** Ném ra từ trong giao dịch để hoàn tác khi email đã có tài khoản (P2002 ở `userRole.create`). */
 class DuplicateAccountError extends Error {}
@@ -79,7 +80,7 @@ export const prismaSignupStore: SignupStore = {
         if (inUse > 0) return { inUse };
         await tx.department.delete({ where: { id } });
         return 'ok' as const;
-      });
+      }, AUTH_TX_OPTIONS);
     } catch (e) {
       // I1: có đăng ký chen vào giữa lúc đếm và lúc xoá, FK RESTRICT chặn đúng, trả `in_use` thay vì lỗi 500.
       if (isKnown(e, 'P2003')) return { inUse: 1 };
@@ -159,7 +160,7 @@ export const prismaSignupStore: SignupStore = {
           throw e;
         }
         return { email: req.email, name: req.name, locale: req.locale === 'en' ? ('en' as const) : ('vi' as const) };
-      });
+      }, AUTH_TX_OPTIONS);
     } catch (e) {
       if (e instanceof DuplicateAccountError) return 'duplicate_account';
       if (isKnown(e, 'P2025')) return 'not_found';

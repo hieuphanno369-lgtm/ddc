@@ -195,5 +195,7 @@ describe('assertXlsxInflatedSize (H-1b, chong zip bomb)', () => {
 
     expect(res).toBe(false);
     expect(elapsed).toBeLessThan(2000);
-  });
+    // Dựng zip 45MB (DEFLATE mức 9) nằm NGOÀI phép đo `elapsed` nhưng nằm trong hạn test: máy tải nặng dựng mất hơn 5s
+    // (hạn mặc định), nên nới hạn test; ngưỡng 2000ms của phép đo thật vẫn giữ nguyên.
+  }, 60_000);
 });

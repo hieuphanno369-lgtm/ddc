@@ -1494,6 +1494,9 @@
     "invalid": "Tháng không hợp lệ, nhập dạng mm/yyyy",
     "pick": "Chọn tháng từ lịch"
   },
+  "loginBusy": {
+    "systemBusy": "Hệ thống đang bận, vui lòng thử lại sau."
+  },
   "projectsEmpty": {
     "title": "Chưa có dự án nào",
     "body": "Tạo dự án đầu tiên để xem chi tiết tiến độ, nhân lực và chi phí.",

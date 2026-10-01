@@ -53,6 +53,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.restoreAllMocks();
 });
 
 describe('checkCredentials - khoa tai khoan sau 5 lan sai', () => {
@@ -492,5 +493,23 @@ describe('checkCredentials - G2 (vong sua bao mat 3): chuan hoa email truoc khi 
 
     const count = await store.countThrottle('login_fail_unknown_email', 'la@daidung.com.vn', '2000-01-01T00:00:00.000Z');
     expect(count).toBe(3); // ca 3 bien the deu quy ve cung 1 khoa da chuan hoa
+  });
+});
+
+describe('checkCredentials - loi he thong duoc nem len (sua loi P2028, khong doi hanh vi)', () => {
+  it('reserveAccountGuess loi -> reject, KHONG goi registerFailedLogin', async () => {
+    const store = createMemoryAuthStore(makeSource([account()]));
+    vi.spyOn(store, 'reserveAccountGuess').mockRejectedValueOnce(new Error('P2028 gia'));
+    const reg = vi.spyOn(store, 'registerFailedLogin');
+    await expect(checkCredentials(store, { email: 'a@daidung.com.vn', password: REAL_PW, ip: '1.1.1.1' }, T0)).rejects.toThrow('P2028 gia');
+    expect(reg).not.toHaveBeenCalled();
+  });
+
+  it('registerFailedLogin loi (sai mat khau) -> reject, cho doan van duoc rut trong finally', async () => {
+    const store = createMemoryAuthStore(makeSource([account()]));
+    vi.spyOn(store, 'registerFailedLogin').mockRejectedValueOnce(new Error('db down'));
+    const release = vi.spyOn(store, 'releaseThrottle');
+    await expect(checkCredentials(store, { email: 'a@daidung.com.vn', password: 'sai', ip: '1.1.1.2' }, T0)).rejects.toThrow('db down');
+    expect(release).toHaveBeenCalledTimes(1);
   });
 });

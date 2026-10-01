@@ -266,6 +266,16 @@ describe('GET /api/report/export - phân quyền và nội dung file', () => {
     const reqWith = (fakeFirst: string) =>
       ROUTE_GET(new Request('http://localhost/api/report/export', { headers: { 'x-forwarded-for': `${fakeFirst}, ${REAL_IP}` } }));
 
+    // Cửa sổ giới hạn là 60 GIÂY THẬT (`Date.now()` trong `rate-limit.ts`), mà mỗi request xuất 1 file Excel: máy tải nặng
+    // thì 30 request kéo dài quá 60s, cửa sổ hết hạn giữa chừng và request thứ 31 lại được 200. Đóng băng riêng `Date`
+    // (timer thật vẫn chạy cho exceljs) để test không phụ thuộc tốc độ máy.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'], now: new Date() });
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
     it('quá 30 lần trong 60 giây thì 429 kèm Retry-After, đổi phần tử đầu XFF không né được', async () => {
       login(ADMIN);
       for (let i = 0; i < 30; i++) expect((await reqWith(`10.2.0.${i}`)).status).toBe(200);

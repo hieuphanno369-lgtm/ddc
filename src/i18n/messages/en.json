@@ -1494,6 +1494,9 @@
     "invalid": "Invalid month, enter it as mm/yyyy",
     "pick": "Pick a month from the calendar"
   },
+  "loginBusy": {
+    "systemBusy": "The system is busy, please try again later."
+  },
   "projectsEmpty": {
     "title": "No projects yet",
     "body": "Create the first project to see its progress, manpower and cost details.",

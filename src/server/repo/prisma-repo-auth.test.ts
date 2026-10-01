@@ -26,7 +26,7 @@ const {
   const authThrottleDeleteMany = vi.fn(async (): Promise<{ count: number }> => ({ count: 0 }));
   const executeRaw = vi.fn(async () => 1);
   const calls: string[] = [];
-  const transaction = vi.fn(async (fn: (tx: unknown) => unknown) =>
+  const transaction = vi.fn(async (fn: (tx: unknown) => unknown, _opts?: unknown) =>
     fn({
       userRole: { findUnique: userRoleFindUnique, update: userRoleUpdate, updateMany: userRoleUpdateMany },
       passwordResetToken: {
@@ -66,6 +66,7 @@ vi.mock('@/server/db', () => ({
 }));
 
 import { prismaAuthStore } from './prisma-repo-auth';
+import { AUTH_TX_OPTIONS } from './auth-tx';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -542,5 +543,34 @@ describe('peekResetTokenKind (loai link suy tu han da luu, chi doc)', () => {
     expect(await prismaAuthStore.peekResetTokenKind('h', NOW_ISO)).toBeNull();
     passwordResetTokenFindUnique.mockResolvedValueOnce(row('2026-09-28T00:00:00.000Z', '2026-10-01T00:00:00.000Z', { user: { isActive: true, passwordHash: '' } }));
     expect(await prismaAuthStore.peekResetTokenKind('h', NOW_ISO)).toBeNull();
+  });
+});
+
+describe('AUTH_TX_OPTIONS - moi giao dich auth dung chung 1 han (sua loi P2028)', () => {
+  const lastOpts = () => transaction.mock.calls.at(-1)?.[1];
+
+  it('setPassword', async () => {
+    await prismaAuthStore.setPassword('a@daidung.com.vn', 'h', true, NOW_ISO);
+    expect(lastOpts()).toBe(AUTH_TX_OPTIONS);
+  });
+  it('setPasswordIfHash', async () => {
+    await prismaAuthStore.setPasswordIfHash('a@daidung.com.vn', 'cu', 'moi', NOW_ISO);
+    expect(lastOpts()).toBe(AUTH_TX_OPTIONS);
+  });
+  it('reserveAccountGuess', async () => {
+    await prismaAuthStore.reserveAccountGuess('a@daidung.com.vn', NOW_ISO, NOW_ISO, 5);
+    expect(lastOpts()).toBe(AUTH_TX_OPTIONS);
+  });
+  it('reserveThrottle', async () => {
+    await prismaAuthStore.reserveThrottle('login_fail_ip', '1.2.3.4', NOW_ISO, NOW_ISO, 20);
+    expect(lastOpts()).toBe(AUTH_TX_OPTIONS);
+  });
+  it('replaceResetToken', async () => {
+    await prismaAuthStore.replaceResetToken('a@daidung.com.vn', 'th', '2026-09-28T00:30:00.000Z', '1.2.3.4');
+    expect(lastOpts()).toBe(AUTH_TX_OPTIONS);
+  });
+  it('consumeResetToken', async () => {
+    await prismaAuthStore.consumeResetToken('th', 'h', NOW_ISO);
+    expect(lastOpts()).toBe(AUTH_TX_OPTIONS);
   });
 });
