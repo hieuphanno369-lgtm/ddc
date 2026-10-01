@@ -330,7 +330,8 @@ export function ProjectForm(p: ProjectFormProps) {
   const total = FORM_COUNT_FIELDS.length;
 
   return (
-    <div ref={formRef}>
+    // space-y-5: các thẻ trong form cách nhau như các thẻ cùng cấp của trang (page.tsx bọc form bằng space-y-5).
+    <div ref={formRef} className="space-y-5">
       <div className="card rise overflow-visible">
         <div className="hd">
           <h3>{mode === 'new' ? t('projectForm.title.new') : t('projectForm.title.edit', { name: project?.projectName ?? '' })}</h3>

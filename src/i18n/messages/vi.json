@@ -1493,5 +1493,11 @@
     "placeholder": "mm/yyyy",
     "invalid": "Tháng không hợp lệ, nhập dạng mm/yyyy",
     "pick": "Chọn tháng từ lịch"
+  },
+  "projectsEmpty": {
+    "title": "Chưa có dự án nào",
+    "body": "Tạo dự án đầu tiên để xem chi tiết tiến độ, nhân lực và chi phí.",
+    "bodyNoCreate": "Khi quản trị viên tạo dự án, chi tiết sẽ hiện ở đây.",
+    "create": "Tạo dự án mới"
   }
 }
