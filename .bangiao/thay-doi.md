@@ -161,12 +161,13 @@ Không sửa CSS (kế hoạch cấm đổi giao diện); nếu chủ dự án m
 - `e2b12d2` Task 2: `system_busy`, `loginErrorKey`, nhóm i18n `loginBusy`, e2e 42.
 - `ab92c3d` Ghi danh sách commit vào `thay-doi.md`.
 - `07b82f0` Tester: test `system_busy`, e2e 42 giữ lock theo hàng đợi thật, sửa 4 test chập chờn do tải máy.
+- `a4ec946` Vòng sửa 1: bỏ mật khẩu khỏi comment, làm rõ JSDoc `auth-tx.ts`, cập nhật `thay-doi.md`.
 
 ## Vòng sửa 1 (theo `danh-gia.md`)
 
 - `src/server/repo/prisma-repo-auth-tx-real-db.test.ts:4`: bỏ mật khẩu Postgres khỏi chuỗi kết nối trong comment, thay bằng `<mat-khau>`.
 - `.bangiao/ke-hoach.md` (dòng 133, 235): cùng sửa như trên, trước khi chuyển vào archive.
 - `src/server/repo/auth-tx.ts`: JSDoc ghi rõ hạn 20s không cắt lúc đang chờ `pg_advisory_xact_lock`, chặn trần lúc chờ lock là task sau (S1).
-- Bổ sung `ab92c3d`, `07b82f0` và commit vòng sửa này vào mục "Các commit".
+- Bổ sung `ab92c3d`, `07b82f0` và `a4ec946` (commit vòng sửa này) vào mục "Các commit".
 - Không làm mục "Task sau", không đổi câu chữ thông báo bận (chờ chủ dự án quyết).
 - Lưu ý cho Reviewer: mật khẩu vẫn còn trong lịch sử của commit `3f59e02` trên nhánh này; bản sửa chỉ xoá khỏi nội dung hiện tại, không viết lại lịch sử.
