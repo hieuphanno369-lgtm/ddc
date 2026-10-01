@@ -154,3 +154,8 @@ Không sửa CSS (kế hoạch cấm đổi giao diện); nếu chủ dự án m
 5. 390px: thông báo bận 2 dòng (xem bảng trên).
 6. Test chập chờn ngoài phạm vi, chưa sửa: `jobs.test.ts` K19 (mốc 24h lệch hơn 1s), `daily-import.test.ts` (e) zip bomb (timeout 5s), `report-export-route.test.ts` S-2, `backup-scripts-lock.test.ts`. Đều phụ thuộc thời gian, đỏ khi máy tải nặng.
 7. `.bangiao/anh-p3f/` (ảnh do e2e 27 ghi ra) và `.bangiao/ke-hoach.md` đang chưa theo dõi, tôi không commit (không nằm trong danh sách `git add` của kế hoạch).
+
+## Các commit
+
+- `3f59e02` Task 1: `AUTH_TX_OPTIONS` cho 8 giao dịch auth và đăng ký.
+- `e2b12d2` Task 2: `system_busy`, `loginErrorKey`, nhóm i18n `loginBusy`, e2e 42.
