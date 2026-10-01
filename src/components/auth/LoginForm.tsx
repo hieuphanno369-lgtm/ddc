@@ -5,6 +5,7 @@ import { signIn } from 'next-auth/react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import { usePressable } from '@/components/ui/motion';
+import { loginErrorKey } from '@/lib/login-errors';
 import s from './auth.module.css';
 import { cx } from './cx';
 import {
@@ -45,16 +46,9 @@ export function LoginForm({
     setError(null);
     const res = await signIn('credentials', { redirect: false, email, password });
     if (res?.error) {
-      // Task 6 (D3) - `authorize` ném nguyên văn 'locked'/'ip_limited' qua `res.error`; các lỗi
-      // khác (sai email/mật khẩu, hoặc lỗi hạ tầng đã bị `authorize` nuốt thành `null`) đều hiện
-      // chung 1 thông báo (không lộ chi tiết).
-      setError(
-        res.error === 'locked'
-          ? t('authSecurity.locked')
-          : res.error === 'ip_limited'
-            ? t('authSecurity.ipLimited')
-            : t('auth.invalidCredentials'),
-      );
+      // Task 6 (D3) + sửa lỗi P2028 - `authorize` ném nguyên văn 'locked'/'ip_limited'/'system_busy' qua
+      // `res.error`; còn lại (sai email/mật khẩu) hiện chung 1 thông báo. Ánh xạ ở `loginErrorKey`.
+      setError(t(loginErrorKey(res.error)));
       setBusy(false);
     } else {
       router.replace('/overview');

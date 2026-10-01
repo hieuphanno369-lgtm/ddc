@@ -12,6 +12,7 @@ import { normalizeEmail, GOOGLE_DENIED_LIMIT, GOOGLE_DENIED_WINDOW_MS } from '@/
 import { clientIpFrom } from '@/lib/client-ip';
 import { requireAuthSecret } from '@/lib/env';
 import { errorFields, logger } from '@/lib/logger';
+import { LOGIN_SYSTEM_BUSY } from '@/lib/login-errors';
 import { googleAccessDecision, type GoogleProfileLite } from '@/server/google-access';
 import { checkCredentials } from '@/server/login-guard';
 import { getAuthStore } from '@/server/auth-store';
@@ -115,12 +116,14 @@ export const authOptions: NextAuthOptions = {
           await touchLastLogin(email);
           return { id: result.account.email, email: result.account.email, name: result.account.name };
         } catch (e) {
-          // G5 - `locked`/`ip_limited` PHẢI ném nguyên văn (next-auth cần đúng 2 chuỗi này ở
-          // `res.error`); lỗi khác (ví dụ Prisma mất kết nối) thì KHÔNG log `e.message` (có thể chứa
-          // chuỗi kết nối DB), trả `null` (next-auth hiện `CredentialsSignin` chung).
+          // G5 - `locked`/`ip_limited` PHẢI ném nguyên văn (next-auth cần đúng 2 chuỗi này ở `res.error`).
+          // Sửa lỗi P2028 - lỗi khác (Prisma huỷ giao dịch, mất kết nối...) là lỗi HỆ THỐNG, không phải sai
+          // mật khẩu: ném `LOGIN_SYSTEM_BUSY` để màn đăng nhập báo "Hệ thống đang bận" thay vì `CredentialsSignin`.
+          // Chuỗi cố định, giống hệt ở mọi nhánh (không lộ email nào có tài khoản), KHÔNG mang `e.message`
+          // (có thể chứa chuỗi kết nối DB); log chỉ ghi `errorFields(e)`.
           if (e instanceof Error && (e.message === 'locked' || e.message === 'ip_limited')) throw e;
           logger.error('auth.authorize_failed', errorFields(e));
-          return null;
+          throw new Error(LOGIN_SYSTEM_BUSY);
         }
       },
     }),

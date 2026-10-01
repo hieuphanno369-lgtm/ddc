@@ -1493,5 +1493,8 @@
     "placeholder": "mm/yyyy",
     "invalid": "Tháng không hợp lệ, nhập dạng mm/yyyy",
     "pick": "Chọn tháng từ lịch"
+  },
+  "loginBusy": {
+    "systemBusy": "Hệ thống đang bận, vui lòng thử lại sau ít phút."
   }
 }

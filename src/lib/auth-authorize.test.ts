@@ -4,9 +4,11 @@
  * `@/server/auth-store` (kho bo nho), `@/lib/activity` (khong ghi that).
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Prisma } from '@prisma/client';
 import { hashPassword } from '@/lib/password';
 import { createMemoryAuthStore, type MemoryAccountSource } from '@/server/repo/mock-repo-auth';
 import type { UserAccount } from '@/server/repo/types';
+import { logger } from '@/lib/logger';
 
 vi.mock('@/lib/activity', () => ({ logActivity: vi.fn() }));
 
@@ -61,7 +63,10 @@ beforeEach(() => {
   store = createMemoryAuthStore(source);
   currentIp = `9.9.9.${Math.floor(Math.random() * 1000)}`;
 });
-afterEach(() => vi.clearAllMocks());
+afterEach(() => {
+  vi.clearAllMocks();
+  vi.restoreAllMocks();
+});
 
 describe('authorize - noi vao checkCredentials (Task 6)', () => {
   it('4 lan sai -> null, lan 5 -> nem loi "locked"', async () => {
@@ -94,5 +99,42 @@ describe('authorize - noi vao checkCredentials (Task 6)', () => {
     const authorize = getAuthorize();
     const r = await authorize({ email: 'a@daidung.com.vn', password: REAL_PW });
     expect(r).toEqual({ id: 'a@daidung.com.vn', email: 'a@daidung.com.vn', name: 'A' });
+  });
+});
+
+describe('authorize - loi he thong (sua loi P2028)', () => {
+  const p2028 = () =>
+    new Prisma.PrismaClientKnownRequestError(
+      'Transaction API error: Transaction already closed: postgresql://user:matkhau@db:5432/x',
+      { code: 'P2028', clientVersion: '6.19.3' },
+    );
+
+  it('giu cho IP loi P2028 (dung mat khau) -> nem dung "system_busy", khong tra null', async () => {
+    vi.spyOn(store, 'reserveThrottle').mockRejectedValueOnce(p2028());
+    const authorize = getAuthorize();
+    await expect(authorize({ email: 'a@daidung.com.vn', password: REAL_PW })).rejects.toThrowError(/^system_busy$/);
+  });
+
+  it('nhanh tai khoan co that: reserveAccountGuess loi -> "system_busy"', async () => {
+    vi.spyOn(store, 'reserveAccountGuess').mockRejectedValueOnce(p2028());
+    await expect(getAuthorize()({ email: 'a@daidung.com.vn', password: REAL_PW })).rejects.toThrowError(/^system_busy$/);
+  });
+
+  it('nhanh email la: recordThrottle loi -> CUNG "system_busy" (khong thanh oracle email nao co tai khoan)', async () => {
+    vi.spyOn(store, 'recordThrottle').mockRejectedValueOnce(new Error('db down'));
+    await expect(getAuthorize()({ email: 'khong-co@daidung.com.vn', password: 'bat-ky' })).rejects.toThrowError(/^system_busy$/);
+  });
+
+  it('log chi co ma loi, khong lo message (chuoi ket noi DB)', async () => {
+    const spy = vi.spyOn(logger, 'error');
+    vi.spyOn(store, 'getAccountState').mockRejectedValueOnce(p2028());
+    await expect(getAuthorize()({ email: 'a@daidung.com.vn', password: REAL_PW })).rejects.toThrowError(/^system_busy$/);
+    expect(spy).toHaveBeenCalledWith('auth.authorize_failed', expect.objectContaining({ errCode: 'P2028' }));
+    expect(JSON.stringify(spy.mock.calls)).not.toContain('postgresql://');
+    expect(JSON.stringify(spy.mock.calls)).not.toContain('Transaction already closed');
+  });
+
+  it('sai mat khau van tra null (khong bi doi thanh system_busy)', async () => {
+    expect(await getAuthorize()({ email: 'a@daidung.com.vn', password: 'sai' })).toBeNull();
   });
 });
