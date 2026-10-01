@@ -5,6 +5,9 @@
  * (next dev dịch code ngay trong cùng tiến trình, máy thiếu RAM) làm Prisma huỷ giao dịch (P2028), đăng nhập
  * đúng mật khẩu bị báo sai. Lần chặn đo được thật khoảng 9,3s nên chọn timeout 20s (biên gấp khoảng 2 lần);
  * maxWait 10s cho lúc pool kết nối bận. Giao dịch kẹt chỉ giữ advisory lock của đúng 1 cặp kind:key tối đa 20s.
+ * Lưu ý: hạn 20s chỉ được Prisma kiểm giữa các câu lệnh, không cắt một câu đang chạy. Giao dịch đang chờ
+ * `pg_advisory_xact_lock` sẽ chờ tới khi bên giữ lock nhả (không có `lock_timeout`), nên mốc 20s ở trên chỉ đúng
+ * khi bên giữ lock tự nhả. Đặt `SET LOCAL lock_timeout` để chặn trần lúc chờ lock là việc của task sau (S1).
  *
  * KHÔNG thử lại khi gặp P2028/P2024:
  * 1. P2028 gồm cả lỗi lúc COMMIT, không biết chắc giao dịch đã ghi hay chưa; thử lại sau 1 lần đã ghi sẽ tạo

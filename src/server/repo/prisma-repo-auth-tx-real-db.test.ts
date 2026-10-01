@@ -1,7 +1,7 @@
 /**
  * Sửa lỗi P2028 (đăng nhập đúng mật khẩu bị báo sai khi máy chậm) - test DB THẬT cho hạn giao dịch auth
  * (`AUTH_TX_OPTIONS`, `auth-tx.ts`). Bỏ qua khi `npm test` thường (không có DATABASE_URL); chạy tay:
- *   $env:DATABASE_URL='postgresql://postgres:Admin.301197@localhost:5433/ddc_control_tower_c?schema=public'
+ *   $env:DATABASE_URL='postgresql://postgres:<mat-khau>@localhost:5433/ddc_control_tower_c?schema=public'
  *   npx vitest run src/server/repo/prisma-repo-auth-tx-real-db.test.ts
  * Tự tạo + tự dọn dữ liệu test (email `test-tx-real-db@daidung.com.vn`, key `test-tx-real-db-*`).
  */
