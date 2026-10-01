@@ -11,8 +11,8 @@ describe('i18n loginBusy', () => {
   it('vi/en cung tap key, dung chu', () => {
     expect(Object.keys(vi.loginBusy ?? {})).toEqual(['systemBusy']);
     expect(Object.keys(en.loginBusy ?? {})).toEqual(['systemBusy']);
-    expect(vi.loginBusy.systemBusy).toBe('Hệ thống đang bận, vui lòng thử lại sau ít phút.');
-    expect(en.loginBusy.systemBusy).toBe('The system is busy, please try again in a few minutes.');
+    expect(vi.loginBusy.systemBusy).toBe('Hệ thống đang bận, vui lòng thử lại sau.');
+    expect(en.loginBusy.systemBusy).toBe('The system is busy, please try again later.');
   });
   it('khong co dau gach dai', () => {
     expect(JSON.stringify([vi.loginBusy, en.loginBusy])).not.toMatch(/[\u2013\u2014]/);

@@ -1495,6 +1495,6 @@
     "pick": "Pick a month from the calendar"
   },
   "loginBusy": {
-    "systemBusy": "The system is busy, please try again in a few minutes."
+    "systemBusy": "The system is busy, please try again later."
   }
 }
