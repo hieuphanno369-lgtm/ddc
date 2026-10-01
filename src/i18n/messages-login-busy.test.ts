@@ -17,8 +17,12 @@ describe('i18n loginBusy', () => {
   it('khong co dau gach dai', () => {
     expect(JSON.stringify([vi.loginBusy, en.loginBusy])).not.toMatch(/[\u2013\u2014]/);
   });
-  it('nhom loginBusy nam CUOI file (khong chen giua key co san)', () => {
-    expect(Object.keys(vi).at(-1)).toBe('loginBusy');
-    expect(Object.keys(en).at(-1)).toBe('loginBusy');
+  // Luat "key moi o nhom rieng, khong chen giua key co san": loginBusy duoc them ngay sau monthField (nhom cuoi luc do).
+  // Khong doi hoi nam CUOI file: nhom cua tinh nang sau (vd projectsEmpty) duoc phep noi tiep phia sau.
+  it('nhom loginBusy nam ngay sau monthField (khong chen giua key co san)', () => {
+    for (const m of [vi, en]) {
+      const keys = Object.keys(m);
+      expect(keys.indexOf('loginBusy')).toBe(keys.indexOf('monthField') + 1);
+    }
   });
 });

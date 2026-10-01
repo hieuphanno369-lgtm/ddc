@@ -47,7 +47,9 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('H-1b (xac minh doc lap vong 3) - payload khac test cua coder', () => {
+// Moi ca dung zip 30MB (DEFLATE muc 9) ngay trong test: may tai nang dung mat hon 5s (han mac dinh), nen noi han nhom test.
+// Phep kiem that (assertXlsxInflatedSize tra false/true) giu nguyen.
+describe('H-1b (xac minh doc lap vong 3) - payload khac test cua coder', { timeout: 60_000 }, () => {
   it('docProps/core.xml phinh to -> assertXlsxInflatedSize false, readDailyWorkbook bad_file, < 2s', async () => {
     const tpl = await minimalWorkbookBuf();
     const zip = await JSZip.loadAsync(tpl);
