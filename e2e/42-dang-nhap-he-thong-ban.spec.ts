@@ -17,6 +17,21 @@ const EMAIL = 'e2e-khoa@daidung.com.vn';
 const FAKE_IP = '203.0.113.91';
 const KIND = 'login_fail_ip';
 
+/**
+ * Chờ tới khi CÓ 1 phiên đang xếp hàng đợi đúng advisory lock này (tức giao dịch giữ chỗ IP của app đã mở và đang bị chặn).
+ * Prisma chỉ phát hiện quá `timeout` ở câu lệnh KẾ TIẾP sau khi câu đang chờ lock trả về, nên phải nhả lock SAU khi
+ * giao dịch của app đã sống quá `AUTH_TX_OPTIONS.timeout`; tính giờ từ lúc thấy phiên chờ này (không từ lúc spec mở lock),
+ * vì trên máy tải nặng trình duyệt gửi form trễ hàng chục giây.
+ */
+async function waitUntilAppIsWaiting(): Promise<void> {
+  for (let i = 0; i < 600; i++) {
+    const rows = await prisma.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM pg_locks WHERE locktype = 'advisory' AND NOT granted AND ((classid::bigint << 32) | objid::bigint) = hashtext(${KIND} || ':' || ${FAKE_IP})::bigint`;
+    if ((rows[0]?.n ?? 0) > 0) return;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error('khong thay giao dich cua app xep hang doi advisory lock sau 60s');
+}
+
 async function waitUntilLockHeld(): Promise<void> {
   for (let i = 0; i < 50; i++) {
     const rows = await prisma.$queryRaw<{ held: boolean }[]>`SELECT NOT pg_try_advisory_xact_lock(hashtext(${KIND} || ':' || ${FAKE_IP})) AS held`;
@@ -32,33 +47,46 @@ test.afterAll(async () => {
 
 test.describe('42 - dang nhap khi he thong ban (sua loi P2028)', () => {
   test('loi he thong -> bao "he thong ban" (khong bao sai mat khau), khong tinh luot sai IP; het ban dang nhap lai duoc', async ({ browser }) => {
-    const holdSeconds = AUTH_TX_OPTIONS.timeout / 1000 + 5;
-    test.setTimeout((holdSeconds + 90) * 1000);
+    // Giữ lock tới khi giao dịch của app đã chờ quá AUTH_TX_OPTIONS.timeout (xem waitUntilAppIsWaiting), rồi mới nhả:
+    // lúc đó câu lệnh kế tiếp của app báo P2028. Giữ theo giờ cố định từ lúc mở lock thì trên máy chậm app chờ chưa đủ hạn đã được nhả.
+    const minHoldSeconds = AUTH_TX_OPTIONS.timeout / 1000;
+    test.setTimeout((minHoldSeconds + 100) * 1000);
 
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     const holder = prisma
       .$transaction(
         async (tx) => {
           await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${KIND} || ':' || ${FAKE_IP}))`;
-          await tx.$executeRaw`SELECT pg_sleep(${holdSeconds}::float8)`;
+          await released;
         },
-        { maxWait: 10_000, timeout: (holdSeconds + 30) * 1000 },
+        { maxWait: 10_000, timeout: (minHoldSeconds + 100) * 1000 },
       )
       .then(
         () => 'ok',
         (e: unknown) => e,
       );
-    await waitUntilLockHeld();
-
     const ctx = await browser.newContext({
       storageState: { cookies: [], origins: [] },
       extraHTTPHeaders: { 'x-forwarded-for': FAKE_IP },
     });
     const page = await ctx.newPage();
 
-    // Đúng mật khẩu nhưng hệ thống lỗi.
-    await fillLogin(page, EMAIL, E2E_LOCK_PASSWORD);
-    await expect(page.getByText(vi('loginBusy.systemBusy'))).toBeVisible({ timeout: (holdSeconds + 30) * 1000 });
-    await expect(page.getByText(vi('auth.invalidCredentials'))).toHaveCount(0);
+    try {
+      await waitUntilLockHeld();
+      // Đúng mật khẩu nhưng hệ thống lỗi.
+      await fillLogin(page, EMAIL, E2E_LOCK_PASSWORD);
+      await waitUntilAppIsWaiting();
+      await page.waitForTimeout(AUTH_TX_OPTIONS.timeout + 2_000);
+      release();
+      await expect(page.getByText(vi('loginBusy.systemBusy'))).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByText(vi('auth.invalidCredentials'))).toHaveCount(0);
+    } finally {
+      // Nhả lock dù spec đỏ ở đâu, để không giữ khoá tới hết hạn giao dịch.
+      release();
+    }
 
     expect(await holder).toBe('ok');
     // Giao dịch giữ chỗ IP đã bị huỷ: không để lại dòng nào, không tính là 1 lượt sai.

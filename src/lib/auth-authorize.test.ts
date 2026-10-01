@@ -138,3 +138,90 @@ describe('authorize - loi he thong (sua loi P2028)', () => {
     expect(await getAuthorize()({ email: 'a@daidung.com.vn', password: 'sai' })).toBeNull();
   });
 });
+
+describe('authorize - loi he thong, bo sung cua Tester (sua loi P2028)', () => {
+  const dbDown = () => new Error('connect ECONNREFUSED postgresql://user:matkhau@db:5432/x');
+
+  /** Bat loi `authorize` ném ra để so từng thuộc tính (không chỉ message). */
+  async function caught(email: string, password: string): Promise<Error> {
+    try {
+      await getAuthorize()({ email, password });
+    } catch (e) {
+      return e as Error;
+    }
+    throw new Error('authorize dang ra ket qua thay vi nem loi');
+  }
+
+  it('loi o buoc getAccountState (chay cho MOI email) -> email co that va email la ra Y HET nhau', async () => {
+    vi.spyOn(store, 'getAccountState').mockRejectedValue(dbDown());
+    const real = await caught('a@daidung.com.vn', REAL_PW);
+    const unknown = await caught('khong-co@daidung.com.vn', REAL_PW);
+    for (const err of [real, unknown]) {
+      expect(err).toBeInstanceOf(Error);
+      expect(err.message).toBe('system_busy');
+      expect(err.name).toBe('Error');
+      expect(Object.getOwnPropertyNames(err).sort()).toEqual(Object.getOwnPropertyNames(real).sort());
+      expect((err as Error & { cause?: unknown }).cause).toBeUndefined();
+      expect((err as Error & { code?: unknown }).code).toBeUndefined();
+    }
+    expect(JSON.stringify(real)).toBe(JSON.stringify(unknown));
+  });
+
+  it('loi o releaseThrottle trong finally (chỗ đoán tài khoản), dung mat khau -> system_busy, khong dang nhap duoc', async () => {
+    const original = store.releaseThrottle.bind(store);
+    let calls = 0;
+    // Lần 1 là rút chỗ IP (đúng mật khẩu), lần 2 là rút chỗ đoán trong `finally`: cho lần 2 lỗi.
+    vi.spyOn(store, 'releaseThrottle').mockImplementation(async (id) => {
+      calls++;
+      if (calls === 2) throw dbDown();
+      return original(id);
+    });
+    const err = await caught('a@daidung.com.vn', REAL_PW);
+    expect(err.message).toBe('system_busy');
+    expect(calls).toBe(2);
+  });
+
+  it('loi o releaseThrottle rut cho IP (dung mat khau) -> system_busy, khong tra thong tin dang nhap', async () => {
+    vi.spyOn(store, 'releaseThrottle').mockRejectedValue(dbDown());
+    const err = await caught('a@daidung.com.vn', REAL_PW);
+    expect(err.message).toBe('system_busy');
+  });
+
+  it('khong thu lai: reserveThrottle loi chi duoc goi dung 1 lan (Q2)', async () => {
+    const spy = vi.spyOn(store, 'reserveThrottle').mockRejectedValue(dbDown());
+    await caught('a@daidung.com.vn', REAL_PW);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('loi he thong co message CHUA chu "locked" (khong khop nguyen van) -> van la system_busy, khong thanh "locked"', async () => {
+    vi.spyOn(store, 'reserveThrottle').mockRejectedValueOnce(new Error('deadlock detected: row locked by another transaction'));
+    expect((await caught('a@daidung.com.vn', REAL_PW)).message).toBe('system_busy');
+    vi.spyOn(store, 'reserveThrottle').mockRejectedValueOnce(new Error('ip_limited_by_proxy'));
+    expect((await caught('a@daidung.com.vn', REAL_PW)).message).toBe('system_busy');
+  });
+
+  it('gia tri nem ra khong phai Error (chuoi, undefined) -> system_busy, log errName la kieu du lieu', async () => {
+    const spy = vi.spyOn(logger, 'error');
+    vi.spyOn(store, 'reserveThrottle').mockRejectedValueOnce('chuoi-ket-noi-postgresql://x:y@h/d');
+    expect((await caught('a@daidung.com.vn', REAL_PW)).message).toBe('system_busy');
+    vi.spyOn(store, 'reserveThrottle').mockRejectedValueOnce(undefined);
+    expect((await caught('a@daidung.com.vn', REAL_PW)).message).toBe('system_busy');
+    expect(spy).toHaveBeenCalledWith('auth.authorize_failed', expect.objectContaining({ errName: 'string' }));
+    expect(JSON.stringify(spy.mock.calls)).not.toContain('postgresql://');
+  });
+
+  it('IP bi gioi han van la "ip_limited" (khong bi system_busy nuot) ngay ca khi lan truoc vua gap loi he thong', async () => {
+    vi.spyOn(store, 'reserveThrottle').mockRejectedValueOnce(dbDown());
+    expect((await caught('a@daidung.com.vn', REAL_PW)).message).toBe('system_busy');
+    vi.spyOn(store, 'reserveThrottle').mockResolvedValueOnce(null);
+    expect((await caught('a@daidung.com.vn', REAL_PW)).message).toBe('ip_limited');
+  });
+
+  it('tai khoan vua bi khoa (lan sai thu 5) van la "locked" du co lan loi he thong truoc do', async () => {
+    vi.spyOn(store, 'reserveAccountGuess').mockRejectedValueOnce(dbDown());
+    expect((await caught('a@daidung.com.vn', 'sai')).message).toBe('system_busy');
+    const authorize = getAuthorize();
+    for (let i = 0; i < 4; i++) expect(await authorize({ email: 'a@daidung.com.vn', password: 'sai' })).toBeNull();
+    expect((await caught('a@daidung.com.vn', 'sai')).message).toBe('locked');
+  });
+});

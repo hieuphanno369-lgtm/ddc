@@ -73,6 +73,23 @@ function makeFakeBinDir(sleepSeconds: number): string {
   return dir;
 }
 
+/**
+ * Như `makeFakeBinDir` nhưng `pg_dump` giả KHÔNG ngủ theo giờ cố định: nó chặn tới khi test tạo file `$FAKE_RELEASE_FILE`
+ * (kiểm mỗi 0,2s, tối đa 120s để không treo vĩnh viễn nếu test chết giữa chừng). Ngủ cố định 3s làm test vỡ khi máy tải nặng:
+ * mở tiến trình `sh` thứ 2 mất hơn 3s thì tiến trình giữ khoá đã xong và nhả khoá trước khi tiến trình thứ 2 kịp thấy.
+ */
+function makeBlockingFakeBinDir(): string {
+  const dir = mkdtempSync(path.join(tmpdir(), 'ddc-fake-bin-block-'));
+  writeFileSync(
+    path.join(dir, 'pg_dump'),
+    `#!/bin/sh\nfor a in "$@"; do case "$a" in --file=*) f="\${a#--file=}" ;; esac; done\necho fake > "$f"\ni=0\nwhile [ ! -e "$FAKE_RELEASE_FILE" ] && [ "$i" -lt 600 ]; do sleep 0.2; i=$((i+1)); done\n`,
+  );
+  writeFileSync(path.join(dir, 'pg_restore'), `#!/bin/sh\nexit 0\n`);
+  chmodSync(path.join(dir, 'pg_dump'), 0o755);
+  chmodSync(path.join(dir, 'pg_restore'), 0o755);
+  return dir;
+}
+
 function waitFor(condFn: () => boolean, timeoutMs: number): Promise<void> {
   const start = Date.now();
   return new Promise((resolve, reject) => {
@@ -89,7 +106,7 @@ describe.skipIf(!shAvailable)('scripts/backup/pg-backup.sh - khoa chong chay tru
   let fakeBinDir: string;
 
   beforeAll(() => {
-    fakeBinDir = makeFakeBinDir(3);
+    fakeBinDir = makeBlockingFakeBinDir();
   });
 
   afterAll(() => {
@@ -102,6 +119,7 @@ describe.skipIf(!shAvailable)('scripts/backup/pg-backup.sh - khoa chong chay tru
       PATH: `${fakeBinDir}${path.delimiter}${process.env.PATH}`,
       PGHOST: 'x', PGPORT: '5432', PGUSER: 'x', PGPASSWORD: 'x', PGDATABASE: 'demo_test',
       BACKUP_DIR: backupDir,
+      FAKE_RELEASE_FILE: `${backupDir}.release`,
     };
   }
 
@@ -111,26 +129,34 @@ describe.skipIf(!shAvailable)('scripts/backup/pg-backup.sh - khoa chong chay tru
       const backupDir = mkdtempSync(path.join(tmpdir(), 'ddc-backup-dir-'));
       const lockDir = path.join(backupDir, '.lock');
 
+      const releaseFile = `${backupDir}.release`;
       const child = spawn('sh', [SCRIPT], { env: env(backupDir) });
-      await waitFor(() => existsSync(lockDir), 2000);
-      expect(existsSync(lockDir)).toBe(true);
-
-      // Tien trinh B chay trong luc A dang giu khoa -> phai thoat ma 3.
-      let bExitCode: number | null = null;
+      const exited = new Promise((resolve) => child.on('exit', resolve));
       try {
-        execFileSync('sh', [SCRIPT], { env: env(backupDir) });
-        bExitCode = 0;
-      } catch (e) {
-        bExitCode = (e as { status: number | null }).status;
+        await waitFor(() => existsSync(lockDir), 20000);
+        expect(existsSync(lockDir)).toBe(true);
+
+        // Tien trinh B chay trong luc A dang giu khoa -> phai thoat ma 3.
+        let bExitCode: number | null = null;
+        try {
+          execFileSync('sh', [SCRIPT], { env: env(backupDir) });
+          bExitCode = 0;
+        } catch (e) {
+          bExitCode = (e as { status: number | null }).status;
+        }
+        expect(bExitCode).toBe(3);
+
+        // Hanh vi DUNG phai la: khoa VAN CON TON TAI ngay sau khi B thoat, vi A van dang chay.
+        expect(existsSync(lockDir)).toBe(true);
+      } finally {
+        // Cho A xong (ke ca khi assert o tren do) de khong de tien trinh mo coi.
+        writeFileSync(releaseFile, 'x');
+        await exited;
+        rmSync(releaseFile, { force: true });
+        rmSync(backupDir, { recursive: true, force: true });
       }
-      expect(bExitCode).toBe(3);
-
-      // Hanh vi DUNG phai la: khoa VAN CON TON TAI ngay sau khi B thoat, vi A van dang chay.
-      expect(existsSync(lockDir)).toBe(true);
-
-      await new Promise((resolve) => child.on('exit', resolve));
     },
-    10000,
+    60000,
   );
 });
 
@@ -182,7 +208,7 @@ describe.skipIf(!shAvailable)(
         rmSync(fakeBinDir, { recursive: true, force: true });
         rmSync(backupDir, { recursive: true, force: true });
       }
-    }, 10000);
+    }, 30000);
 
     it('loi giua chung (pg_restore --list that bai): van xoa .lock va .partial, KHONG tao ra file .dump cuoi', () => {
       const fakeBinDir = makeConfigurableFakeBinDir();
@@ -209,7 +235,7 @@ describe.skipIf(!shAvailable)(
         rmSync(fakeBinDir, { recursive: true, force: true });
         rmSync(backupDir, { recursive: true, force: true });
       }
-    }, 10000);
+    }, 30000);
   },
 );
 
@@ -245,7 +271,7 @@ describe.skipIf(!shAvailable)(
         rmSync(fakeBinDir, { recursive: true, force: true });
         rmSync(backupDir, { recursive: true, force: true });
       }
-    }, 10000);
+    }, 30000);
 
     it('.lock con moi (trong nguong) van coi la dang chay, thoat ma 3 nhu cu', () => {
       const fakeBinDir = makeFakeBinDir(0);
@@ -267,7 +293,7 @@ describe.skipIf(!shAvailable)(
         rmSync(fakeBinDir, { recursive: true, force: true });
         rmSync(backupDir, { recursive: true, force: true });
       }
-    }, 10000);
+    }, 30000);
 
     it.skipIf(!signalDeliveryWorks)(
       'nhan SIGTERM giua luc pg_dump dang "ngu": .lock va .partial duoc don sach sau khi tien trinh chet',
@@ -290,7 +316,7 @@ describe.skipIf(!shAvailable)(
           rmSync(backupDir, { recursive: true, force: true });
         }
       },
-      10000,
+      60000,
     );
   },
 );
